@@ -1,0 +1,92 @@
+import { defineEmailTemplate, baseVars, dashboardCta } from "./helpers";
+
+const wVars = [
+  { key: "withdrawal_amount", label: "Withdrawal amount", sample: "$2,500.00" },
+  { key: "transaction_id", label: "Transaction ID", sample: "WTH-2026-00129" },
+  { key: "review_notes", label: "Review notes", sample: "Additional verification required." },
+];
+
+export const WITHDRAWAL_TEMPLATES = [
+  defineEmailTemplate({
+    slug: "withdrawal_requested",
+    name: "Withdrawal Requested",
+    category: "investment" as const,
+    description: "Withdrawal submitted.",
+    subjectTemplate: "Withdrawal request received — {{withdrawal_amount}}",
+    emailSpec: {
+      title: "Withdrawal requested",
+      intro: "We received your withdrawal request and it is being reviewed.",
+      badge: { label: "Pending", variant: "pending" },
+      blocks: [{ type: "info_card", label: "Amount", value: "{{withdrawal_amount}}" }],
+      primaryAction: dashboardCta("Track Withdrawal"),
+    },
+    variablesSchema: baseVars(wVars),
+    defaultChannels: ["email", "in_app"],
+  }),
+  defineEmailTemplate({
+    slug: "withdrawal_approved",
+    name: "Withdrawal Approved",
+    category: "investment" as const,
+    description: "Withdrawal approved.",
+    subjectTemplate: "Withdrawal approved — {{withdrawal_amount}}",
+    emailSpec: {
+      title: "Withdrawal approved",
+      intro: "Your withdrawal has been approved and is being processed.",
+      badge: { label: "Approved", variant: "approved" },
+      blocks: [{ type: "info_card", label: "Amount", value: "{{withdrawal_amount}}" }],
+      primaryAction: dashboardCta(),
+    },
+    variablesSchema: baseVars(wVars),
+    defaultChannels: ["email", "in_app"],
+    inAppTitleTemplate: "Withdrawal approved",
+    inAppBodyTemplate: "Your withdrawal of {{withdrawal_amount}} is being processed.",
+  }),
+  defineEmailTemplate({
+    slug: "withdrawal_rejected",
+    name: "Withdrawal Rejected",
+    category: "investment" as const,
+    description: "Withdrawal rejected.",
+    subjectTemplate: "Withdrawal request update",
+    emailSpec: {
+      title: "Withdrawal not approved",
+      intro: "We were unable to approve your withdrawal request at this time.",
+      badge: { label: "Rejected", variant: "rejected" },
+      blocks: [{ type: "alert", variant: "warning", text: "{{review_notes}}" }],
+      primaryAction: { label: "Contact Support", urlKey: "dashboard_link" },
+    },
+    variablesSchema: baseVars(wVars),
+    defaultChannels: ["email", "in_app"],
+  }),
+  defineEmailTemplate({
+    slug: "withdrawal_completed",
+    name: "Withdrawal Completed",
+    category: "investment" as const,
+    description: "Withdrawal sent.",
+    subjectTemplate: "Withdrawal completed — {{withdrawal_amount}}",
+    emailSpec: {
+      title: "Withdrawal completed",
+      intro: "Your withdrawal has been completed successfully.",
+      badge: { label: "Completed", variant: "completed" },
+      blocks: [{ type: "info_card", label: "Amount sent", value: "{{withdrawal_amount}}" }],
+      primaryAction: dashboardCta("View Transactions"),
+    },
+    variablesSchema: baseVars(wVars),
+    defaultChannels: ["email", "in_app"],
+  }),
+  defineEmailTemplate({
+    slug: "withdrawal_delayed",
+    name: "Withdrawal Delayed",
+    category: "investment" as const,
+    description: "Withdrawal processing delayed.",
+    subjectTemplate: "Update on your withdrawal request",
+    emailSpec: {
+      title: "Withdrawal delayed",
+      intro: "Your withdrawal is taking longer than expected. We will notify you when it completes.",
+      badge: { label: "Under Review", variant: "under_review" },
+      blocks: [{ type: "alert", variant: "info", text: "{{review_notes}}" }],
+      primaryAction: { label: "Contact Support", urlKey: "dashboard_link" },
+    },
+    variablesSchema: baseVars(wVars),
+    defaultChannels: ["email", "in_app"],
+  }),
+];

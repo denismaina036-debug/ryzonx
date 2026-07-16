@@ -1,0 +1,107 @@
+import type { CommunicationCategory, CommunicationPriority } from "@/domain/communication/types";
+
+/** Maps template slugs to in-app notification `type` (existing DB enum values). */
+export const TEMPLATE_NOTIFICATION_TYPE: Record<string, string> = {
+  welcome: "system",
+  email_verification: "system",
+  security_password_reset: "system",
+  password_changed: "system",
+  login_alert: "system",
+  security_alert: "system",
+  profile_updated: "system",
+  account_verified: "system",
+  account_suspended: "system",
+  account_reactivated: "system",
+  deposit_submitted: "deposit_approved",
+  deposit_approved: "deposit_approved",
+  deposit_rejected: "deposit_rejected",
+  deposit_cancelled: "deposit_rejected",
+  deposit_requires_info: "deposit_rejected",
+  withdrawal_requested: "withdrawal_approved",
+  withdrawal_approved: "withdrawal_approved",
+  withdrawal_rejected: "withdrawal_rejected",
+  withdrawal_completed: "withdrawal_approved",
+  withdrawal_delayed: "withdrawal_approved",
+  pool_investment_confirmed: "pool_trading",
+  investment_updated: "pool_trading",
+  investment_matured: "pool_trading",
+  investment_closed: "pool_trading",
+  pool_profit_share: "pool_trading",
+  investment_summary: "performance_update",
+  new_pool_available: "pool_trading",
+  pool_invitation: "pool_invitation",
+  trader_application_received: "pm_application_submitted",
+  application_received: "pm_application_submitted",
+  trader_evaluation_started: "pm_challenge_started",
+  trader_evaluation_passed: "pm_application_approved",
+  trader_evaluation_failed: "pm_application_rejected",
+  strategy_submitted: "pm_application_submitted",
+  strategy_approved: "pm_application_approved",
+  strategy_requires_changes: "pm_strategy_changes",
+  committee_review: "pm_interview_scheduled",
+  application_approved: "pm_application_approved",
+  application_rejected: "pm_application_rejected",
+  pool_approved: "pm_pool_approved",
+  pool_suspended: "pm_pool_suspended",
+  pool_closed: "pm_pool_closed",
+  pool_rejected: "pm_application_rejected",
+  pool_proposal_submitted: "pm_application_submitted",
+  governance_warning: "pool_governance_warning",
+  governance_review: "pool_governance_review",
+  governance_violation: "pool_governance_violation",
+  pool_restricted: "pool_governance_restricted",
+  pool_restored: "pool_governance_reactivated",
+  governance_probation: "pool_governance_probation",
+  capital_allocation_approved: "capital_allocation_approved",
+  capital_allocation_increased: "capital_allocation_increased",
+  capital_allocation_reduced: "capital_allocation_reduced",
+  capital_allocation_removed: "capital_allocation_removed",
+  capital_review_scheduled: "capital_review_scheduled",
+  support_ticket_created: "support_reply",
+  support_reply: "support_reply",
+  support_escalated: "support_reply",
+  support_resolved: "support_reply",
+  support_closed: "support_reply",
+  announcement_broadcast: "announcement",
+  maintenance_notice: "announcement",
+  scheduled_downtime: "announcement",
+  security_notice: "admin_message",
+  feature_release: "announcement",
+  emergency_announcement: "announcement",
+  admin_new_deposit: "admin_message",
+  admin_new_withdrawal: "admin_message",
+  admin_new_pm_application: "admin_message",
+  admin_support_ticket: "admin_message",
+  admin_platform_alert: "admin_message",
+  admin_communication_failure: "admin_message",
+  manager_promotion: "manager_promotion_achieved",
+  manager_achievement: "manager_achievement_awarded",
+  content_approved: "content_approved",
+  content_rejected: "content_rejected",
+  challenge_enrollment: "pool_trading",
+  challenge_ready: "pool_trading",
+};
+
+export function resolveNotificationType(slug: string, override?: string): string {
+  if (override) return override;
+  return TEMPLATE_NOTIFICATION_TYPE[slug] ?? "system";
+}
+
+export const ADMIN_ALERT_SLUG = "admin_platform_alert" as const;
+
+export interface EventDefaults {
+  category: CommunicationCategory;
+  priority: CommunicationPriority;
+}
+
+export const TEMPLATE_EVENT_DEFAULTS: Partial<Record<string, EventDefaults>> = {
+  security_password_reset: { category: "security", priority: "critical" },
+  login_alert: { category: "security", priority: "high" },
+  security_alert: { category: "security", priority: "critical" },
+  security_notice: { category: "security", priority: "critical" },
+  account_suspended: { category: "security", priority: "critical" },
+  emergency_announcement: { category: "announcements", priority: "critical" },
+  deposit_approved: { category: "investment", priority: "high" },
+  withdrawal_approved: { category: "investment", priority: "high" },
+  admin_communication_failure: { category: "system", priority: "high" },
+};
