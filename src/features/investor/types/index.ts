@@ -29,6 +29,7 @@ export interface InvestorPoolPerformance {
   clientSharePct: number;
   poolName?: string | null;
   managerName?: string | null;
+  managerPhotoUrl?: string | null;
   managerRating?: number | null;
   poolHealth?: "healthy" | "watch" | "at_risk" | null;
   myInvestment?: number | null;

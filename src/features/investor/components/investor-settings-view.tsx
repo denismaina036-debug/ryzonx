@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { InvestorThemeToggle } from "@/features/investor/components/investor-theme-toggle";
+import { ProfileAvatarUpload } from "@/features/investor/components/profile-avatar-upload";
 import { cryptoFlowPrimaryButtonClass } from "@/features/investor/components/crypto-flow/crypto-flow-step";
 import {
   investorCardElevatedClass,
@@ -14,7 +16,6 @@ import {
   investorPageTitleClass,
   investorReadOnlyClass,
 } from "@/features/investor/constants/ui";
-import { getInitials } from "@/lib/utils";
 import type { InvestorSettingsData } from "@/features/investor/types/account";
 
 export function InvestorSettingsView({
@@ -24,6 +25,7 @@ export function InvestorSettingsView({
 }) {
   const router = useRouter();
   const [settings, setSettings] = useState(initial);
+  const [avatarUrl, setAvatarUrl] = useState(initial.avatarUrl);
   const [fullName, setFullName] = useState(initial.fullName);
   const [phone, setPhone] = useState(initial.phone ?? "");
   const [showPublic, setShowPublic] = useState(initial.showActivityPublicly);
@@ -54,23 +56,40 @@ export function InvestorSettingsView({
   }
 
   return (
-    <div className="mx-auto max-w-[720px]">
-      <div className="mb-8">
+    <div className="mx-auto w-full min-w-0 max-w-[720px]">
+      <div className="mb-6 sm:mb-8">
         <h1 className={investorPageTitleClass}>Settings</h1>
         <p className={investorPageSubtitleClass}>
           Your personal account information and preferences.
         </p>
       </div>
 
+      <div className={`${investorCardElevatedClass} mb-4 p-5 sm:p-6`}>
+        <ProfileAvatarUpload
+          name={settings.fullName}
+          avatarUrl={avatarUrl}
+          onUploaded={(url) => {
+            setAvatarUrl(url);
+            setSettings((prev) => ({ ...prev, avatarUrl: url }));
+          }}
+        />
+      </div>
+
+      <div className={`${investorCardElevatedClass} mb-4 p-5 sm:p-6`}>
+        <p className="text-sm font-semibold text-[var(--id-text)]">Appearance</p>
+        <p className="mt-1 text-sm text-[var(--id-text-muted)]">
+          Switch between light and dark themes. Layout stays the same.
+        </p>
+        <div className="mt-4 flex items-center justify-between gap-4">
+          <span className="text-sm text-[var(--id-text-secondary)]">Theme</span>
+          <InvestorThemeToggle />
+        </div>
+      </div>
+
       <div className={`${investorCardElevatedClass} p-5 sm:p-6`}>
-        <div className="mb-6 flex items-center gap-4">
-          <span className="flex h-14 w-14 items-center justify-center rounded-full [background:var(--id-accent-gradient)] text-lg font-semibold text-white">
-            {getInitials(settings.fullName)}
-          </span>
-          <div>
-            <p className="font-medium text-[var(--id-text)]">{settings.fullName}</p>
-            <p className="text-sm text-[var(--id-text-muted)]">{settings.email}</p>
-          </div>
+        <div className="mb-6 min-w-0">
+          <p className="font-medium text-[var(--id-text)]">{settings.fullName}</p>
+          <p className="text-sm text-[var(--id-text-muted)]">{settings.email}</p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">

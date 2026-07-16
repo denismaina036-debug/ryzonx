@@ -197,7 +197,7 @@ export function ChallengeView({
 
   if (embedded) return content;
 
-  return <div className="mx-auto max-w-3xl space-y-6 pb-24">{content}</div>;
+  return <div className="mx-auto w-full min-w-0 max-w-3xl space-y-6 pb-24">{content}</div>;
 }
 
 function Metric({

@@ -24,11 +24,23 @@ const devManifest = join(
 );
 const hasServerApp = existsSync(join(nextDir, "server", "app"));
 const missingDevManifest = hasServerApp && !existsSync(devManifest);
+const turbopackRuntime = join(
+  nextDir,
+  "server",
+  "chunks",
+  "ssr",
+  "[turbopack]_runtime.js"
+);
+/** Dev server bundles reference this chunk; a partial cache causes MODULE_NOT_FOUND 500s. */
+const missingTurbopackRuntime =
+  hasServerApp && !isProductionBuild && !existsSync(turbopackRuntime);
 
-if (isProductionBuild || missingDevManifest) {
+if (isProductionBuild || missingDevManifest || missingTurbopackRuntime) {
   const reason = isProductionBuild
     ? "production build artifacts"
-    : "incomplete dev manifests";
+    : missingTurbopackRuntime
+      ? "incomplete turbopack runtime"
+      : "incomplete dev manifests";
   console.warn(`[dev] Clearing .next (${reason})…`);
   rmSync(nextDir, { recursive: true, force: true });
 }

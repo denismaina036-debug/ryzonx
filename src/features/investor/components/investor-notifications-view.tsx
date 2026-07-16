@@ -83,7 +83,7 @@ export function InvestorNotificationsView({
   }
 
   return (
-    <div className="mx-auto max-w-[760px]">
+    <div className="mx-auto w-full min-w-0 max-w-[760px]">
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className={investorPageTitleClass}>Notifications</h1>

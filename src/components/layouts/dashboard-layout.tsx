@@ -9,6 +9,7 @@ import {
   INVESTOR_NAV_ITEMS,
 } from "@/features/investor/constants/nav";
 import { InvestorMobileBottomNav } from "@/features/investor/components/investor-mobile-bottom-nav";
+import { InvestorMobileFab } from "@/features/investor/components/investor-mobile-fab";
 import { InvestorShellHeader } from "@/features/investor/components/investor-shell-header";
 import { InvestorThemeToggle } from "@/features/investor/components/investor-theme-toggle";
 import { SidebarPoolManagerPromo } from "@/features/investor/components/sidebar-pool-manager-promo";
@@ -22,26 +23,29 @@ interface DashboardLayoutShellProps {
   userName?: string;
   userRole?: string;
   unreadNotifications?: number;
+  hasActivePool?: boolean;
 }
 
 export function DashboardLayoutShell({
   children,
   userName,
   unreadNotifications = 0,
+  hasActivePool = false,
 }: DashboardLayoutShellProps) {
   return (
     <InvestorThemeProvider>
       <div className="investor-dashboard flex min-h-screen bg-[var(--id-bg)]">
         <DashboardSidebar userName={userName} />
 
-        <div className="flex min-w-0 flex-1 flex-col lg:pl-[17rem]">
+        <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden lg:pl-[17rem]">
           <InvestorShellHeader unreadNotifications={unreadNotifications} />
-          <main className="flex-1 px-5 py-8 sm:px-8 sm:py-10 lg:px-10 lg:py-12">
+          <main className="flex-1 px-4 py-5 sm:px-6 sm:py-8 lg:px-10 lg:py-12">
             {children}
           </main>
         </div>
 
         <InvestorMobileBottomNav />
+        <InvestorMobileFab hasActivePool={hasActivePool} />
       </div>
     </InvestorThemeProvider>
   );

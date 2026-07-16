@@ -103,6 +103,7 @@ function emptyPoolPerformance(): InvestorPoolPerformance {
     clientSharePct: 0,
     poolName: null,
     managerName: null,
+    managerPhotoUrl: null,
     managerRating: null,
     poolHealth: null,
     myInvestment: 0,
@@ -183,7 +184,7 @@ export const investorService = {
         ? supabase
             .from("funds")
             .select(
-              "id, name, pool_value, pool_health, pool_manager_name, ryvonx_rating, current_roi, active_investors"
+              "id, name, pool_value, pool_health, pool_manager_name, pool_manager_id, ryvonx_rating, current_roi, active_investors, pool_managers(profile_photo_url, icon_url)"
             )
             .eq("id", primaryFundId)
             .maybeSingle()
@@ -249,10 +250,20 @@ export const investorService = {
       pool_value: number;
       pool_health: string;
       pool_manager_name: string | null;
+      pool_manager_id: string | null;
       ryvonx_rating: number | null;
       current_roi: number;
       active_investors: number;
+      pool_managers:
+        | { profile_photo_url: string | null; icon_url: string | null }
+        | { profile_photo_url: string | null; icon_url: string | null }[]
+        | null;
     } | null;
+
+    const managerJoin = fund?.pool_managers;
+    const managerRow = Array.isArray(managerJoin) ? managerJoin[0] : managerJoin;
+    const managerPhotoUrl =
+      managerRow?.profile_photo_url ?? managerRow?.icon_url ?? null;
 
     const pool = poolResult.data as {
       total_pool_value: number;
@@ -369,6 +380,7 @@ export const investorService = {
           clientSharePct: sharePct,
           poolName: fund?.name ?? primary?.poolName ?? null,
           managerName: fund?.pool_manager_name ?? null,
+          managerPhotoUrl,
           managerRating:
             fund?.ryvonx_rating != null ? toNumber(fund.ryvonx_rating) : null,
           poolHealth: mapPoolHealth(fund?.pool_health),

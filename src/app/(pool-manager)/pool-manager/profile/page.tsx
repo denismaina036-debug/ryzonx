@@ -8,7 +8,7 @@ export default async function PoolManagerProfilePage() {
   const db = createAdminClient();
   const { data } = await db
     .from("pool_managers")
-    .select("bio, trading_style, markets, slug")
+    .select("bio, trading_style, markets, slug, profile_photo_url, icon_url")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -17,7 +17,12 @@ export default async function PoolManagerProfilePage() {
     trading_style?: string | null;
     markets?: string[] | null;
     slug?: string | null;
+    profile_photo_url?: string | null;
+    icon_url?: string | null;
   } | null;
+
+  const avatarUrl =
+    user.avatarUrl ?? row?.profile_photo_url ?? row?.icon_url ?? null;
 
   return (
     <div className="space-y-6">
@@ -34,6 +39,8 @@ export default async function PoolManagerProfilePage() {
         </p>
       </div>
       <PoolManagerProfileEditor
+        displayName={user.fullName}
+        initialAvatarUrl={avatarUrl}
         initialBio={row?.bio ?? ""}
         initialTradingStyle={row?.trading_style ?? ""}
         initialMarkets={(row?.markets ?? []).join(", ")}

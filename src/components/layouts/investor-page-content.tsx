@@ -16,7 +16,7 @@ export function InvestorPageContent({
   return (
     <div
       className={cn(
-        "mx-auto w-full pb-28 lg:pb-10",
+        "mx-auto w-full min-w-0 max-w-full pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-10",
         wide ? "max-w-[1400px]" : "max-w-6xl",
         className
       )}

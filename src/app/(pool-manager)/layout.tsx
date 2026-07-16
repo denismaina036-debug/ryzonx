@@ -27,7 +27,12 @@ export default async function PoolManagerRouteLayout({
 
   return (
     <AuthProvider user={user}>
-      <PoolManagerLayoutShell userName={user.fullName} managerSlug={managerSlug}>
+      <PoolManagerLayoutShell
+        userName={user.fullName}
+        avatarUrl={user.avatarUrl}
+        userEmail={user.email}
+        managerSlug={managerSlug}
+      >
         {children}
       </PoolManagerLayoutShell>
     </AuthProvider>

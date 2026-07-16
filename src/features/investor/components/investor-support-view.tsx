@@ -191,7 +191,7 @@ export function InvestorSupportView({ tickets }: { tickets: SupportTicket[] }) {
   }
 
   return (
-    <div className="mx-auto max-w-[1200px]">
+    <div className="mx-auto w-full min-w-0 max-w-[1200px]">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold tracking-tight text-[var(--id-text)] sm:text-[1.85rem]">
           Support

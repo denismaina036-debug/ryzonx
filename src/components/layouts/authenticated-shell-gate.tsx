@@ -40,6 +40,7 @@ export function AuthenticatedShellGate({
         userName={shellProps.user.fullName}
         userRole={shellProps.user.role}
         unreadNotifications={shellProps.unreadNotifications}
+        hasActivePool={shellProps.hasActivePool}
       >
         {children}
       </DashboardLayoutShell>

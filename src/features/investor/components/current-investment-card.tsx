@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BadgeCheck, Star } from "lucide-react";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { formatCurrency } from "@/lib/utils";
 import {
   DashboardBadge,
@@ -36,6 +37,7 @@ export function CurrentInvestmentCard({
     investment.participations.reduce((s, p) => s + p.amountInvested, 0);
   const health = performance.poolHealth;
   const managerName = performance.managerName;
+  const managerPhotoUrl = performance.managerPhotoUrl;
 
   return (
     <DashboardCard
@@ -125,9 +127,12 @@ export function CurrentInvestmentCard({
 
             {managerName && (
               <div className="mt-6 flex items-center gap-3 border-t border-[var(--id-border)] pt-5">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 text-sm font-semibold text-white">
-                  {managerName.charAt(0)}
-                </div>
+                <UserAvatar
+                  name={managerName}
+                  avatarUrl={managerPhotoUrl}
+                  className="h-10 w-10 rounded-full"
+                  fallbackClassName="text-sm"
+                />
                 <div className="min-w-0 flex-1">
                   <Link
                     href={ROUTES.marketplace}

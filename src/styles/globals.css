@@ -279,6 +279,7 @@
 
 .investor-dashboard {
   --id-radius: 1rem;
+  overflow-x: hidden;
   --id-bg: #08090d;
   --id-bg-subtle: #0c0e14;
   --id-sidebar: #0a0b10;

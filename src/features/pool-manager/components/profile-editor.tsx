@@ -6,14 +6,19 @@ import { ROUTES } from "@/constants/routes";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { ProfileAvatarUpload } from "@/features/investor/components/profile-avatar-upload";
 
 interface ProfileEditorProps {
+  displayName: string;
+  initialAvatarUrl: string | null;
   initialBio: string;
   initialTradingStyle: string;
   initialMarkets: string;
 }
 
 export function PoolManagerProfileEditor({
+  displayName,
+  initialAvatarUrl,
   initialBio,
   initialTradingStyle,
   initialMarkets,
@@ -21,6 +26,7 @@ export function PoolManagerProfileEditor({
   const [bio, setBio] = useState(initialBio);
   const [tradingStyle, setTradingStyle] = useState(initialTradingStyle);
   const [markets, setMarkets] = useState(initialMarkets);
+  const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -48,7 +54,15 @@ export function PoolManagerProfileEditor({
   }
 
   return (
-    <div className="max-w-xl space-y-4">
+    <div className="max-w-xl space-y-6">
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+        <ProfileAvatarUpload
+          name={displayName}
+          avatarUrl={avatarUrl}
+          onUploaded={setAvatarUrl}
+        />
+      </div>
+
       <div>
         <label className="text-xs text-navy-400">Biography</label>
         <Textarea

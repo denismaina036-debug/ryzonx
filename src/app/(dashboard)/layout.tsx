@@ -7,7 +7,7 @@ export default async function DashboardRouteLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, unreadNotifications } = await getInvestorShellProps();
+  const { user, unreadNotifications, hasActivePool } = await getInvestorShellProps();
 
   return (
     <AuthProvider user={user}>
@@ -15,6 +15,7 @@ export default async function DashboardRouteLayout({
         userName={user?.fullName}
         userRole={user?.role}
         unreadNotifications={unreadNotifications}
+        hasActivePool={hasActivePool}
       >
         {children}
       </DashboardLayoutShell>

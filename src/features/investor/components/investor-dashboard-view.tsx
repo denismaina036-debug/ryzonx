@@ -9,6 +9,7 @@ import { PerformanceOverviewCard } from "@/features/investor/components/performa
 import { PoolTradesSection } from "@/features/investor/components/open-trades-section";
 import { ManagerJourneyCard } from "@/features/investor/components/manager-journey-card";
 import { DashboardSummaryBar } from "@/features/investor/components/dashboard-summary-bar";
+import { MobileDashboardView } from "@/features/investor/components/mobile/mobile-dashboard-view";
 import { InvestorPageContent } from "@/components/layouts/investor-page-content";
 import type { InvestorDashboardPageData } from "@/features/investor/types";
 import type { UserProfile } from "@/types";
@@ -29,43 +30,51 @@ export function InvestorDashboardView({ user, data }: InvestorDashboardViewProps
 
   return (
     <InvestorPageContent wide>
-      <InvestorDashboardHeader
-        user={user}
-        dailyProfit={dailyProfit}
-        hasInvestments={hasInvestments}
-      />
+      {/* Dedicated mobile experience (phones < 768px) */}
+      <div className="md:hidden">
+        <MobileDashboardView user={user} data={data} />
+      </div>
 
-      <motion.div
-        {...fadeUp}
-        transition={{ duration: 0.35 }}
-        className="grid gap-5 lg:grid-cols-3 lg:gap-5"
-      >
-        <div className="flex flex-col gap-5">
-          <WalletHeroCard investment={data.investment} />
-          <PerformanceOverviewCard performance={data.poolPerformance} />
-        </div>
+      {/* Tablet & desktop experience — unchanged */}
+      <div className="hidden md:block">
+        <InvestorDashboardHeader
+          user={user}
+          dailyProfit={dailyProfit}
+          hasInvestments={hasInvestments}
+        />
 
-        <div className="flex flex-col gap-5">
-          <CurrentInvestmentCard
-            performance={data.poolPerformance}
-            investment={data.investment}
-          />
-          <PoolTradesSection trades={data.recentTrades} />
-        </div>
+        <motion.div
+          {...fadeUp}
+          transition={{ duration: 0.35 }}
+          className="grid gap-5 lg:grid-cols-3 lg:gap-5"
+        >
+          <div className="flex flex-col gap-5">
+            <WalletHeroCard investment={data.investment} />
+            <PerformanceOverviewCard performance={data.poolPerformance} />
+          </div>
 
-        <div className="flex flex-col gap-5">
-          <RecentActivityTimeline activity={data.recentActivity} />
-          <ManagerJourneyCard enrollment={data.challengeEnrollment} />
-        </div>
-      </motion.div>
+          <div className="flex flex-col gap-5">
+            <CurrentInvestmentCard
+              performance={data.poolPerformance}
+              investment={data.investment}
+            />
+            <PoolTradesSection trades={data.recentTrades} />
+          </div>
 
-      <motion.div
-        {...fadeUp}
-        transition={{ duration: 0.35, delay: 0.08 }}
-        className="mt-5"
-      >
-        <DashboardSummaryBar investment={data.investment} trustScore={null} />
-      </motion.div>
+          <div className="flex flex-col gap-5">
+            <RecentActivityTimeline activity={data.recentActivity} />
+            <ManagerJourneyCard enrollment={data.challengeEnrollment} />
+          </div>
+        </motion.div>
+
+        <motion.div
+          {...fadeUp}
+          transition={{ duration: 0.35, delay: 0.08 }}
+          className="mt-5"
+        >
+          <DashboardSummaryBar investment={data.investment} trustScore={null} />
+        </motion.div>
+      </div>
     </InvestorPageContent>
   );
 }

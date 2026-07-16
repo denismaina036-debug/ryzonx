@@ -204,7 +204,7 @@ export function ManagerJourneyView({
 
   if (postPayment) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto w-full min-w-0 max-w-3xl">
         <JourneyHeader />
         <ChallengeView
           challenge={challenge}
@@ -217,7 +217,7 @@ export function ManagerJourneyView({
 
   if (bootstrapping) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto w-full min-w-0 max-w-3xl">
         <JourneyHeader />
         <div className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-12 text-center shadow-[var(--id-shadow)]">
           <p className="text-sm text-[var(--id-text-muted)]">Preparing your journey…</p>
@@ -227,7 +227,7 @@ export function ManagerJourneyView({
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto w-full min-w-0 max-w-3xl">
       <JourneyHeader />
 
       <div className="mb-8 overflow-x-auto pb-2">
