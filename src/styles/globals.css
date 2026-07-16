@@ -6,10 +6,10 @@
    ============================================================================= */
 
 @theme inline {
-  /* Typography */
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+  /* Typography — system stack avoids blocking Google Fonts fetches in dev/offline */
+  --font-sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, Consolas, Monaco, "Cascadia Mono", monospace;
 
   /* Brand Colors */
   --color-navy-50: #f0f4f8;
