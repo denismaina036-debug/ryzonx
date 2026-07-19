@@ -1,28 +1,41 @@
 import { z } from "zod";
+import { CANONICAL_SITE_URL } from "@/constants/site";
 
 const serverSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 });
 
-const clientSchema = z.object({
-  NEXT_PUBLIC_APP_URL: z.string().url(),
-  NEXT_PUBLIC_APP_NAME: z.string().min(1),
-  NEXT_PUBLIC_APP_ENV: z.enum(["development", "staging", "production"]),
-  NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
-  NEXT_PUBLIC_ENABLE_REGISTRATION: z
-    .string()
-    .optional()
-    .transform((v) => v !== "false"),
-  NEXT_PUBLIC_ENABLE_DEPOSITS: z
-    .string()
-    .optional()
-    .transform((v) => v !== "false"),
-  NEXT_PUBLIC_ENABLE_WITHDRAWALS: z
-    .string()
-    .optional()
-    .transform((v) => v !== "false"),
-});
+const clientSchema = z
+  .object({
+    NEXT_PUBLIC_APP_URL: z.string().url(),
+    NEXT_PUBLIC_APP_NAME: z.string().min(1),
+    NEXT_PUBLIC_APP_ENV: z.enum(["development", "staging", "production"]),
+    NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
+    NEXT_PUBLIC_ENABLE_REGISTRATION: z
+      .string()
+      .optional()
+      .transform((v) => v !== "false"),
+    NEXT_PUBLIC_ENABLE_DEPOSITS: z
+      .string()
+      .optional()
+      .transform((v) => v !== "false"),
+    NEXT_PUBLIC_ENABLE_WITHDRAWALS: z
+      .string()
+      .optional()
+      .transform((v) => v !== "false"),
+  })
+  .superRefine((data, ctx) => {
+    if (data.NEXT_PUBLIC_APP_ENV !== "production") return;
+    const normalized = data.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+    if (normalized !== CANONICAL_SITE_URL) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `NEXT_PUBLIC_APP_URL must be ${CANONICAL_SITE_URL} in production`,
+        path: ["NEXT_PUBLIC_APP_URL"],
+      });
+    }
+  });
 
 function getEnv(): z.infer<typeof clientSchema> {
   const parsed = clientSchema.safeParse({

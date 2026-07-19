@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { env } from "@/lib/env";
+import { appUrl } from "@/lib/app-url";
 
 function formatMoney(amount: number | string): string {
   const n = typeof amount === "number" ? amount : Number(amount);
@@ -28,9 +28,9 @@ export async function buildUserCommunicationVariables(
     first_name: nameParts[0] ?? "there",
     last_name: nameParts.slice(1).join(" "),
     fullName: fullName || "Investor",
-    dashboard_link: `${env.NEXT_PUBLIC_APP_URL}/dashboard`,
-    preferences_url: `${env.NEXT_PUBLIC_APP_URL}/dashboard/settings`,
-    unsubscribe_url: `${env.NEXT_PUBLIC_APP_URL}/dashboard/settings`,
+    dashboard_link: appUrl("/dashboard"),
+    preferences_url: appUrl("/dashboard/settings"),
+    unsubscribe_url: appUrl("/dashboard/settings"),
   };
 
   for (const [key, value] of Object.entries(extra)) {

@@ -35,7 +35,7 @@ const SYSTEM_TEMPLATES: EmailCatalogEntry[] = [
       primaryAction: { label: "Verify Email", urlKey: "verification_link" },
     },
     variablesSchema: baseVars([
-      { key: "verification_link", label: "Verification link", sample: "https://app.ryvonx.com/verify-email?token=..." },
+      { key: "verification_link", label: "Verification link", sample: "https://ryvonx.com/verify-email?token=..." },
     ]),
     defaultChannels: ["email"],
   }),
@@ -55,7 +55,7 @@ const SYSTEM_TEMPLATES: EmailCatalogEntry[] = [
       showSupport: true,
     },
     variablesSchema: baseVars([
-      { key: "verification_link", label: "Reset link", sample: "https://app.ryvonx.com/reset-password?token=..." },
+      { key: "verification_link", label: "Reset link", sample: "https://ryvonx.com/reset-password?token=..." },
     ]),
     defaultChannels: ["email"],
   }),

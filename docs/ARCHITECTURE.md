@@ -311,7 +311,7 @@ return {
 
 | Variable | Required | Scope | Description |
 |----------|----------|-------|-------------|
-| `NEXT_PUBLIC_APP_URL` | Yes | Client | Application URL |
+| `NEXT_PUBLIC_APP_URL` | Yes | Client | Application URL (`https://ryvonx.com` in production) |
 | `NEXT_PUBLIC_APP_NAME` | Yes | Client | Display name |
 | `NEXT_PUBLIC_APP_ENV` | Yes | Client | `development` / `staging` / `production` |
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Client | Supabase project URL |

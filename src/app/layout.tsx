@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { QueryProvider } from "@/providers/query-provider";
 import { ToastProvider } from "@/providers/toast-provider";
 import { APP_NAME, APP_DESCRIPTION } from "@/constants/routes";
+import { resolveMetadataBaseUrl } from "@/lib/app-url";
+import { CANONICAL_SITE_URL } from "@/constants/site";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
@@ -10,9 +12,10 @@ export const metadata: Metadata = {
     template: `%s | ${APP_NAME}`,
   },
   description: APP_DESCRIPTION,
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-  ),
+  metadataBase: new URL(resolveMetadataBaseUrl()),
+  alternates: {
+    canonical: CANONICAL_SITE_URL,
+  },
 };
 
 export default function RootLayout({

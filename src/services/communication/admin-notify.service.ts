@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { USER_ROLES } from "@/constants/roles";
-import { env } from "@/lib/env";
+import { appUrl } from "@/lib/app-url";
 import type { CommunicationPriority } from "@/domain/communication/types";
 import { ADMIN_ALERT_SLUG } from "@/services/communication/event-registry";
 import { communicationTriggers } from "@/services/communication/communication-triggers.service";
@@ -42,7 +42,7 @@ export const adminNotifyService = {
             announcement_title: input.title,
             announcement_body: input.body,
             announcement_preview: input.body.slice(0, 120),
-            dashboard_link: `${env.NEXT_PUBLIC_APP_URL}/admin`,
+            dashboard_link: appUrl("/admin"),
             ...input.variables,
           },
           metadata: {

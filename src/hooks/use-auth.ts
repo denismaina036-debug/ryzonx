@@ -4,7 +4,7 @@ import { useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { env } from "@/lib/env";
+import { getAuthCallbackUrl, getResetPasswordUrl } from "@/lib/app-url";
 import { ROUTES } from "@/constants/routes";
 import { USER_ROLES } from "@/constants/roles";
 import { getPostAuthRedirect, canAccessRoute } from "@/lib/auth/utils";
@@ -92,7 +92,7 @@ export function useAuthActions() {
         password: data.password,
         options: {
           data: metadata,
-          emailRedirectTo: `${env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+          emailRedirectTo: getAuthCallbackUrl(),
         },
       });
 
@@ -148,7 +148,7 @@ export function useAuthActions() {
   const resetPassword = useCallback(
     async (email: string) => {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: getResetPasswordUrl(),
       });
 
       if (error) {

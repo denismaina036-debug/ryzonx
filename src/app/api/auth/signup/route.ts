@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { ensureInvestorBootstrap } from "@/lib/auth/ensure-investor-bootstrap";
+import { getAuthCallbackUrl } from "@/lib/app-url";
 import { getAuthErrorMessage } from "@/lib/auth/errors";
 import { formatFullName, normalizePhone } from "@/lib/auth/register";
 import { ROUTES } from "@/constants/routes";
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
     password,
     options: {
       data: metadata,
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/auth/callback`,
+      emailRedirectTo: getAuthCallbackUrl(),
     },
   });
 

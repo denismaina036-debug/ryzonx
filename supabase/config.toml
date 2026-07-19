@@ -1,4 +1,5 @@
-# Supabase local development config
+# Supabase LOCAL development config only (supabase start / CLI).
+# Production auth URLs: see supabase/PRODUCTION_AUTH.md and Supabase Dashboard.
 # See: https://supabase.com/docs/guides/cli/config
 
 project_id = "ryvonx"

@@ -18,8 +18,8 @@ export interface EmailCatalogEntry {
 export const STANDARD_VARIABLES: TemplateVariableSchema[] = [
   { key: "first_name", label: "First name", sample: "Paul", required: true },
   { key: "last_name", label: "Last name", sample: "Morgan" },
-  { key: "dashboard_link", label: "Dashboard URL", sample: "https://app.ryvonx.com/dashboard" },
-  { key: "preferences_url", label: "Preferences URL", sample: "https://app.ryvonx.com/dashboard/settings" },
+  { key: "dashboard_link", label: "Dashboard URL", sample: "https://ryvonx.com/dashboard" },
+  { key: "preferences_url", label: "Preferences URL", sample: "https://ryvonx.com/dashboard/settings" },
 ];
 
 export function baseVars(extra: TemplateVariableSchema[] = []): TemplateVariableSchema[] {
