@@ -1,0 +1,25 @@
+import { NextResponse } from "next/server";
+import { investmentAllocationService } from "@/services/investment-allocation.service";
+
+function errorResponse(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : fallback;
+  const status = message.includes("permissions") || message.includes("Insufficient")
+    ? 403
+    : message.includes("not found")
+      ? 404
+      : 400;
+  return NextResponse.json({ error: message }, { status });
+}
+
+export async function POST(
+  _request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await context.params;
+    const allocation = await investmentAllocationService.cancelMine(id);
+    return NextResponse.json({ allocation });
+  } catch (error) {
+    return errorResponse(error, "Failed to cancel allocation");
+  }
+}

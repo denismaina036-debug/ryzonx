@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { USER_ROLES } from "@/constants/roles";
 import { env } from "@/lib/env";
+import type { CommunicationPriority } from "@/domain/communication/types";
 import { ADMIN_ALERT_SLUG } from "@/services/communication/event-registry";
 import { communicationTriggers } from "@/services/communication/communication-triggers.service";
 
@@ -24,6 +25,8 @@ export const adminNotifyService = {
     relatedEntityId?: string;
     triggeredBy?: string | null;
     channels?: ("email" | "in_app")[];
+    metadata?: Record<string, unknown>;
+    priority?: CommunicationPriority;
   }): Promise<void> {
     const adminIds = await listAdministratorIds();
     const slug = input.templateSlug ?? ADMIN_ALERT_SLUG;
@@ -46,12 +49,13 @@ export const adminNotifyService = {
             admin_alert: true,
             related_entity_type: input.relatedEntityType,
             related_entity_id: input.relatedEntityId,
+            ...input.metadata,
           },
           relatedEntityType: input.relatedEntityType,
           relatedEntityId: input.relatedEntityId,
           triggeredBy: input.triggeredBy ?? null,
           channels: input.channels ?? ["in_app"],
-          priority: "high",
+          priority: input.priority ?? "high",
           category: "system",
         })
       )
@@ -145,6 +149,29 @@ export const adminNotifyService = {
         announcement_body: input.error,
       },
       channels: ["in_app"],
+    });
+  },
+
+  async platformAlert(input: {
+    title: string;
+    message: string;
+    metadata?: Record<string, unknown>;
+    triggeredBy?: string | null;
+  }): Promise<void> {
+    await this.notifyAll({
+      templateSlug: ADMIN_ALERT_SLUG,
+      title: input.title,
+      body: input.message,
+      variables: {
+        event_title: input.title,
+        event_body: input.message,
+        announcement_title: input.title,
+        announcement_body: input.message,
+      },
+      metadata: input.metadata,
+      triggeredBy: input.triggeredBy,
+      channels: ["in_app"],
+      priority: "high",
     });
   },
 };

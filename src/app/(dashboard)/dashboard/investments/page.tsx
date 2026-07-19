@@ -29,6 +29,13 @@ export default async function MyInvestmentsPage() {
         </div>
         <Button
           asChild
+          variant="outline"
+          className="rounded-xl"
+        >
+          <Link href={ROUTES.portfolio}>Cycle portfolio</Link>
+        </Button>
+        <Button
+          asChild
           className="rounded-xl text-white [background:var(--id-accent-gradient)] hover:opacity-95"
         >
           <Link href={ROUTES.marketplace}>Invest in a Pool</Link>

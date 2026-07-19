@@ -131,6 +131,7 @@ export const poolManagerDashboardService = {
       returnTiers: (row.return_tiers as Pool["returnTiers"]) ?? [],
       isInviteOnly: Boolean(row.is_invite_only),
       cardBackgroundColor: (row.card_background_color as string) ?? null,
+      coverImageUrl: (row.cover_image_url as string) ?? null,
       poolManagerId: (row.pool_manager_id as string) ?? null,
       poolManagerName: (row.pool_manager_name as string) ?? null,
       poolManagerIconUrl: (row.pool_manager_icon_url as string) ?? null,

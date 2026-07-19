@@ -1,5 +1,7 @@
 # Ryvonx Naming Conventions
 
+> **Note:** Quick reference for code conventions. Authoritative documentation lives in [docs/README.md](./README.md).
+
 Quick reference for consistent naming across the codebase.
 
 ## Files
@@ -62,12 +64,13 @@ src/app/
 ## Feature Module
 
 ```
-src/features/pool/
-  components/        ← Pool-specific UI (e.g., StatsGrid)
-  hooks/             ← Pool-specific hooks (e.g., usePoolStats)
-  services/          ← Pool data access (e.g., pool.service.ts)
-  types/             ← Pool-specific types
-  index.ts           ← Barrel: export * from "./hooks", etc.
+src/features/{persona}/
+  components/        ← Persona-specific UI
+  constants/         ← Nav and local constants (optional)
+  index.ts           ← Barrel exports (when the module has a public API)
+
+src/hooks/           ← Shared hooks (e.g., use-pool.ts)
+src/services/        ← Data access layer (e.g., pool.service.ts)
 ```
 
 ## Query Keys

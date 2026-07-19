@@ -16,6 +16,9 @@ export const ROUTES = {
   activity: "/activity",
   transparency: "/investors",
   marketplace: "/marketplace",
+  marketplaceStrategies: "/marketplace/strategies",
+  marketplaceCycles: "/marketplace/cycles",
+  managers: "/managers",
 
   // Auth
   login: "/login",
@@ -26,7 +29,7 @@ export const ROUTES = {
 
   // Investor (protected)
   dashboard: "/dashboard",
-  /** @deprecated Removed from nav — redirects to dashboard */
+  /** Investor portfolio — cycle commitments + legacy holdings */
   portfolio: "/dashboard/portfolio",
   deposits: "/dashboard/deposits",
   deposit: "/dashboard/deposits",
@@ -47,6 +50,9 @@ export const ROUTES = {
   // Pool Manager application & dashboard
   applyPoolManager: "/apply/pool-manager",
   poolManager: "/pool-manager",
+  poolManagerStrategies: "/pool-manager/strategies",
+  poolManagerInvestmentCycles: "/pool-manager/investment-cycles",
+  poolManagerPerformance: "/pool-manager/performance",
   poolManagerPools: "/pool-manager/pools",
   poolManagerInvestors: "/pool-manager/investors",
   poolManagerAnalytics: "/pool-manager/analytics",
@@ -54,6 +60,7 @@ export const ROUTES = {
   poolManagerNotifications: "/pool-manager/notifications",
   poolManagerSettings: "/pool-manager/settings",
   poolManagerProfile: "/pool-manager/profile",
+  poolManagerFinance: "/pool-manager/finance",
   managerPublicProfile: "/managers",
 
   // Admin (protected)
@@ -62,12 +69,31 @@ export const ROUTES = {
   adminInvestors: "/admin/investors",
   adminInvestments: "/admin/investments",
   adminTrades: "/admin/trades",
-  adminChallenge: "/admin/challenge",
+  adminChallenge: "/admin/pool-managers/challenges",
   adminJournal: "/admin/journal",
+  /** Finance department */
+  adminFinance: "/admin/finance",
+  adminFinanceDeposits: "/admin/finance/deposits/pending",
+  adminFinanceWithdrawals: "/admin/finance/withdrawals/pending",
+  adminFinanceWallets: "/admin/finance/wallets",
+  adminFinanceOperations: "/admin/finance/operations",
+  /** @deprecated — redirects to finance routes */
   adminDeposits: "/admin/deposits",
+  /** @deprecated — redirects to finance routes */
   adminCryptoWallets: "/admin/crypto-wallets",
+  /** @deprecated — redirects to finance routes */
   adminWithdrawals: "/admin/withdrawals",
+  /** Pool Managers department */
+  adminPoolManagers: "/admin/pool-managers",
+  adminPoolManagersApplications: "/admin/pool-managers/applications/pending",
+  adminPoolManagersManagers: "/admin/pool-managers/managers",
+  adminPoolManagersChallenges: "/admin/pool-managers/challenges",
+  adminChallengeReview: "/admin/pool-managers/challenge-review",
+  adminPoolManagersDevelopment: "/admin/pool-managers/development",
+  adminPoolManagersAchievements: "/admin/pool-managers/achievements",
+  adminPoolManagersContent: "/admin/pool-managers/content",
   adminPerformance: "/admin/performance",
+  adminRatingConfiguration: "/admin/rating-configuration",
   adminSnapshots: "/admin/snapshots",
   adminTransactions: "/admin/transactions",
   adminSupport: "/admin/support",
@@ -80,15 +106,23 @@ export const ROUTES = {
   adminAuditLogs: "/admin/audit-logs",
   adminUsers: "/admin/users",
   adminProfile: "/admin/profile",
+  /** @deprecated — redirects to pool-managers routes */
   adminPoolManagerApplications: "/admin/pool-manager-applications",
   adminGovernance: "/admin/governance",
   adminGovernanceRules: "/admin/governance/rules",
   adminGovernanceViolations: "/admin/governance/violations",
   adminGovernanceReports: "/admin/governance/reports",
+  /** Administration & Governance workspace */
+  adminStrategies: "/admin/strategies",
+  adminInvestmentCycles: "/admin/investment-cycles",
+  adminManagers: "/admin/managers",
   adminCapitalAllocation: "/admin/capital-allocation",
   adminCapitalHistory: "/admin/capital-allocation/history",
+  /** @deprecated — redirects to pool-managers routes */
   adminManagerDevelopment: "/admin/manager-development",
+  /** @deprecated — redirects to pool-managers routes */
   adminAchievements: "/admin/achievements",
+  /** @deprecated — redirects to pool-managers routes */
   adminPoolContent: "/admin/pool-content",
   adminCapitalReports: "/admin/capital-allocation/reports",
   adminCommunicationTemplates: "/admin/communication/templates",
@@ -104,6 +138,12 @@ export const ROUTES = {
   adminCommunicationAnalytics: "/admin/communication/analytics",
   adminCommunicationSettings: "/admin/communication/settings",
   adminCommunicationSearch: "/admin/communication/search",
+  adminAutomation: "/admin/automation",
+  adminAutomationEvents: "/admin/automation/events",
+  adminAutomationRules: "/admin/automation/rules",
+  adminAutomationWebhooks: "/admin/automation/webhooks",
+  adminAutomationQueue: "/admin/automation/queue",
+  adminAutomationNotifications: "/admin/automation/notifications",
   poolManagerDevelopment: "/pool-manager/development",
   poolManagerContent: "/pool-manager/content",
   /** @deprecated Use adminPerformance */
@@ -112,6 +152,25 @@ export const ROUTES = {
 
 export type RouteKey = keyof typeof ROUTES;
 export type RoutePath = (typeof ROUTES)[RouteKey];
+
+export type FinanceTransactionStatus = "pending" | "approved" | "rejected" | "all";
+export type PoolManagerApplicationFilter = "pending" | "approved" | "rejected" | "all";
+
+export function adminFinanceDepositsPath(status: FinanceTransactionStatus = "pending") {
+  return `/admin/finance/deposits/${status}`;
+}
+
+export function adminFinanceWithdrawalsPath(status: FinanceTransactionStatus = "pending") {
+  return `/admin/finance/withdrawals/${status}`;
+}
+
+export function adminPoolManagersApplicationsPath(status: PoolManagerApplicationFilter = "pending") {
+  return `/admin/pool-managers/applications/${status}`;
+}
+
+export function adminChallengeReviewPath(enrollmentId: string) {
+  return `/admin/pool-managers/challenge-review/${enrollmentId}`;
+}
 
 export const PUBLIC_ROUTES: RoutePath[] = [
   ROUTES.home,
@@ -124,6 +183,9 @@ export const PUBLIC_ROUTES: RoutePath[] = [
   ROUTES.about,
   ROUTES.activity,
   ROUTES.marketplace,
+  ROUTES.marketplaceStrategies,
+  ROUTES.marketplaceCycles,
+  ROUTES.managers,
   ROUTES.login,
   ROUTES.register,
   ROUTES.forgotPassword,
@@ -133,6 +195,7 @@ export const PUBLIC_ROUTES: RoutePath[] = [
 
 export const INVESTOR_ROUTES: RoutePath[] = [
   ROUTES.dashboard,
+  ROUTES.portfolio,
   ROUTES.deposits,
   ROUTES.pools,
   ROUTES.withdrawals,
@@ -154,9 +217,20 @@ export const ADMIN_ROUTES: RoutePath[] = [
   ROUTES.adminTrades,
   ROUTES.adminChallenge,
   ROUTES.adminJournal,
+  ROUTES.adminFinance,
+  ROUTES.adminFinanceDeposits,
+  ROUTES.adminFinanceWithdrawals,
+  ROUTES.adminFinanceWallets,
   ROUTES.adminDeposits,
   ROUTES.adminCryptoWallets,
   ROUTES.adminWithdrawals,
+  ROUTES.adminPoolManagers,
+  ROUTES.adminPoolManagersApplications,
+  ROUTES.adminPoolManagersManagers,
+  ROUTES.adminPoolManagersChallenges,
+  ROUTES.adminPoolManagersDevelopment,
+  ROUTES.adminPoolManagersAchievements,
+  ROUTES.adminPoolManagersContent,
   ROUTES.adminPerformance,
   ROUTES.adminSnapshots,
   ROUTES.adminTransactions,
@@ -175,6 +249,9 @@ export const ADMIN_ROUTES: RoutePath[] = [
   ROUTES.adminGovernanceRules,
   ROUTES.adminGovernanceViolations,
   ROUTES.adminGovernanceReports,
+  ROUTES.adminStrategies,
+  ROUTES.adminInvestmentCycles,
+  ROUTES.adminManagers,
   ROUTES.adminCapitalAllocation,
   ROUTES.adminCapitalHistory,
   ROUTES.adminManagerDevelopment,
@@ -194,10 +271,19 @@ export const ADMIN_ROUTES: RoutePath[] = [
   ROUTES.adminCommunicationAnalytics,
   ROUTES.adminCommunicationSettings,
   ROUTES.adminCommunicationSearch,
+  ROUTES.adminAutomation,
+  ROUTES.adminAutomationEvents,
+  ROUTES.adminAutomationRules,
+  ROUTES.adminAutomationWebhooks,
+  ROUTES.adminAutomationQueue,
+  ROUTES.adminAutomationNotifications,
 ];
 
 export const POOL_MANAGER_ROUTES: RoutePath[] = [
   ROUTES.poolManager,
+  ROUTES.poolManagerStrategies,
+  ROUTES.poolManagerInvestmentCycles,
+  ROUTES.poolManagerPerformance,
   ROUTES.poolManagerPools,
   ROUTES.poolManagerInvestors,
   ROUTES.poolManagerAnalytics,
@@ -205,6 +291,7 @@ export const POOL_MANAGER_ROUTES: RoutePath[] = [
   ROUTES.poolManagerNotifications,
   ROUTES.poolManagerSettings,
   ROUTES.poolManagerProfile,
+  ROUTES.poolManagerFinance,
   ROUTES.poolManagerDevelopment,
   ROUTES.poolManagerContent,
 ];

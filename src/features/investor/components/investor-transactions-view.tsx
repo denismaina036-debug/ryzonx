@@ -22,7 +22,7 @@ export function InvestorTransactionsView({
     <div className="mx-auto w-full min-w-0 max-w-[960px]">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold tracking-tight text-[var(--id-text)] sm:text-[1.85rem]">
-          Transactions
+          Personal Activity
         </h1>
         <p className="mt-2 text-sm text-[var(--id-text-secondary)]">
           Deposits, withdrawals, pool allocations, and balance movements — with pool

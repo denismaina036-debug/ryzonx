@@ -36,7 +36,7 @@ function mapAuditLog(row: AuditRow): AuditLogEntry {
 
 export const auditService = {
   async log(input: {
-    actorId: string;
+    actorId?: string | null;
     action: string;
     entityType: string;
     entityId?: string | null;

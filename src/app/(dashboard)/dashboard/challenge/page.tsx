@@ -1,7 +1,10 @@
-import { redirect } from "next/navigation";
-import { ROUTES } from "@/constants/routes";
+import { requireAuth } from "@/lib/auth/session";
+import { challengeCenterService } from "@/services/challenge-center.service";
+import { ChallengeCenterView } from "@/features/challenge/components/challenge-center-view";
 
-/** Legacy route — redirects to Manager Journey */
-export default function ChallengeRedirectPage() {
-  redirect(ROUTES.managerJourney);
+export default async function ChallengeCenterPage() {
+  await requireAuth();
+  const initialState = await challengeCenterService.getChallengeCenterState();
+
+  return <ChallengeCenterView initialState={initialState} />;
 }

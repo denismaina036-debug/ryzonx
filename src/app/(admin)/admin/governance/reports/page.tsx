@@ -1,13 +1,12 @@
-import { AdminPageHeader } from "@/features/admin/components";
+import { AdminGovernanceShell } from "@/features/admin/components/admin-governance-shell";
 import { GOVERNANCE_REPORT_LABELS, GOVERNANCE_REPORT_TYPES } from "@/constants/governance";
 
 export default function AdminGovernanceReportsPage() {
   return (
-    <div>
-      <AdminPageHeader
-        title="Governance Reports"
-        description="Export governance history, violations, and pool health trends."
-      />
+    <AdminGovernanceShell
+      title="Governance Reports"
+      description="Export governance history, violations, and pool health trends."
+    >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {GOVERNANCE_REPORT_TYPES.map((type) => (
           <a
@@ -22,6 +21,6 @@ export default function AdminGovernanceReportsPage() {
           </a>
         ))}
       </div>
-    </div>
+    </AdminGovernanceShell>
   );
 }

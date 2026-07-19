@@ -16,6 +16,7 @@ import {
   investorPageTitleClass,
   investorReadOnlyClass,
 } from "@/features/investor/constants/ui";
+import { ROLE_LABELS, type UserRole } from "@/constants/roles";
 import type { InvestorSettingsData } from "@/features/investor/types/account";
 
 export function InvestorSettingsView({
@@ -108,7 +109,10 @@ export function InvestorSettingsView({
             />
           </Field>
           <ReadOnlyField label="Email" value={settings.email} />
-          <ReadOnlyField label="Role" value={settings.role} />
+          <ReadOnlyField
+            label="Role"
+            value={ROLE_LABELS[settings.role as UserRole] ?? settings.role}
+          />
           <ReadOnlyField label="Account status" value={settings.accountStatus} />
           <ReadOnlyField
             label="Member since"

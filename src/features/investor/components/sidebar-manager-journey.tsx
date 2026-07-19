@@ -45,7 +45,7 @@ export function SidebarManagerJourney() {
         </p>
       </div>
       <Link
-        href={ROUTES.managerJourney}
+        href={ROUTES.applyPoolManager}
         className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--id-accent-text)] transition-opacity hover:opacity-80"
       >
         Continue

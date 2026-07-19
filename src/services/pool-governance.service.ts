@@ -20,6 +20,7 @@ import type {
 } from "@/domain/governance/types";
 import { auditService } from "@/services/audit.service";
 import { notificationService } from "@/services/notification.service";
+import { publishPlatformEvent, PLATFORM_EVENT_TYPES } from "@/lib/platform-events/publish";
 import { buildProtectionIndicators as buildIndicators } from "@/lib/governance/protection-indicators";
 
 function toNumber(value: string | number | null | undefined): number {
@@ -596,12 +597,19 @@ export const poolGovernanceService = {
         .maybeSingle();
       const userId = (mgr as { user_id?: string } | null)?.user_id;
       if (userId) {
-        await notificationService.sendToUser({
-          userId,
-          type: "pool_governance_warning",
-          title: input.title,
-          message: input.reason ?? input.description ?? "A governance warning was issued.",
-          metadata: { pool_id: input.fundId },
+        publishPlatformEvent({
+          eventType: PLATFORM_EVENT_TYPES.GOVERNANCE_ACTION,
+          category: "governance",
+          entityType: "fund",
+          entityId: input.fundId,
+          payload: {
+            poolManagerUserId: userId,
+            actionType: "warning",
+            title: input.title,
+            message: input.reason ?? input.description ?? "A governance warning was issued.",
+            poolId: input.fundId,
+            summary: input.title,
+          },
         });
       }
     }

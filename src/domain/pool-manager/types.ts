@@ -47,6 +47,8 @@ export interface PoolManagerBasicInfo {
   previousCapitalManaged?: number;
   previousExperience?: string;
   biography?: string;
+  /** Challenge account details provided by admin during review */
+  challengeAccountInfo?: string;
 }
 
 export interface PoolManagerStrategyData {

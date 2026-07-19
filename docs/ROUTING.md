@@ -1,5 +1,7 @@
 # Ryvonx Application Routing Structure
 
+> **Note:** This is a legacy routing map. For current routes, see `src/constants/routes.ts` and [docs/README.md](./README.md).
+
 This document maps every planned route to its route group, layout, and access level.
 
 ## Route Groups

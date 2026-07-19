@@ -33,7 +33,7 @@ export function MobileManagerJourney({
           <h2 className="text-sm font-semibold text-[var(--id-text)]">Manager Journey</h2>
         </div>
         <Link
-          href={ROUTES.managerJourney}
+          href={ROUTES.applyPoolManager}
           className="text-xs font-medium text-[var(--id-accent-text)] hover:underline"
         >
           View
@@ -78,7 +78,7 @@ export function MobileManagerJourney({
       </p>
 
       <Link
-        href={ROUTES.managerJourney}
+        href={ROUTES.applyPoolManager}
         className="mt-3 flex h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--id-accent)] text-xs font-semibold text-white transition-opacity active:opacity-90"
       >
         Continue Journey

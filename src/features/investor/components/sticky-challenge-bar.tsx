@@ -97,7 +97,7 @@ export function StickyChallengeBar({
           <div className="flex shrink-0 items-center gap-2">
             {isActive ? (
               <Button asChild size="sm" className="rounded-full">
-                <Link href={ROUTES.managerJourney}>View Journey</Link>
+                <Link href={ROUTES.applyPoolManager}>View Journey</Link>
               </Button>
             ) : isAwaiting ? (
               <Button
@@ -106,7 +106,7 @@ export function StickyChallengeBar({
                 variant="outline"
                 className="rounded-full border-[var(--id-border)]"
               >
-                <Link href={ROUTES.managerJourney}>Status</Link>
+                <Link href={ROUTES.applyPoolManager}>Status</Link>
               </Button>
             ) : (
               <Button

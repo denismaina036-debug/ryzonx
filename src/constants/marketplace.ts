@@ -96,12 +96,26 @@ export const CAPACITY_STATUS_LABELS: Record<string, string> = {
   waiting_list: "Waiting List",
 };
 
+export const MARKETPLACE_MANAGER_TABS = [
+  { value: "managers", label: "Pool Managers" },
+  { value: "opportunities", label: "Live Pools" },
+] as const;
+
+export const MARKETPLACE_MANAGER_SORT_OPTIONS = [
+  { value: "best_rated", label: "Best Rated" },
+  { value: "highest_return", label: "Highest Return" },
+  { value: "most_investors", label: "Most Investors" },
+  { value: "highest_aum", label: "Highest Capital" },
+  { value: "most_pools", label: "Most Opportunities" },
+  { value: "newest", label: "Newest" },
+] as const;
+
 export const MARKETPLACE_SORT_OPTIONS = [
   { value: "best_rated", label: "Best Rated" },
   { value: "highest_return", label: "Highest Return" },
   { value: "lowest_risk", label: "Lowest Risk" },
   { value: "most_investors", label: "Most Investors" },
-  { value: "highest_aum", label: "Highest AUM" },
+  { value: "highest_aum", label: "Highest Capital" },
   { value: "newest", label: "Newest" },
   { value: "trending", label: "Trending" },
 ] as const;
@@ -124,7 +138,7 @@ export const FEATURED_SECTION_LABELS: Record<string, string> = {
   fastest_growing: "Fastest Growing",
   most_consistent: "Most Consistent",
   lowest_drawdown: "Lowest Drawdown",
-  highest_aum: "Highest AUM",
+  highest_aum: "Highest Capital",
   newest_verified: "Newest Verified",
 };
 

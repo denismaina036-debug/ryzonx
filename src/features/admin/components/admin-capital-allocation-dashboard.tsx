@@ -83,7 +83,7 @@ export function AdminCapitalAllocationDashboard({ data }: { data: CapitalAllocat
               {data.managerRankings.map((m) => (
                 <tr key={m.managerId} className="border-b border-border/50">
                   <td className="p-2">
-                    <Link href={`${ROUTES.adminManagerDevelopment}/${m.managerId}`} className="font-medium text-royal-600 hover:underline">
+                    <Link href={`${ROUTES.adminPoolManagersDevelopment}/${m.managerId}`} className="font-medium text-royal-600 hover:underline">
                       {m.displayName}
                     </Link>
                   </td>

@@ -1,3 +1,16 @@
+import type { ReturnTier } from "@/features/investor/types/account";
+import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
+
+export interface MarketplaceActiveCycle {
+  id: string;
+  cycleNumber: number;
+  name: string;
+  status: InvestmentCycleStatus;
+  openingDate: string | null;
+  closingDate: string | null;
+  poolVersion: number;
+}
+
 export interface MarketplacePoolCard {
   id: string;
   slug: string;
@@ -10,6 +23,7 @@ export interface MarketplacePoolCard {
   marketsTraded: string[];
   managerName: string | null;
   managerSlug: string | null;
+  managerId: string | null;
   managerVerified: boolean;
   managerPhotoUrl: string | null;
   assetsUnderManagement: number;
@@ -50,11 +64,15 @@ export interface MarketplacePoolDetail extends MarketplacePoolCard {
   maxAum: number | null;
   maxInvestorsCap: number | null;
   profitTargetPct: number;
+  maxInvestment: number | null;
+  returnTiers: ReturnTier[];
   isInviteOnly: boolean;
   suspensionReason: string | null;
   suspendedAt: string | null;
   allocationStatus: string;
   allocationReviewAt: string | null;
+  activeCycle: MarketplaceActiveCycle | null;
+  canParticipate: boolean;
   manager: PoolManagerPublicSummary | null;
   faq: Array<{ question: string; answer: string }>;
 }
@@ -146,6 +164,38 @@ export interface FeaturedMarketplaceSection {
   key: string;
   title: string;
   pools: MarketplacePoolCard[];
+}
+
+/** Pool Manager–first marketplace card (aggregated from listed pools). */
+export interface MarketplaceManagerCard {
+  id: string;
+  slug: string | null;
+  displayName: string;
+  photoUrl: string | null;
+  country: string | null;
+  isVerified: boolean;
+  managerLevel: string | null;
+  tradingStyle: string | null;
+  bio: string | null;
+  ryvonxRating: number | null;
+  securityRating: string | null;
+  aggressivenessLevel: string | null;
+  winRatePct: number | null;
+  avgMonthlyReturnPct: number | null;
+  maxDrawdownPct: number | null;
+  yearsOnRyvonX: number | null;
+  assetsUnderManagement: number;
+  activeInvestors: number;
+  poolsManaged: number;
+  /** Listed pools — presented as investment opportunities until Strategy/Cycle entities exist. */
+  activeOpportunities: MarketplacePoolCard[];
+  featuredOpportunity: MarketplacePoolCard | null;
+}
+
+export interface FeaturedManagerSection {
+  key: string;
+  title: string;
+  managers: MarketplaceManagerCard[];
 }
 
 export interface JoinPoolSummary {

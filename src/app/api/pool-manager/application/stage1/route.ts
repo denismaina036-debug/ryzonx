@@ -7,7 +7,13 @@ export async function PATCH(request: Request) {
     const body = (await request.json()) as {
       basicInfo?: PoolManagerBasicInfo;
       complete?: boolean;
+      submit?: boolean;
     };
+
+    if (body.submit && body.basicInfo) {
+      const application = await poolManagerApplicationService.submitApplication(body.basicInfo);
+      return NextResponse.json({ application });
+    }
 
     if (body.complete) {
       const application = await poolManagerApplicationService.completeStage1();

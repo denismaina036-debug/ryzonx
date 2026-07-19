@@ -32,7 +32,7 @@ export function ManagerJourneyCard({ enrollment }: ManagerJourneyCardProps) {
       title="Your Manager Journey"
       headerAction={
         <Link
-          href={ROUTES.managerJourney}
+          href={ROUTES.applyPoolManager}
           className="text-xs font-medium text-[var(--id-accent-text)] hover:underline"
         >
           View journey
@@ -102,7 +102,7 @@ export function ManagerJourneyCard({ enrollment }: ManagerJourneyCardProps) {
           asChild
           className="mt-4 h-10 w-full rounded-xl bg-[var(--id-accent)] text-sm font-semibold text-white hover:opacity-90"
         >
-          <Link href={ROUTES.managerJourney}>
+          <Link href={ROUTES.applyPoolManager}>
             Continue Journey
             <ArrowRight className="ml-2 h-4 w-4" strokeWidth={1.75} />
           </Link>

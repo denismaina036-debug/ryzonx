@@ -5,17 +5,27 @@ import {
   SECURITY_RISK_ORDER,
 } from "@/constants/marketplace";
 import { buildProtectionIndicators } from "@/lib/governance/protection-indicators";
+import {
+  aggregatePoolsByManager,
+  filterManagers,
+  sortManagers,
+} from "@/features/marketplace/utils/aggregate-managers";
 import type {
   FeaturedMarketplaceSection,
+  FeaturedManagerSection,
   MarketplaceActivityItem,
   MarketplaceFilters,
   MarketplaceInvestorStats,
   MarketplaceJournalEntry,
+  MarketplaceManagerCard,
   MarketplacePerformanceAnalytics,
   MarketplacePoolCard,
   MarketplacePoolDetail,
   PoolManagerPublicSummary,
 } from "@/domain/marketplace/types";
+import type { ReturnTier } from "@/features/investor/types/account";
+import { investmentCycleService } from "@/services/investment-cycle.service";
+import { INVESTMENT_CYCLE_ALLOCATABLE_STATUSES } from "@/constants/investment-cycle";
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
@@ -124,6 +134,7 @@ function mapToCard(
     managerName:
       (row.pool_manager_name as string | null) ?? manager?.display_name ?? null,
     managerSlug: manager?.slug ?? null,
+    managerId: manager?.id ?? null,
     managerVerified: manager?.is_verified ?? false,
     managerPhotoUrl: manager?.profile_photo_url ?? manager?.icon_url ?? null,
     assetsUnderManagement: toNumber(row.assets_under_management as number),
@@ -269,6 +280,47 @@ function sortPools(pools: MarketplacePoolCard[], sort?: string): MarketplacePool
   }
 }
 
+function enrichManagerCards(
+  cards: MarketplaceManagerCard[],
+  managersMap: Map<string, ManagerRow>
+): MarketplaceManagerCard[] {
+  return cards.map((card) => {
+    const managerId = card.activeOpportunities[0]?.managerId;
+    const row = managerId ? managersMap.get(managerId) : null;
+    if (!row) return card;
+
+    const createdAt = new Date(row.created_at);
+    const yearsOn =
+      (Date.now() - createdAt.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+
+    return {
+      ...card,
+      id: row.id,
+      slug: row.slug,
+      displayName: row.display_name,
+      photoUrl: row.profile_photo_url ?? row.icon_url,
+      country: row.country,
+      bio: row.bio ?? card.bio,
+      tradingStyle: row.trading_style ?? card.tradingStyle,
+      isVerified: row.is_verified,
+      ryvonxRating:
+        row.ryvonx_rating != null ? toNumber(row.ryvonx_rating) : card.ryvonxRating,
+      securityRating:
+        row.security_rating != null
+          ? String(row.security_rating)
+          : card.securityRating,
+      winRatePct: row.win_rate_pct != null ? toNumber(row.win_rate_pct) : null,
+      avgMonthlyReturnPct:
+        row.avg_monthly_return_pct != null
+          ? toNumber(row.avg_monthly_return_pct)
+          : card.avgMonthlyReturnPct,
+      maxDrawdownPct:
+        row.max_drawdown_pct != null ? toNumber(row.max_drawdown_pct) : card.maxDrawdownPct,
+      yearsOnRyvonX: Math.max(0, Math.round(yearsOn * 10) / 10),
+    };
+  });
+}
+
 export const marketplaceService = {
   async listListedPools(): Promise<FundRow[]> {
     const db = createAdminClient();
@@ -276,7 +328,7 @@ export const marketplaceService = {
       .from("funds")
       .select("*")
       .eq("is_marketplace_listed", true)
-      .in("lifecycle_status", ["live", "approved"])
+      .eq("lifecycle_status", "live")
       .eq("status", "active")
       .order("sort_order", { ascending: true })
       .order("admin_ranking", { ascending: false });
@@ -311,6 +363,51 @@ export const marketplaceService = {
     return sortPools(filtered, filters.sort);
   },
 
+  async getMarketplaceManagers(filters: MarketplaceFilters = {}): Promise<MarketplaceManagerCard[]> {
+    const pools = await this.getMarketplacePools(filters);
+    const aggregated = aggregatePoolsByManager(pools);
+
+    const db = createAdminClient();
+    const managerIds = [
+      ...new Set(
+        aggregated
+          .flatMap((m) => m.activeOpportunities.map((p) => p.managerId))
+          .filter(Boolean)
+      ),
+    ] as string[];
+    const managersMap = await fetchManagersMap(db, managerIds);
+
+    const enriched = enrichManagerCards(aggregated, managersMap);
+    const searched = filterManagers(enriched, filters.search ?? "");
+    return sortManagers(searched, filters.sort);
+  },
+
+  async getFeaturedManagerSections(): Promise<FeaturedManagerSection[]> {
+    const managers = await this.getMarketplaceManagers();
+    if (managers.length === 0) return [];
+
+    const sections: FeaturedManagerSection[] = [];
+    const pick = (sorted: MarketplaceManagerCard[], limit = 6) => sorted.slice(0, limit);
+
+    const sectionDefs: Array<{ key: string; title: string; sort: (a: MarketplaceManagerCard, b: MarketplaceManagerCard) => number }> = [
+      { key: "highest_rated", title: "Highest Rated Managers", sort: (a, b) => (b.ryvonxRating ?? 0) - (a.ryvonxRating ?? 0) },
+      { key: "most_popular", title: "Most Popular Managers", sort: (a, b) => b.activeInvestors - a.activeInvestors },
+      { key: "highest_aum", title: "Highest AUM", sort: (a, b) => b.assetsUnderManagement - a.assetsUnderManagement },
+      { key: "most_consistent", title: "Most Consistent", sort: (a, b) => (b.winRatePct ?? 0) - (a.winRatePct ?? 0) },
+      { key: "newest_verified", title: "Newest Verified", sort: (a, b) => (b.yearsOnRyvonX ?? 0) - (a.yearsOnRyvonX ?? 0) },
+    ];
+
+    for (const def of sectionDefs) {
+      const sorted = [...managers].sort(def.sort);
+      const items = pick(sorted);
+      if (items.length > 0) {
+        sections.push({ key: def.key, title: def.title, managers: items });
+      }
+    }
+
+    return sections;
+  },
+
   async getPoolBySlug(slug: string): Promise<MarketplacePoolDetail | null> {
     const db = createAdminClient();
     const { data, error } = await db
@@ -318,7 +415,7 @@ export const marketplaceService = {
       .select("*")
       .eq("slug", slug)
       .eq("is_marketplace_listed", true)
-      .in("lifecycle_status", ["live", "approved"])
+      .eq("lifecycle_status", "live")
       .eq("status", "active")
       .maybeSingle();
 
@@ -339,6 +436,24 @@ export const marketplaceService = {
     const faq = Array.isArray(faqRaw)
       ? (faqRaw as Array<{ question: string; answer: string }>)
       : [];
+    const returnTiers = Array.isArray(row.return_tiers)
+      ? (row.return_tiers as ReturnTier[])
+      : [];
+    const activeCycleRow = await investmentCycleService.getActiveForFund(row.id as string);
+    const activeCycle = activeCycleRow
+      ? {
+          id: activeCycleRow.id,
+          cycleNumber: activeCycleRow.cycleNumber,
+          name: activeCycleRow.name,
+          status: activeCycleRow.status,
+          openingDate: activeCycleRow.openingDate,
+          closingDate: activeCycleRow.closingDate,
+          poolVersion: activeCycleRow.poolVersion,
+        }
+      : null;
+    const canParticipate = activeCycleRow
+      ? INVESTMENT_CYCLE_ALLOCATABLE_STATUSES.includes(activeCycleRow.status)
+      : false;
 
     return {
       ...card,
@@ -356,11 +471,15 @@ export const marketplaceService = {
       maxInvestorsCap:
         row.max_investors_cap != null ? toNumber(row.max_investors_cap as number) : null,
       profitTargetPct: toNumber(row.profit_target_pct as number),
+      maxInvestment: row.max_investment != null ? toNumber(row.max_investment as number) : null,
+      returnTiers,
       isInviteOnly: Boolean(row.is_invite_only),
       suspensionReason: (row.suspension_reason as string | null) ?? null,
       suspendedAt: (row.suspended_at as string | null) ?? null,
       allocationStatus: (row.allocation_status as string) ?? "none",
       allocationReviewAt: (row.allocation_review_at as string | null) ?? null,
+      activeCycle,
+      canParticipate,
       manager: mapManagerSummary(manager),
       faq,
     };
@@ -439,7 +558,7 @@ export const marketplaceService = {
       .select("*")
       .eq("pool_manager_id", managerId)
       .eq("is_marketplace_listed", true)
-      .in("lifecycle_status", ["live", "approved"])
+      .eq("lifecycle_status", "live")
       .eq("status", "active");
 
     const rows = (data ?? []) as FundRow[];
@@ -521,6 +640,22 @@ export const marketplaceService = {
       losingMonths,
       totalRoiPct: latestRoi,
     };
+  },
+
+  async getManagerJournalEntries(
+    poolIds: string[],
+    limitPerPool = 10
+  ): Promise<MarketplaceJournalEntry[]> {
+    if (poolIds.length === 0) return [];
+
+    const batches = await Promise.all(
+      poolIds.map((id) => this.getPublicJournal(id, limitPerPool))
+    );
+
+    return batches
+      .flat()
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 50);
   },
 
   async getPublicJournal(poolId: string, limit = 20): Promise<MarketplaceJournalEntry[]> {

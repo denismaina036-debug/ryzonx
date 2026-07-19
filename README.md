@@ -6,7 +6,7 @@ A transparent **Pool Trading Fund Management Platform** where investors particip
 
 ## Status
 
-**Foundation phase complete.** Architecture, design system, authentication flow, database schema, and routing structure are ready. Application pages will be built in the next phase.
+**Active development.** The platform includes investor, admin, pool manager, and marketplace surfaces backed by Supabase, with architecture and implementation documentation in `docs/`.
 
 ## Tech Stack
 
@@ -39,23 +39,34 @@ npm run dev
 
 ## Documentation
 
-- [Architecture Guide](docs/ARCHITECTURE.md) — Full system design, routing, auth, database
+- [Documentation Index](docs/README.md) — Official documentation system
+- [Architecture Specifications](docs/architecture/01_RYVONX_INVESTMENT_ARCHITECTURE.md) — Platform architecture
+- [Implementation Playbook](docs/implementation/README.md) — Engineering standards and phase roadmap
+- [Phase 1 Audit Report](docs/implementation/PHASE_1_AUDIT_REPORT.md) — Foundation audit findings
 - [Naming Conventions](docs/NAMING_CONVENTIONS.md) — File, code, and git conventions
 
 ## Project Structure
 
 ```
 src/
-├── app/           Route groups: (public), (auth), (dashboard), (admin)
+├── app/           Route groups: (public), (auth), (dashboard), (admin), (pool-manager), (apply)
 ├── components/    UI primitives + layout shells
 ├── constants/     Routes, roles, design tokens
-├── features/      Domain modules (auth, pool, investor, admin)
+├── domain/        Bounded domain types
+├── features/      Domain modules (auth, investor, admin, marketplace, pool-manager, public)
 ├── hooks/         Shared React hooks
-├── lib/           Supabase clients, auth, validations
+├── lib/           Supabase clients, auth, validations, utilities
 ├── providers/     React Query, Toast, Auth context
 ├── services/      Data access layer
+├── store/         Client store placeholder
 ├── styles/        Global CSS + design tokens
-└── types/         TypeScript definitions
+└── types/         TypeScript definitions + generated DB types
+
+docs/
+├── architecture/  Platform architecture specifications
+├── implementation/ Engineering playbook and phase specs
+├── design/        UI/UX references
+└── references/    Terminology and screenshot index
 ```
 
 ## Design

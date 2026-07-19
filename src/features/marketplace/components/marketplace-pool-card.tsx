@@ -106,7 +106,7 @@ export function MarketplacePoolCardView({ pool, compact = false }: MarketplacePo
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
-          <Metric icon={Wallet} label="AUM" value={formatCurrency(pool.assetsUnderManagement)} />
+          <Metric icon={Wallet} label="Capital" value={formatCurrency(pool.assetsUnderManagement)} />
           <Metric icon={Users} label="Investors" value={String(pool.activeInvestors)} />
           <Metric
             icon={TrendingUp}
@@ -156,7 +156,7 @@ export function MarketplacePoolCardView({ pool, compact = false }: MarketplacePo
           </div>
           <div className="flex gap-2">
             <Button asChild variant="outline" size="sm">
-              <Link href={`${ROUTES.marketplace}/${pool.slug}`}>Quick View</Link>
+              <Link href={`${ROUTES.marketplace}/${pool.slug}`}>View Opportunity</Link>
             </Button>
             <Button asChild size="sm">
               <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Join Pool</Link>

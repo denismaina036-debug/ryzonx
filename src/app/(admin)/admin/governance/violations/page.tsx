@@ -1,4 +1,4 @@
-import { AdminPageHeader } from "@/features/admin/components";
+import { AdminGovernanceShell } from "@/features/admin/components/admin-governance-shell";
 import { AdminGovernanceViolations } from "@/features/admin/components/admin-governance-rules-violations";
 import { poolGovernanceService } from "@/services/pool-governance.service";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -25,12 +25,11 @@ export default async function AdminGovernanceViolationsPage() {
   }
 
   return (
-    <div>
-      <AdminPageHeader
-        title="Rule Violations"
-        description="Track and resolve governance rule breaches across all pools."
-      />
+    <AdminGovernanceShell
+      title="Rule Violations"
+      description="Track and resolve governance rule breaches across all pools."
+    >
       <AdminGovernanceViolations violations={violations} pools={pools} />
-    </div>
+    </AdminGovernanceShell>
   );
 }

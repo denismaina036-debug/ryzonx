@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BadgeCheck, ArrowLeft } from "lucide-react";
+import { BadgeCheck } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import {
   AGGRESSIVENESS_LABELS,
@@ -14,6 +14,12 @@ import { PerformanceChart } from "@/components/ui/chart";
 import { formatCurrency, formatPercentage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { MarketplacePoolCardView } from "@/features/marketplace/components/marketplace-pool-card";
+import {
+  MarketplaceBreadcrumb,
+  managerProfileCrumb,
+  marketplaceHomeCrumb,
+  opportunityCrumb,
+} from "@/features/marketplace/components/marketplace-breadcrumb";
 import type {
   MarketplaceActivityItem,
   MarketplaceInvestorStats,
@@ -22,6 +28,7 @@ import type {
   MarketplacePoolDetail,
   MarketplacePoolCard,
 } from "@/domain/marketplace/types";
+import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
 
 interface PoolDetailViewProps {
   pool: MarketplacePoolDetail;
@@ -47,13 +54,15 @@ export function PoolDetailView({
 
   return (
     <div className="space-y-10">
-      <Link
-        href={ROUTES.marketplace}
-        className="inline-flex items-center gap-1 text-sm text-[var(--id-text-muted)] hover:text-[var(--id-text)]"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to marketplace
-      </Link>
+      <MarketplaceBreadcrumb
+        items={[
+          marketplaceHomeCrumb(),
+          ...(pool.managerSlug && pool.managerName
+            ? [managerProfileCrumb(pool.managerSlug, pool.managerName)]
+            : []),
+          opportunityCrumb(pool.slug, pool.name),
+        ]}
+      />
 
       {/* Hero */}
       <section className="overflow-hidden rounded-2xl border border-border bg-card">
@@ -99,12 +108,71 @@ export function PoolDetailView({
             </div>
           </div>
           <div className="flex gap-2">
-            <Button asChild variant="outline">
-              <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Join Pool</Link>
-            </Button>
+            {pool.canParticipate ? (
+              <Button asChild>
+                <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Participate</Link>
+              </Button>
+            ) : (
+              <Button disabled variant="outline">
+                Participate
+              </Button>
+            )}
           </div>
         </div>
       </section>
+
+      <section className="rounded-xl border border-border bg-card p-5">
+        <h2 className="text-sm font-semibold text-[var(--id-text)]">Current Investment Cycle</h2>
+        {pool.activeCycle ? (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-medium text-[var(--id-text)]">
+                Cycle {pool.activeCycle.cycleNumber}
+                {pool.activeCycle.name ? ` — ${pool.activeCycle.name}` : ""}
+              </p>
+              <p className="text-sm text-[var(--id-text-muted)]">
+                {INVESTMENT_CYCLE_STATUS_LABELS[pool.activeCycle.status] ??
+                  pool.activeCycle.status}
+                {pool.activeCycle.openingDate &&
+                  ` · Opens ${new Date(pool.activeCycle.openingDate).toLocaleDateString()}`}
+                {pool.activeCycle.closingDate &&
+                  ` · Closes ${new Date(pool.activeCycle.closingDate).toLocaleDateString()}`}
+              </p>
+            </div>
+            {pool.canParticipate && (
+              <Button asChild size="sm">
+                <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Participate</Link>
+              </Button>
+            )}
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-[var(--id-text-muted)]">
+            No investment cycle is currently accepting new participants.
+          </p>
+        )}
+      </section>
+
+      {pool.returnTiers.length > 0 && (
+        <section className="rounded-xl border border-border bg-card p-5">
+          <h2 className="text-sm font-semibold text-[var(--id-text)]">Return by Investment Amount</h2>
+          <div className="mt-3 space-y-2">
+            {pool.returnTiers.map((tier, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between rounded-lg border border-border px-4 py-2 text-sm"
+              >
+                <span className="text-[var(--id-text-secondary)]">
+                  {formatCurrency(tier.minAmount)}
+                  {tier.maxAmount != null ? ` – ${formatCurrency(tier.maxAmount)}` : "+"}
+                </span>
+                <span className="font-medium text-[var(--id-text)]">
+                  {formatPercentage(tier.returnPct)} expected return
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {pool.poolHealth === "suspended" && pool.suspensionReason && (
         <section className="rounded-xl border border-rose-200 bg-rose-50 p-5">
@@ -137,9 +205,9 @@ export function PoolDetailView({
       <section className="rounded-xl border border-border bg-card p-5">
         <h2 className="text-sm font-semibold text-[var(--id-text)]">Capital Transparency</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <CapitalStat label="Investor Capital" value={formatCurrency(pool.investorCapital)} sub={`${pool.investorPct}% of AUM`} />
-          <CapitalStat label="RyvonX Capital" value={formatCurrency(pool.ryvonxCapital)} sub={`${pool.ryvonxPct}% of AUM`} />
-          <CapitalStat label="Total AUM" value={formatCurrency(pool.assetsUnderManagement)} sub={`${pool.activeInvestors} investors`} />
+          <CapitalStat label="Investor Capital" value={formatCurrency(pool.investorCapital)} sub={`${pool.investorPct}% of pool capital`} />
+          <CapitalStat label="RyvonX Capital" value={formatCurrency(pool.ryvonxCapital)} sub={`${pool.ryvonxPct}% of pool capital`} />
+          <CapitalStat label="Total Capital" value={formatCurrency(pool.assetsUnderManagement)} sub={`${pool.activeInvestors} investors`} />
           <CapitalStat label="Growth Rate" value={pool.growthRatePct != null ? formatPercentage(pool.growthRatePct) : "—"} sub={pool.capacityStatus} />
         </div>
         {pool.isRyvonxBacked && (
@@ -290,7 +358,13 @@ export function PoolDetailView({
       </div>
 
       {relatedPools.length > 0 && (
-        <Section title="More pools">
+        <Section
+          title={
+            pool.managerSlug
+              ? "More opportunities from this manager"
+              : "More investment opportunities"
+          }
+        >
           <div className="grid gap-6 sm:grid-cols-2">
             {relatedPools.slice(0, 2).map((p) => (
               <MarketplacePoolCardView key={p.id} pool={p} compact />

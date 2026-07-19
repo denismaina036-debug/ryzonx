@@ -10,10 +10,10 @@ export default async function AdminFundsPage() {
   return (
     <div>
       <AdminPageHeader
-        title="Trading Pools"
-        description="Create pools, set targets and return tiers, and invite investors to participate."
+        title="Pool Review"
+        description="Review Pool Manager submissions. Approve pools to make them live in the Marketplace. Administrators do not create pools."
       />
-      <AdminPoolsManager funds={funds} investors={investors} />
+      <AdminPoolsManager funds={funds} investors={investors} reviewOnly />
     </div>
   );
 }

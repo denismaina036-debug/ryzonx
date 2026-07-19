@@ -54,4 +54,12 @@ export const POOL_MANAGER_TEMPLATES = [
   pmTemplate("governance_review", "Governance Review", "Governance review", "Your pool is under governance review.", { label: "Under Review", variant: "under_review" }),
   pmTemplate("capital_allocation_approved", "Capital Allocation Approved", "Capital allocation approved", "RyvonX capital allocation has been approved for {{pool_name}}.", { label: "Approved", variant: "approved" }),
   pmTemplate("capital_allocation_removed", "Capital Allocation Removed", "Capital allocation removed", "RyvonX capital allocation has been removed from {{pool_name}}.", { label: "Completed", variant: "completed" }),
+  pmTemplate(
+    "performance_update",
+    "Performance Update",
+    "Performance rating updated",
+    "Your RyvonX performance rating has changed. Review your dashboard for the latest score and breakdown.",
+    { label: "Update", variant: "completed" },
+    "View Performance"
+  ),
 ];

@@ -36,6 +36,7 @@ export interface Pool {
   returnTiers: ReturnTier[];
   isInviteOnly: boolean;
   cardBackgroundColor: string | null;
+  coverImageUrl?: string | null;
   poolManagerId: string | null;
   poolManagerName: string | null;
   poolManagerIconUrl: string | null;

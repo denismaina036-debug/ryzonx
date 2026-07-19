@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { USER_ROLES } from "@/constants/roles";
 import { ROUTES } from "@/constants/routes";
 import { poolManagerApplicationService } from "@/services/pool-manager-application.service";
-import { PoolManagerApplicationWizard } from "@/features/pool-manager/components/application-wizard";
+import { PoolManagerApplicationForm } from "@/features/pool-manager/components/pool-manager-application-form";
 import { InvestorPageContent } from "@/components/layouts/investor-page-content";
 
 export default async function ApplyPoolManagerPage() {
@@ -12,29 +12,25 @@ export default async function ApplyPoolManagerPage() {
     redirect(`${ROUTES.login}?redirect=${encodeURIComponent(ROUTES.applyPoolManager)}`);
   }
 
+  if (user.role === USER_ROLES.POOL_MANAGER) {
+    redirect(ROUTES.poolManager);
+  }
+
   if (user.role === USER_ROLES.VISITOR) {
     redirect(ROUTES.dashboard);
   }
 
   let application = null;
-  let challenge = null;
 
   try {
-    [application, challenge] = await Promise.all([
-      poolManagerApplicationService.getMyApplication(),
-      poolManagerApplicationService.getActiveChallengeForApplication(),
-    ]);
+    application = await poolManagerApplicationService.getMyApplication();
   } catch {
-    // Tables may not exist until migration runs — wizard handles empty state
+    // Tables may not exist until migration runs
   }
 
   return (
     <InvestorPageContent wide className="py-6 sm:py-8">
-      <PoolManagerApplicationWizard
-        userRole={user.role}
-        initialApplication={application}
-        initialChallenge={challenge}
-      />
+      <PoolManagerApplicationForm userRole={user.role} initialApplication={application} />
     </InvestorPageContent>
   );
 }

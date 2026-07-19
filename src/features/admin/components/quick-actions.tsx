@@ -4,19 +4,29 @@ import Link from "next/link";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
+  FileText,
   Megaphone,
   Plus,
+  RefreshCw,
+  Shield,
   TrendingUp,
   Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ROUTES } from "@/constants/routes";
+import {
+  ROUTES,
+  adminFinanceDepositsPath,
+  adminFinanceWithdrawalsPath,
+} from "@/constants/routes";
 
 const QUICK_ACTIONS = [
-  { label: "Add Trade", href: ROUTES.adminTrades, icon: Plus, variant: "default" as const },
-  { label: "Approve Deposits", href: ROUTES.adminDeposits, icon: ArrowDownToLine, variant: "success" as const },
-  { label: "Approve Withdrawals", href: ROUTES.adminWithdrawals, icon: ArrowUpFromLine, variant: "outline" as const },
+  { label: "Strategy Review", href: ROUTES.adminStrategies, icon: FileText, variant: "default" as const },
+  { label: "Cycle Review", href: ROUTES.adminInvestmentCycles, icon: RefreshCw, variant: "default" as const },
+  { label: "Governance Center", href: ROUTES.adminGovernance, icon: Shield, variant: "outline" as const },
+  { label: "Approve Deposits", href: adminFinanceDepositsPath("pending"), icon: ArrowDownToLine, variant: "success" as const },
+  { label: "Approve Withdrawals", href: adminFinanceWithdrawalsPath("pending"), icon: ArrowUpFromLine, variant: "outline" as const },
+  { label: "Add Trade", href: ROUTES.adminTrades, icon: Plus, variant: "outline" as const },
   { label: "Update Pool Value", href: ROUTES.adminPerformance, icon: Wallet, variant: "outline" as const },
   { label: "Publish Announcement", href: ROUTES.adminAnnouncements, icon: Megaphone, variant: "secondary" as const },
 ];

@@ -97,7 +97,7 @@ export async function middleware(request: NextRequest) {
     return redirectWithSupabaseCookies(loginUrl, supabaseResponse, request);
   }
 
-  // Role-based access control (skip when Supabase is unreachable — defer to page)
+  // Pool managers may use both investor and manager dashboards — no redirect from /dashboard.
   if (
     supabaseReachable &&
     user &&

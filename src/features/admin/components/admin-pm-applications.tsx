@@ -3,16 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ROUTES } from "@/constants/routes";
+import { ROUTES, adminChallengeReviewPath } from "@/constants/routes";
 import { PM_STATUS_LABELS } from "@/features/pool-manager/constants/nav";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PM_APPLICATION_STATUS, type PoolManagerApplicationStatus } from "@/domain/pool-manager/types";
 import type { PoolManagerApplication } from "@/domain/pool-manager/types";
@@ -28,16 +22,30 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
   const [selectedId, setSelectedId] = useState<string | null>(
     applications[0]?.id ?? null
   );
-  const [status, setStatus] = useState<PoolManagerApplicationStatus>(
-    PM_APPLICATION_STATUS.UNDER_REVIEW
-  );
   const [notes, setNotes] = useState("");
+  const [broker, setBroker] = useState("");
+  const [server, setServer] = useState("");
+  const [login, setLogin] = useState("");
+  const [initialBalance, setInitialBalance] = useState("10000");
+  const [challengeAccountInfo, setChallengeAccountInfo] = useState("");
+  const [initialRating, setInitialRating] = useState("3.5");
+  const [experienceLevel, setExperienceLevel] = useState("developing");
+  const [riskClassification, setRiskClassification] = useState("balanced");
+  const [isVerified, setIsVerified] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selected = applications.find((a) => a.id === selectedId);
 
-  async function updateStatus() {
+  function selectApplication(id: string) {
+    setSelectedId(id);
+    const app = applications.find((a) => a.id === id);
+    setChallengeAccountInfo(app?.basicInfo.challengeAccountInfo ?? "");
+    setNotes("");
+    setError(null);
+  }
+
+  async function patchApplication(body: Record<string, unknown>) {
     if (!selectedId) return;
     setLoading(true);
     setError(null);
@@ -45,11 +53,10 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
       const res = await fetch(`/api/admin/pool-manager-applications/${selectedId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, notes }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setNotes("");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed");
@@ -58,9 +65,36 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
     }
   }
 
+  async function saveChallengeInfo() {
+    await patchApplication({
+      broker,
+      server,
+      login,
+      initialBalance: Number(initialBalance) || 10000,
+      challengeAccountInfo,
+    });
+  }
+
+  async function setStatus(status: PoolManagerApplicationStatus) {
+    await patchApplication({
+      status,
+      notes: notes.trim() || undefined,
+      initialRating:
+        status === PM_APPLICATION_STATUS.APPROVED
+          ? {
+              ryvonxRating: Number(initialRating) || 3.5,
+              experienceLevel,
+              riskClassification,
+              isVerified,
+            }
+          : undefined,
+    });
+    setNotes("");
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-5">
-      <div className="lg:col-span-2 space-y-2">
+      <div className="space-y-2 lg:col-span-2">
         {applications.length === 0 ? (
           <p className="text-sm text-navy-500">No applications yet.</p>
         ) : (
@@ -68,7 +102,7 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
             <button
               key={app.id}
               type="button"
-              onClick={() => setSelectedId(app.id)}
+              onClick={() => selectApplication(app.id)}
               className={`w-full rounded-xl border p-4 text-left transition ${
                 selectedId === app.id
                   ? "border-royal-500/40 bg-royal-500/10"
@@ -86,71 +120,145 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
       </div>
 
       {selected && (
-        <div className="lg:col-span-3 rounded-xl border border-navy-100 bg-white p-6 space-y-6">
+        <div className="space-y-6 rounded-xl border border-navy-100 bg-white p-6 lg:col-span-3">
           <div>
             <h2 className="text-lg font-semibold text-navy-900">{selected.applicantName}</h2>
-            <p className="text-sm text-navy-500">Stage {selected.currentStage} · {PM_STATUS_LABELS[selected.status]}</p>
+            <p className="text-sm text-navy-500">
+              {selected.applicantEmail} · {PM_STATUS_LABELS[selected.status]}
+            </p>
+            {selected.submittedAt && (
+              <p className="mt-1 text-xs text-navy-400">
+                Submitted {new Date(selected.submittedAt).toLocaleString()}
+              </p>
+            )}
           </div>
 
           <section>
-            <h3 className="text-sm font-semibold text-navy-800">Basic Information</h3>
-            <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+            <h3 className="text-sm font-semibold text-navy-800">Application Details</h3>
+            <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
               <Item label="Experience" value={selected.basicInfo.tradingExperience} />
               <Item label="Years" value={selected.basicInfo.yearsTrading?.toString()} />
               <Item label="Country" value={selected.basicInfo.country} />
               <Item label="Style" value={selected.basicInfo.tradingStyle} />
             </dl>
             {selected.basicInfo.biography && (
-              <p className="mt-3 text-sm text-navy-600 whitespace-pre-wrap">
+              <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-navy-600">
                 {selected.basicInfo.biography}
               </p>
             )}
           </section>
 
-          {selected.strategyData.strategyName && (
-            <section>
-              <h3 className="text-sm font-semibold text-navy-800">Strategy</h3>
-              <p className="mt-1 font-medium text-navy-900">{selected.strategyData.strategyName}</p>
-              <p className="mt-2 text-sm text-navy-600 whitespace-pre-wrap">
-                {selected.strategyData.tradingPhilosophy}
-              </p>
-              <p className="mt-2 text-sm text-navy-600 whitespace-pre-wrap">
-                {selected.strategyData.riskManagement}
-              </p>
-            </section>
-          )}
+          <section className="space-y-3 border-t border-navy-100 pt-6">
+            <h3 className="text-sm font-semibold text-navy-800">Challenge Account</h3>
+            <p className="text-xs text-navy-500">
+              Assign challenge credentials. The applicant&apos;s Challenge Center will unlock
+              automatically.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Broker">
+                <Input value={broker} onChange={(e) => setBroker(e.target.value)} placeholder="Broker name" />
+              </Field>
+              <Field label="Server">
+                <Input value={server} onChange={(e) => setServer(e.target.value)} placeholder="Server" />
+              </Field>
+              <Field label="Login Number">
+                <Input value={login} onChange={(e) => setLogin(e.target.value)} placeholder="Account login" />
+              </Field>
+              <Field label="Challenge Balance">
+                <Input
+                  type="number"
+                  value={initialBalance}
+                  onChange={(e) => setInitialBalance(e.target.value)}
+                  placeholder="10000"
+                />
+              </Field>
+            </div>
+            <Field label="Additional Notes">
+              <Textarea
+                placeholder="Rules, deadlines, platform instructions…"
+                value={challengeAccountInfo}
+                onChange={(e) => setChallengeAccountInfo(e.target.value)}
+                rows={3}
+              />
+            </Field>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void saveChallengeInfo()}
+              disabled={loading || !broker.trim() || !server.trim() || !login.trim()}
+            >
+              Assign Challenge Account
+            </Button>
+            {selected.challengeEnrollmentId && (
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={adminChallengeReviewPath(selected.challengeEnrollmentId)}>
+                  Open Challenge Review
+                </Link>
+              </Button>
+            )}
+          </section>
 
-          <section className="border-t border-navy-100 pt-6 space-y-4">
-            <h3 className="text-sm font-semibold text-navy-800">Update Status</h3>
+          <section className="space-y-4 border-t border-navy-100 pt-6">
+            <h3 className="text-sm font-semibold text-navy-800">Initial Manager Rating</h3>
+            <p className="text-xs text-navy-500">
+              Assign the onboarding rating before approval. Performance intelligence updates ratings after trading begins.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Overall Rating (0–5)">
+                <Input type="number" min={0} max={5} step="0.1" value={initialRating} onChange={(e) => setInitialRating(e.target.value)} />
+              </Field>
+              <Field label="Experience Level">
+                <Input value={experienceLevel} onChange={(e) => setExperienceLevel(e.target.value)} placeholder="developing, experienced, elite" />
+              </Field>
+              <Field label="Risk Classification">
+                <Input value={riskClassification} onChange={(e) => setRiskClassification(e.target.value)} placeholder="conservative, balanced, aggressive" />
+              </Field>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-navy-700">
+              <input type="checkbox" checked={isVerified} onChange={(e) => setIsVerified(e.target.checked)} />
+              Verification badge
+            </label>
+          </section>
+
+          <section className="space-y-4 border-t border-navy-100 pt-6">
+            <h3 className="text-sm font-semibold text-navy-800">Review Actions</h3>
+            <p className="text-xs text-navy-500">
+              Approve Pool Manager only after the challenge is passed or completed.
+            </p>
             {error && <p className="text-sm text-rose-600">{error}</p>}
-            <Select value={status} onValueChange={(v) => setStatus(v as PoolManagerApplicationStatus)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(PM_APPLICATION_STATUS).map(([, value]) => (
-                  <SelectItem key={value} value={value}>
-                    {PM_STATUS_LABELS[value] ?? value}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             <Textarea
-              placeholder="Review notes (visible to applicant on status change)…"
+              placeholder="Internal review notes (included with status notifications)…"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
             />
-            <div className="flex gap-3">
-              <Button onClick={updateStatus} disabled={loading}>
-                {loading ? "Saving…" : "Save Review"}
+            <div className="flex flex-wrap gap-3">
+              <Button
+                onClick={() => void setStatus(PM_APPLICATION_STATUS.APPROVED)}
+                disabled={loading || selected.status === PM_APPLICATION_STATUS.APPROVED}
+              >
+                Approve Pool Manager
               </Button>
-              {selected.status === PM_APPLICATION_STATUS.APPROVED && (
-                <Button variant="outline" asChild>
-                  <Link href={ROUTES.poolManager}>View PM Dashboard</Link>
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                onClick={() => void setStatus(PM_APPLICATION_STATUS.REJECTED)}
+                disabled={loading}
+              >
+                Reject
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => void setStatus(PM_APPLICATION_STATUS.REQUIRES_CHANGES)}
+                disabled={loading}
+              >
+                Suspend / Request Changes
+              </Button>
             </div>
+            {selected.status === PM_APPLICATION_STATUS.APPROVED && (
+              <Button variant="outline" asChild>
+                <Link href={ROUTES.poolManager}>View PM Dashboard</Link>
+              </Button>
+            )}
           </section>
         </div>
       )}
@@ -162,7 +270,16 @@ function Item({ label, value }: { label: string; value?: string }) {
   return (
     <div>
       <dt className="text-navy-500">{label}</dt>
-      <dd className="text-navy-800">{value ?? "—"}</dd>
+      <dd className="font-medium text-navy-800">{value ?? "—"}</dd>
     </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block space-y-1.5">
+      <span className="text-xs font-medium text-navy-600">{label}</span>
+      {children}
+    </label>
   );
 }

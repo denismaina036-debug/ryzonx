@@ -13,10 +13,13 @@ import { InvestorMobileFab } from "@/features/investor/components/investor-mobil
 import { InvestorShellHeader } from "@/features/investor/components/investor-shell-header";
 import { InvestorThemeToggle } from "@/features/investor/components/investor-theme-toggle";
 import { SidebarPoolManagerPromo } from "@/features/investor/components/sidebar-pool-manager-promo";
+import { SidebarChallengeCenter } from "@/features/investor/components/sidebar-challenge-center";
+import { SidebarPoolManagerWorkspace } from "@/features/investor/components/sidebar-pool-manager-workspace";
 import { InvestorThemeProvider } from "@/providers/investor-theme-provider";
 import { useAuthActions } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
+import type { ChallengeDisplayStatus } from "@/domain/challenge/types";
 
 interface DashboardLayoutShellProps {
   children: ReactNode;
@@ -24,18 +27,25 @@ interface DashboardLayoutShellProps {
   userRole?: string;
   unreadNotifications?: number;
   hasActivePool?: boolean;
+  challengeDisplayStatus?: ChallengeDisplayStatus;
 }
 
 export function DashboardLayoutShell({
   children,
   userName,
+  userRole,
   unreadNotifications = 0,
   hasActivePool = false,
+  challengeDisplayStatus,
 }: DashboardLayoutShellProps) {
   return (
     <InvestorThemeProvider>
       <div className="investor-dashboard flex min-h-screen bg-[var(--id-bg)]">
-        <DashboardSidebar userName={userName} />
+        <DashboardSidebar
+          userName={userName}
+          userRole={userRole}
+          challengeDisplayStatus={challengeDisplayStatus}
+        />
 
         <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden lg:pl-[17rem]">
           <InvestorShellHeader unreadNotifications={unreadNotifications} />
@@ -51,7 +61,15 @@ export function DashboardLayoutShell({
   );
 }
 
-function DashboardSidebar({ userName }: { userName?: string }) {
+function DashboardSidebar({
+  userName,
+  userRole,
+  challengeDisplayStatus,
+}: {
+  userName?: string;
+  userRole?: string;
+  challengeDisplayStatus?: ChallengeDisplayStatus;
+}) {
   const pathname = usePathname();
   const { signOut } = useAuthActions();
 
@@ -60,6 +78,8 @@ function DashboardSidebar({ userName }: { userName?: string }) {
       <SidebarContent
         pathname={pathname}
         userName={userName}
+        userRole={userRole}
+        challengeDisplayStatus={challengeDisplayStatus}
         onSignOut={() => signOut()}
       />
     </aside>
@@ -69,10 +89,14 @@ function DashboardSidebar({ userName }: { userName?: string }) {
 function SidebarContent({
   pathname,
   userName,
+  userRole,
+  challengeDisplayStatus,
   onSignOut,
 }: {
   pathname: string;
   userName?: string;
+  userRole?: string;
+  challengeDisplayStatus?: ChallengeDisplayStatus;
   onSignOut: () => void;
 }) {
   const LogoutIcon = INVESTOR_LOGOUT_ITEM.icon;
@@ -129,7 +153,12 @@ function SidebarContent({
       </nav>
 
       <div className="space-y-4 p-4">
-        <SidebarPoolManagerPromo />
+        <SidebarPoolManagerWorkspace userRole={userRole} />
+        <SidebarChallengeCenter
+          userRole={userRole}
+          challengeDisplayStatus={challengeDisplayStatus}
+        />
+        <SidebarPoolManagerPromo userRole={userRole} challengeDisplayStatus={challengeDisplayStatus} />
 
         <div className="flex items-center justify-between px-1">
           <span className="text-xs text-[var(--id-text-muted)]">Dark Mode</span>

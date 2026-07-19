@@ -346,3 +346,101 @@
   background: rgb(79 70 229 / 0.15);
   color: #0f172a;
 }
+
+/* =============================================================================
+   Pool Manager Workspace — Dual theme (Investor platform + PM amber accent)
+   ============================================================================= */
+
+.pool-manager-workspace {
+  --id-radius: 1rem;
+  overflow-x: hidden;
+  --id-bg: #08090d;
+  --id-bg-subtle: #0c0e14;
+  --id-sidebar: #0a0f18;
+  --id-surface: #11121e;
+  --id-surface-elevated: #161825;
+  --id-surface-muted: rgba(255, 255, 255, 0.03);
+  --id-surface-hover: rgba(255, 255, 255, 0.05);
+  --id-border: rgba(255, 255, 255, 0.06);
+  --id-border-strong: rgba(255, 255, 255, 0.08);
+  --id-text: #ffffff;
+  --id-text-secondary: #94a3b8;
+  --id-text-muted: #64748b;
+  --id-text-faint: #475569;
+  --id-accent: #6366f1;
+  --id-accent-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #4338ca 100%);
+  --id-accent-soft: rgba(99, 102, 241, 0.15);
+  --id-accent-text: #a5b4fc;
+  --id-success: #4ade80;
+  --id-danger: #f87171;
+  --id-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 24px rgba(0, 0, 0, 0.25);
+  --id-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.35);
+  --id-glass: rgba(8, 9, 13, 0.92);
+  --pm-accent: #f59e0b;
+  --pm-accent-hover: #fbbf24;
+  --pm-accent-soft: rgba(245, 158, 11, 0.12);
+  --pm-accent-muted: rgba(245, 158, 11, 0.06);
+  --pm-accent-text: #fcd34d;
+  --pm-accent-ring: rgba(245, 158, 11, 0.25);
+  --pm-sidebar-border: rgba(245, 158, 11, 0.1);
+  --pm-hero-gradient: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.14) 0%,
+    rgba(245, 158, 11, 0.08) 45%,
+    transparent 100%
+  );
+  --pm-brand-gradient: linear-gradient(135deg, #6366f1 0%, #f59e0b 100%);
+  color-scheme: dark;
+  background-color: var(--id-bg);
+  color: var(--id-text);
+}
+
+.pool-manager-workspace ::selection {
+  background: rgb(99 102 241 / 0.3);
+  color: #fff;
+}
+
+.light .pool-manager-workspace {
+  --id-bg: #f5f7fb;
+  --id-bg-subtle: #eef1f7;
+  --id-sidebar: #ffffff;
+  --id-surface: #ffffff;
+  --id-surface-elevated: #ffffff;
+  --id-surface-muted: #f8fafc;
+  --id-surface-hover: #f1f5f9;
+  --id-border: rgba(15, 23, 42, 0.06);
+  --id-border-strong: rgba(15, 23, 42, 0.1);
+  --id-text: #0f172a;
+  --id-text-secondary: #475569;
+  --id-text-muted: #64748b;
+  --id-text-faint: #94a3b8;
+  --id-accent: #4f46e5;
+  --id-accent-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  --id-accent-soft: rgba(79, 70, 229, 0.08);
+  --id-accent-text: #4f46e5;
+  --id-success: #16a34a;
+  --id-danger: #dc2626;
+  --id-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 20px rgba(15, 23, 42, 0.06);
+  --id-shadow-lg: 0 8px 32px rgba(15, 23, 42, 0.08);
+  --id-glass: rgba(255, 255, 255, 0.95);
+  --pm-accent: #d97706;
+  --pm-accent-hover: #f59e0b;
+  --pm-accent-soft: rgba(217, 119, 6, 0.1);
+  --pm-accent-muted: rgba(217, 119, 6, 0.05);
+  --pm-accent-text: #b45309;
+  --pm-accent-ring: rgba(217, 119, 6, 0.2);
+  --pm-sidebar-border: rgba(217, 119, 6, 0.15);
+  --pm-hero-gradient: linear-gradient(
+    135deg,
+    rgba(79, 70, 229, 0.08) 0%,
+    rgba(217, 119, 6, 0.06) 45%,
+    transparent 100%
+  );
+  --pm-brand-gradient: linear-gradient(135deg, #4f46e5 0%, #d97706 100%);
+  color-scheme: light;
+}
+
+.light .pool-manager-workspace ::selection {
+  background: rgb(79 70 229 / 0.12);
+  color: #0f172a;
+}

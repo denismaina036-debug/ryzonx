@@ -2,10 +2,12 @@ import {
   LayoutDashboard,
   Store,
   Briefcase,
-  Route,
+  Users,
+  Activity,
+  Bell,
+  Settings,
   Receipt,
   Headphones,
-  Settings,
   LogOut,
   type LucideIcon,
 } from "lucide-react";
@@ -18,20 +20,22 @@ export interface InvestorNavItem {
   badge?: string;
 }
 
-/** Order matches official dashboard UI spec */
+/** Primary investor navigation — Phase 6 investment experience */
 export const INVESTOR_NAV_ITEMS: InvestorNavItem[] = [
-  { label: "Dashboard", href: ROUTES.dashboard, icon: LayoutDashboard },
-  { label: "Marketplace / Pools", href: ROUTES.marketplace, icon: Store },
+  { label: "Home", href: ROUTES.dashboard, icon: LayoutDashboard },
+  { label: "Marketplace", href: ROUTES.marketplace, icon: Store },
+  { label: "Portfolio", href: ROUTES.portfolio, icon: Briefcase },
+  { label: "Managers", href: `${ROUTES.marketplace}?tab=managers`, icon: Users },
+  { label: "Activity", href: ROUTES.activity, icon: Activity },
+  { label: "Notifications", href: ROUTES.notifications, icon: Bell },
+  { label: "Settings", href: ROUTES.settings, icon: Settings },
+];
+
+/** Secondary links — accessible from settings/support areas */
+export const INVESTOR_SECONDARY_NAV: InvestorNavItem[] = [
   { label: "My Investments", href: ROUTES.investments, icon: Briefcase },
-  {
-    label: "Manager Journey",
-    href: ROUTES.managerJourney,
-    icon: Route,
-    badge: "NEW",
-  },
   { label: "Transactions", href: ROUTES.transactions, icon: Receipt },
   { label: "Support", href: ROUTES.support, icon: Headphones },
-  { label: "Settings", href: ROUTES.settings, icon: Settings },
 ];
 
 export const INVESTOR_LOGOUT_ITEM = {

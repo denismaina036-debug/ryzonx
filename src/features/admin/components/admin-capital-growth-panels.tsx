@@ -131,7 +131,7 @@ export function AdminManagerDevelopmentList({
       {managers.map((m) => (
         <Link
           key={m.id}
-          href={`${ROUTES.adminManagerDevelopment}/${m.id}`}
+          href={`${ROUTES.adminPoolManagersDevelopment}/${m.id}`}
           className="flex items-center justify-between px-5 py-4 hover:bg-surface-1"
         >
           <div>

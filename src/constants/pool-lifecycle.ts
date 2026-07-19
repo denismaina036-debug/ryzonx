@@ -13,6 +13,8 @@ export const POOL_LIFECYCLE_LABELS: Record<string, string> = {
   restricted: "Restricted",
   closed: "Closed",
   archived: "Archived",
+  rejected: "Rejected",
+  suspended: "Suspended",
 };
 
 export const PM_EDITABLE_LIFECYCLE_STATUSES = ["draft"] as const;

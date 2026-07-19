@@ -1,13 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Menu, X, LogOut, ChevronRight } from "lucide-react";
+import { Menu, X, LogOut, ChevronDown } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { APP_NAME } from "@/constants/routes";
-import { ADMIN_NAV_SECTIONS } from "@/features/admin/constants/nav";
+import {
+  ADMIN_NAV_SECTIONS,
+  type AdminBadgeKey,
+  type AdminNavDepartment,
+  type AdminNavLink,
+} from "@/features/admin/constants/nav";
 import { useAuthActions } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
@@ -16,20 +21,76 @@ interface AdminSidebarProps {
   userName?: string;
   pendingDeposits?: number;
   pendingWithdrawals?: number;
+  pendingApplications?: number;
+}
+
+function getBadgeCount(
+  badgeKey: AdminBadgeKey | undefined,
+  counts: Record<AdminBadgeKey, number>
+): number {
+  if (!badgeKey) return 0;
+  return counts[badgeKey] ?? 0;
+}
+
+function isLinkActive(pathname: string, href: string, matchPrefix?: string): boolean {
+  if (matchPrefix) {
+    return pathname === matchPrefix || pathname.startsWith(`${matchPrefix}/`);
+  }
+  if (href === "/admin") return pathname === "/admin";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function isDepartmentActive(pathname: string, department: AdminNavDepartment): boolean {
+  return (
+    pathname === department.href ||
+    pathname.startsWith(`${department.href}/`) ||
+    department.items.some((item) => isLinkActive(pathname, item.href, item.matchPrefix))
+  );
+}
+
+function departmentPendingTotal(
+  department: AdminNavDepartment,
+  counts: Record<AdminBadgeKey, number>
+): number {
+  return department.items.reduce(
+    (sum, item) => sum + getBadgeCount(item.badgeKey, counts),
+    0
+  );
 }
 
 export function AdminSidebar({
   userName,
   pendingDeposits = 0,
   pendingWithdrawals = 0,
+  pendingApplications = 0,
 }: AdminSidebarProps) {
   const pathname = usePathname();
   const { signOut } = useAuthActions();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [expandedDepartments, setExpandedDepartments] = useState<Record<string, boolean>>({});
 
-  const badgeCounts: Record<string, number> = {
-    "/admin/deposits": pendingDeposits,
-    "/admin/withdrawals": pendingWithdrawals,
+  const badgeCounts: Record<AdminBadgeKey, number> = {
+    pendingDeposits,
+    pendingWithdrawals,
+    pendingApplications,
+  };
+
+  useEffect(() => {
+    setExpandedDepartments((prev) => {
+      const next = { ...prev };
+      for (const section of ADMIN_NAV_SECTIONS) {
+        for (const entry of section.entries) {
+          if (entry.type === "department" && isDepartmentActive(pathname, entry.department)) {
+            next[entry.department.id] = true;
+          }
+        }
+      }
+      return next;
+    });
+  }, [pathname]);
+
+  const toggleDepartment = (id: string) => {
+    setExpandedDepartments((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   return (
@@ -48,6 +109,8 @@ export function AdminSidebar({
           pathname={pathname}
           userName={userName}
           badgeCounts={badgeCounts}
+          expandedDepartments={expandedDepartments}
+          onToggleDepartment={toggleDepartment}
           onSignOut={() => signOut()}
         />
       </aside>
@@ -81,6 +144,8 @@ export function AdminSidebar({
                 pathname={pathname}
                 userName={userName}
                 badgeCounts={badgeCounts}
+                expandedDepartments={expandedDepartments}
+                onToggleDepartment={toggleDepartment}
                 onSignOut={() => signOut()}
               />
             </motion.aside>
@@ -91,15 +156,126 @@ export function AdminSidebar({
   );
 }
 
+function NavLinkItem({
+  item,
+  pathname,
+  badgeCounts,
+  nested = false,
+}: {
+  item: AdminNavLink;
+  pathname: string;
+  badgeCounts: Record<AdminBadgeKey, number>;
+  nested?: boolean;
+}) {
+  const isActive = isLinkActive(pathname, item.href, item.matchPrefix);
+  const Icon = item.icon;
+  const badge = getBadgeCount(item.badgeKey, badgeCounts);
+
+  return (
+    <Link
+      href={item.href}
+      className={cn(
+        "flex items-center gap-3 rounded-xl text-sm font-medium transition-colors",
+        nested ? "px-3 py-1.5 pl-9" : "px-3 py-2",
+        isActive
+          ? "bg-royal-600 text-white"
+          : "text-navy-300 hover:bg-navy-900 hover:text-white"
+      )}
+    >
+      {!nested && <Icon className="h-4 w-4 shrink-0" />}
+      <span className="flex-1 truncate">{item.label}</span>
+      {badge > 0 && (
+        <span
+          className={cn(
+            "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+            isActive ? "bg-white/20 text-white" : "bg-gold-500 text-navy-950"
+          )}
+        >
+          {badge}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+function DepartmentNavItem({
+  department,
+  pathname,
+  badgeCounts,
+  expanded,
+  onToggle,
+}: {
+  department: AdminNavDepartment;
+  pathname: string;
+  badgeCounts: Record<AdminBadgeKey, number>;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const isActive = isDepartmentActive(pathname, department);
+  const Icon = department.icon;
+  const totalBadge = departmentPendingTotal(department, badgeCounts);
+
+  return (
+    <div className="space-y-0.5">
+      <div className="flex items-center gap-0.5">
+        <Link
+          href={department.href}
+          className={cn(
+            "flex flex-1 items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+            isActive
+              ? "bg-navy-900 text-white"
+              : "text-navy-300 hover:bg-navy-900 hover:text-white"
+          )}
+        >
+          <Icon className="h-4 w-4 shrink-0" />
+          <span className="flex-1 truncate">{department.label}</span>
+          {totalBadge > 0 && (
+            <span className="rounded-full bg-gold-500 px-2 py-0.5 text-[10px] font-semibold text-navy-950">
+              {totalBadge}
+            </span>
+          )}
+        </Link>
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-navy-400 hover:bg-navy-900 hover:text-white"
+          aria-label={expanded ? `Collapse ${department.label}` : `Expand ${department.label}`}
+        >
+          <ChevronDown
+            className={cn("h-4 w-4 transition-transform", expanded && "rotate-180")}
+          />
+        </button>
+      </div>
+      {expanded && (
+        <div className="space-y-0.5">
+          {department.items.map((item) => (
+            <NavLinkItem
+              key={item.href}
+              item={item}
+              pathname={pathname}
+              badgeCounts={badgeCounts}
+              nested
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminSidebarContent({
   pathname,
   userName,
   badgeCounts,
+  expandedDepartments,
+  onToggleDepartment,
   onSignOut,
 }: {
   pathname: string;
   userName?: string;
-  badgeCounts: Record<string, number>;
+  badgeCounts: Record<AdminBadgeKey, number>;
+  expandedDepartments: Record<string, boolean>;
+  onToggleDepartment: (id: string) => void;
   onSignOut: () => void;
 }) {
   return (
@@ -127,37 +303,27 @@ function AdminSidebarContent({
               </p>
             )}
             <div className="space-y-0.5">
-              {section.items.map((item) => {
-                const isActive =
-                  pathname === item.href ||
-                  (item.href !== "/admin" && pathname.startsWith(item.href));
-                const Icon = item.icon;
-                const badge = badgeCounts[item.href] ?? 0;
+              {section.entries.map((entry) => {
+                if (entry.type === "link") {
+                  return (
+                    <NavLinkItem
+                      key={entry.link.href}
+                      item={entry.link}
+                      pathname={pathname}
+                      badgeCounts={badgeCounts}
+                    />
+                  );
+                }
 
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
-                      isActive
-                        ? "bg-royal-600 text-white"
-                        : "text-navy-300 hover:bg-navy-900 hover:text-white"
-                    )}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    <span className="flex-1 truncate">{item.label}</span>
-                    {badge > 0 && (
-                      <span
-                        className={cn(
-                          "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                          isActive ? "bg-white/20 text-white" : "bg-gold-500 text-navy-950"
-                        )}
-                      >
-                        {badge}
-                      </span>
-                    )}
-                  </Link>
+                  <DepartmentNavItem
+                    key={entry.department.id}
+                    department={entry.department}
+                    pathname={pathname}
+                    badgeCounts={badgeCounts}
+                    expanded={expandedDepartments[entry.department.id] ?? false}
+                    onToggle={() => onToggleDepartment(entry.department.id)}
+                  />
                 );
               })}
             </div>
@@ -201,6 +367,7 @@ interface AdminLayoutShellProps {
   userName?: string;
   pendingDeposits?: number;
   pendingWithdrawals?: number;
+  pendingApplications?: number;
 }
 
 export function AdminLayoutShell({
@@ -208,6 +375,7 @@ export function AdminLayoutShell({
   userName,
   pendingDeposits,
   pendingWithdrawals,
+  pendingApplications,
 }: AdminLayoutShellProps) {
   return (
     <div className="flex min-h-screen bg-surface-1">
@@ -215,6 +383,7 @@ export function AdminLayoutShell({
         userName={userName}
         pendingDeposits={pendingDeposits}
         pendingWithdrawals={pendingWithdrawals}
+        pendingApplications={pendingApplications}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <main className="flex-1 p-4 pt-16 lg:p-8 lg:pt-8">{children}</main>
@@ -228,7 +397,7 @@ export function AdminBreadcrumb({ items }: { items: { label: string; href?: stri
     <nav className="mb-4 flex items-center gap-1 text-xs text-navy-500">
       {items.map((item, i) => (
         <span key={item.label} className="flex items-center gap-1">
-          {i > 0 && <ChevronRight className="h-3 w-3" />}
+          {i > 0 && <span className="text-navy-300">/</span>}
           {item.href ? (
             <Link href={item.href} className="hover:text-navy-800">
               {item.label}

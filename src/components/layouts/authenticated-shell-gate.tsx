@@ -41,6 +41,7 @@ export function AuthenticatedShellGate({
         userRole={shellProps.user.role}
         unreadNotifications={shellProps.unreadNotifications}
         hasActivePool={shellProps.hasActivePool}
+        challengeDisplayStatus={shellProps.challengeDisplayStatus}
       >
         {children}
       </DashboardLayoutShell>

@@ -10,11 +10,15 @@ import { MobileTradesPreview } from "@/features/investor/components/mobile/mobil
 import { MobileRecentActivity } from "@/features/investor/components/mobile/mobile-recent-activity";
 import { MobileManagerJourney } from "@/features/investor/components/mobile/mobile-manager-journey";
 import type { InvestorDashboardPageData } from "@/features/investor/types";
+import type { InvestorHomeData } from "@/domain/investment/investor-presentation";
 import type { UserProfile } from "@/types";
+import Link from "next/link";
+import { ROUTES } from "@/constants/routes";
 
 interface MobileDashboardViewProps {
   user: UserProfile;
   data: InvestorDashboardPageData;
+  homeInvestment?: InvestorHomeData;
 }
 
 const item = {
@@ -27,7 +31,7 @@ const container = {
   show: { transition: { staggerChildren: 0.06 } },
 };
 
-export function MobileDashboardView({ user, data }: MobileDashboardViewProps) {
+export function MobileDashboardView({ user, data, homeInvestment }: MobileDashboardViewProps) {
   const firstName = user.fullName.split(" ")[0] ?? user.fullName;
   const hasInvestments = data.investment.participations.length > 0;
   const dailyProfit = data.poolPerformance.dailyProfit ?? 0;
@@ -57,6 +61,21 @@ export function MobileDashboardView({ user, data }: MobileDashboardViewProps) {
       <motion.div variants={item}>
         <MobilePrimaryActions hasActivePool={hasInvestments} />
       </motion.div>
+
+      {homeInvestment && homeInvestment.recommendedCycles.length > 0 && (
+        <motion.div variants={item}>
+          <Link
+            href={ROUTES.marketplace}
+            className="block rounded-[var(--id-radius)] border border-[var(--id-accent)]/30 bg-[var(--id-accent-soft)] p-4 text-sm"
+          >
+            <p className="font-semibold text-[var(--id-text)]">Investment opportunities</p>
+            <p className="mt-1 text-[var(--id-text-muted)]">
+              {homeInvestment.recommendedCycles.length} cycle
+              {homeInvestment.recommendedCycles.length === 1 ? "" : "s"} open for funding
+            </p>
+          </Link>
+        </motion.div>
+      )}
 
       <motion.div variants={item}>
         <MobileCurrentPoolCard

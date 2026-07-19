@@ -479,6 +479,103 @@ export type Database = {
         }
         Relationships: []
       }
+      challenge_trades: {
+        Row: {
+          created_at: string
+          direction: string
+          enrollment_id: string
+          entry_price: number
+          exit_price: number
+          id: string
+          instrument: string
+          lot_size: number
+          market: string | null
+          notes: string | null
+          profit_loss: number
+          rejection_reason: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewer_id: string | null
+          screenshot_url: string | null
+          source: string
+          status: string
+          trade_date: string
+          trading_day: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          direction: string
+          enrollment_id: string
+          entry_price: number
+          exit_price: number
+          id?: string
+          instrument: string
+          lot_size: number
+          market?: string | null
+          notes?: string | null
+          profit_loss: number
+          rejection_reason?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          screenshot_url?: string | null
+          source?: string
+          status?: string
+          trade_date: string
+          trading_day?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          direction?: string
+          enrollment_id?: string
+          entry_price?: number
+          exit_price?: number
+          id?: string
+          instrument?: string
+          lot_size?: number
+          market?: string | null
+          notes?: string | null
+          profit_loss?: number
+          rejection_reason?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          screenshot_url?: string | null
+          source?: string
+          status?: string
+          trade_date?: string
+          trading_day?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_trades_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "trader_challenge_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_trades_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_trades_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       communications: {
         Row: {
           category: Database["public"]["Enums"]["communication_category"]
@@ -745,6 +842,11 @@ export type Database = {
           pool_description: string | null
           pool_duration_days: number | null
           pool_faq: Json
+          pool_config_version: number
+          pending_revision: Json | null
+          revision_status: string
+          investor_share_pct: number
+          pool_manager_share_pct: number
           pool_health: string
           pool_manager_icon_url: string | null
           pool_manager_id: string | null
@@ -813,6 +915,11 @@ export type Database = {
           name: string
           pool_description?: string | null
           pool_duration_days?: number | null
+          pool_config_version?: number
+          pending_revision?: Json | null
+          revision_status?: string
+          investor_share_pct?: number
+          pool_manager_share_pct?: number
           pool_manager_icon_url?: string | null
           pool_manager_id?: string | null
           pool_manager_name?: string | null
@@ -846,6 +953,11 @@ export type Database = {
           name?: string
           pool_description?: string | null
           pool_duration_days?: number | null
+          pool_config_version?: number
+          pending_revision?: Json | null
+          revision_status?: string
+          investor_share_pct?: number
+          pool_manager_share_pct?: number
           pool_manager_icon_url?: string | null
           pool_manager_id?: string | null
           pool_manager_name?: string | null
@@ -1173,6 +1285,774 @@ export type Database = {
         Update: Record<string, unknown>
         Relationships: []
       }
+      distribution_records: {
+        Row: {
+          amount: number
+          approved_by: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          distribution_batch_id: string | null
+          id: string
+          investment_allocation_id: string
+          investment_cycle_id: string
+          investor_id: string
+          ledger_transaction_id: string | null
+          notes: string | null
+          status: Database["public"]["Enums"]["distribution_record_status"]
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          approved_by?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          distribution_batch_id?: string | null
+          id?: string
+          investment_allocation_id: string
+          investment_cycle_id: string
+          investor_id: string
+          ledger_transaction_id?: string | null
+          notes?: string | null
+          status?: Database["public"]["Enums"]["distribution_record_status"]
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          approved_by?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          distribution_batch_id?: string | null
+          id?: string
+          investment_allocation_id?: string
+          investment_cycle_id?: string
+          investor_id?: string
+          ledger_transaction_id?: string | null
+          notes?: string | null
+          status?: Database["public"]["Enums"]["distribution_record_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      financial_adjustments: {
+        Row: {
+          adjustment_reference: string
+          amount: number
+          approved_by: string | null
+          created_at: string
+          created_by: string
+          credit_account_id: string
+          currency: string
+          debit_account_id: string
+          id: string
+          ledger_transaction_id: string | null
+          reason: string
+          status: Database["public"]["Enums"]["financial_adjustment_status"]
+          updated_at: string
+        }
+        Insert: {
+          adjustment_reference: string
+          amount: number
+          approved_by?: string | null
+          created_at?: string
+          created_by: string
+          credit_account_id: string
+          currency?: string
+          debit_account_id: string
+          id?: string
+          ledger_transaction_id?: string | null
+          reason: string
+          status?: Database["public"]["Enums"]["financial_adjustment_status"]
+          updated_at?: string
+        }
+        Update: {
+          adjustment_reference?: string
+          amount?: number
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string
+          credit_account_id?: string
+          currency?: string
+          debit_account_id?: string
+          id?: string
+          ledger_transaction_id?: string | null
+          reason?: string
+          status?: Database["public"]["Enums"]["financial_adjustment_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profit_settlements: {
+        Row: {
+          id: string
+          investment_cycle_id: string
+          fund_id: string | null
+          pool_manager_id: string
+          cycle_capital: number
+          gross_trading_profit: number
+          platform_service_fee_pct: number
+          platform_service_fee: number
+          net_distributable_profit: number
+          investor_share_pct: number
+          pool_manager_share_pct: number
+          investor_distribution_total: number
+          pool_manager_earnings: number
+          status: Database["public"]["Enums"]["profit_settlement_status"]
+          settlement_date: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          distributed_at: string | null
+          settlement_ledger_transaction_id: string | null
+          currency: string
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          investment_cycle_id: string
+          fund_id?: string | null
+          pool_manager_id: string
+          cycle_capital?: number
+          gross_trading_profit?: number
+          platform_service_fee_pct?: number
+          platform_service_fee?: number
+          net_distributable_profit?: number
+          investor_share_pct: number
+          pool_manager_share_pct: number
+          investor_distribution_total?: number
+          pool_manager_earnings?: number
+          status?: Database["public"]["Enums"]["profit_settlement_status"]
+          settlement_date?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          distributed_at?: string | null
+          settlement_ledger_transaction_id?: string | null
+          currency?: string
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          investment_cycle_id?: string
+          fund_id?: string | null
+          pool_manager_id?: string
+          cycle_capital?: number
+          gross_trading_profit?: number
+          platform_service_fee_pct?: number
+          platform_service_fee?: number
+          net_distributable_profit?: number
+          investor_share_pct?: number
+          pool_manager_share_pct?: number
+          investor_distribution_total?: number
+          pool_manager_earnings?: number
+          status?: Database["public"]["Enums"]["profit_settlement_status"]
+          settlement_date?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          distributed_at?: string | null
+          settlement_ledger_transaction_id?: string | null
+          currency?: string
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profit_settlement_allocations: {
+        Row: {
+          id: string
+          profit_settlement_id: string
+          investment_allocation_id: string
+          investor_id: string
+          capital_basis: number
+          ownership_pct: number
+          profit_share: number
+          status: string
+          ledger_transaction_id: string | null
+          transferred_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          profit_settlement_id: string
+          investment_allocation_id: string
+          investor_id: string
+          capital_basis: number
+          ownership_pct: number
+          profit_share: number
+          status?: string
+          ledger_transaction_id?: string | null
+          transferred_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          profit_settlement_id?: string
+          investment_allocation_id?: string
+          investor_id?: string
+          capital_basis?: number
+          ownership_pct?: number
+          profit_share?: number
+          status?: string
+          ledger_transaction_id?: string | null
+          transferred_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      platform_revenue_entries: {
+        Row: {
+          id: string
+          profit_settlement_id: string | null
+          investment_cycle_id: string
+          fund_id: string | null
+          pool_manager_id: string | null
+          amount: number
+          currency: string
+          recorded_at: string
+          ledger_transaction_id: string | null
+        }
+        Insert: {
+          id?: string
+          profit_settlement_id?: string | null
+          investment_cycle_id: string
+          fund_id?: string | null
+          pool_manager_id?: string | null
+          amount: number
+          currency?: string
+          recorded_at?: string
+          ledger_transaction_id?: string | null
+        }
+        Update: {
+          id?: string
+          profit_settlement_id?: string | null
+          investment_cycle_id?: string
+          fund_id?: string | null
+          pool_manager_id?: string | null
+          amount?: number
+          currency?: string
+          recorded_at?: string
+          ledger_transaction_id?: string | null
+        }
+        Relationships: []
+      }
+      automation_rules: {
+        Row: {
+          actions: Json
+          category: Database["public"]["Enums"]["platform_event_category"]
+          conditions: Json
+          created_at: string
+          created_by: string | null
+          description: string | null
+          event_type: string
+          id: string
+          name: string
+          priority: number
+          rule_key: string
+          status: Database["public"]["Enums"]["automation_rule_status"]
+          updated_at: string
+        }
+        Insert: {
+          actions?: Json
+          category?: Database["public"]["Enums"]["platform_event_category"]
+          conditions?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event_type: string
+          id?: string
+          name: string
+          priority?: number
+          rule_key: string
+          status?: Database["public"]["Enums"]["automation_rule_status"]
+          updated_at?: string
+        }
+        Update: {
+          actions?: Json
+          category?: Database["public"]["Enums"]["platform_event_category"]
+          conditions?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event_type?: string
+          id?: string
+          name?: string
+          priority?: number
+          rule_key?: string
+          status?: Database["public"]["Enums"]["automation_rule_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      event_subscriptions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_type_pattern: string
+          id: string
+          name: string
+          status: Database["public"]["Enums"]["event_subscription_status"]
+          subscriber_config: Json
+          subscriber_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_type_pattern: string
+          id?: string
+          name: string
+          status?: Database["public"]["Enums"]["event_subscription_status"]
+          subscriber_config?: Json
+          subscriber_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_type_pattern?: string
+          id?: string
+          name?: string
+          status?: Database["public"]["Enums"]["event_subscription_status"]
+          subscriber_config?: Json
+          subscriber_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ledger_accounts: {
+        Row: {
+          account_type: Database["public"]["Enums"]["ledger_account_type"]
+          code: string
+          created_at: string
+          currency: string
+          id: string
+          is_active: boolean
+          name: string
+          owner_id: string | null
+          owner_type: Database["public"]["Enums"]["ledger_owner_type"]
+          updated_at: string
+        }
+        Insert: {
+          account_type: Database["public"]["Enums"]["ledger_account_type"]
+          code: string
+          created_at?: string
+          currency?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          owner_id?: string | null
+          owner_type?: Database["public"]["Enums"]["ledger_owner_type"]
+          updated_at?: string
+        }
+        Update: {
+          account_type?: Database["public"]["Enums"]["ledger_account_type"]
+          code?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          owner_id?: string | null
+          owner_type?: Database["public"]["Enums"]["ledger_owner_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ledger_entries: {
+        Row: {
+          account_id: string
+          amount: number
+          created_at: string
+          currency: string
+          entry_side: Database["public"]["Enums"]["ledger_entry_side"]
+          id: string
+          memo: string | null
+          transaction_id: string
+        }
+        Insert: {
+          account_id: string
+          amount: number
+          created_at?: string
+          currency?: string
+          entry_side: Database["public"]["Enums"]["ledger_entry_side"]
+          id?: string
+          memo?: string | null
+          transaction_id: string
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          created_at?: string
+          currency?: string
+          entry_side?: Database["public"]["Enums"]["ledger_entry_side"]
+          id?: string
+          memo?: string | null
+          transaction_id?: string
+        }
+        Relationships: []
+      }
+      ledger_transactions: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          description: string
+          id: string
+          metadata: Json
+          posted_at: string
+          reference: string
+          reversal_transaction_id: string | null
+          reversed_at: string | null
+          source_id: string | null
+          source_type: string | null
+          status: Database["public"]["Enums"]["ledger_transaction_status"]
+          transaction_type: Database["public"]["Enums"]["ledger_transaction_type"]
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          metadata?: Json
+          posted_at?: string
+          reference: string
+          reversal_transaction_id?: string | null
+          reversed_at?: string | null
+          source_id?: string | null
+          source_type?: string | null
+          status?: Database["public"]["Enums"]["ledger_transaction_status"]
+          transaction_type: Database["public"]["Enums"]["ledger_transaction_type"]
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          metadata?: Json
+          posted_at?: string
+          reference?: string
+          reversal_transaction_id?: string | null
+          reversed_at?: string | null
+          source_id?: string | null
+          source_type?: string | null
+          status?: Database["public"]["Enums"]["ledger_transaction_status"]
+          transaction_type?: Database["public"]["Enums"]["ledger_transaction_type"]
+        }
+        Relationships: []
+      }
+      settlement_batches: {
+        Row: {
+          allocation_count: number
+          approved_by: string | null
+          batch_reference: string
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          investment_cycle_id: string | null
+          ledger_transaction_id: string | null
+          notes: string | null
+          status: Database["public"]["Enums"]["settlement_batch_status"]
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          allocation_count?: number
+          approved_by?: string | null
+          batch_reference: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          investment_cycle_id?: string | null
+          ledger_transaction_id?: string | null
+          notes?: string | null
+          status?: Database["public"]["Enums"]["settlement_batch_status"]
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          allocation_count?: number
+          approved_by?: string | null
+          batch_reference?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          investment_cycle_id?: string | null
+          ledger_transaction_id?: string | null
+          notes?: string | null
+          status?: Database["public"]["Enums"]["settlement_batch_status"]
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      investment_allocations: {
+        Row: {
+          allocated_at: string
+          amount: number
+          created_at: string
+          currency: string
+          funding_confirmed_at: string | null
+          id: string
+          investment_cycle_id: string
+          investor_id: string
+          locked_at: string | null
+          reference_number: string
+          settled_at: string | null
+          settlement_transaction_id: string | null
+          status: Database["public"]["Enums"]["investment_allocation_status"]
+          updated_at: string
+        }
+        Insert: {
+          allocated_at?: string
+          amount: number
+          created_at?: string
+          currency?: string
+          funding_confirmed_at?: string | null
+          id?: string
+          investment_cycle_id: string
+          investor_id: string
+          locked_at?: string | null
+          reference_number: string
+          settled_at?: string | null
+          settlement_transaction_id?: string | null
+          status?: Database["public"]["Enums"]["investment_allocation_status"]
+          updated_at?: string
+        }
+        Update: {
+          allocated_at?: string
+          amount?: number
+          created_at?: string
+          currency?: string
+          funding_confirmed_at?: string | null
+          id?: string
+          investment_cycle_id?: string
+          investor_id?: string
+          locked_at?: string | null
+          reference_number?: string
+          settled_at?: string | null
+          settlement_transaction_id?: string | null
+          status?: Database["public"]["Enums"]["investment_allocation_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investment_allocations_investment_cycle_id_fkey"
+            columns: ["investment_cycle_id"]
+            isOneToOne: false
+            referencedRelation: "investment_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "investment_allocations_investor_id_fkey"
+            columns: ["investor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      investment_cycles: {
+        Row: {
+          approved_at: string | null
+          archived_at: string | null
+          closing_date: string | null
+          completed_at: string | null
+          created_at: string
+          cycle_number: number
+          description: string | null
+          distribution_started_at: string | null
+          duration_days: number | null
+          fund_id: string | null
+          funding_deadline: string | null
+          funding_started_at: string | null
+          id: string
+          investor_count: number
+          max_capacity: number | null
+          min_investment: number | null
+          name: string
+          opening_date: string | null
+          pool_config_snapshot: Json
+          pool_manager_id: string
+          pool_version: number
+          raised_capital: number
+          slug: string
+          status: Database["public"]["Enums"]["investment_cycle_status"]
+          strategy_id: string
+          submitted_at: string | null
+          target_capital: number | null
+          trading_started_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          archived_at?: string | null
+          closing_date?: string | null
+          completed_at?: string | null
+          created_at?: string
+          cycle_number?: number
+          description?: string | null
+          distribution_started_at?: string | null
+          duration_days?: number | null
+          fund_id?: string | null
+          funding_deadline?: string | null
+          funding_started_at?: string | null
+          id?: string
+          investor_count?: number
+          max_capacity?: number | null
+          min_investment?: number | null
+          name: string
+          opening_date?: string | null
+          pool_config_snapshot?: Json
+          pool_manager_id: string
+          pool_version?: number
+          raised_capital?: number
+          slug: string
+          status?: Database["public"]["Enums"]["investment_cycle_status"]
+          strategy_id: string
+          submitted_at?: string | null
+          target_capital?: number | null
+          trading_started_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          archived_at?: string | null
+          closing_date?: string | null
+          completed_at?: string | null
+          created_at?: string
+          cycle_number?: number
+          description?: string | null
+          distribution_started_at?: string | null
+          duration_days?: number | null
+          fund_id?: string | null
+          funding_deadline?: string | null
+          funding_started_at?: string | null
+          id?: string
+          investor_count?: number
+          max_capacity?: number | null
+          min_investment?: number | null
+          name?: string
+          opening_date?: string | null
+          pool_config_snapshot?: Json
+          pool_manager_id?: string
+          pool_version?: number
+          raised_capital?: number
+          slug?: string
+          status?: Database["public"]["Enums"]["investment_cycle_status"]
+          strategy_id?: string
+          submitted_at?: string | null
+          target_capital?: number | null
+          trading_started_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investment_cycles_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
+            referencedRelation: "funds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "investment_cycles_pool_manager_id_fkey"
+            columns: ["pool_manager_id"]
+            isOneToOne: false
+            referencedRelation: "pool_managers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "investment_cycles_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "strategies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      strategies: {
+        Row: {
+          approved_at: string | null
+          archived_at: string | null
+          created_at: string
+          description: string | null
+          id: string
+          investment_style: string | null
+          name: string
+          objectives: string | null
+          pool_manager_id: string
+          risk_profile: Database["public"]["Enums"]["strategy_risk_profile"] | null
+          slug: string
+          status: Database["public"]["Enums"]["strategy_status"]
+          submitted_at: string | null
+          supported_assets: string[]
+          updated_at: string
+          visibility: Database["public"]["Enums"]["strategy_visibility"]
+          pending_revision: Json | null
+          revision_status: string
+        }
+        Insert: {
+          approved_at?: string | null
+          archived_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          investment_style?: string | null
+          name: string
+          objectives?: string | null
+          pool_manager_id: string
+          risk_profile?: Database["public"]["Enums"]["strategy_risk_profile"] | null
+          slug: string
+          status?: Database["public"]["Enums"]["strategy_status"]
+          submitted_at?: string | null
+          supported_assets?: string[]
+          updated_at?: string
+          visibility?: Database["public"]["Enums"]["strategy_visibility"]
+          pending_revision?: Json | null
+          revision_status?: string
+        }
+        Update: {
+          approved_at?: string | null
+          archived_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          investment_style?: string | null
+          name?: string
+          objectives?: string | null
+          pool_manager_id?: string
+          risk_profile?: Database["public"]["Enums"]["strategy_risk_profile"] | null
+          slug?: string
+          status?: Database["public"]["Enums"]["strategy_status"]
+          submitted_at?: string | null
+          supported_assets?: string[]
+          updated_at?: string
+          visibility?: Database["public"]["Enums"]["strategy_visibility"]
+          pending_revision?: Json | null
+          revision_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategies_pool_manager_id_fkey"
+            columns: ["pool_manager_id"]
+            isOneToOne: false
+            referencedRelation: "pool_managers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       investor_portfolios: {
         Row: {
           available_balance: number
@@ -1303,6 +2183,108 @@ export type Database = {
           },
         ]
       }
+      notification_history: {
+        Row: {
+          body: string
+          channel: string
+          communication_id: string | null
+          created_at: string
+          delivered_at: string
+          id: string
+          metadata: Json
+          notification_queue_id: string | null
+          platform_event_id: string | null
+          recipient_user_id: string
+          status: Database["public"]["Enums"]["notification_history_status"]
+          template_slug: string
+          title: string
+        }
+        Insert: {
+          body: string
+          channel: string
+          communication_id?: string | null
+          created_at?: string
+          delivered_at?: string
+          id?: string
+          metadata?: Json
+          notification_queue_id?: string | null
+          platform_event_id?: string | null
+          recipient_user_id: string
+          status?: Database["public"]["Enums"]["notification_history_status"]
+          template_slug: string
+          title: string
+        }
+        Update: {
+          body?: string
+          channel?: string
+          communication_id?: string | null
+          created_at?: string
+          delivered_at?: string
+          id?: string
+          metadata?: Json
+          notification_queue_id?: string | null
+          platform_event_id?: string | null
+          recipient_user_id?: string
+          status?: Database["public"]["Enums"]["notification_history_status"]
+          template_slug?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      notification_queue: {
+        Row: {
+          category: Database["public"]["Enums"]["communication_category"]
+          channels: string[]
+          created_at: string
+          error_message: string | null
+          id: string
+          metadata: Json
+          next_retry_at: string | null
+          platform_event_id: string | null
+          priority: Database["public"]["Enums"]["communication_priority"]
+          processed_at: string | null
+          recipient_user_id: string
+          retry_count: number
+          status: Database["public"]["Enums"]["notification_queue_status"]
+          template_slug: string
+          variables: Json
+        }
+        Insert: {
+          category?: Database["public"]["Enums"]["communication_category"]
+          channels?: string[]
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          next_retry_at?: string | null
+          platform_event_id?: string | null
+          priority?: Database["public"]["Enums"]["communication_priority"]
+          processed_at?: string | null
+          recipient_user_id: string
+          retry_count?: number
+          status?: Database["public"]["Enums"]["notification_queue_status"]
+          template_slug: string
+          variables?: Json
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["communication_category"]
+          channels?: string[]
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          next_retry_at?: string | null
+          platform_event_id?: string | null
+          priority?: Database["public"]["Enums"]["communication_priority"]
+          processed_at?: string | null
+          recipient_user_id?: string
+          retry_count?: number
+          status?: Database["public"]["Enums"]["notification_queue_status"]
+          template_slug?: string
+          variables?: Json
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
@@ -1378,6 +2360,158 @@ export type Database = {
             columns: ["fund_id"]
             isOneToOne: false
             referencedRelation: "funds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_events: {
+        Row: {
+          actor_id: string | null
+          category: Database["public"]["Enums"]["platform_event_category"]
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          error_message: string | null
+          event_type: string
+          id: string
+          payload: Json
+          processed_at: string | null
+          severity: Database["public"]["Enums"]["platform_event_severity"]
+          status: Database["public"]["Enums"]["platform_event_status"]
+        }
+        Insert: {
+          actor_id?: string | null
+          category?: Database["public"]["Enums"]["platform_event_category"]
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          event_type: string
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          severity?: Database["public"]["Enums"]["platform_event_severity"]
+          status?: Database["public"]["Enums"]["platform_event_status"]
+        }
+        Update: {
+          actor_id?: string | null
+          category?: Database["public"]["Enums"]["platform_event_category"]
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          severity?: Database["public"]["Enums"]["platform_event_severity"]
+          status?: Database["public"]["Enums"]["platform_event_status"]
+        }
+        Relationships: []
+      }
+      investor_manager_follows: {
+        Row: {
+          id: string
+          investor_id: string
+          pool_manager_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          investor_id: string
+          pool_manager_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          investor_id?: string
+          pool_manager_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investor_manager_follows_investor_id_fkey"
+            columns: ["investor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "investor_manager_follows_pool_manager_id_fkey"
+            columns: ["pool_manager_id"]
+            isOneToOne: false
+            referencedRelation: "pool_managers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pool_manager_reviews: {
+        Row: {
+          id: string
+          investor_id: string
+          pool_manager_id: string
+          investment_cycle_id: string
+          investment_allocation_id: string
+          rating: number
+          message: string
+          status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          investor_id: string
+          pool_manager_id: string
+          investment_cycle_id: string
+          investment_allocation_id: string
+          rating: number
+          message: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          investor_id?: string
+          pool_manager_id?: string
+          investment_cycle_id?: string
+          investment_allocation_id?: string
+          rating?: number
+          message?: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pool_manager_reviews_investor_id_fkey"
+            columns: ["investor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pool_manager_reviews_pool_manager_id_fkey"
+            columns: ["pool_manager_id"]
+            isOneToOne: false
+            referencedRelation: "pool_managers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pool_manager_reviews_investment_cycle_id_fkey"
+            columns: ["investment_cycle_id"]
+            isOneToOne: false
+            referencedRelation: "investment_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pool_manager_reviews_investment_allocation_id_fkey"
+            columns: ["investment_allocation_id"]
+            isOneToOne: false
+            referencedRelation: "investment_allocations"
             referencedColumns: ["id"]
           },
         ]
@@ -1676,42 +2810,67 @@ export type Database = {
       }
       trader_challenge_enrollments: {
         Row: {
+          account_broker: string | null
+          account_login: string | null
+          account_server: string | null
           admin_rules: string | null
           amount_paid: number | null
+          application_id: string | null
           challenge_account_details: string | null
           challenge_id: string
           created_at: string
           id: string
+          initial_balance: number | null
           payment_method: string | null
+          started_at: string | null
           status: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          account_broker?: string | null
+          account_login?: string | null
+          account_server?: string | null
           admin_rules?: string | null
           amount_paid?: number | null
+          application_id?: string | null
           challenge_account_details?: string | null
           challenge_id: string
           created_at?: string
           id?: string
+          initial_balance?: number | null
           payment_method?: string | null
+          started_at?: string | null
           status?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          account_broker?: string | null
+          account_login?: string | null
+          account_server?: string | null
           admin_rules?: string | null
           amount_paid?: number | null
+          application_id?: string | null
           challenge_account_details?: string | null
           challenge_id?: string
           created_at?: string
           id?: string
+          initial_balance?: number | null
           payment_method?: string | null
+          started_at?: string | null
           status?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "trader_challenge_enrollments_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "pool_manager_applications"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "trader_challenge_enrollments_challenge_id_fkey"
             columns: ["challenge_id"]
@@ -1798,6 +2957,374 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      cycle_progress_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          description: string | null
+          event_type: Database["public"]["Enums"]["cycle_progress_event_type"]
+          id: string
+          investment_cycle_id: string
+          label: string
+          metadata: Json
+          occurred_at: string
+          phase: Database["public"]["Enums"]["cycle_progress_phase"]
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          description?: string | null
+          event_type: Database["public"]["Enums"]["cycle_progress_event_type"]
+          id?: string
+          investment_cycle_id: string
+          label: string
+          metadata?: Json
+          occurred_at?: string
+          phase: Database["public"]["Enums"]["cycle_progress_phase"]
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          description?: string | null
+          event_type?: Database["public"]["Enums"]["cycle_progress_event_type"]
+          id?: string
+          investment_cycle_id?: string
+          label?: string
+          metadata?: Json
+          occurred_at?: string
+          phase?: Database["public"]["Enums"]["cycle_progress_phase"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cycle_progress_events_investment_cycle_id_fkey"
+            columns: ["investment_cycle_id"]
+            isOneToOne: false
+            referencedRelation: "investment_cycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trade_entries: {
+        Row: {
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          direction: Database["public"]["Enums"]["trade_entry_direction"]
+          entry_price: number
+          exit_price: number | null
+          id: string
+          instrument: string
+          investment_cycle_id: string
+          journal_id: string
+          market: string | null
+          notes: string | null
+          opened_at: string | null
+          pool_manager_id: string
+          quantity: number
+          status: Database["public"]["Enums"]["trade_entry_status"]
+          trade_reference: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          direction: Database["public"]["Enums"]["trade_entry_direction"]
+          entry_price: number
+          exit_price?: number | null
+          id?: string
+          instrument: string
+          investment_cycle_id: string
+          journal_id: string
+          market?: string | null
+          notes?: string | null
+          opened_at?: string | null
+          pool_manager_id: string
+          quantity: number
+          status?: Database["public"]["Enums"]["trade_entry_status"]
+          trade_reference: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          direction?: Database["public"]["Enums"]["trade_entry_direction"]
+          entry_price?: number
+          exit_price?: number | null
+          id?: string
+          instrument?: string
+          investment_cycle_id?: string
+          journal_id?: string
+          market?: string | null
+          notes?: string | null
+          opened_at?: string | null
+          pool_manager_id?: string
+          quantity?: number
+          status?: Database["public"]["Enums"]["trade_entry_status"]
+          trade_reference?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      trade_journals: {
+        Row: {
+          created_at: string
+          id: string
+          investment_cycle_id: string
+          pool_manager_id: string
+          status: Database["public"]["Enums"]["trade_journal_status"]
+          strategy_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          investment_cycle_id: string
+          pool_manager_id: string
+          status?: Database["public"]["Enums"]["trade_journal_status"]
+          strategy_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          investment_cycle_id?: string
+          pool_manager_id?: string
+          status?: Database["public"]["Enums"]["trade_journal_status"]
+          strategy_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      trade_snapshots: {
+        Row: {
+          average_holding_hours: number | null
+          closed_positions_count: number
+          created_at: string
+          created_by: string | null
+          current_exposure: number | null
+          id: string
+          investment_cycle_id: string
+          journal_id: string
+          losing_trades: number
+          metrics: Json
+          notes: string | null
+          open_positions_count: number
+          pool_manager_id: string
+          snapshot_at: string
+          total_trades: number
+          winning_trades: number
+        }
+        Insert: {
+          average_holding_hours?: number | null
+          closed_positions_count?: number
+          created_at?: string
+          created_by?: string | null
+          current_exposure?: number | null
+          id?: string
+          investment_cycle_id: string
+          journal_id: string
+          losing_trades?: number
+          metrics?: Json
+          notes?: string | null
+          open_positions_count?: number
+          pool_manager_id: string
+          snapshot_at?: string
+          total_trades?: number
+          winning_trades?: number
+        }
+        Update: {
+          average_holding_hours?: number | null
+          closed_positions_count?: number
+          created_at?: string
+          created_by?: string | null
+          current_exposure?: number | null
+          id?: string
+          investment_cycle_id?: string
+          journal_id?: string
+          losing_trades?: number
+          metrics?: Json
+          notes?: string | null
+          open_positions_count?: number
+          pool_manager_id?: string
+          snapshot_at?: string
+          total_trades?: number
+          winning_trades?: number
+        }
+        Relationships: [        ]
+      }
+      rating_category_weights: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          label: string
+          profile_id: string
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          label: string
+          profile_id: string
+          updated_at?: string
+          weight: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          label?: string
+          profile_id?: string
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: []
+      }
+      rating_history: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["rating_entity_type"]
+          id: string
+          new_rating: number
+          new_score: number
+          previous_rating: number | null
+          previous_score: number | null
+          profile_id: string | null
+          reason: string
+          source_metrics: Json
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["rating_entity_type"]
+          id?: string
+          new_rating: number
+          new_score: number
+          previous_rating?: number | null
+          previous_score?: number | null
+          profile_id?: string | null
+          reason: string
+          source_metrics?: Json
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: Database["public"]["Enums"]["rating_entity_type"]
+          id?: string
+          new_rating?: number
+          new_score?: number
+          previous_rating?: number | null
+          previous_score?: number | null
+          profile_id?: string | null
+          reason?: string
+          source_metrics?: Json
+        }
+        Relationships: []
+      }
+      rating_profiles: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          rules: Json
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          rules?: Json
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          rules?: Json
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      rating_snapshots: {
+        Row: {
+          category_scores: Json
+          computed_at: string
+          confidence_score: number | null
+          consistency_score: number | null
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["rating_entity_type"]
+          explanations: Json
+          governance_grade: string | null
+          id: string
+          operational_score: number | null
+          overall_rating: number | null
+          overall_score: number
+          performance_grade: string | null
+          profile_id: string
+          risk_grade: string | null
+          source_metrics: Json
+          trend: string
+        }
+        Insert: {
+          category_scores?: Json
+          computed_at?: string
+          confidence_score?: number | null
+          consistency_score?: number | null
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["rating_entity_type"]
+          explanations?: Json
+          governance_grade?: string | null
+          id?: string
+          operational_score?: number | null
+          overall_rating?: number | null
+          overall_score: number
+          performance_grade?: string | null
+          profile_id: string
+          risk_grade?: string | null
+          source_metrics?: Json
+          trend?: string
+        }
+        Update: {
+          category_scores?: Json
+          computed_at?: string
+          confidence_score?: number | null
+          consistency_score?: number | null
+          entity_id?: string
+          entity_type?: Database["public"]["Enums"]["rating_entity_type"]
+          explanations?: Json
+          governance_grade?: string | null
+          id?: string
+          operational_score?: number | null
+          overall_rating?: number | null
+          overall_score?: number
+          performance_grade?: string | null
+          profile_id?: string
+          risk_grade?: string | null
+          source_metrics?: Json
+          trend?: string
+        }
+        Relationships: []
       }
       trades: {
         Row: {
@@ -1987,6 +3514,90 @@ export type Database = {
           },
         ]
       }
+      webhook_deliveries: {
+        Row: {
+          created_at: string
+          delivered_at: string | null
+          error_message: string | null
+          http_status: number | null
+          id: string
+          next_retry_at: string | null
+          payload: Json
+          platform_event_id: string | null
+          response_body: string | null
+          retry_count: number
+          signature: string | null
+          status: Database["public"]["Enums"]["webhook_delivery_status"]
+          webhook_id: string
+        }
+        Insert: {
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          next_retry_at?: string | null
+          payload?: Json
+          platform_event_id?: string | null
+          response_body?: string | null
+          retry_count?: number
+          signature?: string | null
+          status?: Database["public"]["Enums"]["webhook_delivery_status"]
+          webhook_id: string
+        }
+        Update: {
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          next_retry_at?: string | null
+          payload?: Json
+          platform_event_id?: string | null
+          response_body?: string | null
+          retry_count?: number
+          signature?: string | null
+          status?: Database["public"]["Enums"]["webhook_delivery_status"]
+          webhook_id?: string
+        }
+        Relationships: []
+      }
+      webhook_registrations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_type_pattern: string
+          id: string
+          is_active: boolean
+          name: string
+          secret: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_type_pattern?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          secret: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_type_pattern?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          secret?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1996,8 +3607,130 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      get_approved_pool_manager_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
+      automation_rule_status: "active" | "inactive"
+      event_subscription_status: "active" | "inactive"
+      notification_history_status: "delivered" | "failed" | "skipped" | "cancelled"
+      notification_queue_status: "pending" | "processing" | "sent" | "failed" | "cancelled"
+      platform_event_category:
+        | "investment"
+        | "financial"
+        | "operations"
+        | "performance"
+        | "governance"
+        | "administration"
+        | "security"
+        | "system"
+      platform_event_severity: "info" | "warning" | "error" | "critical"
+      platform_event_status: "pending" | "processing" | "processed" | "failed" | "archived"
+      webhook_delivery_status: "pending" | "processing" | "delivered" | "failed" | "cancelled"
+      rating_entity_type: "pool_manager" | "strategy" | "investment_cycle"
+      cycle_progress_event_type:
+        | "status_change"
+        | "trade_opened"
+        | "trade_closed"
+        | "trade_edited"
+        | "snapshot_created"
+        | "admin_review"
+        | "operational_flag"
+        | "cycle_advanced"
+      cycle_progress_phase:
+        | "funding"
+        | "trading"
+        | "monitoring"
+        | "distribution_pending"
+        | "completed"
+      trade_entry_direction: "long" | "short"
+      trade_entry_status:
+        | "draft"
+        | "open"
+        | "partially_closed"
+        | "closed"
+        | "archived"
+      trade_journal_status: "active" | "archived"
+      investment_allocation_status:
+        | "pending"
+        | "funding_confirmed"
+        | "confirmed"
+        | "settled"
+        | "locked"
+        | "distributed"
+        | "cancelled"
+        | "rejected"
+      distribution_record_status:
+        | "preparation"
+        | "batch"
+        | "pending"
+        | "approved"
+        | "completed"
+        | "cancelled"
+      financial_adjustment_status: "pending" | "approved" | "posted" | "rejected"
+      ledger_account_type: "asset" | "liability" | "equity" | "revenue" | "expense"
+      ledger_entry_side: "debit" | "credit"
+      ledger_owner_type:
+        | "platform"
+        | "investor"
+        | "pool_manager"
+        | "investment_cycle"
+        | "investment_allocation"
+      ledger_transaction_status: "pending" | "posted" | "reversed"
+      ledger_transaction_type:
+        | "opening_balance"
+        | "deposit_credit"
+        | "allocation_reserve"
+        | "allocation_settlement"
+        | "allocation_release"
+        | "distribution"
+        | "adjustment"
+        | "reversal"
+        | "transfer"
+        | "profit_settlement"
+        | "platform_service_fee"
+        | "pool_manager_earnings"
+        | "profit_distribution"
+      profit_settlement_status:
+        | "calculated"
+        | "pending_review"
+        | "confirmed"
+        | "distributing"
+        | "completed"
+        | "cancelled"
+      settlement_batch_status:
+        | "pending"
+        | "processing"
+        | "completed"
+        | "failed"
+        | "cancelled"
+      investment_cycle_status:
+        | "draft"
+        | "submitted"
+        | "approved"
+        | "funding"
+        | "trading"
+        | "distribution"
+        | "completed"
+        | "archived"
+      strategy_risk_profile:
+        | "conservative"
+        | "balanced"
+        | "moderate"
+        | "aggressive"
+        | "speculative"
+      strategy_status:
+        | "draft"
+        | "submitted"
+        | "under_review"
+        | "approved"
+        | "available"
+        | "operating"
+        | "paused"
+        | "archived"
+      strategy_visibility: "private" | "internal" | "public"
       communication_category:
         | "system"
         | "investment"

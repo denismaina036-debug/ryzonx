@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, ChevronDown, LogOut, MessageSquare, Search, Settings } from "lucide-react";
+import { Bell, ChevronDown, LayoutDashboard, LogOut, MessageSquare, Search, Settings } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
+import { ROLE_LABELS, USER_ROLES, type UserRole } from "@/constants/roles";
 import { InvestorThemeToggle } from "@/features/investor/components/investor-theme-toggle";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { ClientOnly } from "@/components/ui/client-only";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +28,35 @@ export function InvestorShellHeader({
   const { user } = useAuth();
   const { signOut } = useAuthActions();
   const displayName = user?.fullName ?? "Investor";
+  const roleLabel =
+    user?.role && user.role in ROLE_LABELS
+      ? ROLE_LABELS[user.role as UserRole]
+      : "Investor";
+  const isPoolManager = user?.role === USER_ROLES.POOL_MANAGER;
+
+  const profileTrigger = (
+    <button
+      type="button"
+      className="flex h-9 shrink-0 items-center gap-2 rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] py-1 pl-1 pr-2 outline-none transition-colors hover:bg-[var(--id-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--id-accent-soft)] sm:h-10 sm:pr-3"
+      aria-label="Open profile menu"
+    >
+      <UserAvatar
+        name={displayName}
+        avatarUrl={user?.avatarUrl}
+        className="h-7 w-7 sm:h-8 sm:w-8"
+        fallbackClassName="text-[10px] sm:text-xs"
+      />
+      <span className="hidden min-w-0 sm:block">
+        <span className="block max-w-[8rem] truncate text-left text-sm font-medium leading-tight text-[var(--id-text)]">
+          {displayName}
+        </span>
+        <span className="block text-left text-[11px] leading-tight text-[var(--id-text-muted)]">
+          {roleLabel}
+        </span>
+      </span>
+      <ChevronDown className="hidden h-3.5 w-3.5 text-[var(--id-text-muted)] sm:block" />
+    </button>
+  );
 
   return (
     <header className="sticky top-0 z-20 border-b border-[var(--id-border)] bg-[var(--id-glass)] px-3 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
@@ -71,30 +102,9 @@ export function InvestorShellHeader({
 
           <InvestorThemeToggle className="shrink-0 lg:hidden" />
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="flex h-9 shrink-0 items-center gap-2 rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] py-1 pl-1 pr-2 outline-none transition-colors hover:bg-[var(--id-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--id-accent-soft)] sm:h-10 sm:pr-3"
-                aria-label="Open profile menu"
-              >
-                <UserAvatar
-                  name={displayName}
-                  avatarUrl={user?.avatarUrl}
-                  className="h-7 w-7 sm:h-8 sm:w-8"
-                  fallbackClassName="text-[10px] sm:text-xs"
-                />
-                <span className="hidden min-w-0 sm:block">
-                  <span className="block max-w-[8rem] truncate text-left text-sm font-medium leading-tight text-[var(--id-text)]">
-                    {displayName}
-                  </span>
-                  <span className="block text-left text-[11px] leading-tight text-[var(--id-text-muted)]">
-                    Investor
-                  </span>
-                </span>
-                <ChevronDown className="hidden h-3.5 w-3.5 text-[var(--id-text-muted)] sm:block" />
-              </button>
-            </DropdownMenuTrigger>
+          <ClientOnly fallback={profileTrigger}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>{profileTrigger}</DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
@@ -106,6 +116,14 @@ export function InvestorShellHeader({
                 </span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              {isPoolManager && (
+                <DropdownMenuItem asChild>
+                  <Link href={ROUTES.poolManager} className="cursor-pointer">
+                    <LayoutDashboard className="h-4 w-4 text-[var(--id-text-muted)]" strokeWidth={1.75} />
+                    Pool Manager Workspace
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem asChild>
                 <Link href={ROUTES.settings} className="cursor-pointer">
                   <Settings className="h-4 w-4 text-[var(--id-text-muted)]" strokeWidth={1.75} />
@@ -121,7 +139,8 @@ export function InvestorShellHeader({
                 Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>
+            </DropdownMenu>
+          </ClientOnly>
         </div>
       </div>
     </header>

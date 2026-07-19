@@ -37,13 +37,12 @@ export async function HeroSection() {
             Transparent Pool Trading Fund
           </span>
           <h1 className="text-balance text-4xl font-semibold tracking-tight text-navy-950 md:text-5xl lg:text-6xl">
-            Invest with confidence.{" "}
-            <span className="text-gradient">Verify everything.</span>
+            Where Great Traders Meet Smart Investors.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-navy-500 md:text-xl">
-            Ryvonx is a professionally managed trading pool where every
-            visitor can verify performance, review trades, and track fund
-            activity before deciding to invest.
+            RyvonX is a trusted marketplace where skilled traders earn the opportunity to
+            manage investment pools, while investors discover and invest alongside verified
+            trading professionals.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Button asChild size="xl">

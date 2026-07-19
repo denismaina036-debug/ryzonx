@@ -160,6 +160,83 @@ export const poolManagerApplicationService = {
     return mapApplication(data as ApplicationRow);
   },
 
+  async submitApplication(basicInfo: PoolManagerBasicInfo): Promise<PoolManagerApplication> {
+    const user = await requireAuth();
+    const db = createAdminClient();
+
+    if (!basicInfo.tradingExperience?.trim() || !basicInfo.country?.trim() || !basicInfo.biography?.trim()) {
+      throw new Error("Please complete all required application fields.");
+    }
+
+    const application = await this.getOrCreateApplication();
+    if (
+      application.status !== PM_APPLICATION_STATUS.DRAFT &&
+      application.status !== PM_APPLICATION_STATUS.REQUIRES_CHANGES
+    ) {
+      throw new Error("Your application has already been submitted.");
+    }
+
+    const now = new Date().toISOString();
+    const { data, error } = await db
+      .from("pool_manager_applications")
+      .update({
+        basic_info: basicInfo,
+        status: PM_APPLICATION_STATUS.PENDING,
+        current_stage: PM_APPLICATION_STAGES.ADMIN_REVIEW,
+        submitted_at: now,
+      } as never)
+      .eq("id", application.id)
+      .eq("user_id", user.id)
+      .select("*")
+      .single();
+
+    if (error || !data) throw new Error(error?.message ?? "Submission failed.");
+
+    await ensureApplicantRole(user.id);
+
+    await notificationService.sendToUser({
+      userId: user.id,
+      type: "pm_application_submitted",
+      title: "Application submitted",
+      message: "Your Pool Manager application is pending review by the RyvonX team.",
+      metadata: { application_id: application.id },
+    });
+
+    const { data: admins } = await db
+      .from("profiles")
+      .select("id")
+      .eq("role", USER_ROLES.ADMINISTRATOR);
+
+    for (const admin of (admins ?? []) as Array<{ id: string }>) {
+      await notificationService.sendToUser({
+        userId: admin.id,
+        type: "admin_message",
+        title: "New Pool Manager application",
+        message: `${user.fullName} submitted a Pool Manager application for review.`,
+        metadata: { application_id: application.id, user_id: user.id },
+      });
+    }
+
+    const { publishPlatformEvent, PLATFORM_EVENT_TYPES } = await import(
+      "@/lib/platform-events/publish"
+    );
+    publishPlatformEvent({
+      eventType: PLATFORM_EVENT_TYPES.POOL_MANAGER_APPLICATION_SUBMITTED,
+      category: "administration",
+      entityType: "pool_manager_application",
+      entityId: application.id,
+      actorId: user.id,
+      payload: {
+        applicantUserId: user.id,
+        applicantName: user.fullName,
+        country: basicInfo.country,
+        summary: `Pool Manager application submitted by ${user.fullName}`,
+      },
+    });
+
+    return mapApplication(data as ApplicationRow);
+  },
+
   async completeStage1(): Promise<PoolManagerApplication> {
     const user = await requireAuth();
     const db = createAdminClient();
@@ -487,6 +564,13 @@ export const poolManagerAdminService = {
     applicationId: string;
     newStatus: PoolManagerApplicationStatus;
     notes?: string;
+    initialRating?: {
+      ryvonxRating?: number;
+      experienceLevel?: string;
+      riskClassification?: string;
+      isVerified?: boolean;
+      featured?: boolean;
+    };
   }): Promise<PoolManagerApplication> {
     const admin = await requireRole(USER_ROLES.ADMINISTRATOR);
     const db = createAdminClient();
@@ -510,6 +594,19 @@ export const poolManagerAdminService = {
     };
 
     if (input.newStatus === PM_APPLICATION_STATUS.APPROVED) {
+      if (row.challenge_enrollment_id) {
+        const { data: enrollment } = await db
+          .from("trader_challenge_enrollments")
+          .select("status")
+          .eq("id", row.challenge_enrollment_id)
+          .maybeSingle();
+        const enrollmentStatus = (enrollment as { status?: string } | null)?.status;
+        if (enrollmentStatus !== "passed" && enrollmentStatus !== "completed") {
+          throw new Error(
+            "The challenge must be passed or completed before approving as Pool Manager."
+          );
+        }
+      }
       updates.approved_at = now;
       updates.current_stage = PM_APPLICATION_STAGES.ACTIVATION;
     }
@@ -517,7 +614,7 @@ export const poolManagerAdminService = {
       updates.rejected_at = now;
     }
     if (input.newStatus === PM_APPLICATION_STATUS.REQUIRES_CHANGES) {
-      updates.current_stage = PM_APPLICATION_STAGES.STRATEGY;
+      updates.current_stage = PM_APPLICATION_STAGES.ADMIN_REVIEW;
     }
 
     const { data, error } = await db
@@ -540,7 +637,7 @@ export const poolManagerAdminService = {
     const updated = mapApplication(data as ApplicationRow);
 
     if (input.newStatus === PM_APPLICATION_STATUS.APPROVED) {
-      await this.activatePoolManager(updated);
+      await this.activatePoolManager(updated, input.initialRating);
     } else {
       await this.notifyStatusChange(updated, input.newStatus, input.notes);
     }
@@ -548,7 +645,82 @@ export const poolManagerAdminService = {
     return updated;
   },
 
-  async activatePoolManager(application: PoolManagerApplication): Promise<void> {
+  async updateChallengeAccountInfo(input: {
+    applicationId: string;
+    challengeAccountInfo?: string;
+    broker?: string;
+    server?: string;
+    login?: string;
+    initialBalance?: number;
+  }): Promise<PoolManagerApplication> {
+    await requireRole(USER_ROLES.ADMINISTRATOR);
+    const db = createAdminClient();
+
+    const { data: current, error: fetchError } = await db
+      .from("pool_manager_applications")
+      .select("*")
+      .eq("id", input.applicationId)
+      .single();
+
+    if (fetchError || !current) {
+      throw new Error(fetchError?.message ?? "Application not found.");
+    }
+
+    const row = current as ApplicationRow;
+    const basicInfo = {
+      ...(row.basic_info ?? {}),
+      challengeAccountInfo: input.challengeAccountInfo?.trim() ?? row.basic_info?.challengeAccountInfo,
+    };
+
+    const { data, error } = await db
+      .from("pool_manager_applications")
+      .update({ basic_info: basicInfo } as never)
+      .eq("id", input.applicationId)
+      .select("*")
+      .single();
+
+    if (error || !data) throw new Error(error?.message ?? "Update failed.");
+
+    const updated = mapApplication(data as ApplicationRow);
+
+    const hasStructuredAccount =
+      input.broker?.trim() && input.server?.trim() && input.login?.trim();
+
+    if (hasStructuredAccount) {
+      const { challengeCenterService } = await import("@/services/challenge-center.service");
+      await challengeCenterService.provisionChallengeAccount({
+        applicationId: updated.id,
+        userId: updated.userId,
+        broker: input.broker!.trim(),
+        server: input.server!.trim(),
+        login: input.login!.trim(),
+        initialBalance: input.initialBalance ?? 10000,
+        notes: input.challengeAccountInfo?.trim(),
+      });
+    } else if (input.challengeAccountInfo?.trim()) {
+      await notificationService.sendToUser({
+        userId: updated.userId,
+        type: "pm_application_submitted",
+        title: "Challenge account details",
+        message:
+          "Your RyvonX challenge account details have been provided. Complete the challenge, then await final approval.",
+        metadata: { application_id: updated.id },
+      });
+    }
+
+    return updated;
+  },
+
+  async activatePoolManager(
+    application: PoolManagerApplication,
+    initialRating?: {
+      ryvonxRating?: number;
+      experienceLevel?: string;
+      riskClassification?: string;
+      isVerified?: boolean;
+      featured?: boolean;
+    }
+  ): Promise<void> {
     const admin = await requireRole(USER_ROLES.ADMINISTRATOR);
     const db = createAdminClient();
 
@@ -589,8 +761,14 @@ export const poolManagerAdminService = {
         approved_at: new Date().toISOString(),
         approved_by: admin.id,
         application_id: application.id,
-        is_verified: true,
+        is_verified: initialRating?.isVerified ?? true,
         avg_monthly_return_pct: info.averageMonthlyReturn ?? null,
+        ryvonx_rating: initialRating?.ryvonxRating ?? null,
+        manager_level: initialRating?.experienceLevel ?? null,
+        aggressiveness_rating:
+          initialRating?.riskClassification != null
+            ? Number(initialRating.riskClassification)
+            : null,
       } as never)
       .select("id")
       .single();
@@ -611,6 +789,17 @@ export const poolManagerAdminService = {
       .update({ role: USER_ROLES.POOL_MANAGER } as never)
       .eq("id", application.userId);
 
+    try {
+      const { strategyService } = await import("@/services/strategy.service");
+      await strategyService.createApprovedFromApplication({
+        managerId,
+        userId: application.userId,
+        strategyData: application.strategyData,
+      });
+    } catch (err) {
+      console.error("[activatePoolManager] Could not seed initial strategy:", err);
+    }
+
     await notificationService.sendToUser({
       userId: application.userId,
       type: "pm_application_approved",
@@ -621,6 +810,23 @@ export const poolManagerAdminService = {
         application_id: application.id,
         pool_manager_id: managerId,
         slug,
+      },
+    });
+
+    const { publishPlatformEvent, PLATFORM_EVENT_TYPES } = await import(
+      "@/lib/platform-events/publish"
+    );
+    publishPlatformEvent({
+      eventType: PLATFORM_EVENT_TYPES.POOL_MANAGER_APPROVED,
+      category: "investment",
+      entityType: "pool_manager",
+      entityId: managerId,
+      actorId: admin.id,
+      payload: {
+        poolManagerUserId: application.userId,
+        applicationId: application.id,
+        slug,
+        summary: `Pool Manager ${fullName} approved`,
       },
     });
   },

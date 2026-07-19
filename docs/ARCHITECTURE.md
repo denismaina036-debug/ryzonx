@@ -1,5 +1,7 @@
 # Ryvonx Architecture
 
+> **Note:** This is a legacy foundation document. For authoritative platform specifications, see [docs/README.md](./README.md) and [architecture/](./architecture/).
+
 > Production-ready foundation for a transparent pool trading fund management platform.
 
 ## Overview

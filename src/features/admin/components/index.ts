@@ -33,3 +33,10 @@ export {
   AdminContentApprovalQueue,
   AdminAchievementsPanel,
 } from "./admin-capital-growth-panels";
+export { AdminOperationsDashboardView } from "./admin-operations-dashboard";
+export { AdminAdministrationShell } from "./admin-administration-shell";
+export { AdminGovernanceShell } from "./admin-governance-shell";
+export { AdminStrategyReviewClient } from "./admin-strategy-review-client";
+export { AdminCycleReviewClient } from "./admin-cycle-review-client";
+export { AdminManagerOversightClient } from "./admin-manager-oversight-client";
+export { AdminInternalNotesPanel } from "./admin-internal-notes-panel";

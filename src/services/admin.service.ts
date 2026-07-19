@@ -131,7 +131,12 @@ export const adminService = {
   },
 
   async getPlatformSettings(): Promise<PlatformSetting[]> {
-    return mockPlatformSettings;
+    try {
+      const { platformSettingsService } = await import("@/services/platform-settings.service");
+      return await platformSettingsService.list();
+    } catch {
+      return mockPlatformSettings;
+    }
   },
 
   async getInvestorsPaginated(options?: {

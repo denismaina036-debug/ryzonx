@@ -1,0 +1,443 @@
+import { createAdminClient } from "@/lib/supabase/admin";
+import { requireRole } from "@/lib/auth/session";
+import { USER_ROLES } from "@/constants/roles";
+import { strategyService } from "@/services/strategy.service";
+import { investmentCycleService } from "@/services/investment-cycle.service";
+import { poolManagerDashboardService } from "@/services/pool-manager-dashboard.service";
+import type { ReturnTier } from "@/features/investor/types/account";
+import type { Pool } from "@/domain/pools/types";
+import type {
+  ManagedPoolConfig,
+  ManagedPoolFormInput,
+  ManagedPoolRiskLevel,
+} from "@/domain/pools/managed-pool";
+import { DEFAULT_MANAGED_POOL_RETURN_TIERS } from "@/domain/pools/managed-pool";
+import { poolGovernanceLockService } from "@/services/pool-governance-lock.service";
+import {
+  normalizeManagedPoolForm,
+  validateManagedPoolForm,
+} from "@/domain/pools/managed-pool-validation";
+
+function parseAmount(value: string): number | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function parseMarkets(value: string): string[] {
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function riskToAggressiveness(risk: ManagedPoolRiskLevel | ""): string | null {
+  const map: Record<string, string> = {
+    conservative: "low",
+    balanced: "moderate",
+    growth: "high",
+    aggressive: "extreme",
+  };
+  return risk ? map[risk] ?? null : null;
+}
+
+function readManagedConfig(poolFaq: unknown): ManagedPoolConfig {
+  if (!poolFaq || typeof poolFaq !== "object" || Array.isArray(poolFaq)) return {};
+  const faq = poolFaq as { managedPool?: ManagedPoolConfig };
+  return faq.managedPool ?? {};
+}
+
+function buildPoolFaq(existing: unknown, config: ManagedPoolConfig): Record<string, unknown> {
+  const base =
+    existing && typeof existing === "object" && !Array.isArray(existing)
+      ? { ...(existing as Record<string, unknown>) }
+      : {};
+  return { ...base, managedPool: config };
+}
+
+function normalizeReturnTiers(tiers: ReturnTier[]): ReturnTier[] {
+  if (!tiers.length) return [...DEFAULT_MANAGED_POOL_RETURN_TIERS];
+  return tiers.map((t) => ({
+    minAmount: t.minAmount,
+    maxAmount: t.maxAmount,
+    returnPct: t.returnPct,
+  }));
+}
+
+function formToFundPatch(
+  input: ManagedPoolFormInput,
+  config: ManagedPoolConfig,
+  existingFaq: unknown
+) {
+  const minInvestment = parseAmount(input.minInvestment);
+  const maxInvestment = parseAmount(input.maxInvestment);
+  const targetCapital = parseAmount(input.maxPoolSize);
+  const maxInvestors = parseAmount(input.maxInvestors);
+  const durationDays = parseAmount(input.tradingDurationDays);
+  const targetReturn = parseAmount(input.targetReturnPct);
+  const visibility = input.visibility;
+  const returnTiers = normalizeReturnTiers(input.returnTiers);
+
+  const managedConfig: ManagedPoolConfig = {
+    ...config,
+    strategyId: input.strategyId.trim() || config.strategyId,
+    strategyName: input.strategyName.trim(),
+    tradingStyle: input.tradingStyle.trim(),
+    timeframes: input.timeframes.trim(),
+    tradingSessions: input.tradingSessions.trim(),
+    tradingHours: input.tradingHours.trim(),
+    expectedBehavior: input.expectedBehavior.trim(),
+    managerNotes: input.managerNotes.trim(),
+    tradingMethodology: input.tradingMethodology.trim(),
+    fundingPeriodDays: parseAmount(input.fundingPeriodDays),
+    openingDate: input.scheduleOpenEnded ? undefined : input.openingDate || undefined,
+    closingDate: input.scheduleOpenEnded ? undefined : input.closingDate || undefined,
+    scheduleOpenEnded: input.scheduleOpenEnded,
+    durationUnit: input.durationUnit,
+    maxDrawdownPct: parseAmount(input.maxDrawdownPct),
+    leverage: input.leverage.trim() || undefined,
+    visibility,
+  };
+
+  return {
+    name: input.poolName.trim(),
+    description: input.poolDescription.trim() || null,
+    pool_description:
+      [input.tradingMethodology.trim(), input.managerNotes.trim()]
+        .filter(Boolean)
+        .join("\n\n") ||
+      input.poolDescription.trim() ||
+      null,
+    cover_image_url: input.poolImageUrl?.trim() || null,
+    card_background_color: input.cardBackgroundColor?.trim() || "#0f1623",
+    return_tiers: returnTiers,
+    investor_share_pct: parseAmount(input.investorSharePct) ?? 80,
+    pool_manager_share_pct: parseAmount(input.poolManagerSharePct) ?? 20,
+    tagline: input.poolName.trim() || null,
+    markets_traded: parseMarkets(input.markets),
+    min_investment: minInvestment ?? 100,
+    max_investment: maxInvestment ?? null,
+    target_capital: targetCapital ?? null,
+    max_aum: targetCapital ?? null,
+    max_investors_cap: maxInvestors != null ? Math.floor(maxInvestors) : null,
+    pool_duration_days: durationDays ?? null,
+    profit_target_pct: targetReturn ?? null,
+    aggressiveness_level: riskToAggressiveness(input.riskLevel),
+    risk_summary: input.tradingMethodology.trim() || null,
+    is_invite_only: visibility === "invite_only",
+    hide_from_marketplace: visibility === "private",
+    pool_faq: buildPoolFaq(existingFaq, managedConfig),
+  };
+}
+
+export function poolToManagedForm(
+  pool: Pool,
+  config: ManagedPoolConfig,
+  marketsTraded?: string[],
+  profitSharing?: { investorSharePct?: number; poolManagerSharePct?: number }
+): ManagedPoolFormInput {
+  const returnTiers =
+    pool.returnTiers?.length > 0 ? pool.returnTiers : [...DEFAULT_MANAGED_POOL_RETURN_TIERS];
+
+  return {
+    poolName: pool.name,
+    poolDescription: pool.description,
+    poolImageUrl: pool.coverImageUrl ?? "",
+    cardBackgroundColor: pool.cardBackgroundColor ?? "#0f1623",
+    strategyId: config.strategyId ?? config.internalStrategyId ?? "",
+    strategyName: config.strategyName ?? pool.name,
+    strategyDescription: pool.poolDescription || pool.description,
+    tradingStyle: config.tradingStyle ?? "",
+    markets: marketsTraded?.length
+      ? marketsTraded.join(", ")
+      : config.tradingStyle?.includes(",")
+        ? config.tradingStyle
+        : "",
+    timeframes: config.timeframes ?? "",
+    tradingSessions: config.tradingSessions ?? "",
+    tradingHours: config.tradingHours ?? "",
+    expectedBehavior: config.expectedBehavior ?? "",
+    managerNotes: config.managerNotes ?? "",
+    tradingMethodology: config.tradingMethodology ?? pool.poolDescription ?? "",
+    minInvestment: pool.minInvestment ? String(pool.minInvestment) : "",
+    maxInvestment: pool.maxInvestment != null ? String(pool.maxInvestment) : "",
+    maxPoolSize: pool.targetCapital ? String(pool.targetCapital) : "",
+    maxInvestors: "",
+    fundingPeriodDays: config.fundingPeriodDays != null ? String(config.fundingPeriodDays) : "",
+    tradingDurationDays: pool.poolDurationDays != null ? String(pool.poolDurationDays) : "",
+    durationUnit: config.durationUnit ?? "days",
+    openingDate: config.openingDate ?? "",
+    closingDate: config.closingDate ?? "",
+    scheduleOpenEnded: config.scheduleOpenEnded ?? false,
+    riskLevel: "",
+    targetReturnPct: pool.profitTargetPct ? String(pool.profitTargetPct) : "",
+    maxDrawdownPct: config.maxDrawdownPct != null ? String(config.maxDrawdownPct) : "",
+    leverage: config.leverage ?? "",
+    returnTiers,
+    investorSharePct:
+      profitSharing?.investorSharePct != null
+        ? String(profitSharing.investorSharePct)
+        : "80",
+    poolManagerSharePct:
+      profitSharing?.poolManagerSharePct != null
+        ? String(profitSharing.poolManagerSharePct)
+        : "20",
+    visibility: config.visibility ?? (pool.isInviteOnly ? "invite_only" : "public"),
+  };
+}
+
+export const managedPoolService = {
+  async listMine(): Promise<Pool[]> {
+    return poolManagerDashboardService.getMyPools();
+  },
+
+  async getForManager(poolId: string): Promise<{
+    pool: Pool;
+    config: ManagedPoolConfig;
+    marketsTraded: string[];
+    profitSharing?: { investorSharePct?: number; poolManagerSharePct?: number };
+  }> {
+    const managerId = await poolManagerDashboardService.getManagerId();
+    const db = createAdminClient();
+    const { data, error } = await db.from("funds").select("*").eq("id", poolId).single();
+    if (error || !data) throw new Error("Pool not found.");
+    const row = data as Record<string, unknown>;
+    if ((row.pool_manager_id as string) !== managerId) throw new Error("Not your pool.");
+
+    const pools = await poolManagerDashboardService.getMyPools();
+    const pool = pools.find((p) => p.id === poolId);
+    if (!pool) throw new Error("Pool not found.");
+
+    const config = readManagedConfig(row.pool_faq);
+    const markets = row.markets_traded as string[] | null;
+    if (markets?.length && !config.tradingStyle) {
+      config.tradingStyle = markets.join(", ");
+    }
+
+    return {
+      pool,
+      config,
+      marketsTraded: markets ?? [],
+      profitSharing: {
+        investorSharePct:
+          row.investor_share_pct != null ? Number(row.investor_share_pct) : undefined,
+        poolManagerSharePct:
+          row.pool_manager_share_pct != null ? Number(row.pool_manager_share_pct) : undefined,
+      },
+    };
+  },
+
+  async createDraft(input: ManagedPoolFormInput): Promise<{ id: string; slug: string }> {
+    const normalized = normalizeManagedPoolForm(input);
+    const validationError = validateManagedPoolForm(normalized, { mode: "draft" });
+    if (validationError) throw new Error(validationError);
+
+    await requireRole(USER_ROLES.POOL_MANAGER);
+    const managerId = await poolManagerDashboardService.getManagerId();
+    const db = createAdminClient();
+
+    const { data: manager } = await db
+      .from("pool_managers")
+      .select("display_name, icon_url")
+      .eq("id", managerId)
+      .single();
+
+    const slug = normalized.poolName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 64);
+
+    const mgr = manager as { display_name: string; icon_url: string | null };
+    const patch = formToFundPatch(normalized, {}, null);
+
+    const { data, error } = await db
+      .from("funds")
+      .insert({
+        ...patch,
+        slug,
+        pool_manager_id: managerId,
+        pool_manager_name: mgr.display_name,
+        pool_manager_icon_url: mgr.icon_url,
+        status: "inactive",
+        lifecycle_status: "draft",
+        is_default: false,
+        pool_config_version: 1,
+      } as never)
+      .select("id, slug")
+      .single();
+
+    if (error || !data) throw new Error(error?.message ?? "Could not create pool.");
+
+    return data as { id: string; slug: string };
+  },
+
+  async updateDraft(poolId: string, input: ManagedPoolFormInput): Promise<void> {
+    const normalized = normalizeManagedPoolForm(input);
+    const validationError = validateManagedPoolForm(normalized, { mode: "draft" });
+    if (validationError) throw new Error(validationError);
+
+    await poolGovernanceLockService.assertPoolEditable(poolId);
+
+    const managerId = await poolManagerDashboardService.getManagerId();
+    const db = createAdminClient();
+
+    const { data: existing } = await db
+      .from("funds")
+      .select("lifecycle_status, pool_manager_id, pool_faq")
+      .eq("id", poolId)
+      .single();
+
+    if (!existing) throw new Error("Pool not found.");
+    const row = existing as {
+      lifecycle_status: string;
+      pool_manager_id: string | null;
+      pool_faq: unknown;
+    };
+    if (row.pool_manager_id !== managerId) throw new Error("Not your pool.");
+    if (row.lifecycle_status !== "draft") {
+      throw new Error("Only draft pools can be edited.");
+    }
+
+    const config = readManagedConfig(row.pool_faq);
+    const patch = formToFundPatch(normalized, config, row.pool_faq);
+
+    const { error } = await db.from("funds").update(patch as never).eq("id", poolId);
+    if (error) throw new Error(error.message);
+  },
+
+  /** Apply an admin-approved pool revision (internal — called by entityRevisionService). */
+  async applyApprovedRevision(poolId: string, input: ManagedPoolFormInput): Promise<void> {
+    const normalized = normalizeManagedPoolForm(input);
+    const validationError = validateManagedPoolForm(normalized, { mode: "submit" });
+    if (validationError) throw new Error(validationError);
+
+    const db = createAdminClient();
+    const { data: existing } = await db
+      .from("funds")
+      .select("pool_faq")
+      .eq("id", poolId)
+      .single();
+    if (!existing) throw new Error("Pool not found.");
+
+    const config = readManagedConfig((existing as { pool_faq: unknown }).pool_faq);
+    const patch = formToFundPatch(normalized, config, (existing as { pool_faq: unknown }).pool_faq);
+    const { error } = await db.from("funds").update(patch as never).eq("id", poolId);
+    if (error) throw new Error(error.message);
+  },
+
+  async submitForReview(poolId: string): Promise<void> {
+    const { pool, config, marketsTraded } = await this.getForManager(poolId);
+    if ((pool.lifecycleStatus ?? "draft") !== "draft") {
+      throw new Error("Only draft pools can be submitted.");
+    }
+
+    const form = poolToManagedForm(pool, config, marketsTraded);
+    const validationError = validateManagedPoolForm(form, { mode: "submit" });
+    if (validationError) throw new Error(validationError);
+
+    const strategyId = form.strategyId || config.strategyId || config.internalStrategyId;
+    if (!strategyId) {
+      throw new Error("Select an approved strategy before submitting.");
+    }
+
+    await strategyService.getByIdForManager(strategyId);
+
+    const db = createAdminClient();
+    const { data: row } = await db.from("funds").select("pool_faq").eq("id", poolId).single();
+    const nextConfig: ManagedPoolConfig = {
+      ...config,
+      strategyId,
+      internalStrategyId: strategyId,
+    };
+
+    await db
+      .from("funds")
+      .update({
+        pool_faq: buildPoolFaq((row as { pool_faq?: unknown } | null)?.pool_faq, nextConfig),
+      } as never)
+      .eq("id", poolId);
+
+    await poolManagerDashboardService.submitPoolForReview(poolId);
+  },
+
+  async approveAndGoLive(poolId: string): Promise<void> {
+    const admin = await requireRole(USER_ROLES.ADMINISTRATOR);
+    const db = createAdminClient();
+
+    const { data: fundRow } = await db.from("funds").select("*").eq("id", poolId).single();
+    if (!fundRow) throw new Error("Pool not found.");
+
+    const fund = fundRow as Record<string, unknown>;
+    const config = readManagedConfig(fund.pool_faq);
+    const strategyId = config.strategyId ?? config.internalStrategyId;
+
+    if (strategyId) {
+      try {
+        await strategyService.adminReview(strategyId, "approved");
+        await strategyService.adminReview(strategyId, "available");
+      } catch {
+        /* may already be approved */
+      }
+    }
+
+    const cycleDates = config.scheduleOpenEnded
+      ? {}
+      : {
+          openingDate: config.openingDate,
+          closingDate: config.closingDate,
+        };
+
+    if (config.internalCycleId) {
+      try {
+        await db
+          .from("investment_cycles")
+          .update({ fund_id: poolId, cycle_number: 1 } as never)
+          .eq("id", config.internalCycleId);
+        await investmentCycleService.adminReview(config.internalCycleId, "approved");
+        await investmentCycleService.adminReview(config.internalCycleId, "funding");
+      } catch {
+        await investmentCycleService.createFirstCycleForApprovedPool(
+          poolId,
+          admin.id,
+          cycleDates
+        );
+      }
+    } else {
+      await investmentCycleService.createFirstCycleForApprovedPool(
+        poolId,
+        admin.id,
+        cycleDates
+      );
+    }
+
+    await db
+      .from("funds")
+      .update({
+        lifecycle_status: "live",
+        status: "active",
+        is_marketplace_listed: true,
+        approved_at: new Date().toISOString(),
+        listed_at: new Date().toISOString(),
+        hide_from_marketplace: false,
+      } as never)
+      .eq("id", poolId);
+  },
+
+  async listCycles(poolId: string) {
+    return investmentCycleService.listByFundForManager(poolId);
+  },
+
+  async createCycle(
+    poolId: string,
+    input: { name?: string; openingDate?: string; closingDate?: string }
+  ) {
+    await this.getForManager(poolId);
+    const cycle = await investmentCycleService.createFromPool({
+      fundId: poolId,
+      ...input,
+    });
+    return investmentCycleService.activateForLivePool(cycle.id);
+  },
+};

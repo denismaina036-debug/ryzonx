@@ -36,9 +36,11 @@ interface InvestorOption {
 export function AdminPoolsManager({
   funds,
   investors,
+  reviewOnly = true,
 }: {
   funds: AdminFund[];
   investors: InvestorOption[];
+  reviewOnly?: boolean;
 }) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
@@ -138,8 +140,24 @@ export function AdminPoolsManager({
     setShowForm(false);
   }
 
+  async function approvePool(poolId: string) {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/managed-pools/${poolId}/approve`, { method: "POST" });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Approve failed");
+      toast.success("Pool approved and is now live");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Approve failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
+      {!reviewOnly && (
       <div className="flex justify-end">
         <Button
           size="sm"
@@ -152,8 +170,9 @@ export function AdminPoolsManager({
           Create Pool
         </Button>
       </div>
+      )}
 
-      {showForm && (
+      {!reviewOnly && showForm && (
         <div className="rounded-lg border bg-white p-4">
           <h3 className="mb-3 font-semibold text-navy-950">New trading pool</h3>
           <AdminPoolFormEditor form={createForm} onChange={setCreateForm} />
@@ -218,6 +237,7 @@ export function AdminPoolsManager({
             <TableHead>Raised</TableHead>
             <TableHead>Returns</TableHead>
             <TableHead>Investors</TableHead>
+            <TableHead>Status</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -262,8 +282,16 @@ export function AdminPoolsManager({
               <TableCell>
                 {f.activeInvestors} / {f.targetInvestors}
               </TableCell>
+              <TableCell className="capitalize text-sm text-navy-600">
+                {f.lifecycleStatus.replace(/_/g, " ")}
+              </TableCell>
               <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-2">
+                  {(f.lifecycleStatus === "submitted" || f.lifecycleStatus === "under_review") && (
+                    <Button size="sm" disabled={saving} onClick={() => void approvePool(f.id)}>
+                      Approve & Go Live
+                    </Button>
+                  )}
                   <Button size="sm" variant="outline" onClick={() => openEdit(f)}>
                     <Pencil className="h-3.5 w-3.5" />
                     Edit
