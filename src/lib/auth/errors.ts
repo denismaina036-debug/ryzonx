@@ -13,6 +13,8 @@ const AUTH_CODE_MESSAGES: Record<string, string> = {
     "We could not finish creating your account. Please try again in a moment.",
   over_email_send_rate_limit:
     "Email sending is temporarily limited. Wait a few minutes, then try again. If this persists, confirm the Send Email hook URL is https://ryvonx.com/api/auth/send-email and Resend is configured.",
+  hook_invalid_response:
+    "Account setup failed because the auth email hook returned an invalid response. Redeploy the latest app version and confirm the hook returns JSON with Content-Type application/json.",
   validation_failed: "Please check your details and try again.",
 };
 
@@ -49,6 +51,16 @@ export function getAuthErrorMessage(error: AuthError | Error): string {
   const message = error.message?.trim();
   if (message?.includes("Database error saving new user")) {
     return "Account setup failed in the database. Run the latest Supabase migration, or try a different email.";
+  }
+
+  if (
+    message?.includes("Content-Type") ||
+    message?.includes("Invalid JSON response")
+  ) {
+    return (
+      AUTH_CODE_MESSAGES.hook_invalid_response ??
+      "Account setup failed because the auth email hook returned an invalid response."
+    );
   }
 
   if (message && !isEmptyJsonMessage(message) && message !== "0") {

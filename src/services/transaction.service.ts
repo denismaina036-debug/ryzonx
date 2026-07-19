@@ -8,6 +8,7 @@ import type { TransactionStatus } from "@/types";
 import { communicationTriggers } from "@/services/communication/communication-triggers.service";
 import { adminNotifyService } from "@/services/communication/admin-notify.service";
 import { formatMoney } from "@/services/communication/user-variables";
+import { ensurePlatformFundingFund } from "@/services/platform-funding.service";
 
 export type { InvestorTransaction };
 
@@ -332,6 +333,7 @@ export const transactionService = {
     fundId?: string;
   }): Promise<{ id: string }> {
     const user = await requireAuth();
+    await ensurePlatformFundingFund();
     const supabase = await createClient();
     const fundId = input.fundId ?? DEFAULT_FUND_ID;
 

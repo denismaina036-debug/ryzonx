@@ -161,7 +161,9 @@ BEGIN
   GET DIAGNOSTICS n = ROW_COUNT;
   PERFORM _v1_count('announcements', n);
 
-  DELETE FROM crypto_deposit_wallets;
+  DELETE FROM crypto_deposit_wallets
+  WHERE fund_id IS NOT NULL
+    AND fund_id <> '00000000-0000-4000-a000-000000000001';
   GET DIAGNOSTICS n = ROW_COUNT;
   PERFORM _v1_count('crypto_deposit_wallets', n);
 
@@ -244,9 +246,10 @@ BEGIN
   PERFORM _v1_count('ledger_accounts_cycle_scoped', n);
 
   -- -------------------------------------------------------------------------
-  -- Phase 8: Pools (funds)
+  -- Phase 8: Pools (funds) — preserve platform funding wallet
   -- -------------------------------------------------------------------------
-  DELETE FROM funds;
+  DELETE FROM funds
+  WHERE id <> '00000000-0000-4000-a000-000000000001';
   GET DIAGNOSTICS n = ROW_COUNT;
   PERFORM _v1_count('pools_funds', n);
 

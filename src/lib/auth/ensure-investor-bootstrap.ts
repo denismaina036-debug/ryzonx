@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getServerEnvSafe } from "@/lib/env";
 import { DEFAULT_FUND_ID } from "@/constants/funds";
 import { formatFullName } from "@/lib/auth/register";
+import { ensurePlatformFundingFund } from "@/services/platform-funding.service";
 import type { User } from "@supabase/supabase-js";
 
 /**
@@ -16,6 +17,8 @@ export async function ensureInvestorBootstrap(user: User): Promise<void> {
 
   const admin = createAdminClient();
   const meta = user.user_metadata ?? {};
+
+  await ensurePlatformFundingFund();
 
   const { data: existingProfile } = await admin
     .from("profiles")

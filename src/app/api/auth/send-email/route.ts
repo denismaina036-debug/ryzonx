@@ -9,6 +9,13 @@ import {
 
 export const runtime = "nodejs";
 
+function hookJsonResponse(body: Record<string, unknown>, status: number): NextResponse {
+  return NextResponse.json(body, {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 /**
  * Supabase Auth Send Email hook.
  * Receives auth email events, renders RyvonX templates, sends via Resend.
@@ -36,7 +43,7 @@ export async function POST(request: Request) {
   try {
     const verified = verifySupabaseSendEmailRequest(payload, request.headers);
     await handleSupabaseSendEmailHook(verified);
-    return new NextResponse(null, { status: 200 });
+    return hookJsonResponse({}, 200);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Send email hook failed";
     console.error("[auth/send-email]", message, error);
@@ -47,6 +54,6 @@ export async function POST(request: Request) {
         ? 401
         : 500;
 
-    return NextResponse.json({ error: message }, { status });
+    return hookJsonResponse({ error: message }, status);
   }
 }

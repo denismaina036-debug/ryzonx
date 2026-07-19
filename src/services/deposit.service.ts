@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_FUND_ID, DEFAULT_FUND_NAME } from "@/constants/funds";
 import { requireAuth } from "@/lib/auth/session";
+import { ensurePlatformFundingFund } from "@/services/platform-funding.service";
 import {
   communicationTriggers,
   adminNotifyService,
@@ -243,6 +244,7 @@ export const depositService = {
     input: SubmitCryptoDepositInput
   ): Promise<{ id: string }> {
     const user = await requireAuth();
+    await ensurePlatformFundingFund();
     const supabase = await createClient();
     const wallet = await resolveActiveWallet(supabase, input);
 
