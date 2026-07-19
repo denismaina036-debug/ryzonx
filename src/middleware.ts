@@ -1,4 +1,4 @@
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/middleware";
 import { redirectWithSupabaseCookies } from "@/lib/supabase/middleware-redirect";
 import { hasSupabaseSessionCookie } from "@/lib/auth/session-cookies";
@@ -12,8 +12,14 @@ import { ROUTES } from "@/constants/routes";
 import { USER_ROLES, type UserRole } from "@/constants/roles";
 
 export async function middleware(request: NextRequest) {
-  const { supabase, supabaseResponse } = createClient(request);
   const pathname = request.nextUrl.pathname;
+
+  // Auth hooks must receive the raw body and Standard Webhooks headers untouched.
+  if (pathname === "/api/auth/send-email") {
+    return NextResponse.next();
+  }
+
+  const { supabase, supabaseResponse } = createClient(request);
 
   if (pathname === "/about" || pathname === "/transparency") {
     return redirectWithSupabaseCookies(
@@ -116,6 +122,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/auth/send-email|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

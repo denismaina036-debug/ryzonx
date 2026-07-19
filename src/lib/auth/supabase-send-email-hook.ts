@@ -1,4 +1,4 @@
-import { Webhook } from "standardwebhooks";
+import { Webhook, WebhookVerificationError } from "standardwebhooks";
 import { getRegistryTemplate } from "@/domain/communication/template-registry";
 import { appUrl, getAuthCallbackUrl } from "@/lib/app-url";
 import { renderTemplateWithPremium } from "@/services/communication/email/catalog-bridge";
@@ -33,19 +33,103 @@ const ACTION_TEMPLATE_SLUG: Record<string, string> = {
   email_changed_notification: "profile_updated",
 };
 
+const STANDARD_WEBHOOK_HEADERS = {
+  "webhook-id": ["webhook-id", "svix-id"],
+  "webhook-timestamp": ["webhook-timestamp", "svix-timestamp"],
+  "webhook-signature": ["webhook-signature", "svix-signature"],
+} as const;
+
+function getHeaderValue(
+  headers: Headers,
+  names: readonly string[]
+): string | null {
+  for (const name of names) {
+    const value = headers.get(name)?.trim();
+    if (value) return value;
+  }
+  return null;
+}
+
+/**
+ * Normalize incoming Standard Webhooks headers for verification.
+ * Supabase Auth hooks use webhook-* names; some providers use svix-* aliases.
+ */
+export function collectStandardWebhookHeaders(
+  headers: Headers
+): Record<string, string> {
+  const normalized: Record<string, string> = {};
+
+  for (const [canonical, aliases] of Object.entries(STANDARD_WEBHOOK_HEADERS)) {
+    const value = getHeaderValue(headers, aliases);
+    if (value) {
+      normalized[canonical] = value;
+    }
+  }
+
+  return normalized;
+}
+
+/** Logs header names only — never values or secrets. */
+export function logIncomingWebhookHeaderNames(headers: Headers): void {
+  const names = [...headers.keys()].sort();
+  const normalized = collectStandardWebhookHeaders(headers);
+  const present = Object.keys(normalized).sort();
+  const missing = Object.keys(STANDARD_WEBHOOK_HEADERS).filter(
+    (name) => !normalized[name]
+  );
+
+  console.info(
+    "[auth/send-email] incoming header names:",
+    names.length > 0 ? names.join(", ") : "(none)"
+  );
+  console.info(
+    "[auth/send-email] standard webhook headers present:",
+    present.length > 0 ? present.join(", ") : "(none)"
+  );
+  if (missing.length > 0) {
+    console.info(
+      "[auth/send-email] standard webhook headers missing:",
+      missing.join(", ")
+    );
+  }
+}
+
 function resolveHookSecret(): string | null {
-  const raw = process.env.SEND_EMAIL_HOOK_SECRET?.trim();
+  const raw = process.env.SEND_EMAIL_HOOK_SECRET?.trim().replace(/^["']|["']$/g, "");
   if (!raw) return null;
   return raw.replace(/^v1,whsec_/, "");
 }
 
+export function getSendEmailHookConfigStatus(): {
+  hookSecretConfigured: boolean;
+  resendConfigured: boolean;
+  emailFrom: string;
+} {
+  return {
+    hookSecretConfigured: Boolean(resolveHookSecret()),
+    resendConfigured: isResendConfigured(),
+    emailFrom:
+      process.env.EMAIL_FROM?.trim() ?? "RyvonX <notifications@ryvonx.com>",
+  };
+}
+
 export function verifySupabaseSendEmailRequest(
   payload: string,
-  headers: Record<string, string>
+  requestHeaders: Headers
 ): SupabaseSendEmailPayload {
   const secret = resolveHookSecret();
   if (!secret) {
     throw new Error("SEND_EMAIL_HOOK_SECRET is not configured.");
+  }
+
+  const headers = collectStandardWebhookHeaders(requestHeaders);
+  const missing = Object.keys(STANDARD_WEBHOOK_HEADERS).filter(
+    (name) => !headers[name]
+  );
+  if (missing.length > 0) {
+    throw new WebhookVerificationError(
+      `Missing required headers: ${missing.join(", ")}`
+    );
   }
 
   const wh = new Webhook(secret);
