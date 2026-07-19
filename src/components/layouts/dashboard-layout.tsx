@@ -16,6 +16,7 @@ import { SidebarPoolManagerPromo } from "@/features/investor/components/sidebar-
 import { SidebarChallengeCenter } from "@/features/investor/components/sidebar-challenge-center";
 import { SidebarPoolManagerWorkspace } from "@/features/investor/components/sidebar-pool-manager-workspace";
 import { InvestorThemeProvider } from "@/providers/investor-theme-provider";
+import { WorkspaceRouteMemorySync } from "@/components/workspace/workspace-route-memory-sync";
 import { useAuthActions } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
@@ -56,6 +57,7 @@ export function DashboardLayoutShell({
 
         <InvestorMobileBottomNav />
         <InvestorMobileFab hasActivePool={hasActivePool} />
+        <WorkspaceRouteMemorySync />
       </div>
     </InvestorThemeProvider>
   );

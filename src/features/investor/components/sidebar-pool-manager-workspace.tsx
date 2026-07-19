@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { ArrowRight, LayoutDashboard } from "lucide-react";
-import { ROUTES } from "@/constants/routes";
+import { WorkspaceSwitchLink } from "@/components/workspace/workspace-switch-link";
 import { USER_ROLES } from "@/constants/roles";
 
 interface SidebarPoolManagerWorkspaceProps {
@@ -21,13 +20,13 @@ export function SidebarPoolManagerWorkspace({ userRole }: SidebarPoolManagerWork
       <p className="mt-1.5 text-xs leading-relaxed text-[var(--id-text-secondary)]">
         Create strategies, investment cycles, and manage your pools.
       </p>
-      <Link
-        href={ROUTES.poolManager}
+      <WorkspaceSwitchLink
+        target="pool-manager"
         className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-semibold text-[#0a0f18] transition-opacity hover:opacity-90"
       >
         Open Workspace
         <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
-      </Link>
+      </WorkspaceSwitchLink>
     </div>
   );
 }

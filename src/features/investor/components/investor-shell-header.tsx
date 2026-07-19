@@ -5,6 +5,8 @@ import { Bell, ChevronDown, LayoutDashboard, LogOut, MessageSquare, Search, Sett
 import { ROUTES } from "@/constants/routes";
 import { ROLE_LABELS, USER_ROLES, type UserRole } from "@/constants/roles";
 import { InvestorThemeToggle } from "@/features/investor/components/investor-theme-toggle";
+import { WorkspaceMobileSwitcher } from "@/components/workspace/workspace-mobile-switcher";
+import { WorkspaceSwitchLink } from "@/components/workspace/workspace-switch-link";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { ClientOnly } from "@/components/ui/client-only";
 import {
@@ -79,6 +81,7 @@ export function InvestorShellHeader({
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">
+          {isPoolManager && <WorkspaceMobileSwitcher target="pool-manager" />}
           <Link
             href={ROUTES.notifications}
             className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] text-[var(--id-text-secondary)] transition-colors hover:bg-[var(--id-surface-hover)] hover:text-[var(--id-text)]"
@@ -118,10 +121,13 @@ export function InvestorShellHeader({
               <DropdownMenuSeparator />
               {isPoolManager && (
                 <DropdownMenuItem asChild>
-                  <Link href={ROUTES.poolManager} className="cursor-pointer">
+                  <WorkspaceSwitchLink
+                    target="pool-manager"
+                    className="flex cursor-pointer items-center gap-2"
+                  >
                     <LayoutDashboard className="h-4 w-4 text-[var(--id-text-muted)]" strokeWidth={1.75} />
                     Pool Manager Workspace
-                  </Link>
+                  </WorkspaceSwitchLink>
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem asChild>

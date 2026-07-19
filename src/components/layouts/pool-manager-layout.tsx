@@ -11,8 +11,14 @@ import {
   pmNavIdleClass,
 } from "@/features/pool-manager/constants/ui";
 import { PoolManagerMobileProfileMenu } from "@/features/pool-manager/components/pool-manager-mobile-profile-menu";
+import { PoolManagerMobileBottomNav } from "@/features/pool-manager/components/pool-manager-mobile-bottom-nav";
+import { PoolManagerMobileFab } from "@/features/pool-manager/components/pool-manager-mobile-fab";
 import { InvestorThemeToggle } from "@/features/investor/components/investor-theme-toggle";
 import { InvestorThemeProvider } from "@/providers/investor-theme-provider";
+import { WorkspaceRouteMemorySync } from "@/components/workspace/workspace-route-memory-sync";
+import { WorkspaceSwitchLink } from "@/components/workspace/workspace-switch-link";
+import { WorkspaceMobileSwitcher } from "@/components/workspace/workspace-mobile-switcher";
+import type { PoolManagerQuickActionContext } from "@/services/pool-manager-workspace.service";
 import { useAuthActions } from "@/hooks/use-auth";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/utils";
@@ -25,6 +31,7 @@ interface PoolManagerLayoutShellProps {
   avatarUrl?: string | null;
   userEmail?: string;
   managerSlug?: string | null;
+  quickActionContext: PoolManagerQuickActionContext;
 }
 
 export function PoolManagerLayoutShell({
@@ -33,6 +40,7 @@ export function PoolManagerLayoutShell({
   avatarUrl,
   userEmail,
   managerSlug,
+  quickActionContext,
 }: PoolManagerLayoutShellProps) {
   const pathname = usePathname();
   const { signOut } = useAuthActions();
@@ -143,12 +151,10 @@ export function PoolManagerLayoutShell({
                 <ChevronRight className="h-3.5 w-3.5" />
               </Link>
             )}
-            <Link
-              href={ROUTES.portfolio}
+            <WorkspaceSwitchLink
+              target="investor"
               className="block rounded-lg px-3 py-2 text-xs text-[var(--id-text-muted)] hover:bg-[var(--id-surface-hover)] hover:text-[var(--id-text-secondary)]"
-            >
-              Investor Portfolio
-            </Link>
+            />
             <Button
               variant="ghost"
               size="sm"
@@ -163,9 +169,12 @@ export function PoolManagerLayoutShell({
         <div className="flex min-w-0 flex-1 flex-col lg:pl-64 xl:pl-[17rem]">
           <header className="sticky top-0 z-20 border-b border-[var(--id-border)] bg-[var(--id-glass)] px-4 py-3 backdrop-blur-md sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center justify-between gap-3">
-              <p className="truncate bg-[var(--pm-brand-gradient)] bg-clip-text text-sm font-medium text-transparent lg:hidden">
-                Pool Manager
-              </p>
+              <div className="flex min-w-0 items-center gap-2">
+                <p className="truncate bg-[var(--pm-brand-gradient)] bg-clip-text text-sm font-medium text-transparent lg:hidden">
+                  Pool Manager
+                </p>
+                <WorkspaceMobileSwitcher target="investor" />
+              </div>
               <p className="hidden text-sm text-[var(--id-text-muted)] lg:block">
                 Professional pool management under RyvonX governance
               </p>
@@ -180,8 +189,12 @@ export function PoolManagerLayoutShell({
               </div>
             </div>
           </header>
-          <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
+          <main className="flex-1 px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:py-8 lg:pb-8">{children}</main>
         </div>
+
+        <WorkspaceRouteMemorySync />
+        <PoolManagerMobileBottomNav />
+        <PoolManagerMobileFab context={quickActionContext} />
       </div>
     </InvestorThemeProvider>
   );
