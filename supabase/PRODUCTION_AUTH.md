@@ -10,6 +10,7 @@ Configure these settings in the [Supabase Dashboard](https://supabase.com/dashbo
 |---------|--------|
 | **Site URL** | `https://ryvonx.com` |
 | **Redirect URLs** | `https://ryvonx.com/auth/callback` |
+| | `https://ryvonx.com/auth/confirm` |
 | | `https://ryvonx.com/reset-password` |
 | | `https://ryvonx.com/verify-email` |
 
@@ -26,6 +27,8 @@ Do **not** add `localhost` or temporary preview URLs to the production project.
 | **Secret** | Generate in dashboard → add to Vercel as `SEND_EMAIL_HOOK_SECRET` |
 
 When this hook is **enabled**, Supabase does **not** send auth emails itself — your app must handle them. The URL must be the API route above, **not** the homepage.
+
+Verification emails link to `https://ryvonx.com/auth/confirm` (PKCE + SSR). That route calls `verifyOtp` server-side and sets the session cookie.
 
 ### Vercel environment variables (required for auth + platform email)
 

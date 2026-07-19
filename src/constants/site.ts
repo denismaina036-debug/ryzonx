@@ -8,6 +8,7 @@ export const WWW_SITE_HOST = "www.ryvonx.com";
 /** Supabase Auth redirect allow-list for production. */
 export const PRODUCTION_AUTH_REDIRECT_URLS = [
   `${CANONICAL_SITE_URL}/auth/callback`,
+  `${CANONICAL_SITE_URL}/auth/confirm`,
   `${CANONICAL_SITE_URL}/reset-password`,
   `${CANONICAL_SITE_URL}/verify-email`,
 ] as const;

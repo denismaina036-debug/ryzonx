@@ -1,6 +1,7 @@
 import { Webhook, WebhookVerificationError } from "standardwebhooks";
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { getRegistryTemplate } from "@/domain/communication/template-registry";
-import { appUrl, getAuthCallbackUrl } from "@/lib/app-url";
+import { appUrl } from "@/lib/app-url";
 import { renderTemplateWithPremium } from "@/services/communication/email/catalog-bridge";
 import { sendResendEmail, isResendConfigured } from "@/services/communication/email/resend.service";
 
@@ -145,29 +146,71 @@ function firstNameFromUser(user: SupabaseSendEmailPayload["user"]): string {
   return first;
 }
 
-export function buildSupabaseVerifyUrl(
+export function mapEmailActionToVerifyOtpType(actionType: string): EmailOtpType {
+  switch (actionType) {
+    case "recovery":
+      return "recovery";
+    case "invite":
+      return "invite";
+    case "email_change":
+      return "email_change";
+    case "magiclink":
+      return "magiclink";
+    case "signup":
+    default:
+      return "email";
+  }
+}
+
+function resolveConfirmNextPath(
   emailData: SupabaseSendEmailPayload["email_data"],
-  options?: { tokenHash?: string; type?: string; redirectTo?: string }
+  actionType: string
 ): string {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
-  if (!supabaseUrl) {
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL is not configured.");
+  if (actionType === "recovery") {
+    return "/reset-password";
   }
 
+  const redirectTo = emailData.redirect_to?.trim();
+  if (redirectTo) {
+    try {
+      const url = new URL(redirectTo);
+      if (url.pathname === "/auth/callback") {
+        return "/dashboard";
+      }
+      const path = `${url.pathname}${url.search}`;
+      if (path.startsWith("/")) {
+        return path;
+      }
+    } catch {
+      if (redirectTo.startsWith("/")) {
+        return redirectTo;
+      }
+    }
+  }
+
+  return "/dashboard";
+}
+
+/**
+ * Build PKCE-compatible confirmation URL handled by /auth/confirm.
+ * Do not link to Supabase /auth/v1/verify when using SSR + @supabase/ssr.
+ */
+export function buildAuthConfirmUrl(
+  emailData: SupabaseSendEmailPayload["email_data"],
+  options?: { tokenHash?: string; type?: string; next?: string }
+): string {
   const tokenHash = options?.tokenHash ?? emailData.token_hash;
-  const type = options?.type ?? emailData.email_action_type;
-  const redirectTo =
-    options?.redirectTo ||
-    emailData.redirect_to ||
-    getAuthCallbackUrl();
+  const actionType = options?.type ?? emailData.email_action_type;
+  const otpType = mapEmailActionToVerifyOtpType(actionType);
+  const next = options?.next ?? resolveConfirmNextPath(emailData, actionType);
 
   const params = new URLSearchParams({
-    token: tokenHash,
-    type,
-    redirect_to: redirectTo,
+    token_hash: tokenHash,
+    type: otpType,
+    next,
   });
 
-  return `${supabaseUrl}/auth/v1/verify?${params.toString()}`;
+  return appUrl(`/auth/confirm?${params.toString()}`);
 }
 
 function templateSlugForAction(actionType: string): string {
@@ -228,14 +271,13 @@ export async function handleSupabaseSendEmailHook(
   }
 
   if (emailData.email_action_type === "email_change" && user.new_email) {
-    const currentLink = buildSupabaseVerifyUrl(emailData, {
+    const currentLink = buildAuthConfirmUrl(emailData, {
       tokenHash: emailData.token_hash_new ?? emailData.token_hash,
       type: "email_change",
     });
-    const newLink = buildSupabaseVerifyUrl(emailData, {
+    const newLink = buildAuthConfirmUrl(emailData, {
       tokenHash: emailData.token_hash,
       type: "email_change",
-      redirectTo: emailData.redirect_to || getAuthCallbackUrl(),
     });
 
     await sendAuthEmail(user.email, currentLink);
@@ -243,6 +285,6 @@ export async function handleSupabaseSendEmailHook(
     return;
   }
 
-  const verificationLink = buildSupabaseVerifyUrl(emailData);
+  const verificationLink = buildAuthConfirmUrl(emailData);
   await sendAuthEmail(user.email, verificationLink);
 }

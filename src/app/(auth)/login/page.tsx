@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { LoginForm } from "@/features/auth/components/login-form";
+import { AuthQueryToast } from "@/features/auth/components/auth-query-toast";
 
 function LoginFormFallback() {
   return (
@@ -12,6 +13,7 @@ function LoginFormFallback() {
 export default function LoginPage() {
   return (
     <Suspense fallback={<LoginFormFallback />}>
+      <AuthQueryToast />
       <LoginForm />
     </Suspense>
   );

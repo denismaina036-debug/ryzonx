@@ -19,6 +19,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (pathname === "/auth/confirm") {
+    return NextResponse.next();
+  }
+
   const { supabase, supabaseResponse } = createClient(request);
 
   if (pathname === "/about" || pathname === "/transparency") {
@@ -122,6 +126,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/auth/send-email|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/auth/send-email|auth/confirm|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
