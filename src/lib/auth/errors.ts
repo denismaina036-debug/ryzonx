@@ -12,7 +12,7 @@ const AUTH_CODE_MESSAGES: Record<string, string> = {
   unexpected_failure:
     "We could not finish creating your account. Please try again in a moment.",
   over_email_send_rate_limit:
-    "Too many signup attempts. Please wait a few minutes and try again.",
+    "Email sending is temporarily limited. Wait a few minutes, then try again. If this persists, confirm the Send Email hook URL is https://ryvonx.com/api/auth/send-email and Resend is configured.",
   validation_failed: "Please check your details and try again.",
 };
 
