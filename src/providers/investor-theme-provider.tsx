@@ -7,10 +7,10 @@ export function InvestorThemeProvider({ children }: { children: ReactNode }) {
   return (
     <NextThemesProvider
       attribute="class"
-      defaultTheme="dark"
-      enableSystem
+      defaultTheme="light"
+      enableSystem={false}
       storageKey="ryvonx-investor-theme"
-      themes={["dark", "light"]}
+      themes={["light", "dark"]}
       disableTransitionOnChange={false}
     >
       {children}
