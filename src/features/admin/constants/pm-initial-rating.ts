@@ -48,6 +48,15 @@ export const PM_EXPERIENCE_TO_MANAGER_LEVEL: Record<PmExperienceLevel, string> =
   elite_trader: "elite_pool_manager",
 };
 
+/** Maps admin experience assessment to the initial security rating on pool_managers. */
+export const PM_EXPERIENCE_TO_SECURITY_RATING: Record<PmExperienceLevel, number> = {
+  beginner: 2.0,
+  intermediate: 2.5,
+  experienced: 3.5,
+  pro_trader: 4.0,
+  elite_trader: 4.5,
+};
+
 export function resolveManagerCareerLevel(experienceLevel?: string): string {
   if (!experienceLevel) return "verified_pool_manager";
   return PM_EXPERIENCE_TO_MANAGER_LEVEL[experienceLevel as PmExperienceLevel] ?? "verified_pool_manager";
@@ -72,4 +81,9 @@ export function formatPmInitialRatingNotes(
 export function resolvePmAggressivenessRating(riskClassification?: string): number | null {
   if (!riskClassification) return null;
   return PM_RISK_CLASSIFICATION_TO_RATING[riskClassification as PmRiskClassification] ?? null;
+}
+
+export function resolvePmSecurityRating(experienceLevel?: string): number | null {
+  if (!experienceLevel) return null;
+  return PM_EXPERIENCE_TO_SECURITY_RATING[experienceLevel as PmExperienceLevel] ?? null;
 }

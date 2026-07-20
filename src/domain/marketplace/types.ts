@@ -9,6 +9,7 @@ export interface MarketplaceActiveCycle {
   status: InvestmentCycleStatus;
   openingDate: string | null;
   closingDate: string | null;
+  fundingDeadline: string | null;
   poolVersion: number;
 }
 
@@ -75,6 +76,8 @@ export interface MarketplacePoolDetail extends MarketplacePoolCard {
   allocationReviewAt: string | null;
   activeCycle: MarketplaceActiveCycle | null;
   canParticipate: boolean;
+  /** Best-known datetime when live trading is scheduled to begin. */
+  tradingStartsAt: string | null;
   manager: PoolManagerPublicSummary | null;
   faq: Array<{ question: string; answer: string }>;
 }

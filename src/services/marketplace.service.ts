@@ -34,6 +34,13 @@ function toNumber(value: string | number | null | undefined): number {
   return typeof value === "number" ? value : Number(value);
 }
 
+function readManagedOpeningDate(poolFaq: unknown): string | null {
+  if (!poolFaq || typeof poolFaq !== "object" || Array.isArray(poolFaq)) return null;
+  const managed = (poolFaq as { managedPool?: { openingDate?: string } }).managedPool;
+  const value = managed?.openingDate?.trim();
+  return value || null;
+}
+
 type FundRow = Record<string, unknown>;
 
 type ManagerRow = {
@@ -460,12 +467,21 @@ export const marketplaceService = {
           status: activeCycleRow.status,
           openingDate: activeCycleRow.openingDate,
           closingDate: activeCycleRow.closingDate,
+          fundingDeadline: activeCycleRow.fundingDeadline,
           poolVersion: activeCycleRow.poolVersion,
         }
       : null;
     const canParticipate = activeCycleRow
       ? INVESTMENT_CYCLE_ALLOCATABLE_STATUSES.includes(activeCycleRow.status)
       : false;
+
+    const managedOpeningDate = readManagedOpeningDate(row.pool_faq);
+    const tradingStartsAt =
+      activeCycleRow?.openingDate ??
+      managedOpeningDate ??
+      activeCycleRow?.closingDate ??
+      activeCycleRow?.fundingDeadline ??
+      null;
 
     return {
       ...card,
@@ -492,6 +508,7 @@ export const marketplaceService = {
       allocationReviewAt: (row.allocation_review_at as string | null) ?? null,
       activeCycle,
       canParticipate,
+      tradingStartsAt,
       manager: mapManagerSummary(manager),
       faq,
     };

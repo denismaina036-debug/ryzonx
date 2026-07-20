@@ -24,6 +24,7 @@ import {
   formatPmInitialRatingNotes,
   resolveManagerCareerLevel,
   resolvePmAggressivenessRating,
+  resolvePmSecurityRating,
 } from "@/features/admin/constants/pm-initial-rating";
 import {
   allSectionsComplete,
@@ -1290,6 +1291,7 @@ export const poolManagerAdminService = {
           initialRating?.riskClassification
         ),
         aggressiveness_rating: resolvePmAggressivenessRating(initialRating?.riskClassification),
+        security_rating: resolvePmSecurityRating(initialRating?.experienceLevel),
       } as never)
       .select("id")
       .single();
