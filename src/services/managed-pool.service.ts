@@ -17,6 +17,12 @@ import {
   normalizeManagedPoolForm,
   validateManagedPoolForm,
 } from "@/domain/pools/managed-pool-validation";
+import {
+  DEFAULT_COVER_IMAGE_POSITION,
+  parseCoverImagePosition,
+  serializeCoverImagePosition,
+} from "@/domain/pools/cover-image-position";
+import { resolvePoolManagerPublicLabel, managerRowToIdentity } from "@/domain/pool-manager/public-profile";
 
 function parseAmount(value: string): number | undefined {
   const trimmed = value.trim();
@@ -110,6 +116,9 @@ function formToFundPatch(
       input.poolDescription.trim() ||
       null,
     cover_image_url: input.poolImageUrl?.trim() || null,
+    cover_image_position: serializeCoverImagePosition(
+      input.coverImagePosition ?? DEFAULT_COVER_IMAGE_POSITION
+    ),
     card_background_color: input.cardBackgroundColor?.trim() || "#0f1623",
     return_tiers: returnTiers,
     investor_share_pct: parseAmount(input.investorSharePct) ?? 80,
@@ -144,6 +153,7 @@ export function poolToManagedForm(
     poolName: pool.name,
     poolDescription: pool.description,
     poolImageUrl: pool.coverImageUrl ?? "",
+    coverImagePosition: pool.coverImagePosition ?? { ...DEFAULT_COVER_IMAGE_POSITION },
     cardBackgroundColor: pool.cardBackgroundColor ?? "#0f1623",
     strategyId: config.strategyId ?? config.internalStrategyId ?? "",
     strategyName: config.strategyName ?? pool.name,
@@ -239,7 +249,7 @@ export const managedPoolService = {
 
     const { data: manager } = await db
       .from("pool_managers")
-      .select("display_name, icon_url")
+      .select("username, slug, display_name, show_full_name, icon_url")
       .eq("id", managerId)
       .single();
 
@@ -249,7 +259,14 @@ export const managedPoolService = {
       .replace(/^-|-$/g, "")
       .slice(0, 64);
 
-    const mgr = manager as { display_name: string; icon_url: string | null };
+    const mgr = manager as {
+      username?: string | null;
+      slug?: string | null;
+      display_name: string;
+      show_full_name?: boolean | null;
+      icon_url: string | null;
+    };
+    const publicLabel = resolvePoolManagerPublicLabel(managerRowToIdentity(mgr));
     const patch = formToFundPatch(normalized, {}, null);
 
     const { data, error } = await db
@@ -258,7 +275,7 @@ export const managedPoolService = {
         ...patch,
         slug,
         pool_manager_id: managerId,
-        pool_manager_name: mgr.display_name,
+        pool_manager_name: publicLabel,
         pool_manager_icon_url: mgr.icon_url,
         status: "inactive",
         lifecycle_status: "draft",
@@ -360,6 +377,17 @@ export const managedPoolService = {
       .eq("id", poolId);
 
     await poolManagerDashboardService.submitPoolForReview(poolId);
+
+    if (config.internalCycleId) {
+      try {
+        const cycle = await investmentCycleService.getById(config.internalCycleId);
+        if (cycle?.status === "draft") {
+          await investmentCycleService.submit(config.internalCycleId);
+        }
+      } catch {
+        /* linked cycle may be missing or already submitted */
+      }
+    }
   },
 
   async approveAndGoLive(poolId: string): Promise<void> {
@@ -395,8 +423,7 @@ export const managedPoolService = {
           .from("investment_cycles")
           .update({ fund_id: poolId, cycle_number: 1 } as never)
           .eq("id", config.internalCycleId);
-        await investmentCycleService.adminReview(config.internalCycleId, "approved");
-        await investmentCycleService.adminReview(config.internalCycleId, "funding");
+        await investmentCycleService.adminActivateCycleForPoolGoLive(config.internalCycleId);
       } catch {
         await investmentCycleService.createFirstCycleForApprovedPool(
           poolId,

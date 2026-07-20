@@ -228,8 +228,8 @@ export function InvestorRatingPanel({
         <span>{rating.comparedTo}</span>
       </div>
 
-      <div className="mt-6 text-[var(--id-text-muted)]">
-        <RatingBreakdownPanel breakdown={rating.breakdown} title="Why this score?" />
+      <div className="mt-6">
+        <RatingBreakdownPanel breakdown={rating.breakdown} title="Rating breakdown" />
       </div>
     </section>
   );

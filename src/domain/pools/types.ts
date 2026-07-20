@@ -4,6 +4,7 @@
  */
 
 import type { ReturnTier } from "@/features/investor/types/account";
+import type { CoverImagePosition } from "@/domain/pools/cover-image-position";
 
 export type PoolId = string;
 
@@ -37,6 +38,7 @@ export interface Pool {
   isInviteOnly: boolean;
   cardBackgroundColor: string | null;
   coverImageUrl?: string | null;
+  coverImagePosition?: CoverImagePosition | null;
   poolManagerId: string | null;
   poolManagerName: string | null;
   poolManagerIconUrl: string | null;

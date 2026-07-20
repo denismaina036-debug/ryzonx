@@ -3,7 +3,8 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { USER_ROLES } from "@/constants/roles";
 import { ROUTES } from "@/constants/routes";
 import { poolManagerApplicationService } from "@/services/pool-manager-application.service";
-import { PoolManagerApplicationForm } from "@/features/pool-manager/components/pool-manager-application-form";
+import { pmAdmissionSettingsService } from "@/services/pm-admission-settings.service";
+import { PoolManagerAdmissionWizard } from "@/features/pool-manager/components/pool-manager-admission-wizard";
 import { InvestorPageContent } from "@/components/layouts/investor-page-content";
 
 export default async function ApplyPoolManagerPage() {
@@ -21,16 +22,24 @@ export default async function ApplyPoolManagerPage() {
   }
 
   let application = null;
+  let settings = pmAdmissionSettingsService.defaults();
 
   try {
-    application = await poolManagerApplicationService.getMyApplication();
+    [application, settings] = await Promise.all([
+      poolManagerApplicationService.getMyApplication(),
+      pmAdmissionSettingsService.getPublic(),
+    ]);
   } catch {
     // Tables may not exist until migration runs
   }
 
   return (
     <InvestorPageContent wide className="py-6 sm:py-8">
-      <PoolManagerApplicationForm userRole={user.role} initialApplication={application} />
+      <PoolManagerAdmissionWizard
+        userRole={user.role}
+        initialApplication={application}
+        initialSettings={settings}
+      />
     </InvestorPageContent>
   );
 }

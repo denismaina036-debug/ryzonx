@@ -14,6 +14,7 @@ import { strategyService } from "@/services/strategy.service";
 import { investmentCycleService } from "@/services/investment-cycle.service";
 import { investorInvestmentService } from "@/services/investor-investment.service";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolvePoolManagerPublicLabel, managerRowToIdentity } from "@/domain/pool-manager/public-profile";
 
 /**
  * Orchestrates marketplace pages — presentation and navigation data only.
@@ -85,7 +86,7 @@ export const marketplacePresentationService = {
     const db = createAdminClient();
     const { data: manager } = await db
       .from("pool_managers")
-      .select("id, display_name, slug, ryvonx_rating")
+      .select("id, username, slug, display_name, show_full_name, ryvonx_rating")
       .eq("id", strategy.poolManagerId)
       .maybeSingle();
 
@@ -98,14 +99,21 @@ export const marketplacePresentationService = {
       related.filter((s) => s.id !== strategy.id && s.poolManagerId === strategy.poolManagerId).slice(0, 3)
     );
 
-    const mgr = manager as { id: string; display_name: string; slug: string | null; ryvonx_rating: number | null } | null;
+    const mgr = manager as {
+      id: string;
+      username?: string | null;
+      slug: string | null;
+      display_name: string;
+      show_full_name?: boolean | null;
+      ryvonx_rating: number | null;
+    } | null;
 
     return {
       strategy,
       cycles,
       manager: {
         id: mgr?.id ?? strategy.poolManagerId,
-        name: mgr?.display_name ?? "Pool Manager",
+        name: mgr ? resolvePoolManagerPublicLabel(managerRowToIdentity(mgr)) : "Pool Manager",
         slug: mgr?.slug ?? null,
         rating: mgr?.ryvonx_rating ?? null,
       },
@@ -128,7 +136,7 @@ export const marketplacePresentationService = {
     const db = createAdminClient();
     const { data: manager } = await db
       .from("pool_managers")
-      .select("id, display_name, slug, ryvonx_rating")
+      .select("id, username, slug, display_name, show_full_name, ryvonx_rating")
       .eq("id", cycle.poolManagerId)
       .maybeSingle();
 
@@ -137,14 +145,21 @@ export const marketplacePresentationService = {
       allCycles.filter((c) => c.id !== cycle.id && c.strategyId === strategy.id).slice(0, 3)
     );
 
-    const mgr = manager as { id: string; display_name: string; slug: string | null; ryvonx_rating: number | null } | null;
+    const mgr = manager as {
+      id: string;
+      username?: string | null;
+      slug: string | null;
+      display_name: string;
+      show_full_name?: boolean | null;
+      ryvonx_rating: number | null;
+    } | null;
 
     return {
       cycle,
       strategy,
       manager: {
         id: mgr?.id ?? cycle.poolManagerId,
-        name: mgr?.display_name ?? "Pool Manager",
+        name: mgr ? resolvePoolManagerPublicLabel(managerRowToIdentity(mgr)) : "Pool Manager",
         slug: mgr?.slug ?? null,
         rating: mgr?.ryvonx_rating ?? null,
       },

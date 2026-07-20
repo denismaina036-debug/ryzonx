@@ -8,7 +8,22 @@ import { PM_STATUS_LABELS } from "@/features/pool-manager/constants/nav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PM_APPLICATION_STATUS, type PoolManagerApplicationStatus } from "@/domain/pool-manager/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  PM_EXPERIENCE_LEVELS,
+  PM_RISK_CLASSIFICATIONS,
+  type PmExperienceLevel,
+  type PmRiskClassification,
+} from "@/features/admin/constants/pm-initial-rating";
+import { getCountryName, resolveCountry } from "@/constants/countries";
+import { countryCodeToFlag } from "@/lib/country-flag";
+import { PM_APPLICATION_STATUS, PM_ADMISSION_PATH, type PoolManagerApplicationStatus } from "@/domain/pool-manager/types";
 import type { PoolManagerApplication } from "@/domain/pool-manager/types";
 
 interface AdminPmApplicationsProps {
@@ -29,8 +44,8 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
   const [initialBalance, setInitialBalance] = useState("10000");
   const [challengeAccountInfo, setChallengeAccountInfo] = useState("");
   const [initialRating, setInitialRating] = useState("3.5");
-  const [experienceLevel, setExperienceLevel] = useState("developing");
-  const [riskClassification, setRiskClassification] = useState("balanced");
+  const [experienceLevel, setExperienceLevel] = useState<PmExperienceLevel>("intermediate");
+  const [riskClassification, setRiskClassification] = useState<PmRiskClassification>("balanced");
   const [isVerified, setIsVerified] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +107,32 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
     setNotes("");
   }
 
+  async function approveChallenge() {
+    if (!selectedId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/pool-manager-applications/${selectedId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approveChallenge: true, notes: notes.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      router.refresh();
+      setNotes("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const isDirectAccess = selected?.admissionPath === PM_ADMISSION_PATH.DIRECT_ACCESS;
+  const isTradingChallenge =
+    selected?.admissionPath === PM_ADMISSION_PATH.TRADING_CHALLENGE ||
+    (!selected?.admissionPath && Boolean(selected?.challengeEnrollmentId));
+
   return (
     <div className="grid gap-6 lg:grid-cols-5">
       <div className="space-y-2 lg:col-span-2">
@@ -113,6 +154,9 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
               <p className="text-xs text-navy-500">{app.applicantEmail}</p>
               <p className="mt-2 text-xs capitalize text-royal-600">
                 {PM_STATUS_LABELS[app.status] ?? app.status}
+                {app.admissionPath && (
+                  <> · {app.admissionPath === PM_ADMISSION_PATH.DIRECT_ACCESS ? "Direct Access" : "Trading Challenge"}</>
+                )}
               </p>
             </button>
           ))
@@ -135,19 +179,56 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
 
           <section>
             <h3 className="text-sm font-semibold text-navy-800">Application Details</h3>
+            {selected.admissionPath && (
+              <p className="mt-2 text-sm text-navy-600">
+                Admission path:{" "}
+                <span className="font-medium">
+                  {selected.admissionPath === PM_ADMISSION_PATH.DIRECT_ACCESS
+                    ? "Direct Access"
+                    : "Trading Challenge"}
+                </span>
+                {selected.admissionFeeAmount != null && (
+                  <> · Fee: ${selected.admissionFeeAmount}</>
+                )}
+              </p>
+            )}
             <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-              <Item label="Experience" value={selected.basicInfo.tradingExperience} />
-              <Item label="Years" value={selected.basicInfo.yearsTrading?.toString()} />
-              <Item label="Country" value={selected.basicInfo.country} />
-              <Item label="Style" value={selected.basicInfo.tradingStyle} />
+              <Item
+                label="Experience"
+                value={
+                  selected.applicationData.professionalBackground?.tradingExperience ??
+                  selected.basicInfo.tradingExperience
+                }
+              />
+              <Item
+                label="Country"
+                value={formatAdminCountry(
+                  selected.applicationData.professionalBackground?.countryOfResidence ??
+                    selected.basicInfo.country
+                )}
+              />
+              <Item
+                label="Style"
+                value={
+                  selected.applicationData.tradingMethodology?.primaryTradingStyle ??
+                  selected.basicInfo.tradingStyle
+                }
+              />
+              <Item
+                label="Instrument"
+                value={formatAdminInstrument(selected.applicationData.professionalBackground)}
+              />
             </dl>
-            {selected.basicInfo.biography && (
+            {(selected.applicationData.personalStatement?.whyPoolManager ??
+              selected.basicInfo.biography) && (
               <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-navy-600">
-                {selected.basicInfo.biography}
+                {selected.applicationData.personalStatement?.whyPoolManager ??
+                  selected.basicInfo.biography}
               </p>
             )}
           </section>
 
+          {isTradingChallenge && (
           <section className="space-y-3 border-t border-navy-100 pt-6">
             <h3 className="text-sm font-semibold text-navy-800">Challenge Account</h3>
             <p className="text-xs text-navy-500">
@@ -197,6 +278,7 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
               </Button>
             )}
           </section>
+          )}
 
           <section className="space-y-4 border-t border-navy-100 pt-6">
             <h3 className="text-sm font-semibold text-navy-800">Initial Manager Rating</h3>
@@ -208,10 +290,38 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
                 <Input type="number" min={0} max={5} step="0.1" value={initialRating} onChange={(e) => setInitialRating(e.target.value)} />
               </Field>
               <Field label="Experience Level">
-                <Input value={experienceLevel} onChange={(e) => setExperienceLevel(e.target.value)} placeholder="developing, experienced, elite" />
+                <Select
+                  value={experienceLevel}
+                  onValueChange={(value) => setExperienceLevel(value as PmExperienceLevel)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select experience level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PM_EXPERIENCE_LEVELS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
               <Field label="Risk Classification">
-                <Input value={riskClassification} onChange={(e) => setRiskClassification(e.target.value)} placeholder="conservative, balanced, aggressive" />
+                <Select
+                  value={riskClassification}
+                  onValueChange={(value) => setRiskClassification(value as PmRiskClassification)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select risk classification" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PM_RISK_CLASSIFICATIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
             </div>
             <label className="flex items-center gap-2 text-sm text-navy-700">
@@ -223,7 +333,9 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
           <section className="space-y-4 border-t border-navy-100 pt-6">
             <h3 className="text-sm font-semibold text-navy-800">Review Actions</h3>
             <p className="text-xs text-navy-500">
-              Approve Pool Manager only after the challenge is passed or completed.
+              {isDirectAccess
+                ? "Direct Access applicants can be approved immediately after review."
+                : "Trading Challenge applicants must pass the challenge before final Pool Manager approval."}
             </p>
             {error && <p className="text-sm text-rose-600">{error}</p>}
             <Textarea
@@ -233,9 +345,19 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
               rows={3}
             />
             <div className="flex flex-wrap gap-3">
+              {isTradingChallenge &&
+                selected.status === PM_APPLICATION_STATUS.PENDING && (
+                  <Button onClick={() => void approveChallenge()} disabled={loading}>
+                    Approve Challenge
+                  </Button>
+                )}
               <Button
                 onClick={() => void setStatus(PM_APPLICATION_STATUS.APPROVED)}
-                disabled={loading || selected.status === PM_APPLICATION_STATUS.APPROVED}
+                disabled={
+                  loading ||
+                  selected.status === PM_APPLICATION_STATUS.APPROVED ||
+                  (isTradingChallenge && !isDirectAccess && selected.status !== PM_APPLICATION_STATUS.UNDER_REVIEW)
+                }
               >
                 Approve Pool Manager
               </Button>
@@ -273,6 +395,20 @@ function Item({ label, value }: { label: string; value?: string }) {
       <dd className="font-medium text-navy-800">{value ?? "—"}</dd>
     </div>
   );
+}
+
+function formatAdminCountry(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const country = resolveCountry(value);
+  if (country) return `${countryCodeToFlag(country.code)} ${country.name}`;
+  return getCountryName(value) ?? value;
+}
+
+function formatAdminInstrument(
+  bg: PoolManagerApplication["applicationData"]["professionalBackground"]
+): string | undefined {
+  if (!bg?.primaryTradingInstrument) return undefined;
+  return bg.primaryTradingInstrumentOther?.trim() || bg.primaryTradingInstrument;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

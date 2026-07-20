@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { poolManagerDashboardService } from "@/services/pool-manager-dashboard.service";
+import type { PmSocialLinks } from "@/domain/pool-manager/public-profile";
 
 export async function PATCH(request: Request) {
   try {
@@ -9,6 +10,9 @@ export async function PATCH(request: Request) {
       markets?: string[];
       coverImageUrl?: string;
       profilePhotoUrl?: string;
+      username?: string;
+      showFullName?: boolean;
+      socialLinks?: PmSocialLinks;
     };
 
     await poolManagerDashboardService.updateMyProfile(body);

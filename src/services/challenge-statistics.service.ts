@@ -50,10 +50,13 @@ export function resolveChallengeDisplayStatus(
   switch (enrollment.status) {
     case "waiting":
     case "awaiting_setup":
+    case "challenge_assigned":
+    case "approved":
       return CHALLENGE_DISPLAY_STATUS.WAITING;
     case "active":
       return CHALLENGE_DISPLAY_STATUS.ACTIVE;
     case "completed":
+    case "challenge_submitted":
       return CHALLENGE_DISPLAY_STATUS.COMPLETED;
     case "passed":
       return CHALLENGE_DISPLAY_STATUS.PASSED;

@@ -7,6 +7,7 @@ import {
   BadgeCheck,
   Calendar,
   Globe,
+  Link2,
   MapPin,
   Shield,
   Star,
@@ -32,6 +33,7 @@ import { InvestorRatingPanel } from "@/features/performance-intelligence/compone
 import type { InvestorRatingView } from "@/domain/performance-intelligence/types";
 import { MarketplaceStrategyCard } from "@/features/marketplace/components/investment-marketplace-cards";
 import type { PoolManagerPublicProfile } from "@/domain/pool-manager/types";
+import { PM_SOCIAL_PLATFORMS } from "@/domain/pool-manager/public-profile";
 
 const PROFILE_TABS = [
   { id: "overview", label: "Overview" },
@@ -103,7 +105,10 @@ export function ManagerProfileView({
   return (
     <div className="space-y-8 pb-8">
       <MarketplaceBreadcrumb
-        items={[marketplaceHomeCrumb(), managerProfileCrumb(profile.slug, profile.displayName)]}
+        items={[
+          marketplaceHomeCrumb(),
+          managerProfileCrumb(profile.slug, profile.publicDisplayName),
+        ]}
       />
 
       <section className="overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow)]">
@@ -125,12 +130,12 @@ export function ManagerProfileView({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={profile.profilePhotoUrl}
-                    alt={profile.displayName}
+                    alt={profile.publicDisplayName}
                     className="h-full w-full object-cover"
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-3xl font-bold text-[var(--id-accent-text)]">
-                    {profile.displayName.charAt(0)}
+                    {profile.publicDisplayName.charAt(1) || profile.publicDisplayName.charAt(0)}
                   </div>
                 )}
               </div>
@@ -138,15 +143,36 @@ export function ManagerProfileView({
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-2xl font-semibold text-[var(--id-text)] sm:text-3xl">
-                    {profile.displayName}
+                    {profile.publicDisplayName}
                   </h1>
                   {profile.isVerified && (
                     <BadgeCheck className="h-6 w-6 text-[var(--id-accent)]" aria-label="Verified" />
                   )}
                 </div>
+                {profile.fullName && (
+                  <p className="mt-1 text-base text-[var(--id-text-secondary)]">{profile.fullName}</p>
+                )}
                 <p className="mt-1 text-sm text-[var(--id-text-muted)]">
                   Professional Pool Manager
                 </p>
+                {Object.keys(profile.publicSocialLinks).length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {PM_SOCIAL_PLATFORMS.filter((p) => profile.publicSocialLinks[p.key]?.url).map(
+                      (platform) => (
+                        <a
+                          key={platform.key}
+                          href={profile.publicSocialLinks[platform.key]!.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--id-border)] bg-[var(--id-surface-muted)] px-3 py-1 text-xs font-medium text-[var(--id-text-secondary)] transition hover:border-[var(--id-accent)] hover:text-[var(--id-accent-text)]"
+                        >
+                          <Link2 className="h-3.5 w-3.5" />
+                          {platform.label}
+                        </a>
+                      )
+                    )}
+                  </div>
+                )}
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[var(--id-text-secondary)]">
                   {profile.managerLevel && (
                     <span className="rounded-full bg-[var(--id-accent-soft)] px-2.5 py-0.5 text-xs font-medium text-[var(--id-accent-text)]">
@@ -340,7 +366,7 @@ export function ManagerProfileView({
       {activeTab === "strategies" && (
         <div>
           <p className="mb-4 text-sm text-[var(--id-text-muted)]">
-            Investment strategies defined by {profile.displayName}.
+            Investment strategies defined by {profile.publicDisplayName}.
           </p>
           {strategies.length === 0 ? (
             <p className="text-sm text-[var(--id-text-muted)]">No public strategies yet.</p>
@@ -357,7 +383,7 @@ export function ManagerProfileView({
       {activeTab === "cycles" && (
         <div>
           <p className="mb-4 text-sm text-[var(--id-text-muted)]">
-            Live pools managed by {profile.displayName}.
+            Live pools managed by {profile.publicDisplayName}.
           </p>
           {managedPools.length === 0 ? (
             <p className="text-sm text-[var(--id-text-muted)]">No live pools yet.</p>
@@ -374,7 +400,7 @@ export function ManagerProfileView({
       {activeTab === "opportunities" && (
         <div>
           <p className="mb-4 text-sm text-[var(--id-text-muted)]">
-            Legacy pool opportunities managed by {profile.displayName}.
+            Legacy pool opportunities managed by {profile.publicDisplayName}.
           </p>
           {managedPools.length === 0 ? (
             <p className="text-sm text-[var(--id-text-muted)]">

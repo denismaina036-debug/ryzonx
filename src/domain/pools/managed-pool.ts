@@ -19,6 +19,10 @@
 
 
 import type { ReturnTier } from "@/features/investor/types/account";
+import {
+  DEFAULT_COVER_IMAGE_POSITION,
+  type CoverImagePosition,
+} from "@/domain/pools/cover-image-position";
 
 
 
@@ -212,7 +216,7 @@ export interface ManagedPoolFormInput {
 
   poolImageUrl?: string;
 
-
+  coverImagePosition: CoverImagePosition;
 
   cardBackgroundColor: string;
 
@@ -368,7 +372,7 @@ export function emptyManagedPoolForm(): ManagedPoolFormInput {
 
     poolImageUrl: "",
 
-
+    coverImagePosition: { ...DEFAULT_COVER_IMAGE_POSITION },
 
     cardBackgroundColor: "#0f1623",
 

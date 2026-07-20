@@ -4,15 +4,37 @@ import { requireAuth, requireRole } from "@/lib/auth/session";
 import { USER_ROLES } from "@/constants/roles";
 import { DEFAULT_FUND_ID } from "@/constants/funds";
 import { notificationService } from "@/services/notification.service";
+import { platformSettingsService } from "@/services/platform-settings.service";
 import {
   PM_APPLICATION_STAGES,
+  PM_APPLICATION_SECTIONS,
   PM_APPLICATION_STATUS,
+  PM_ADMISSION_PATH,
   type PoolManagerApplication,
   type PoolManagerApplicationReview,
   type PoolManagerBasicInfo,
   type PoolManagerStrategyData,
   type PoolManagerApplicationStatus,
+  type PoolManagerApplicationData,
+  type PoolManagerApplicationSection,
+  type PoolManagerAdmissionPath,
 } from "@/domain/pool-manager/types";
+import { getCountryName } from "@/constants/countries";
+import {
+  formatPmInitialRatingNotes,
+  resolveManagerCareerLevel,
+  resolvePmAggressivenessRating,
+} from "@/features/admin/constants/pm-initial-rating";
+import {
+  allSectionsComplete,
+  admissionFeeForPath,
+  isSectionComplete,
+} from "@/domain/pool-manager/admission-validation";
+import { pmAdmissionSettingsService } from "@/services/pm-admission-settings.service";
+import {
+  AdmissionInsufficientBalanceError,
+  type AdmissionPaymentState,
+} from "@/domain/pool-manager/admission-errors";
 
 type ApplicationRow = {
   id: string;
@@ -21,6 +43,10 @@ type ApplicationRow = {
   current_stage: number;
   basic_info: PoolManagerBasicInfo;
   strategy_data: PoolManagerStrategyData;
+  application_data?: PoolManagerApplicationData;
+  admission_path?: string | null;
+  payment_status?: string;
+  admission_fee_amount?: number | string | null;
   strategy_submitted_at: string | null;
   challenge_enrollment_id: string | null;
   pool_manager_id: string | null;
@@ -34,6 +60,13 @@ type ApplicationRow = {
 };
 
 function mapApplication(row: ApplicationRow): PoolManagerApplication {
+  const applicationData = row.application_data ?? {};
+  const admissionPath =
+    row.admission_path === PM_ADMISSION_PATH.TRADING_CHALLENGE ||
+    row.admission_path === PM_ADMISSION_PATH.DIRECT_ACCESS
+      ? row.admission_path
+      : applicationData.admissionPath ?? null;
+
   return {
     id: row.id,
     userId: row.user_id,
@@ -41,6 +74,14 @@ function mapApplication(row: ApplicationRow): PoolManagerApplication {
     currentStage: row.current_stage as PoolManagerApplication["currentStage"],
     basicInfo: row.basic_info ?? {},
     strategyData: row.strategy_data ?? {},
+    applicationData: { ...applicationData, admissionPath: admissionPath ?? applicationData.admissionPath },
+    admissionPath,
+    paymentStatus:
+      row.payment_status === "paid" || row.payment_status === "waived"
+        ? row.payment_status
+        : "pending",
+    admissionFeeAmount:
+      row.admission_fee_amount != null ? Number(row.admission_fee_amount) : null,
     strategySubmittedAt: row.strategy_submitted_at,
     challengeEnrollmentId: row.challenge_enrollment_id,
     poolManagerId: row.pool_manager_id,
@@ -60,6 +101,73 @@ function slugify(value: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 64);
+}
+
+function buildLegacyBasicInfo(data: PoolManagerApplicationData): PoolManagerBasicInfo {
+  const bg = data.professionalBackground;
+  const perf = data.tradingPerformance;
+  const stmt = data.personalStatement;
+  const meth = data.tradingMethodology;
+
+  return {
+    tradingExperience: bg?.tradingExperience,
+    marketsTraded: bg?.marketsTraded,
+    country: getCountryName(bg?.countryOfResidence) ?? bg?.countryOfResidence,
+    tradingStyle: meth?.primaryTradingStyle,
+    averageMonthlyReturn: perf?.averageMonthlyReturn
+      ? Number(perf.averageMonthlyReturn)
+      : undefined,
+    biography: stmt?.whyPoolManager,
+    previousExperience: perf?.fundedAccountExperience ?? perf?.capitalManagementExperience,
+  };
+}
+
+async function chargeAdmissionFee(input: {
+  userId: string;
+  amount: number;
+  admissionPath: PoolManagerAdmissionPath;
+}): Promise<void> {
+  const db = createAdminClient();
+  const { ensurePlatformFundingFund } = await import("@/services/platform-funding.service");
+  await ensurePlatformFundingFund();
+
+  const { data: portfolio } = await db
+    .from("investor_portfolios")
+    .select("available_balance")
+    .eq("user_id", input.userId)
+    .eq("fund_id", DEFAULT_FUND_ID)
+    .maybeSingle();
+
+  const available = Number(
+    (portfolio as { available_balance?: number } | null)?.available_balance ?? 0
+  );
+
+  if (available < input.amount) {
+    throw new AdmissionInsufficientBalanceError(available, input.amount);
+  }
+
+  const { error: deductError } = await db
+    .from("investor_portfolios")
+    .update({ available_balance: available - input.amount } as never)
+    .eq("user_id", input.userId)
+    .eq("fund_id", DEFAULT_FUND_ID);
+
+  if (deductError) throw new Error(deductError.message);
+
+  const pathLabel =
+    input.admissionPath === PM_ADMISSION_PATH.TRADING_CHALLENGE
+      ? "Trading Challenge"
+      : "Direct Access";
+
+  await db.from("transactions").insert({
+    user_id: input.userId,
+    fund_id: DEFAULT_FUND_ID,
+    type: "adjustment",
+    amount: input.amount,
+    status: "completed",
+    payment_method: "pm_admission_fee",
+    notes: `Pool Manager admission fee — ${pathLabel}`,
+  } as never);
 }
 
 async function ensureApplicantRole(userId: string): Promise<void> {
@@ -116,7 +224,7 @@ export const poolManagerApplicationService = {
       .insert({
         user_id: user.id,
         status: PM_APPLICATION_STATUS.DRAFT,
-        current_stage: PM_APPLICATION_STAGES.BASIC_INFO,
+        current_stage: PM_APPLICATION_STAGES.PROFESSIONAL_BACKGROUND,
       } as never)
       .select("*")
       .single();
@@ -160,6 +268,272 @@ export const poolManagerApplicationService = {
     return mapApplication(data as ApplicationRow);
   },
 
+  async saveApplicationSection(input: {
+    section: PoolManagerApplicationSection;
+    data: Partial<PoolManagerApplicationData>;
+  }): Promise<PoolManagerApplication> {
+    const user = await requireAuth();
+    const db = createAdminClient();
+
+    const applicationsEnabled = await platformSettingsService.get("pool_manager_applications_enabled");
+    if (applicationsEnabled === false) {
+      throw new Error("Pool Manager applications are currently closed.");
+    }
+
+    const application = await this.getOrCreateApplication();
+    if (
+      application.status !== PM_APPLICATION_STATUS.DRAFT &&
+      application.status !== PM_APPLICATION_STATUS.REQUIRES_CHANGES
+    ) {
+      throw new Error("Application cannot be edited at this stage.");
+    }
+
+    const merged: PoolManagerApplicationData = {
+      ...application.applicationData,
+      ...input.data,
+    };
+
+    if (input.section === PM_APPLICATION_SECTIONS.PROFESSIONAL_BACKGROUND && input.data.professionalBackground) {
+      merged.professionalBackground = {
+        ...application.applicationData.professionalBackground,
+        ...input.data.professionalBackground,
+      };
+    }
+    if (input.section === PM_APPLICATION_SECTIONS.TRADING_METHODOLOGY && input.data.tradingMethodology) {
+      merged.tradingMethodology = {
+        ...application.applicationData.tradingMethodology,
+        ...input.data.tradingMethodology,
+      };
+    }
+    if (input.section === PM_APPLICATION_SECTIONS.RISK_MANAGEMENT && input.data.riskManagement) {
+      merged.riskManagement = {
+        ...application.applicationData.riskManagement,
+        ...input.data.riskManagement,
+      };
+    }
+    if (input.section === PM_APPLICATION_SECTIONS.TRADING_PERFORMANCE && input.data.tradingPerformance) {
+      merged.tradingPerformance = {
+        ...application.applicationData.tradingPerformance,
+        ...input.data.tradingPerformance,
+      };
+    }
+    if (input.section === PM_APPLICATION_SECTIONS.PERSONAL_STATEMENT && input.data.personalStatement) {
+      merged.personalStatement = {
+        ...application.applicationData.personalStatement,
+        ...input.data.personalStatement,
+      };
+    }
+    if (input.data.admissionPath) {
+      merged.admissionPath = input.data.admissionPath;
+    }
+    if (input.data.reviewConfirmations) {
+      merged.reviewConfirmations = {
+        ...application.applicationData.reviewConfirmations,
+        ...input.data.reviewConfirmations,
+      };
+    }
+
+    if (!isSectionComplete(input.section, merged)) {
+      throw new Error("Please complete all required fields in this section.");
+    }
+
+    const nextStage = Math.max(application.currentStage, input.section + 1) as PoolManagerApplication["currentStage"];
+    let admissionPath: PoolManagerAdmissionPath | null = application.admissionPath;
+    let admissionFeeAmount = application.admissionFeeAmount;
+
+    if (input.section === PM_APPLICATION_SECTIONS.ADMISSION_PATH && merged.admissionPath) {
+      admissionPath = merged.admissionPath;
+      const settings = await pmAdmissionSettingsService.get();
+      admissionFeeAmount = admissionFeeForPath(merged.admissionPath, settings);
+    }
+
+    const basicInfoPatch = buildLegacyBasicInfo(merged);
+
+    const { data, error } = await db
+      .from("pool_manager_applications")
+      .update({
+        application_data: merged,
+        basic_info: basicInfoPatch,
+        current_stage: nextStage,
+        admission_path: admissionPath,
+        admission_fee_amount: admissionFeeAmount,
+      } as never)
+      .eq("id", application.id)
+      .eq("user_id", user.id)
+      .select("*")
+      .single();
+
+    if (error || !data) throw new Error(error?.message ?? "Save failed.");
+    await ensureApplicantRole(user.id);
+    return mapApplication(data as ApplicationRow);
+  },
+
+  async getAdmissionPaymentState(): Promise<AdmissionPaymentState> {
+    const user = await requireAuth();
+    const application = await this.getOrCreateApplication();
+    const admissionPath =
+      application.applicationData.admissionPath ?? application.admissionPath;
+    const settings = await pmAdmissionSettingsService.get();
+    const fee = admissionPath ? admissionFeeForPath(admissionPath, settings) : null;
+
+    if (
+      application.paymentStatus === "paid" ||
+      application.paymentStatus === "waived"
+    ) {
+      return {
+        availableBalance: 0,
+        fee,
+        admissionPath,
+        sufficient: true,
+        alreadyPaid: true,
+      };
+    }
+
+    const db = createAdminClient();
+    const { ensurePlatformFundingFund } = await import(
+      "@/services/platform-funding.service"
+    );
+    await ensurePlatformFundingFund();
+
+    const { data: portfolio } = await db
+      .from("investor_portfolios")
+      .select("available_balance")
+      .eq("user_id", user.id)
+      .eq("fund_id", DEFAULT_FUND_ID)
+      .maybeSingle();
+
+    const availableBalance = Number(
+      (portfolio as { available_balance?: number } | null)?.available_balance ?? 0
+    );
+
+    return {
+      availableBalance,
+      fee,
+      admissionPath,
+      sufficient: fee != null && availableBalance >= fee,
+      alreadyPaid: false,
+    };
+  },
+
+  async submitAdmissionApplication(): Promise<PoolManagerApplication> {
+    const user = await requireAuth();
+    const db = createAdminClient();
+
+    const applicationsEnabled = await platformSettingsService.get("pool_manager_applications_enabled");
+    if (applicationsEnabled === false) {
+      throw new Error("Pool Manager applications are currently closed.");
+    }
+
+    const application = await this.getOrCreateApplication();
+    if (
+      application.status !== PM_APPLICATION_STATUS.DRAFT &&
+      application.status !== PM_APPLICATION_STATUS.REQUIRES_CHANGES
+    ) {
+      throw new Error("Your application has already been submitted.");
+    }
+
+    const data = application.applicationData;
+    if (!allSectionsComplete(data)) {
+      throw new Error("Complete every section before submitting your application.");
+    }
+
+    const admissionPath = data.admissionPath ?? application.admissionPath;
+    if (!admissionPath) {
+      throw new Error("Select an admission path before submitting.");
+    }
+
+    const settings = await pmAdmissionSettingsService.get();
+    const admissionFeeAmount = admissionFeeForPath(admissionPath, settings);
+    const now = new Date().toISOString();
+
+    let paymentStatus = application.paymentStatus;
+    if (paymentStatus !== "paid" && paymentStatus !== "waived") {
+      await chargeAdmissionFee({
+        userId: user.id,
+        amount: admissionFeeAmount,
+        admissionPath,
+      });
+      paymentStatus = "paid";
+
+      await notificationService.sendToUser({
+        userId: user.id,
+        type: "pool_trading",
+        title: "Admission fee paid",
+        message: `Your Pool Manager admission fee of $${admissionFeeAmount.toLocaleString()} was paid from your wallet balance.`,
+        metadata: { application_id: application.id, admission_path: admissionPath },
+      });
+    }
+
+    const { data: row, error } = await db
+      .from("pool_manager_applications")
+      .update({
+        application_data: data,
+        basic_info: buildLegacyBasicInfo(data),
+        status: PM_APPLICATION_STATUS.PENDING,
+        current_stage: PM_APPLICATION_STAGES.ADMIN_REVIEW,
+        admission_path: admissionPath,
+        admission_fee_amount: admissionFeeAmount,
+        payment_status: paymentStatus,
+        submitted_at: now,
+      } as never)
+      .eq("id", application.id)
+      .eq("user_id", user.id)
+      .select("*")
+      .single();
+
+    if (error || !row) throw new Error(error?.message ?? "Submission failed.");
+
+    await ensureApplicantRole(user.id);
+
+    const pathLabel =
+      admissionPath === PM_ADMISSION_PATH.TRADING_CHALLENGE
+        ? "Trading Challenge"
+        : "Direct Access";
+
+    await notificationService.sendToUser({
+      userId: user.id,
+      type: "pm_application_submitted",
+      title: "Application submitted",
+      message: `Your Pool Manager application (${pathLabel}) is pending review by the RyvonX team.`,
+      metadata: { application_id: application.id, admission_path: admissionPath },
+    });
+
+    const { data: admins } = await db
+      .from("profiles")
+      .select("id")
+      .eq("role", USER_ROLES.ADMINISTRATOR);
+
+    for (const admin of (admins ?? []) as Array<{ id: string }>) {
+      await notificationService.sendToUser({
+        userId: admin.id,
+        type: "admin_message",
+        title: "New Pool Manager application",
+        message: `${user.fullName} submitted a Pool Manager application (${pathLabel}) for review.`,
+        metadata: { application_id: application.id, user_id: user.id, admission_path: admissionPath },
+      });
+    }
+
+    const { publishPlatformEvent, PLATFORM_EVENT_TYPES } = await import(
+      "@/lib/platform-events/publish"
+    );
+    publishPlatformEvent({
+      eventType: PLATFORM_EVENT_TYPES.POOL_MANAGER_APPLICATION_SUBMITTED,
+      category: "administration",
+      entityType: "pool_manager_application",
+      entityId: application.id,
+      actorId: user.id,
+      payload: {
+        applicantUserId: user.id,
+        applicantName: user.fullName,
+        admissionPath,
+        summary: `Pool Manager application (${pathLabel}) submitted by ${user.fullName}`,
+      },
+    });
+
+    return mapApplication(row as ApplicationRow);
+  },
+
+  /** @deprecated Legacy single-form submit — prefer submitAdmissionApplication */
   async submitApplication(basicInfo: PoolManagerBasicInfo): Promise<PoolManagerApplication> {
     const user = await requireAuth();
     const db = createAdminClient();
@@ -594,16 +968,29 @@ export const poolManagerAdminService = {
     };
 
     if (input.newStatus === PM_APPLICATION_STATUS.APPROVED) {
-      if (row.challenge_enrollment_id) {
-        const { data: enrollment } = await db
-          .from("trader_challenge_enrollments")
-          .select("status")
-          .eq("id", row.challenge_enrollment_id)
-          .maybeSingle();
-        const enrollmentStatus = (enrollment as { status?: string } | null)?.status;
-        if (enrollmentStatus !== "passed" && enrollmentStatus !== "completed") {
+      const admissionPath =
+        row.admission_path ??
+        (row.application_data as PoolManagerApplicationData | undefined)?.admissionPath;
+
+      if (
+        admissionPath === PM_ADMISSION_PATH.TRADING_CHALLENGE ||
+        (!admissionPath && row.challenge_enrollment_id)
+      ) {
+        if (row.challenge_enrollment_id) {
+          const { data: enrollment } = await db
+            .from("trader_challenge_enrollments")
+            .select("status")
+            .eq("id", row.challenge_enrollment_id)
+            .maybeSingle();
+          const enrollmentStatus = (enrollment as { status?: string } | null)?.status;
+          if (enrollmentStatus !== "passed" && enrollmentStatus !== "completed") {
+            throw new Error(
+              "The challenge must be passed before approving as Pool Manager."
+            );
+          }
+        } else {
           throw new Error(
-            "The challenge must be passed or completed before approving as Pool Manager."
+            "Trading Challenge applicants must complete and pass the challenge before final approval."
           );
         }
       }
@@ -641,6 +1028,120 @@ export const poolManagerAdminService = {
     } else {
       await this.notifyStatusChange(updated, input.newStatus, input.notes);
     }
+
+    return updated;
+  },
+
+  async approveChallengeApplication(input: {
+    applicationId: string;
+    notes?: string;
+  }): Promise<PoolManagerApplication> {
+    const admin = await requireRole(USER_ROLES.ADMINISTRATOR);
+    const db = createAdminClient();
+
+    const { data: current, error: fetchError } = await db
+      .from("pool_manager_applications")
+      .select("*")
+      .eq("id", input.applicationId)
+      .single();
+
+    if (fetchError || !current) {
+      throw new Error(fetchError?.message ?? "Application not found.");
+    }
+
+    const row = current as ApplicationRow;
+    const admissionPath =
+      row.admission_path ??
+      (row.application_data as PoolManagerApplicationData | undefined)?.admissionPath;
+
+    if (admissionPath !== PM_ADMISSION_PATH.TRADING_CHALLENGE) {
+      throw new Error("Challenge approval applies only to Trading Challenge applicants.");
+    }
+
+    const settings = await pmAdmissionSettingsService.get();
+    const { DEFAULT_FUND_ID } = await import("@/constants/funds");
+
+    const { data: challengeRow } = await db
+      .from("trader_challenges")
+      .select("id")
+      .eq("fund_id", DEFAULT_FUND_ID)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (!challengeRow) {
+      throw new Error("No active challenge configuration found.");
+    }
+
+    const challengeId = (challengeRow as { id: string }).id;
+    let enrollmentId = row.challenge_enrollment_id;
+
+    if (!enrollmentId) {
+      const deadline = new Date();
+      deadline.setDate(deadline.getDate() + settings.challengeDurationDays);
+
+      const { data: enrollment, error: enrollError } = await db
+        .from("trader_challenge_enrollments")
+        .insert({
+          user_id: row.user_id,
+          challenge_id: challengeId,
+          application_id: row.id,
+          status: "approved",
+          admin_rules: settings.challengeRules,
+          challenge_account_details: settings.challengeInstructions,
+          challenge_deadline: deadline.toISOString(),
+        } as never)
+        .select("id")
+        .single();
+
+      if (enrollError || !enrollment) {
+        throw new Error(enrollError?.message ?? "Could not create challenge enrollment.");
+      }
+      enrollmentId = (enrollment as { id: string }).id;
+    } else {
+      await db
+        .from("trader_challenge_enrollments")
+        .update({
+          status: "approved",
+          application_id: row.id,
+          admin_rules: settings.challengeRules,
+          updated_at: new Date().toISOString(),
+        } as never)
+        .eq("id", enrollmentId);
+    }
+
+    const now = new Date().toISOString();
+    const { data, error } = await db
+      .from("pool_manager_applications")
+      .update({
+        status: PM_APPLICATION_STATUS.UNDER_REVIEW,
+        challenge_enrollment_id: enrollmentId,
+        reviewed_at: now,
+        admin_notes: input.notes?.trim() || row.admin_notes,
+      } as never)
+      .eq("id", input.applicationId)
+      .select("*")
+      .single();
+
+    if (error || !data) throw new Error(error?.message ?? "Update failed.");
+
+    await db.from("pool_manager_application_reviews").insert({
+      application_id: input.applicationId,
+      reviewer_id: admin.id,
+      previous_status: row.status,
+      new_status: PM_APPLICATION_STATUS.UNDER_REVIEW,
+      notes: input.notes?.trim() || "Challenge approved — assign account credentials.",
+    } as never);
+
+    const updated = mapApplication(data as ApplicationRow);
+
+    await notificationService.sendToUser({
+      userId: updated.userId,
+      type: "pm_application_submitted",
+      title: "Challenge approved",
+      message:
+        "Your application has been approved for the Trading Challenge. Challenge account details will be provided shortly.",
+      metadata: { application_id: updated.id, enrollment_id: enrollmentId },
+    });
 
     return updated;
   },
@@ -734,6 +1235,23 @@ export const poolManagerAdminService = {
       (profile as { full_name?: string } | null)?.full_name ?? "Pool Manager";
     const avatarUrl = (profile as { avatar_url?: string | null } | null)?.avatar_url;
     const info = application.basicInfo;
+    const appData = application.applicationData;
+    const biography =
+      appData.personalStatement?.whyPoolManager ??
+      info.biography ??
+      null;
+    const countryRaw =
+      appData.professionalBackground?.countryOfResidence ?? info.country ?? null;
+    const country = countryRaw ? getCountryName(countryRaw) ?? countryRaw : null;
+    const markets =
+      appData.professionalBackground?.marketsTraded ?? info.marketsTraded ?? [];
+    const tradingStyle =
+      appData.tradingMethodology?.primaryTradingStyle ?? info.tradingStyle ?? null;
+    const avgReturnRaw = appData.tradingPerformance?.averageMonthlyReturn;
+    const avgReturn =
+      avgReturnRaw != null && avgReturnRaw !== ""
+        ? Number(avgReturnRaw)
+        : info.averageMonthlyReturn ?? null;
 
     let slug = slugify(fullName);
     const { data: slugConflict } = await db
@@ -751,24 +1269,27 @@ export const poolManagerAdminService = {
         user_id: application.userId,
         display_name: fullName,
         icon_url: avatarUrl,
-        bio: info.biography ?? null,
-        country: info.country ?? null,
-        markets: info.marketsTraded ?? [],
-        trading_style: info.tradingStyle ?? null,
+        bio: biography,
+        country,
+        markets,
+        trading_style: tradingStyle,
         profile_photo_url: avatarUrl,
         slug,
         status: "approved",
         approved_at: new Date().toISOString(),
         approved_by: admin.id,
         application_id: application.id,
+        username: slug,
         is_verified: initialRating?.isVerified ?? true,
-        avg_monthly_return_pct: info.averageMonthlyReturn ?? null,
+        avg_monthly_return_pct: avgReturn,
         ryvonx_rating: initialRating?.ryvonxRating ?? null,
-        manager_level: initialRating?.experienceLevel ?? null,
-        aggressiveness_rating:
-          initialRating?.riskClassification != null
-            ? Number(initialRating.riskClassification)
-            : null,
+        manager_level: resolveManagerCareerLevel(initialRating?.experienceLevel),
+        governance_stage: "approved",
+        development_notes: formatPmInitialRatingNotes(
+          initialRating?.experienceLevel,
+          initialRating?.riskClassification
+        ),
+        aggressiveness_rating: resolvePmAggressivenessRating(initialRating?.riskClassification),
       } as never)
       .select("id")
       .single();

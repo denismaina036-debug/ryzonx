@@ -140,7 +140,17 @@ export const challengeCenterService = {
         .from("trader_challenge_enrollments")
         .select("*")
         .eq("user_id", resolvedUserId)
-        .in("status", ["waiting", "awaiting_setup", "active", "completed", "passed", "failed"])
+        .in("status", [
+          "waiting",
+          "awaiting_setup",
+          "approved",
+          "challenge_assigned",
+          "active",
+          "challenge_submitted",
+          "completed",
+          "passed",
+          "failed",
+        ])
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -266,7 +276,7 @@ export const challengeCenterService = {
       const { error } = await db
         .from("trader_challenge_enrollments")
         .update({
-          status: "waiting",
+          status: "challenge_assigned",
           application_id: input.applicationId,
           account_broker: input.broker.trim(),
           account_server: input.server.trim(),
@@ -285,7 +295,7 @@ export const challengeCenterService = {
           user_id: input.userId,
           challenge_id: challengeRow.id,
           application_id: input.applicationId,
-          status: "waiting",
+          status: "challenge_assigned",
           account_broker: input.broker.trim(),
           account_server: input.server.trim(),
           account_login: input.login.trim(),
@@ -333,7 +343,7 @@ export const challengeCenterService = {
     const { error } = await db
       .from("trader_challenge_enrollments")
       .update({
-        status: "completed",
+        status: "challenge_submitted",
         updated_at: new Date().toISOString(),
       } as never)
       .eq("id", enrollmentId)
@@ -375,6 +385,23 @@ export const challengeCenterService = {
   }): Promise<void> {
     await requireRole(USER_ROLES.ADMINISTRATOR);
     const db = createAdminClient();
+
+    if (input.outcome === "passed") {
+      const settings = await import("@/services/pm-admission-settings.service").then(
+        (m) => m.pmAdmissionSettingsService.get()
+      );
+      if (settings.challengeJournalRequired) {
+        const { count } = await db
+          .from("challenge_trades")
+          .select("id", { count: "exact", head: true })
+          .eq("enrollment_id", input.enrollmentId);
+        if (!count || count < 1) {
+          throw new Error(
+            "Challenge cannot be passed without at least one trading journal entry."
+          );
+        }
+      }
+    }
 
     const status = input.outcome === "passed" ? "passed" : "failed";
     const { data: enrollment, error } = await db
@@ -464,7 +491,16 @@ export const challengeCenterService = {
     const { data, error } = await db
       .from("trader_challenge_enrollments")
       .select("id, status, started_at, user_id, profiles(full_name)")
-      .in("status", ["waiting", "active", "completed", "passed", "failed"])
+      .in("status", [
+        "waiting",
+        "approved",
+        "challenge_assigned",
+        "active",
+        "challenge_submitted",
+        "completed",
+        "passed",
+        "failed",
+      ])
       .order("updated_at", { ascending: false });
 
     if (error) throw new Error(error.message);

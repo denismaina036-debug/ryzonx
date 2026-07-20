@@ -12,6 +12,7 @@ import {
 } from "@/constants/marketplace";
 import { PROTECTION_INDICATOR_LABELS } from "@/constants/governance";
 import { formatCurrency, formatPercentage, cn } from "@/lib/utils";
+import { poolCoverBannerStyle } from "@/domain/pools/cover-image-position";
 import { Button } from "@/components/ui/button";
 import type { MarketplacePoolCard } from "@/domain/marketplace/types";
 
@@ -21,13 +22,11 @@ interface MarketplacePoolCardProps {
 }
 
 export function MarketplacePoolCardView({ pool, compact = false }: MarketplacePoolCardProps) {
-  const bannerStyle = pool.coverImageUrl
-    ? { backgroundImage: `url(${pool.coverImageUrl})` }
-    : {
-        background: pool.cardBackgroundColor
-          ? `linear-gradient(135deg, ${pool.cardBackgroundColor} 0%, #0a0f18 100%)`
-          : "linear-gradient(135deg, #1a2744 0%, #0a0f18 100%)",
-      };
+  const bannerStyle = poolCoverBannerStyle({
+    coverImageUrl: pool.coverImageUrl,
+    cardBackgroundColor: pool.cardBackgroundColor,
+    coverImagePosition: pool.coverImagePosition,
+  });
 
   return (
     <motion.article
@@ -39,7 +38,7 @@ export function MarketplacePoolCardView({ pool, compact = false }: MarketplacePo
       )}
     >
       <div
-        className="relative h-36 bg-cover bg-center sm:h-40"
+        className="relative h-36 bg-cover sm:h-40"
         style={bannerStyle}
       >
         <div className="absolute inset-0 bg-gradient-to-t from-navy-950/80 via-navy-950/20 to-transparent" />

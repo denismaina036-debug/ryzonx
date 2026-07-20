@@ -1,5 +1,6 @@
 import type { ReturnTier } from "@/features/investor/types/account";
 import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
+import type { CoverImagePosition } from "@/domain/pools/cover-image-position";
 
 export interface MarketplaceActiveCycle {
   id: string;
@@ -18,6 +19,7 @@ export interface MarketplacePoolCard {
   tagline: string | null;
   logoUrl: string | null;
   coverImageUrl: string | null;
+  coverImagePosition: CoverImagePosition | null;
   cardBackgroundColor: string | null;
   categories: string[];
   marketsTraded: string[];

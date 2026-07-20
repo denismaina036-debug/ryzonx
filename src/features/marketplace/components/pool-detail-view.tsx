@@ -12,6 +12,7 @@ import {
 import { PROTECTION_INDICATOR_LABELS } from "@/constants/governance";
 import { PerformanceChart } from "@/components/ui/chart";
 import { formatCurrency, formatPercentage } from "@/lib/utils";
+import { poolCoverBannerStyle } from "@/domain/pools/cover-image-position";
 import { Button } from "@/components/ui/button";
 import { MarketplacePoolCardView } from "@/features/marketplace/components/marketplace-pool-card";
 import {
@@ -67,16 +68,12 @@ export function PoolDetailView({
       {/* Hero */}
       <section className="overflow-hidden rounded-2xl border border-border bg-card">
         <div
-          className="relative h-48 bg-cover bg-center sm:h-64"
-          style={
-            pool.coverImageUrl
-              ? { backgroundImage: `url(${pool.coverImageUrl})` }
-              : {
-                  background: pool.cardBackgroundColor
-                    ? `linear-gradient(135deg, ${pool.cardBackgroundColor}, #0a0f18)`
-                    : "linear-gradient(135deg, #1a2744, #0a0f18)",
-                }
-          }
+          className="relative h-48 bg-cover sm:h-64"
+          style={poolCoverBannerStyle({
+            coverImageUrl: pool.coverImageUrl,
+            cardBackgroundColor: pool.cardBackgroundColor,
+            coverImagePosition: pool.coverImagePosition,
+          })}
         >
           <div className="absolute inset-0 bg-gradient-to-t from-navy-950/90 to-transparent" />
           <div className="absolute bottom-6 left-6 right-6">

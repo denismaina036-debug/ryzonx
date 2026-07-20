@@ -138,6 +138,11 @@ export const ADMIN_DEPARTMENTS: AdminNavDepartment[] = [
         icon: Trophy,
       },
       {
+        label: "Admission Settings",
+        href: ROUTES.adminPoolManagersAdmissionSettings,
+        icon: Settings,
+      },
+      {
         label: "Development",
         href: ROUTES.adminPoolManagersDevelopment,
         icon: TrendingUp,

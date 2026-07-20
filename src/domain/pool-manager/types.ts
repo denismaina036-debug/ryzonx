@@ -1,3 +1,5 @@
+import type { PmSocialLinks } from "@/domain/pool-manager/public-profile";
+
 export const PM_APPLICATION_STATUS = {
   DRAFT: "draft",
   PENDING: "pending",
@@ -11,16 +13,98 @@ export const PM_APPLICATION_STATUS = {
 export type PoolManagerApplicationStatus =
   (typeof PM_APPLICATION_STATUS)[keyof typeof PM_APPLICATION_STATUS];
 
+/** Wizard sections (1–7) before admin review */
+export const PM_APPLICATION_SECTIONS = {
+  PROFESSIONAL_BACKGROUND: 1,
+  TRADING_METHODOLOGY: 2,
+  RISK_MANAGEMENT: 3,
+  TRADING_PERFORMANCE: 4,
+  PERSONAL_STATEMENT: 5,
+  ADMISSION_PATH: 6,
+  REVIEW: 7,
+} as const;
+
+export type PoolManagerApplicationSection =
+  (typeof PM_APPLICATION_SECTIONS)[keyof typeof PM_APPLICATION_SECTIONS];
+
 export const PM_APPLICATION_STAGES = {
+  ...PM_APPLICATION_SECTIONS,
+  ADMIN_REVIEW: 8,
+  ACTIVATION: 9,
+  /** @deprecated legacy alias */
   BASIC_INFO: 1,
+  /** @deprecated legacy alias */
   CHALLENGE: 2,
+  /** @deprecated legacy alias */
   STRATEGY: 3,
-  ADMIN_REVIEW: 4,
-  ACTIVATION: 5,
 } as const;
 
 export type PoolManagerApplicationStage =
   (typeof PM_APPLICATION_STAGES)[keyof typeof PM_APPLICATION_STAGES];
+
+export const PM_ADMISSION_PATH = {
+  TRADING_CHALLENGE: "trading_challenge",
+  DIRECT_ACCESS: "direct_access",
+} as const;
+
+export type PoolManagerAdmissionPath =
+  (typeof PM_ADMISSION_PATH)[keyof typeof PM_ADMISSION_PATH];
+
+export type PoolManagerPaymentStatus = "pending" | "paid" | "waived";
+
+export interface ProfessionalBackgroundSection {
+  tradingExperience?: string;
+  marketsTraded?: string[];
+  primaryTradingInstrument?: string;
+  primaryTradingInstrumentOther?: string;
+  countryOfResidence?: string;
+}
+
+export interface TradingMethodologySection {
+  primaryTradingStyle?: string;
+  averageTradeDuration?: string;
+  tradingStrategy?: string;
+  marketAnalysisApproach?: string[];
+}
+
+export interface RiskManagementSection {
+  averageRiskPerTrade?: string;
+  maximumDrawdown?: string;
+  riskManagementProcess?: string;
+  managingLosingStreaks?: string;
+}
+
+export interface TradingPerformanceSection {
+  maintainsTradingJournal?: boolean;
+  hasTradedFundedAccounts?: boolean;
+  fundedAccountExperience?: string;
+  hasManagedInvestorCapital?: boolean;
+  capitalManagementExperience?: string;
+  averageMonthlyReturn?: string;
+  largestHistoricalDrawdown?: string;
+}
+
+export interface PersonalStatementSection {
+  whyPoolManager?: string;
+  tradingApproachDifference?: string;
+  investorExpectations?: string;
+}
+
+export interface ApplicationReviewConfirmations {
+  informationAccurate?: boolean;
+  agreesToTerms?: boolean;
+  understandsNotGuaranteed?: boolean;
+}
+
+export interface PoolManagerApplicationData {
+  professionalBackground?: ProfessionalBackgroundSection;
+  tradingMethodology?: TradingMethodologySection;
+  riskManagement?: RiskManagementSection;
+  tradingPerformance?: TradingPerformanceSection;
+  personalStatement?: PersonalStatementSection;
+  admissionPath?: PoolManagerAdmissionPath | null;
+  reviewConfirmations?: ApplicationReviewConfirmations;
+}
 
 export const POOL_LIFECYCLE_STATUS = {
   DRAFT: "draft",
@@ -83,6 +167,10 @@ export interface PoolManagerApplication {
   currentStage: PoolManagerApplicationStage;
   basicInfo: PoolManagerBasicInfo;
   strategyData: PoolManagerStrategyData;
+  applicationData: PoolManagerApplicationData;
+  admissionPath: PoolManagerAdmissionPath | null;
+  paymentStatus: PoolManagerPaymentStatus;
+  admissionFeeAmount: number | null;
   strategySubmittedAt: string | null;
   challengeEnrollmentId: string | null;
   poolManagerId: string | null;
@@ -110,6 +198,12 @@ export interface PoolManagerPublicProfile {
   slug: string;
   userId: string | null;
   displayName: string;
+  username: string;
+  publicDisplayName: string;
+  fullName: string | null;
+  showFullName: boolean;
+  socialLinks: PmSocialLinks;
+  publicSocialLinks: PmSocialLinks;
   profilePhotoUrl: string | null;
   coverImageUrl: string | null;
   biography: string | null;

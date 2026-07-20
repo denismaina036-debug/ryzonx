@@ -68,6 +68,9 @@ export const pmFieldLabelClass =
 export const pmFieldHintClass =
   "mt-1 text-xs leading-relaxed text-[var(--id-text-secondary)]";
 
+export const pmReadOnlyClass =
+  "flex h-11 items-center rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] px-4 text-sm text-[var(--id-text-secondary)]";
+
 export const pmRequiredMarkClass = "text-[var(--pm-accent-text)]";
 
 export const pmFormGuideClass =

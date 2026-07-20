@@ -65,6 +65,7 @@ export function PmPerformanceDashboard({
       <div className="grid gap-6 lg:grid-cols-2">
         <PmSectionCard title="Rating Breakdown">
           <RatingBreakdownPanel
+            title=""
             breakdown={rating.breakdown.map((b) => ({
               label: b.label,
               score: Math.round(b.score),

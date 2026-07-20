@@ -5,6 +5,8 @@ import {
   SECURITY_RISK_ORDER,
 } from "@/constants/marketplace";
 import { buildProtectionIndicators } from "@/lib/governance/protection-indicators";
+import { resolvePoolManagerPublicLabel, resolvePublicManagerName, managerRowToIdentity } from "@/domain/pool-manager/public-profile";
+import { parseCoverImagePosition } from "@/domain/pools/cover-image-position";
 import {
   aggregatePoolsByManager,
   filterManagers,
@@ -37,7 +39,9 @@ type FundRow = Record<string, unknown>;
 type ManagerRow = {
   id: string;
   slug: string | null;
+  username?: string | null;
   display_name: string;
+  show_full_name?: boolean | null;
   icon_url: string | null;
   profile_photo_url: string | null;
   cover_image_url: string | null;
@@ -57,6 +61,11 @@ type ManagerRow = {
   created_at: string;
 };
 
+function managerPublicLabel(row: ManagerRow | null): string | null {
+  if (!row) return null;
+  return resolvePoolManagerPublicLabel(managerRowToIdentity(row));
+}
+
 function mapManagerSummary(row: ManagerRow | null): PoolManagerPublicSummary | null {
   if (!row) return null;
   const createdAt = new Date(row.created_at);
@@ -65,7 +74,7 @@ function mapManagerSummary(row: ManagerRow | null): PoolManagerPublicSummary | n
   return {
     id: row.id,
     slug: row.slug,
-    displayName: row.display_name,
+    displayName: managerPublicLabel(row) ?? resolvePublicManagerName(managerRowToIdentity(row)) ?? "@manager",
     photoUrl: row.profile_photo_url ?? row.icon_url,
     coverUrl: row.cover_image_url,
     bio: row.bio,
@@ -96,7 +105,7 @@ async function fetchManagersMap(
   if (managerIds.length === 0) return map;
 
   const { data } = await db.from("pool_managers").select("*").in("id", managerIds);
-  for (const m of (data ?? []) as ManagerRow[]) {
+  for (const m of (data ?? []) as unknown as ManagerRow[]) {
     map.set(m.id, m);
   }
   return map;
@@ -128,11 +137,14 @@ function mapToCard(
     tagline: (row.tagline as string | null) ?? null,
     logoUrl: (row.logo_url as string | null) ?? null,
     coverImageUrl: (row.cover_image_url as string | null) ?? null,
+    coverImagePosition: parseCoverImagePosition(row.cover_image_position),
     cardBackgroundColor: (row.card_background_color as string | null) ?? null,
     categories: (row.categories as string[]) ?? [],
     marketsTraded: (row.markets_traded as string[]) ?? [],
-    managerName:
-      (row.pool_manager_name as string | null) ?? manager?.display_name ?? null,
+    managerName: resolvePublicManagerName(
+      manager ? managerRowToIdentity(manager) : null,
+      row.pool_manager_name as string | null
+    ),
     managerSlug: manager?.slug ?? null,
     managerId: manager?.id ?? null,
     managerVerified: manager?.is_verified ?? false,
@@ -297,7 +309,7 @@ function enrichManagerCards(
       ...card,
       id: row.id,
       slug: row.slug,
-      displayName: row.display_name,
+      displayName: managerPublicLabel(row) ?? "@manager",
       photoUrl: row.profile_photo_url ?? row.icon_url,
       country: row.country,
       bio: row.bio ?? card.bio,
@@ -427,7 +439,7 @@ export const marketplaceService = {
     let manager: ManagerRow | null = null;
     if (managerId) {
       const { data: m } = await db.from("pool_managers").select("*").eq("id", managerId).maybeSingle();
-      manager = (m as ManagerRow | null) ?? null;
+      manager = (m as unknown as ManagerRow | null) ?? null;
     }
 
     const monthlyMap = await fetchMonthlyRoiMap(db, [row.id as string]);
@@ -569,7 +581,7 @@ export const marketplaceService = {
     );
 
     return rows.map((row) =>
-      mapToCard(row, fullManager as ManagerRow, monthlyMap.get(row.id as string) ?? 0)
+      mapToCard(row, fullManager as unknown as ManagerRow, monthlyMap.get(row.id as string) ?? 0)
     );
   },
 

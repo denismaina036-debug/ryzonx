@@ -68,12 +68,14 @@ export function ManagedPoolForm({
               className={pmTextareaClass}
             />
           </PmFormField>
-          <PmFormField label="Cover Image" hint="Cover image shown on your pool card in the Marketplace.">
+          <PmFormField label="Cover Image" hint="Cover image shown on your pool card in the Marketplace. Drag to reposition after upload.">
             <PoolImageUpload
               imageUrl={values.poolImageUrl ?? ""}
+              coverImagePosition={values.coverImagePosition}
               poolId={poolId}
               disabled={!editable}
               onUploaded={(url) => patch("poolImageUrl", url)}
+              onCoverImagePositionChange={(position) => patch("coverImagePosition", position)}
               onClear={() => patch("poolImageUrl", "")}
             />
           </PmFormField>

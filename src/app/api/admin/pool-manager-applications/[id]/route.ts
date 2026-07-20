@@ -26,6 +26,7 @@ export async function PATCH(
     const body = (await request.json()) as {
       status?: PoolManagerApplicationStatus;
       notes?: string;
+      approveChallenge?: boolean;
       challengeAccountInfo?: string;
       broker?: string;
       server?: string;
@@ -58,8 +59,19 @@ export async function PATCH(
       return NextResponse.json({ application });
     }
 
+    if (body.approveChallenge) {
+      const application = await poolManagerAdminService.approveChallengeApplication({
+        applicationId: id,
+        notes: body.notes,
+      });
+      return NextResponse.json({ application });
+    }
+
     if (!body.status) {
-      return NextResponse.json({ error: "status or challengeAccountInfo is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "status, approveChallenge, or challengeAccountInfo is required" },
+        { status: 400 }
+      );
     }
 
     const application = await poolManagerAdminService.updateApplicationStatus({

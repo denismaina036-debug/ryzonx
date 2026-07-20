@@ -2,7 +2,17 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requireAuth, requireRole } from "@/lib/auth/session";
 import { USER_ROLES } from "@/constants/roles";
+import {
+  buildPoolManagerPublicIdentity,
+  normalizePoolManagerUsername,
+  resolvePoolManagerPublicLabel,
+  managerRowToIdentity,
+  sanitizePmSocialLinks,
+  validatePoolManagerUsername,
+  type PmSocialLinks,
+} from "@/domain/pool-manager/public-profile";
 import { notificationService } from "@/services/notification.service";
+import { parseCoverImagePosition } from "@/domain/pools/cover-image-position";
 import type {
   PoolManagerDashboardStats,
   PoolManagerPublicProfile,
@@ -132,6 +142,7 @@ export const poolManagerDashboardService = {
       isInviteOnly: Boolean(row.is_invite_only),
       cardBackgroundColor: (row.card_background_color as string) ?? null,
       coverImageUrl: (row.cover_image_url as string) ?? null,
+      coverImagePosition: parseCoverImagePosition(row.cover_image_position),
       poolManagerId: (row.pool_manager_id as string) ?? null,
       poolManagerName: (row.pool_manager_name as string) ?? null,
       poolManagerIconUrl: (row.pool_manager_icon_url as string) ?? null,
@@ -153,7 +164,7 @@ export const poolManagerDashboardService = {
     const db = createAdminClient();
     const { data: manager } = await db
       .from("pool_managers")
-      .select("display_name, icon_url")
+      .select("username, slug, display_name, show_full_name, icon_url")
       .eq("id", managerId)
       .single();
 
@@ -165,7 +176,14 @@ export const poolManagerDashboardService = {
         .replace(/^-|-$/g, "")
         .slice(0, 64);
 
-    const mgr = manager as { display_name: string; icon_url: string | null };
+    const mgr = manager as {
+      username?: string | null;
+      slug?: string | null;
+      display_name: string;
+      show_full_name?: boolean | null;
+      icon_url: string | null;
+    };
+    const publicLabel = resolvePoolManagerPublicLabel(managerRowToIdentity(mgr));
 
     const { data, error } = await db
       .from("funds")
@@ -175,7 +193,7 @@ export const poolManagerDashboardService = {
         description: input.description?.trim() ?? null,
         min_investment: input.minInvestment ?? 100,
         pool_manager_id: managerId,
-        pool_manager_name: mgr.display_name,
+        pool_manager_name: publicLabel,
         pool_manager_icon_url: mgr.icon_url,
         status: "inactive",
         lifecycle_status: "draft",
@@ -373,11 +391,25 @@ export const poolManagerDashboardService = {
     const yearsOn =
       (Date.now() - createdAt.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
 
+    const identity = buildPoolManagerPublicIdentity({
+      username: row.username as string | null,
+      slug: row.slug as string | null,
+      display_name: row.display_name as string,
+      show_full_name: row.show_full_name as boolean | null,
+      social_links: row.social_links,
+    });
+
     return {
       id: managerId,
-      slug: row.slug as string,
+      slug: identity.slug,
       userId: (row.user_id as string) ?? null,
-      displayName: row.display_name as string,
+      displayName: identity.publicDisplayName,
+      username: identity.username,
+      publicDisplayName: identity.publicDisplayName,
+      fullName: identity.fullName,
+      showFullName: identity.showFullName,
+      socialLinks: identity.socialLinks,
+      publicSocialLinks: identity.publicSocialLinks,
       profilePhotoUrl: (row.profile_photo_url as string) ?? (row.icon_url as string),
       coverImageUrl: (row.cover_image_url as string) ?? null,
       biography: (row.bio as string) ?? null,
@@ -419,12 +451,31 @@ export const poolManagerDashboardService = {
     profilePhotoUrl?: string;
     tradingStyle?: string;
     markets?: string[];
+    username?: string;
+    showFullName?: boolean;
+    socialLinks?: PmSocialLinks;
   }): Promise<void> {
     const user = await requireRole(USER_ROLES.POOL_MANAGER);
     const managerId = await getManagerIdForUser(user.id);
     if (!managerId) throw new Error("Pool Manager profile not found.");
 
     const db = createAdminClient();
+
+    const { data: current } = await db
+      .from("pool_managers")
+      .select("username, slug, display_name, show_full_name")
+      .eq("id", managerId)
+      .single();
+
+    if (!current) throw new Error("Pool Manager profile not found.");
+
+    const currentRow = current as unknown as {
+      username?: string | null;
+      slug?: string | null;
+      display_name: string;
+      show_full_name?: boolean | null;
+    };
+
     const updates: Record<string, unknown> = {};
     if (input.bio != null) updates.bio = input.bio.trim();
     if (input.coverImageUrl != null) updates.cover_image_url = input.coverImageUrl;
@@ -434,6 +485,30 @@ export const poolManagerDashboardService = {
     }
     if (input.tradingStyle != null) updates.trading_style = input.tradingStyle.trim();
     if (input.markets != null) updates.markets = input.markets;
+    if (input.showFullName != null) updates.show_full_name = input.showFullName;
+    if (input.socialLinks != null) {
+      updates.social_links = sanitizePmSocialLinks(input.socialLinks);
+    }
+
+    if (input.username != null) {
+      const normalized = normalizePoolManagerUsername(input.username);
+      const validationError = validatePoolManagerUsername(normalized);
+      if (validationError) throw new Error(validationError);
+
+      if (normalized !== (currentRow.username ?? currentRow.slug)) {
+        const { data: conflict } = await db
+          .from("pool_managers")
+          .select("id")
+          .or(`username.eq.${normalized},slug.eq.${normalized}`)
+          .neq("id", managerId)
+          .maybeSingle();
+
+        if (conflict) throw new Error("That username is already taken.");
+      }
+
+      updates.username = normalized;
+      updates.slug = normalized;
+    }
 
     const { error } = await db
       .from("pool_managers")
@@ -441,6 +516,26 @@ export const poolManagerDashboardService = {
       .eq("id", managerId);
 
     if (error) throw new Error(error.message);
+
+    const { data: refreshed } = await db
+      .from("pool_managers")
+      .select("username, slug, display_name, show_full_name")
+      .eq("id", managerId)
+      .single();
+
+    if (refreshed) {
+      const refreshedRow = refreshed as unknown as {
+        username?: string | null;
+        slug?: string | null;
+        display_name: string;
+        show_full_name?: boolean | null;
+      };
+      const label = resolvePoolManagerPublicLabel(managerRowToIdentity(refreshedRow));
+      await db
+        .from("funds")
+        .update({ pool_manager_name: label } as never)
+        .eq("pool_manager_id", managerId);
+    }
   },
 };
 

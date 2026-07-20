@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolvePoolManagerPublicLabel, managerRowToIdentity } from "@/domain/pool-manager/public-profile";
 import { requireAuth } from "@/lib/auth/session";
 import { strategyService } from "@/services/strategy.service";
 import { investmentCycleService } from "@/services/investment-cycle.service";
@@ -17,17 +18,24 @@ import { INVESTMENT_ALLOCATION_STATUS_LABELS } from "@/constants/investment-allo
 
 type ManagerRow = {
   id: string;
-  display_name: string;
+  username?: string | null;
   slug: string | null;
+  display_name: string;
+  show_full_name?: boolean | null;
   ryvonx_rating: number | null;
 };
+
+function managerPublicName(row: ManagerRow | undefined): string {
+  if (!row) return "Pool Manager";
+  return resolvePoolManagerPublicLabel(managerRowToIdentity(row));
+}
 
 async function loadManagers(ids: string[]): Promise<Map<string, ManagerRow>> {
   if (ids.length === 0) return new Map();
   const db = createAdminClient();
   const { data } = await db
     .from("pool_managers")
-    .select("id, display_name, slug, ryvonx_rating")
+    .select("id, username, slug, display_name, show_full_name, ryvonx_rating")
     .in("id", ids);
 
   const map = new Map<string, ManagerRow>();
@@ -63,7 +71,7 @@ function toCycleCard(
     strategySlug: strategy.slug,
     riskProfile: strategy.riskProfile,
     managerId: cycle.poolManagerId,
-    managerName: manager?.display_name ?? "Pool Manager",
+    managerName: managerPublicName(manager),
     managerSlug: manager?.slug ?? null,
     managerRating: manager?.ryvonx_rating ?? null,
     targetCapital: cycle.targetCapital,
@@ -93,7 +101,7 @@ function toStrategyCard(
     investmentStyle: strategy.investmentStyle,
     supportedAssets: strategy.supportedAssets,
     managerId: strategy.poolManagerId,
-    managerName: manager?.display_name ?? "Pool Manager",
+    managerName: managerPublicName(manager),
     managerSlug: manager?.slug ?? null,
     managerRating: manager?.ryvonx_rating ?? null,
     activeCyclesCount,
@@ -167,7 +175,7 @@ async function enrichAllocations(allocations: InvestmentAllocation[]): Promise<I
       cycleSlug: cycle.slug,
       cycleStatus: cycle.status,
       strategyName: strategy?.name ?? "Strategy",
-      managerName: manager?.display_name ?? "Pool Manager",
+      managerName: managerPublicName(manager),
       canCancel,
     };
   });

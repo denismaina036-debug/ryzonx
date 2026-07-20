@@ -821,6 +821,7 @@ export type Database = {
           card_background_color: string | null
           categories: string[]
           cover_image_url: string | null
+          cover_image_position: Json
           created_at: string
           current_capital: number
           current_roi: number
@@ -902,6 +903,7 @@ export type Database = {
           approved_at?: string | null
           card_background_color?: string | null
           cover_image_url?: string | null
+          cover_image_position?: Json
           created_at?: string
           current_capital?: number
           current_roi?: number
@@ -940,6 +942,7 @@ export type Database = {
           approved_at?: string | null
           card_background_color?: string | null
           cover_image_url?: string | null
+          cover_image_position?: Json
           created_at?: string
           current_capital?: number
           current_roi?: number
@@ -991,6 +994,7 @@ export type Database = {
           bio: string | null
           country: string | null
           cover_image_url: string | null
+          cover_image_position: Json
           created_at: string
           display_name: string
           icon_url: string | null
@@ -1015,6 +1019,9 @@ export type Database = {
           level_promoted_by: string | null
           next_level_review_at: string | null
           development_notes: string | null
+          show_full_name: boolean
+          social_links: Json | null
+          username: string | null
         }
         Insert: {
           aggressiveness_rating?: number | null
@@ -1025,6 +1032,7 @@ export type Database = {
           bio?: string | null
           country?: string | null
           cover_image_url?: string | null
+          cover_image_position?: Json
           created_at?: string
           display_name: string
           icon_url?: string | null
@@ -1043,6 +1051,9 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           win_rate_pct?: number | null
+          show_full_name?: boolean
+          social_links?: Json | null
+          username?: string | null
         }
         Update: {
           aggressiveness_rating?: number | null
@@ -1053,6 +1064,7 @@ export type Database = {
           bio?: string | null
           country?: string | null
           cover_image_url?: string | null
+          cover_image_position?: Json
           created_at?: string
           display_name?: string
           icon_url?: string | null
@@ -1071,6 +1083,9 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           win_rate_pct?: number | null
+          show_full_name?: boolean
+          social_links?: Json | null
+          username?: string | null
         }
         Relationships: [
           {

@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolvePoolManagerPublicLabel, managerRowToIdentity } from "@/domain/pool-manager/public-profile";
 import { requirePermission } from "@/lib/auth/authorization";
 import { requireAuth } from "@/lib/auth/session";
 
@@ -52,7 +53,9 @@ export const investorFollowService = {
     const db = createAdminClient();
     const { data, error } = await db
       .from("investor_manager_follows")
-      .select("pool_manager_id, created_at, pool_managers(display_name, slug)")
+      .select(
+        "pool_manager_id, created_at, pool_managers(username, slug, display_name, show_full_name)"
+      )
       .eq("investor_id", id)
       .order("created_at", { ascending: false });
 
@@ -61,13 +64,24 @@ export const investorFollowService = {
     return ((data ?? []) as Array<{
       pool_manager_id: string;
       created_at: string;
-      pool_managers: { display_name: string; slug: string } | null;
-    }>).map((row) => ({
+      pool_managers: {
+        username?: string | null;
+        slug: string;
+        display_name: string;
+        show_full_name?: boolean | null;
+      } | null;
+    }>).map((row) => {
+      const pm = row.pool_managers;
+      const displayName = pm
+        ? resolvePoolManagerPublicLabel(managerRowToIdentity(pm))
+        : "Manager";
+      return {
       poolManagerId: row.pool_manager_id,
-      displayName: row.pool_managers?.display_name ?? "Manager",
-      slug: row.pool_managers?.slug ?? "",
+      displayName,
+      slug: pm?.slug ?? "",
       followedAt: row.created_at,
-    }));
+    };
+    });
   },
 
   async followerCount(poolManagerId: string): Promise<number> {

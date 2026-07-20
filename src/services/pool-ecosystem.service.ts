@@ -1,6 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
+  resolvePoolManagerPublicLabel,
+  resolvePublicManagerName,
+  managerRowToIdentity,
+} from "@/domain/pool-manager/public-profile";
+import {
   DEFAULT_FUND_ID,
   DEFAULT_FUND_NAME,
   DEFAULT_FUND_SLUG,
@@ -48,7 +53,10 @@ type FundRow = {
 type ManagerRow = {
   id: string;
   user_id: string | null;
+  username?: string | null;
+  slug?: string | null;
   display_name: string;
+  show_full_name?: boolean | null;
   icon_url: string | null;
   bio: string | null;
   status: string;
@@ -61,7 +69,7 @@ function mapManager(row: ManagerRow): PoolManager {
   return {
     id: row.id,
     userId: row.user_id,
-    displayName: row.display_name,
+    displayName: resolvePoolManagerPublicLabel(managerRowToIdentity(row)),
     iconUrl: row.icon_url,
     bio: row.bio,
     status: row.status as PoolManager["status"],
@@ -136,8 +144,14 @@ export const poolEcosystemService = {
 
     const row = data as FundRow;
     const manager = await fetchManager(db, row.pool_manager_id);
+    const pool = mapPool(row);
 
-    return { ...mapPool(row), manager };
+    return {
+      ...pool,
+      poolManagerName:
+        manager?.displayName ?? resolvePublicManagerName(null, row.pool_manager_name),
+      manager,
+    };
   },
 
   async getPoolBySlug(slug: string): Promise<PoolWithManager | null> {
@@ -148,7 +162,16 @@ export const poolEcosystemService = {
 
     const row = data as FundRow;
     const manager = await fetchManager(db, row.pool_manager_id);
-    return { ...mapPool(row), manager };
+    const pool = mapPool(row);
+
+    return {
+      ...pool,
+      poolManagerName:
+        manager != null
+          ? manager.displayName
+          : resolvePublicManagerName(null, row.pool_manager_name),
+      manager,
+    };
   },
 
   async listActivePools(): Promise<PoolWithManager[]> {
@@ -178,10 +201,15 @@ export const poolEcosystemService = {
       }
     }
 
-    return rows.map((row) => ({
-      ...mapPool(row),
-      manager: row.pool_manager_id ? managersMap.get(row.pool_manager_id) ?? null : null,
-    }));
+    return rows.map((row) => {
+      const manager = row.pool_manager_id ? managersMap.get(row.pool_manager_id) ?? null : null;
+      return {
+        ...mapPool(row),
+        poolManagerName:
+          manager?.displayName ?? resolvePublicManagerName(null, row.pool_manager_name),
+        manager,
+      };
+    });
   },
 
   async assertPoolActive(poolId: string): Promise<Pool> {

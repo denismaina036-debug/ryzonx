@@ -19,6 +19,7 @@ interface MobileDashboardViewProps {
   user: UserProfile;
   data: InvestorDashboardPageData;
   homeInvestment?: InvestorHomeData;
+  showContinueJourney?: boolean;
 }
 
 const item = {
@@ -31,7 +32,12 @@ const container = {
   show: { transition: { staggerChildren: 0.06 } },
 };
 
-export function MobileDashboardView({ user, data, homeInvestment }: MobileDashboardViewProps) {
+export function MobileDashboardView({
+  user,
+  data,
+  homeInvestment,
+  showContinueJourney = true,
+}: MobileDashboardViewProps) {
   const firstName = user.fullName.split(" ")[0] ?? user.fullName;
   const hasInvestments = data.investment.participations.length > 0;
   const dailyProfit = data.poolPerformance.dailyProfit ?? 0;
@@ -99,9 +105,11 @@ export function MobileDashboardView({ user, data, homeInvestment }: MobileDashbo
         <MobileRecentActivity activity={data.recentActivity} />
       </motion.div>
 
-      <motion.div variants={item}>
-        <MobileManagerJourney enrollment={data.challengeEnrollment} />
-      </motion.div>
+      {showContinueJourney && (
+        <motion.div variants={item}>
+          <MobileManagerJourney enrollment={data.challengeEnrollment} />
+        </motion.div>
+      )}
     </motion.div>
   );
 }

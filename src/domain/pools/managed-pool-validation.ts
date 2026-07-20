@@ -1,5 +1,9 @@
 import type { ManagedPoolFormInput } from "@/domain/pools/managed-pool";
 import {
+  parseCoverImagePosition,
+  serializeCoverImagePosition,
+} from "@/domain/pools/cover-image-position";
+import {
   sanitizeCycleCapacityFields,
   validateCycleCapacityFields,
 } from "@/domain/investment/cycle-validation";
@@ -19,6 +23,9 @@ export function normalizeManagedPoolForm(input: ManagedPoolFormInput): ManagedPo
     poolName: input.poolName.trim(),
     strategyName: input.strategyName.trim(),
     strategyDescription: input.strategyDescription.trim(),
+    coverImagePosition: serializeCoverImagePosition(
+      parseCoverImagePosition(input.coverImagePosition)
+    ),
   };
 }
 

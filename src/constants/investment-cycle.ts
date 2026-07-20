@@ -50,6 +50,7 @@ export const INVESTMENT_CYCLE_MANAGER_TRANSITIONS: Partial<
 export const INVESTMENT_CYCLE_ADMIN_TRANSITIONS: Partial<
   Record<InvestmentCycleStatus, InvestmentCycleStatus[]>
 > = {
+  draft: ["submitted"],
   submitted: ["approved", "draft"],
   approved: ["funding"],
   funding: ["trading", "approved"],

@@ -83,7 +83,9 @@ export function MarketplaceManagerCardView({
               <img src={manager.photoUrl} alt="" className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full items-center justify-center text-lg font-bold text-[var(--id-accent-text)]">
-                {manager.displayName.charAt(0)}
+                {manager.displayName.startsWith("@")
+                  ? (manager.displayName.charAt(1).toUpperCase() || manager.displayName.charAt(0))
+                  : manager.displayName.charAt(0).toUpperCase()}
               </div>
             )}
             {manager.isVerified && (

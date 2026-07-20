@@ -401,12 +401,8 @@ export const investmentCycleService = {
     const existing = await this.listByFund(fundId);
     if (existing.length > 0) {
       const cycle = existing[0]!;
-      if (cycle.status === "draft" || cycle.status === "submitted") {
-        await this.adminReview(cycle.id, "approved");
-        return this.adminReview(cycle.id, "funding");
-      }
-      if (cycle.status === "approved") {
-        return this.adminReview(cycle.id, "funding");
+      if (cycle.status === "draft" || cycle.status === "submitted" || cycle.status === "approved") {
+        return this.adminActivateCycleForPoolGoLive(cycle.id);
       }
       return cycle;
     }
@@ -435,8 +431,25 @@ export const investmentCycleService = {
       actorUserId
     );
 
-    await this.adminReview(cycle.id, "approved");
-    return this.adminReview(cycle.id, "funding");
+    return this.adminActivateCycleForPoolGoLive(cycle.id);
+  },
+
+  /** Moves a cycle through draft → submitted → approved → funding for pool go-live. */
+  async adminActivateCycleForPoolGoLive(cycleId: string): Promise<InvestmentCycle> {
+    let cycle = await this.getById(cycleId);
+    if (!cycle) throw new Error("Investment cycle not found.");
+
+    if (cycle.status === "draft") {
+      cycle = await this.adminReview(cycle.id, "submitted");
+    }
+    if (cycle.status === "submitted") {
+      cycle = await this.adminReview(cycle.id, "approved");
+    }
+    if (cycle.status === "approved") {
+      cycle = await this.adminReview(cycle.id, "funding");
+    }
+
+    return cycle;
   },
 
   async listAll(filters?: { status?: InvestmentCycleStatus }): Promise<InvestmentCycle[]> {

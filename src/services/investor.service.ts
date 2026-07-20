@@ -2,6 +2,11 @@ import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_FUND_ID } from "@/constants/funds";
 import { requireAuth } from "@/lib/auth/session";
 import { anonymizeDisplayName } from "@/lib/utils";
+import {
+  resolvePoolManagerPublicLabel,
+  resolvePublicManagerName,
+  managerRowToIdentity,
+} from "@/domain/pool-manager/public-profile";
 import type { Tables } from "@/types/database.types";
 import type {
   InvestorDashboardPageData,
@@ -184,7 +189,7 @@ export const investorService = {
         ? supabase
             .from("funds")
             .select(
-              "id, name, pool_value, pool_health, pool_manager_name, pool_manager_id, ryvonx_rating, current_roi, active_investors, pool_managers(profile_photo_url, icon_url)"
+              "id, name, pool_value, pool_health, pool_manager_name, pool_manager_id, ryvonx_rating, current_roi, active_investors, pool_managers(username, slug, display_name, show_full_name, profile_photo_url, icon_url)"
             )
             .eq("id", primaryFundId)
             .maybeSingle()
@@ -255,15 +260,32 @@ export const investorService = {
       current_roi: number;
       active_investors: number;
       pool_managers:
-        | { profile_photo_url: string | null; icon_url: string | null }
-        | { profile_photo_url: string | null; icon_url: string | null }[]
+        | {
+            username?: string | null;
+            slug?: string | null;
+            display_name: string;
+            show_full_name?: boolean | null;
+            profile_photo_url: string | null;
+            icon_url: string | null;
+          }
+        | {
+            username?: string | null;
+            slug?: string | null;
+            display_name: string;
+            show_full_name?: boolean | null;
+            profile_photo_url: string | null;
+            icon_url: string | null;
+          }[]
         | null;
     } | null;
 
     const managerJoin = fund?.pool_managers;
-    const managerRow = Array.isArray(managerJoin) ? managerJoin[0] : managerJoin;
+    const managerIdentityRow = Array.isArray(managerJoin) ? managerJoin[0] : managerJoin;
     const managerPhotoUrl =
-      managerRow?.profile_photo_url ?? managerRow?.icon_url ?? null;
+      managerIdentityRow?.profile_photo_url ?? managerIdentityRow?.icon_url ?? null;
+    const managerName = managerIdentityRow
+      ? resolvePoolManagerPublicLabel(managerRowToIdentity(managerIdentityRow))
+      : resolvePublicManagerName(null, fund?.pool_manager_name ?? null);
 
     const pool = poolResult.data as {
       total_pool_value: number;
@@ -379,7 +401,7 @@ export const investorService = {
           rankPercentile,
           clientSharePct: sharePct,
           poolName: fund?.name ?? primary?.poolName ?? null,
-          managerName: fund?.pool_manager_name ?? null,
+          managerName,
           managerPhotoUrl,
           managerRating:
             fund?.ryvonx_rating != null ? toNumber(fund.ryvonx_rating) : null,
