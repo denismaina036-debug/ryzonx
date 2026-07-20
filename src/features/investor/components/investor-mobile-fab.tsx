@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -25,6 +26,12 @@ interface FabAction {
 export function InvestorMobileFab({ hasActivePool = false }: { hasActivePool?: boolean }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+
+  /** Join flow has its own primary CTA — hide FAB so it does not cover the action button. */
+  if (/\/marketplace\/[^/]+\/join$/.test(pathname)) {
+    return null;
+  }
 
   const actions: FabAction[] = [
     {

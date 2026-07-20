@@ -35,7 +35,7 @@ export default async function JoinPoolPage({
   }
 
   return (
-    <InvestorPageContent className="py-1 sm:py-4">
+    <InvestorPageContent className="py-1 pb-0 sm:py-4">
       <JoinPoolConfirmation
         pool={pool}
         isAuthenticated={!!user}
