@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from "@/lib/auth/session";
 import { USER_ROLES } from "@/constants/roles";
 import { DEFAULT_FUND_ID } from "@/constants/funds";
 import { notificationService } from "@/services/notification.service";
+import { adminNotifyService } from "@/services/communication";
 import { platformSettingsService } from "@/services/platform-settings.service";
 import {
   PM_APPLICATION_STAGES,
@@ -220,12 +221,22 @@ export const poolManagerApplicationService = {
       throw new Error("You are already an approved Pool Manager.");
     }
 
+    const initialApplicationData =
+      user.registrationCountry
+        ? {
+            professionalBackground: {
+              countryOfResidence: user.registrationCountry,
+            },
+          }
+        : {};
+
     const { data, error } = await db
       .from("pool_manager_applications")
       .insert({
         user_id: user.id,
         status: PM_APPLICATION_STATUS.DRAFT,
         current_stage: PM_APPLICATION_STAGES.PROFESSIONAL_BACKGROUND,
+        application_data: initialApplicationData,
       } as never)
       .select("*")
       .single();
@@ -499,20 +510,11 @@ export const poolManagerApplicationService = {
       metadata: { application_id: application.id, admission_path: admissionPath },
     });
 
-    const { data: admins } = await db
-      .from("profiles")
-      .select("id")
-      .eq("role", USER_ROLES.ADMINISTRATOR);
-
-    for (const admin of (admins ?? []) as Array<{ id: string }>) {
-      await notificationService.sendToUser({
-        userId: admin.id,
-        type: "admin_message",
-        title: "New Pool Manager application",
-        message: `${user.fullName} submitted a Pool Manager application (${pathLabel}) for review.`,
-        metadata: { application_id: application.id, user_id: user.id, admission_path: admissionPath },
-      });
-    }
+    await adminNotifyService.newPmApplication({
+      applicantName: user.fullName ?? user.email ?? "Applicant",
+      applicationId: application.id,
+      triggeredBy: user.id,
+    });
 
     const { publishPlatformEvent, PLATFORM_EVENT_TYPES } = await import(
       "@/lib/platform-events/publish"
@@ -577,20 +579,11 @@ export const poolManagerApplicationService = {
       metadata: { application_id: application.id },
     });
 
-    const { data: admins } = await db
-      .from("profiles")
-      .select("id")
-      .eq("role", USER_ROLES.ADMINISTRATOR);
-
-    for (const admin of (admins ?? []) as Array<{ id: string }>) {
-      await notificationService.sendToUser({
-        userId: admin.id,
-        type: "admin_message",
-        title: "New Pool Manager application",
-        message: `${user.fullName} submitted a Pool Manager application for review.`,
-        metadata: { application_id: application.id, user_id: user.id },
-      });
-    }
+    await adminNotifyService.newPmApplication({
+      applicantName: user.fullName ?? user.email ?? "Applicant",
+      applicationId: application.id,
+      triggeredBy: user.id,
+    });
 
     const { publishPlatformEvent, PLATFORM_EVENT_TYPES } = await import(
       "@/lib/platform-events/publish"
@@ -776,20 +769,11 @@ export const poolManagerApplicationService = {
       metadata: { application_id: application.id },
     });
 
-    const { data: admins } = await db
-      .from("profiles")
-      .select("id")
-      .eq("role", USER_ROLES.ADMINISTRATOR);
-
-    for (const admin of (admins ?? []) as Array<{ id: string }>) {
-      await notificationService.sendToUser({
-        userId: admin.id,
-        type: "admin_message",
-        title: "New Pool Manager application",
-        message: `${user.fullName} submitted a Pool Manager application for review.`,
-        metadata: { application_id: application.id, user_id: user.id },
-      });
-    }
+    await adminNotifyService.newPmApplication({
+      applicantName: user.fullName ?? user.email ?? "Applicant",
+      applicationId: application.id,
+      triggeredBy: user.id,
+    });
 
     return mapApplication(data as ApplicationRow);
   },
@@ -941,6 +925,9 @@ export const poolManagerAdminService = {
     notes?: string;
     initialRating?: {
       ryvonxRating?: number;
+      displayReviewCount?: number;
+      displayTradeCount?: number;
+      displayInvestorCount?: number;
       experienceLevel?: string;
       riskClassification?: string;
       isVerified?: boolean;
@@ -1217,6 +1204,9 @@ export const poolManagerAdminService = {
     application: PoolManagerApplication,
     initialRating?: {
       ryvonxRating?: number;
+      displayReviewCount?: number;
+      displayTradeCount?: number;
+      displayInvestorCount?: number;
       experienceLevel?: string;
       riskClassification?: string;
       isVerified?: boolean;
@@ -1284,6 +1274,9 @@ export const poolManagerAdminService = {
         is_verified: initialRating?.isVerified ?? true,
         avg_monthly_return_pct: avgReturn,
         ryvonx_rating: initialRating?.ryvonxRating ?? null,
+        display_review_count: initialRating?.displayReviewCount ?? 0,
+        display_trade_count: initialRating?.displayTradeCount ?? 0,
+        display_investor_count: initialRating?.displayInvestorCount ?? 0,
         manager_level: resolveManagerCareerLevel(initialRating?.experienceLevel),
         governance_stage: "approved",
         development_notes: formatPmInitialRatingNotes(

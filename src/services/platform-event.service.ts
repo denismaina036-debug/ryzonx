@@ -124,6 +124,11 @@ export const platformEventService = {
 
   async listRecent(limit = 50): Promise<PlatformEvent[]> {
     await requireRole(USER_ROLES.ADMINISTRATOR);
+    return this.listRecentPublic(limit);
+  },
+
+  /** Public marketplace activity feed — no auth required. */
+  async listRecentPublic(limit = 50): Promise<PlatformEvent[]> {
     const db = createAdminClient();
     const { data, error } = await db
       .from("platform_events")

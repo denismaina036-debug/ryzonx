@@ -10,7 +10,6 @@ import { formatMoney } from "@/services/communication/user-variables";
 import {
   MOCK_CRYPTO_DEPOSIT_ASSETS,
   MOCK_DEPOSIT_FAQ,
-  MOCK_RECENT_CRYPTO_DEPOSITS,
 } from "@/lib/mock-data/crypto-deposits";
 import type {
   CryptoDepositAsset,
@@ -223,7 +222,7 @@ export const depositService = {
     const recentDeposits =
       recentRows.length > 0
         ? recentRows.map((row) => mapRecentDeposit(row as Parameters<typeof mapRecentDeposit>[0]))
-        : MOCK_RECENT_CRYPTO_DEPOSITS;
+        : [];
 
     const fund = fundResult.data as {
       name?: string;

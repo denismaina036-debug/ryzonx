@@ -54,7 +54,7 @@ export const adminNotifyService = {
           relatedEntityType: input.relatedEntityType,
           relatedEntityId: input.relatedEntityId,
           triggeredBy: input.triggeredBy ?? null,
-          channels: input.channels ?? ["in_app"],
+          channels: input.channels ?? ["in_app", "email"],
           priority: input.priority ?? "high",
           category: "system",
         })
@@ -118,6 +118,25 @@ export const adminNotifyService = {
     });
   },
 
+  async newRegistration(input: {
+    userName: string;
+    userEmail: string;
+    userId: string;
+  }): Promise<void> {
+    await this.notifyAll({
+      templateSlug: "admin_new_registration",
+      title: "New user registration",
+      body: `${input.userName} (${input.userEmail}) registered on RyvonX.`,
+      variables: {
+        user_name: input.userName,
+        user_email: input.userEmail,
+      },
+      relatedEntityType: "profile",
+      relatedEntityId: input.userId,
+      triggeredBy: input.userId,
+    });
+  },
+
   async supportTicket(input: {
     subject: string;
     ticketId: string;
@@ -170,7 +189,7 @@ export const adminNotifyService = {
       },
       metadata: input.metadata,
       triggeredBy: input.triggeredBy,
-      channels: ["in_app"],
+      channels: ["in_app", "email"],
       priority: "high",
     });
   },

@@ -3,6 +3,7 @@ import { getServerEnvSafe } from "@/lib/env";
 import { DEFAULT_FUND_ID } from "@/constants/funds";
 import { formatFullName } from "@/lib/auth/register";
 import { ensurePlatformFundingFund } from "@/services/platform-funding.service";
+import { adminNotifyService } from "@/services/communication/admin-notify.service";
 import type { User } from "@supabase/supabase-js";
 
 /**
@@ -49,6 +50,16 @@ export async function ensureInvestorBootstrap(user: User): Promise<void> {
       role: "investor",
       is_active: true,
     });
+
+    void adminNotifyService
+      .newRegistration({
+        userId: user.id,
+        userName: fullName || "Investor",
+        userEmail: user.email ?? "",
+      })
+      .catch((err) => {
+        console.error("[ensureInvestorBootstrap] Admin registration notify failed:", err);
+      });
   }
 
   const { data: existingPortfolio } = await admin

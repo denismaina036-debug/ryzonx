@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { REGISTRATION_INTENTS, type RegistrationIntent } from "@/constants/registration";
 
 export const loginSchema = z.object({
   email: z
@@ -55,6 +56,7 @@ export const registerSchema = z
         "Password must contain uppercase, lowercase, and a number"
       ),
     confirmPassword: z.string().min(1, "Please confirm your password"),
+    country: z.string().optional(),
     acceptTerms: z.literal(true, {
       errorMap: () => ({ message: "You must accept the terms and conditions" }),
     }),
@@ -86,6 +88,21 @@ export const registerSchema = z
   );
 
 export type RegisterSchema = z.infer<typeof registerSchema>;
+
+export function createRegisterSchema(intent: RegistrationIntent) {
+  const requireCountry = intent === REGISTRATION_INTENTS.CREATE_POOL;
+  return registerSchema.superRefine((data, ctx) => {
+    if (requireCountry && !data.country?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Country is required",
+        path: ["country"],
+      });
+    }
+  });
+}
+
+export type RegisterSchemaWithIntent = z.infer<ReturnType<typeof createRegisterSchema>>;
 
 export const forgotPasswordSchema = z.object({
   email: z

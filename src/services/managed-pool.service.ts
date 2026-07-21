@@ -12,6 +12,8 @@ import type {
   ManagedPoolRiskLevel,
 } from "@/domain/pools/managed-pool";
 import { DEFAULT_MANAGED_POOL_RETURN_TIERS } from "@/domain/pools/managed-pool";
+import type { ManagedPoolReturnModel } from "@/domain/pools/return-model";
+import { tradingSessionLabel } from "@/domain/pools/trading-session";
 import { poolGovernanceLockService } from "@/services/pool-governance-lock.service";
 import {
   normalizeManagedPoolForm,
@@ -46,6 +48,20 @@ function riskToAggressiveness(risk: ManagedPoolRiskLevel | ""): string | null {
     aggressive: "extreme",
   };
   return risk ? map[risk] ?? null : null;
+}
+
+function aggressivenessToRisk(level: string | null | undefined): ManagedPoolRiskLevel | "" {
+  const map: Record<string, ManagedPoolRiskLevel> = {
+    low: "conservative",
+    moderate: "balanced",
+    high: "growth",
+    extreme: "aggressive",
+  };
+  return level ? map[level] ?? "" : "";
+}
+
+function resolveReturnModel(value: string | undefined): ManagedPoolReturnModel {
+  return value === "fixed" ? "fixed" : "variable";
 }
 
 function readManagedConfig(poolFaq: unknown): ManagedPoolConfig {
@@ -84,6 +100,11 @@ function formToFundPatch(
   const targetReturn = parseAmount(input.targetReturnPct);
   const visibility = input.visibility;
   const returnTiers = normalizeReturnTiers(input.returnTiers);
+  const returnModel = resolveReturnModel(input.returnModel);
+  const sessionLabel = tradingSessionLabel(input.tradingSessionKey, input.tradingSessionCustom);
+  const instrumentCode = input.tradingInstrumentCode.trim();
+  const marketCode = input.marketTypeCode.trim();
+  const marketsTraded = [instrumentCode, marketCode].filter(Boolean);
 
   const managedConfig: ManagedPoolConfig = {
     ...config,
@@ -91,8 +112,16 @@ function formToFundPatch(
     strategyName: input.strategyName.trim(),
     tradingStyle: input.tradingStyle.trim(),
     timeframes: input.timeframes.trim(),
-    tradingSessions: input.tradingSessions.trim(),
-    tradingHours: input.tradingHours.trim(),
+    tradingSessions: sessionLabel ?? input.tradingSessions.trim(),
+    tradingHours: input.tradingTimeNy.trim()
+      ? `${input.tradingTimeNy.trim()} (New York Time)`
+      : input.tradingHours.trim(),
+    returnModel,
+    tradingSessionKey: input.tradingSessionKey || undefined,
+    tradingSessionCustom: input.tradingSessionCustom.trim() || undefined,
+    tradingTimeNy: input.tradingTimeNy.trim() || undefined,
+    marketTypeCode: marketCode || undefined,
+    tradingInstrumentCode: instrumentCode || undefined,
     expectedBehavior: input.expectedBehavior.trim(),
     managerNotes: input.managerNotes.trim(),
     tradingMethodology: input.tradingMethodology.trim(),
@@ -124,12 +153,12 @@ function formToFundPatch(
     investor_share_pct: parseAmount(input.investorSharePct) ?? 80,
     pool_manager_share_pct: parseAmount(input.poolManagerSharePct) ?? 20,
     tagline: input.poolName.trim() || null,
-    markets_traded: parseMarkets(input.markets),
+    markets_traded: marketsTraded.length ? marketsTraded : parseMarkets(input.markets),
     min_investment: minInvestment ?? 100,
     max_investment: maxInvestment ?? null,
     target_capital: targetCapital ?? null,
     max_aum: targetCapital ?? null,
-    max_investors_cap: maxInvestors != null ? Math.floor(maxInvestors) : null,
+    target_investors: maxInvestors != null ? Math.floor(maxInvestors) : null,
     pool_duration_days: durationDays ?? null,
     profit_target_pct: targetReturn ?? null,
     aggressiveness_level: riskToAggressiveness(input.riskLevel),
@@ -144,10 +173,20 @@ export function poolToManagedForm(
   pool: Pool,
   config: ManagedPoolConfig,
   marketsTraded?: string[],
-  profitSharing?: { investorSharePct?: number; poolManagerSharePct?: number }
+  profitSharing?: { investorSharePct?: number; poolManagerSharePct?: number },
+  targetInvestors?: number | null,
+  aggressivenessLevel?: string | null
 ): ManagedPoolFormInput {
   const returnTiers =
     pool.returnTiers?.length > 0 ? pool.returnTiers : [...DEFAULT_MANAGED_POOL_RETURN_TIERS];
+
+  const instrumentFromConfig = config.tradingInstrumentCode ?? "";
+  const marketFromConfig = config.marketTypeCode ?? "";
+  const legacyMarkets = marketsTraded?.length
+    ? marketsTraded.join(", ")
+    : config.tradingStyle?.includes(",")
+      ? config.tradingStyle
+      : "";
 
   return {
     poolName: pool.name,
@@ -159,28 +198,38 @@ export function poolToManagedForm(
     strategyName: config.strategyName ?? pool.name,
     strategyDescription: pool.poolDescription || pool.description,
     tradingStyle: config.tradingStyle ?? "",
-    markets: marketsTraded?.length
-      ? marketsTraded.join(", ")
-      : config.tradingStyle?.includes(",")
-        ? config.tradingStyle
-        : "",
+    markets: legacyMarkets,
     timeframes: config.timeframes ?? "",
     tradingSessions: config.tradingSessions ?? "",
-    tradingHours: config.tradingHours ?? "",
+    tradingHours: config.tradingTimeNy
+      ? config.tradingTimeNy
+      : config.tradingHours?.replace(/\s*\(New York Time\)$/i, "") ?? "",
+    returnModel: config.returnModel ?? "variable",
+    tradingSessionKey: config.tradingSessionKey ?? "",
+    tradingSessionCustom: config.tradingSessionCustom ?? "",
+    tradingTimeNy: config.tradingTimeNy ?? "",
+    marketTypeCode: marketFromConfig || (marketsTraded?.[1] ?? marketsTraded?.[0] ?? ""),
+    tradingInstrumentCode:
+      instrumentFromConfig || (marketsTraded?.[0] && marketsTraded.length > 1 ? marketsTraded[0] : ""),
     expectedBehavior: config.expectedBehavior ?? "",
     managerNotes: config.managerNotes ?? "",
     tradingMethodology: config.tradingMethodology ?? pool.poolDescription ?? "",
     minInvestment: pool.minInvestment ? String(pool.minInvestment) : "",
     maxInvestment: pool.maxInvestment != null ? String(pool.maxInvestment) : "",
     maxPoolSize: pool.targetCapital ? String(pool.targetCapital) : "",
-    maxInvestors: "",
+    maxInvestors:
+      targetInvestors != null
+        ? String(targetInvestors)
+        : pool.targetInvestors
+          ? String(pool.targetInvestors)
+          : "",
     fundingPeriodDays: config.fundingPeriodDays != null ? String(config.fundingPeriodDays) : "",
     tradingDurationDays: pool.poolDurationDays != null ? String(pool.poolDurationDays) : "",
     durationUnit: config.durationUnit ?? "days",
     openingDate: config.openingDate ?? "",
     closingDate: config.closingDate ?? "",
     scheduleOpenEnded: config.scheduleOpenEnded ?? false,
-    riskLevel: "",
+    riskLevel: aggressivenessToRisk(aggressivenessLevel),
     targetReturnPct: pool.profitTargetPct ? String(pool.profitTargetPct) : "",
     maxDrawdownPct: config.maxDrawdownPct != null ? String(config.maxDrawdownPct) : "",
     leverage: config.leverage ?? "",
@@ -197,6 +246,33 @@ export function poolToManagedForm(
   };
 }
 
+async function ensureDraftCycleForPool(
+  poolId: string,
+  actorUserId: string,
+  existingConfig: ManagedPoolConfig,
+  existingFaq: unknown
+): Promise<void> {
+  if (existingConfig.internalCycleId) return;
+
+  const strategyId =
+    existingConfig.strategyId ?? existingConfig.internalStrategyId ?? null;
+  if (!strategyId) return;
+
+  const cycle = await investmentCycleService.createDraftCycleForPool(poolId, actorUserId);
+  const nextConfig: ManagedPoolConfig = {
+    ...existingConfig,
+    strategyId,
+    internalStrategyId: strategyId,
+    internalCycleId: cycle.id,
+  };
+
+  const db = createAdminClient();
+  await db
+    .from("funds")
+    .update({ pool_faq: buildPoolFaq(existingFaq, nextConfig) } as never)
+    .eq("id", poolId);
+}
+
 export const managedPoolService = {
   async listMine(): Promise<Pool[]> {
     return poolManagerDashboardService.getMyPools();
@@ -207,6 +283,8 @@ export const managedPoolService = {
     config: ManagedPoolConfig;
     marketsTraded: string[];
     profitSharing?: { investorSharePct?: number; poolManagerSharePct?: number };
+    targetInvestors?: number | null;
+    aggressivenessLevel?: string | null;
   }> {
     const managerId = await poolManagerDashboardService.getManagerId();
     const db = createAdminClient();
@@ -235,6 +313,9 @@ export const managedPoolService = {
         poolManagerSharePct:
           row.pool_manager_share_pct != null ? Number(row.pool_manager_share_pct) : undefined,
       },
+      targetInvestors:
+        row.target_investors != null ? Number(row.target_investors as number) : null,
+      aggressivenessLevel: (row.aggressiveness_level as string | null) ?? null,
     };
   },
 
@@ -243,7 +324,7 @@ export const managedPoolService = {
     const validationError = validateManagedPoolForm(normalized, { mode: "draft" });
     if (validationError) throw new Error(validationError);
 
-    await requireRole(USER_ROLES.POOL_MANAGER);
+    const user = await requireRole(USER_ROLES.POOL_MANAGER);
     const managerId = await poolManagerDashboardService.getManagerId();
     const db = createAdminClient();
 
@@ -287,13 +368,19 @@ export const managedPoolService = {
 
     if (error || !data) throw new Error(error?.message ?? "Could not create pool.");
 
-    return data as { id: string; slug: string };
+    const created = data as { id: string; slug: string };
+    const config = readManagedConfig(patch.pool_faq);
+    await ensureDraftCycleForPool(created.id, user.id, config, patch.pool_faq);
+
+    return created;
   },
 
   async updateDraft(poolId: string, input: ManagedPoolFormInput): Promise<void> {
     const normalized = normalizeManagedPoolForm(input);
     const validationError = validateManagedPoolForm(normalized, { mode: "draft" });
     if (validationError) throw new Error(validationError);
+
+    const user = await requireRole(USER_ROLES.POOL_MANAGER);
 
     await poolGovernanceLockService.assertPoolEditable(poolId);
 
@@ -322,6 +409,9 @@ export const managedPoolService = {
 
     const { error } = await db.from("funds").update(patch as never).eq("id", poolId);
     if (error) throw new Error(error.message);
+
+    const nextConfig = readManagedConfig(patch.pool_faq);
+    await ensureDraftCycleForPool(poolId, user.id, nextConfig, patch.pool_faq);
   },
 
   /** Apply an admin-approved pool revision (internal — called by entityRevisionService). */
@@ -345,12 +435,20 @@ export const managedPoolService = {
   },
 
   async submitForReview(poolId: string): Promise<void> {
-    const { pool, config, marketsTraded } = await this.getForManager(poolId);
+    const { pool, config, marketsTraded, targetInvestors, aggressivenessLevel } =
+      await this.getForManager(poolId);
     if ((pool.lifecycleStatus ?? "draft") !== "draft") {
       throw new Error("Only draft pools can be submitted.");
     }
 
-    const form = poolToManagedForm(pool, config, marketsTraded);
+    const form = poolToManagedForm(
+      pool,
+      config,
+      marketsTraded,
+      undefined,
+      targetInvestors,
+      aggressivenessLevel
+    );
     const validationError = validateManagedPoolForm(form, { mode: "submit" });
     if (validationError) throw new Error(validationError);
 
@@ -375,6 +473,14 @@ export const managedPoolService = {
         pool_faq: buildPoolFaq((row as { pool_faq?: unknown } | null)?.pool_faq, nextConfig),
       } as never)
       .eq("id", poolId);
+
+    const user = await requireRole(USER_ROLES.POOL_MANAGER);
+    await ensureDraftCycleForPool(
+      poolId,
+      user.id,
+      nextConfig,
+      buildPoolFaq((row as { pool_faq?: unknown } | null)?.pool_faq, nextConfig)
+    );
 
     await poolManagerDashboardService.submitPoolForReview(poolId);
 

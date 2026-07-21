@@ -123,6 +123,7 @@ export interface AdminFund {
   lifecycleStatus: string;
   maxAum: number | null;
   maxInvestorsCap: number | null;
+  displayActiveInvestors: number;
 }
 
 export interface AdminTrade {

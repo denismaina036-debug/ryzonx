@@ -4,6 +4,7 @@ import { USER_ROLES } from "@/constants/roles";
 import { DEFAULT_FUND_ID } from "@/constants/funds";
 import { auditService } from "@/services/audit.service";
 import { COMMUNICATION_AUDIT_ACTIONS, COMMUNICATION_ENTITY_TYPE } from "@/constants/communication";
+import { communicationTriggers } from "@/services/communication/communication-triggers.service";
 
 export interface AnnouncementRecord {
   id: string;
@@ -100,6 +101,13 @@ export const announcementCenterService = {
     const admin = await requireRole(USER_ROLES.ADMINISTRATOR);
     const db = createAdminClient();
     const now = new Date().toISOString();
+
+    const { data: announcement } = await db
+      .from("announcements")
+      .select("id, title, content, preview, send_email, priority")
+      .eq("id", id)
+      .maybeSingle();
+
     await db
       .from("announcements")
       .update({
@@ -109,6 +117,36 @@ export const announcementCenterService = {
         updated_at: now,
       } as never)
       .eq("id", id);
+
+    if (announcement && (announcement as { send_email?: boolean }).send_email) {
+      const row = announcement as {
+        title: string;
+        content: string;
+        preview: string | null;
+        priority: string;
+      };
+      const { data: recipients } = await db
+        .from("profiles")
+        .select("id")
+        .eq("is_active", true);
+
+      const recipientIds = ((recipients ?? []) as Array<{ id: string }>).map((r) => r.id);
+      if (recipientIds.length > 0) {
+        await communicationTriggers.notifyMany(recipientIds, {
+          templateSlug: "announcement_broadcast",
+          variables: {
+            announcement_title: row.title,
+            announcement_body: row.content,
+            announcement_preview: row.preview ?? row.content.slice(0, 120),
+          },
+          category: "announcements",
+          priority: row.priority === "critical" ? "critical" : "normal",
+          relatedEntityType: "announcement",
+          relatedEntityId: id,
+          triggeredBy: admin.id,
+        });
+      }
+    }
 
     await auditService.log({
       actorId: admin.id,

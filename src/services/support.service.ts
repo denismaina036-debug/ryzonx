@@ -237,4 +237,31 @@ export const supportService = {
       ticketId,
     });
   },
+
+  async adminCloseTicket(ticketId: string): Promise<void> {
+    const admin = await requireRole("administrator");
+    const db = createAdminClient();
+
+    const { data: ticket } = await db
+      .from("support_tickets")
+      .select("id, user_id, subject, status")
+      .eq("id", ticketId)
+      .maybeSingle();
+
+    if (!ticket) throw new Error("Ticket not found.");
+
+    const row = ticket as { id: string; user_id: string; subject: string; status: string };
+    if (row.status === "closed") return;
+
+    await db
+      .from("support_tickets")
+      .update({ status: "closed", updated_at: new Date().toISOString() } as never)
+      .eq("id", ticketId);
+
+    await communicationTriggers.supportClosed({
+      userId: row.user_id,
+      subject: row.subject,
+      ticketId,
+    });
+  },
 };

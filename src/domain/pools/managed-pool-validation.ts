@@ -45,12 +45,14 @@ export function validateManagedPoolForm(
   }
 
   if (mode === "submit") {
-    const investorShare = parseAmount(normalized.investorSharePct);
-    const pmShare = parseAmount(normalized.poolManagerSharePct);
-    if (investorShare != null && pmShare != null) {
-      const total = Math.round((investorShare + pmShare) * 100) / 100;
-      if (total !== 100) {
-        return "Investor and Pool Manager profit shares must total 100%.";
+    if (normalized.returnModel === "variable") {
+      const investorShare = parseAmount(normalized.investorSharePct);
+      const pmShare = parseAmount(normalized.poolManagerSharePct);
+      if (investorShare != null && pmShare != null) {
+        const total = Math.round((investorShare + pmShare) * 100) / 100;
+        if (total !== 100) {
+          return "Investor and Pool Manager profit shares must total 100%.";
+        }
       }
     }
 

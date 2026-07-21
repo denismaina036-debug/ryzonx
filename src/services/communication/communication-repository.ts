@@ -1,5 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { COMMUNICATION_TEMPLATE_REGISTRY, getRegistryTemplate } from "@/domain/communication/template-registry";
+import { getCatalogEntry } from "@/services/communication/email/catalog";
+import { catalogEntryToCommunicationTemplate } from "@/services/communication/email/catalog-bridge";
 import type {
   CommunicationCategory,
   CommunicationChannel,
@@ -53,13 +55,49 @@ function mapTemplate(row: TemplateRow): CommunicationTemplate {
   };
 }
 
+function enrichFromCatalog(template: CommunicationTemplate): CommunicationTemplate {
+  const entry = getCatalogEntry(template.slug);
+  if (!entry) return template;
+
+  const fromCatalog = catalogEntryToCommunicationTemplate(entry, {
+    id: template.id,
+    isActive: template.isActive,
+    isArchived: template.isArchived,
+    version: template.version,
+    createdAt: template.createdAt,
+    updatedAt: template.updatedAt,
+    lastEditedBy: template.lastEditedBy ?? null,
+  });
+
+  if (template.emailSpec) {
+    return {
+      ...template,
+      variablesSchema:
+        template.variablesSchema.length > 0
+          ? template.variablesSchema
+          : fromCatalog.variablesSchema,
+    };
+  }
+
+  return {
+    ...fromCatalog,
+    id: template.id,
+    isActive: template.isActive,
+    isArchived: template.isArchived,
+    version: template.version,
+    createdAt: template.createdAt,
+    updatedAt: template.updatedAt,
+    lastEditedBy: template.lastEditedBy ?? null,
+  };
+}
+
 function mergeWithRegistry(dbTemplates: CommunicationTemplate[]): CommunicationTemplate[] {
   const bySlug = new Map<string, CommunicationTemplate>();
   for (const entry of COMMUNICATION_TEMPLATE_REGISTRY) {
     bySlug.set(entry.slug, entry);
   }
   for (const row of dbTemplates) {
-    bySlug.set(row.slug, row);
+    bySlug.set(row.slug, enrichFromCatalog(row));
   }
   return [...bySlug.values()].sort((a, b) => {
     if (a.category !== b.category) return a.category.localeCompare(b.category);
@@ -84,7 +122,7 @@ export const communicationRepository = {
       return getRegistryTemplate(slug) ?? null;
     }
 
-    if (data) return mapTemplate(data as TemplateRow);
+    if (data) return enrichFromCatalog(mapTemplate(data as TemplateRow));
     return getRegistryTemplate(slug) ?? null;
   },
 

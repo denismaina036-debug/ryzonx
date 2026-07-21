@@ -39,6 +39,7 @@ export default async function ApplyPoolManagerPage() {
         userRole={user.role}
         initialApplication={application}
         initialSettings={settings}
+        registrationCountry={user.registrationCountry}
       />
     </InvestorPageContent>
   );

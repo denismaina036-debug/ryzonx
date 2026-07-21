@@ -40,7 +40,7 @@ function mapPublicActivity(event: PlatformEvent): PublicActivityItem {
 /** Ephemeral public activity feed — not personal transaction history. */
 export const publicActivityService = {
   async listRecent(limit = 20): Promise<PublicActivityItem[]> {
-    const events = await platformEventService.listRecent(Math.min(limit * 3, 100));
+    const events = await platformEventService.listRecentPublic(Math.min(limit * 3, 100));
     return events
       .filter((e) => PUBLIC_EVENT_TYPES.has(e.eventType))
       .slice(0, limit)

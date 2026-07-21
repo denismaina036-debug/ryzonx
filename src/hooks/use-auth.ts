@@ -87,6 +87,12 @@ export function useAuthActions() {
         metadata.middle_name = middleName;
       }
 
+      metadata.registration_intent = data.registrationIntent;
+
+      if (data.country?.trim()) {
+        metadata.country = data.country.trim();
+      }
+
       const { data: authData, error } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,

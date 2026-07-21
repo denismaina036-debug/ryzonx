@@ -29,7 +29,9 @@ export interface TriggerNotifyInput {
 }
 
 function kickEmailQueue(): void {
-  void emailQueueService.processPending(25).catch(() => undefined);
+  void emailQueueService.processPending(25).catch((err) => {
+    console.error("[communicationTriggers] Email queue processing failed:", err);
+  });
 }
 
 export const communicationTriggers = {
@@ -265,7 +267,6 @@ export const communicationTriggers = {
       variables: { pool_name: input.poolName, review_notes: input.message },
       relatedEntityType: "fund",
       relatedEntityId: input.poolId,
-      channels: ["in_app"],
     });
   },
 
@@ -296,6 +297,21 @@ export const communicationTriggers = {
         support_ticket: input.subject,
         reply_preview: input.replyPreview,
       },
+      relatedEntityType: "support_ticket",
+      relatedEntityId: input.ticketId,
+      actionUrl: `/dashboard/support`,
+    });
+  },
+
+  supportClosed(input: {
+    userId: string;
+    subject: string;
+    ticketId: string;
+  }): Promise<void> {
+    return this.notify({
+      templateSlug: "support_closed",
+      recipientUserId: input.userId,
+      variables: { support_ticket: input.subject },
       relatedEntityType: "support_ticket",
       relatedEntityId: input.ticketId,
       actionUrl: `/dashboard/support`,

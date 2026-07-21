@@ -9,7 +9,6 @@ import { PerformanceOverviewCard } from "@/features/investor/components/performa
 import { PoolTradesSection } from "@/features/investor/components/open-trades-section";
 import { ManagerJourneyCard } from "@/features/investor/components/manager-journey-card";
 import { ChallengeCenterCard } from "@/features/challenge/components/challenge-center-card";
-import { USER_ROLES } from "@/constants/roles";
 import { CHALLENGE_DISPLAY_STATUS, type ChallengeDisplayStatus } from "@/domain/challenge/types";
 import { DashboardSummaryBar } from "@/features/investor/components/dashboard-summary-bar";
 import { MobileDashboardView } from "@/features/investor/components/mobile/mobile-dashboard-view";
@@ -18,6 +17,7 @@ import type { InvestorDashboardPageData } from "@/features/investor/types";
 import type { InvestorHomeData } from "@/domain/investment/investor-presentation";
 import type { UserProfile } from "@/types";
 import { InvestorHomeInvestmentPanel } from "@/features/investor/components/investment/investor-home-investment-panel";
+import type { PmJourneyCardVariant } from "@/domain/investor/pm-journey-variant";
 
 const fadeUp = {
   initial: { opacity: 0, y: 12 },
@@ -30,6 +30,7 @@ interface InvestorDashboardViewProps {
   homeInvestment: InvestorHomeData;
   challengeDisplayStatus?: ChallengeDisplayStatus;
   challengeProgressPct?: number;
+  pmJourneyVariant?: PmJourneyCardVariant;
 }
 
 export function InvestorDashboardView({
@@ -38,10 +39,11 @@ export function InvestorDashboardView({
   homeInvestment,
   challengeDisplayStatus,
   challengeProgressPct,
+  pmJourneyVariant = "hidden",
 }: InvestorDashboardViewProps) {
   const hasInvestments = data.investment.participations.length > 0;
   const dailyProfit = data.poolPerformance.dailyProfit ?? 0;
-  const showContinueJourney = user.role !== USER_ROLES.POOL_MANAGER;
+  const showManagerJourneyCard = pmJourneyVariant !== "hidden";
 
   return (
     <InvestorPageContent wide>
@@ -51,7 +53,8 @@ export function InvestorDashboardView({
           user={user}
           data={data}
           homeInvestment={homeInvestment}
-          showContinueJourney={showContinueJourney}
+          showManagerJourneyCard={showManagerJourneyCard}
+          pmJourneyVariant={pmJourneyVariant}
         />
       </div>
 
@@ -83,15 +86,18 @@ export function InvestorDashboardView({
 
           <div className="flex flex-col gap-5">
             <RecentActivityTimeline activity={data.recentActivity} />
-            {showContinueJourney &&
+            {showManagerJourneyCard &&
             challengeDisplayStatus &&
             challengeDisplayStatus !== CHALLENGE_DISPLAY_STATUS.NONE ? (
               <ChallengeCenterCard
                 displayStatus={challengeDisplayStatus}
                 progressPct={challengeProgressPct}
               />
-            ) : showContinueJourney ? (
-              <ManagerJourneyCard enrollment={data.challengeEnrollment} />
+            ) : showManagerJourneyCard ? (
+              <ManagerJourneyCard
+                enrollment={data.challengeEnrollment}
+                pmJourneyVariant={pmJourneyVariant}
+              />
             ) : null}
           </div>
         </motion.div>

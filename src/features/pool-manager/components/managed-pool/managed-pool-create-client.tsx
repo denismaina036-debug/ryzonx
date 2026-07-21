@@ -17,11 +17,17 @@ import { ManagedPoolForm } from "./managed-pool-form";
 
 export function ManagedPoolCreateClient({
   approvedStrategies,
+  defaultStrategyId,
 }: {
   approvedStrategies: { id: string; name: string }[];
+  defaultStrategyId?: string | null;
 }) {
   const router = useRouter();
-  const [values, setValues] = useState(emptyManagedPoolForm());
+  const [values, setValues] = useState(() => {
+    const form = emptyManagedPoolForm();
+    if (defaultStrategyId) form.strategyId = defaultStrategyId;
+    return form;
+  });
   const [loading, setLoading] = useState<"draft" | "submit" | null>(null);
   const [error, setError] = useState<string | null>(null);
 

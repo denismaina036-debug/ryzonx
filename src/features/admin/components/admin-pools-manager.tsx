@@ -349,5 +349,6 @@ function fundToMarketplaceFields(fund: AdminFund): MarketplaceAdminFields {
     lifecycleStatus: fund.lifecycleStatus,
     maxAum: fund.maxAum != null ? String(fund.maxAum) : "",
     maxInvestorsCap: fund.maxInvestorsCap != null ? String(fund.maxInvestorsCap) : "",
+    displayActiveInvestors: String(fund.displayActiveInvestors ?? 0),
   };
 }

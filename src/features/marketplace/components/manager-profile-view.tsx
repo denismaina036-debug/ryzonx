@@ -83,6 +83,8 @@ export function ManagerProfileView({
       value:
         profile.maxDrawdownPct != null ? formatPercentage(profile.maxDrawdownPct) : "—",
     },
+    { label: "Verified Trades", value: String(profile.publicTradeCount) },
+    { label: "Reviews", value: String(profile.publicReviewCount) },
     { label: "Capital", value: formatCurrency(profile.assetsUnderManagement) },
     { label: "Active Investors", value: String(profile.activeInvestors) },
     { label: "Opportunities", value: String(profile.poolsManaged) },

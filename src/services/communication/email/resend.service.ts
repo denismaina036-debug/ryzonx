@@ -6,6 +6,7 @@ export interface SendResendEmailInput {
   html: string;
   text?: string;
   replyTo?: string;
+  from?: string;
 }
 
 export interface SendResendEmailResult {
@@ -18,6 +19,13 @@ function getResendConfig(): { apiKey: string; from: string } | null {
     process.env.EMAIL_FROM?.trim() ?? "RyvonX <notifications@ryvonx.com>";
   if (!apiKey) return null;
   return { apiKey, from };
+}
+
+async function resolveFromAddress(override?: string): Promise<string> {
+  if (override?.trim()) return override.trim();
+  const { getOutboundEmailConfig } = await import("./email-config.service");
+  const config = await getOutboundEmailConfig();
+  return config.from;
 }
 
 export function isResendConfigured(): boolean {
@@ -34,6 +42,9 @@ export async function sendResendEmail(
 
   void env;
 
+  const from = await resolveFromAddress(input.from);
+  const replyTo = input.replyTo;
+
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -41,12 +52,12 @@ export async function sendResendEmail(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: config.from,
+      from,
       to: [input.to],
       subject: input.subject,
       html: input.html,
       text: input.text,
-      reply_to: input.replyTo,
+      reply_to: replyTo,
     }),
   });
 

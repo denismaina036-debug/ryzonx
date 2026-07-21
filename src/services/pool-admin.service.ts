@@ -59,6 +59,7 @@ type FundRow = {
   lifecycle_status?: string;
   max_aum?: number | null;
   max_investors_cap?: number | null;
+  display_active_investors?: number;
 };
 
 function mapFund(row: FundRow, canDelete = false): AdminFund {
@@ -107,6 +108,7 @@ function mapFund(row: FundRow, canDelete = false): AdminFund {
     lifecycleStatus: row.lifecycle_status ?? "live",
     maxAum: row.max_aum != null ? toNumber(row.max_aum) : null,
     maxInvestorsCap: row.max_investors_cap != null ? toNumber(row.max_investors_cap) : null,
+    displayActiveInvestors: toNumber(row.display_active_investors),
   };
 }
 
@@ -417,6 +419,7 @@ export const poolAdminService = {
       lifecycleStatus?: string;
       maxAum?: number | null;
       maxInvestorsCap?: number | null;
+      displayActiveInvestors?: number;
     }
   ): Promise<AdminFund> {
     await requireRole("administrator");
@@ -449,6 +452,9 @@ export const poolAdminService = {
     if (input.logoUrl !== undefined) updates.logo_url = input.logoUrl;
     if (input.maxAum !== undefined) updates.max_aum = input.maxAum;
     if (input.maxInvestorsCap !== undefined) updates.max_investors_cap = input.maxInvestorsCap;
+    if (input.displayActiveInvestors !== undefined) {
+      updates.display_active_investors = Math.max(0, Math.floor(input.displayActiveInvestors));
+    }
 
     if (input.lifecycleStatus != null) {
       updates.lifecycle_status = input.lifecycleStatus;

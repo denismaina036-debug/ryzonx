@@ -23,6 +23,8 @@ import {
 import type { EmailTemplateSpec } from "@/services/communication/email/types";
 import { mergeVariables } from "@/services/communication/template-engine";
 import { getRegistryTemplate } from "@/domain/communication/template-registry";
+import { sendResendEmail, isResendConfigured } from "@/services/communication/email/resend.service";
+import { getOutboundEmailConfig } from "@/services/communication/email/email-config.service";
 
 type TemplateRow = {
   id: string;
@@ -554,17 +556,51 @@ export const emailTemplateService = {
 
     if (error || !data) throw new Error(error?.message ?? "Could not queue test email");
 
+    const testSendId = (data as { id: string }).id;
+
+    if (!isResendConfigured()) {
+      await db
+        .from("communication_template_test_sends")
+        .update({ status: "failed" } as never)
+        .eq("id", testSendId);
+      throw new Error("RESEND_API_KEY is not configured.");
+    }
+
+    try {
+      const emailConfig = await getOutboundEmailConfig();
+      await sendResendEmail({
+        to: input.recipientEmail,
+        subject: preview.rendered.subject ?? "RyvonX",
+        html: preview.email?.html ?? `<pre>${preview.rendered.body}</pre>`,
+        text: preview.rendered.plainText ?? preview.rendered.body,
+        replyTo: emailConfig.replyTo,
+        from: emailConfig.from,
+      });
+
+      await db
+        .from("communication_template_test_sends")
+        .update({ status: "sent" } as never)
+        .eq("id", testSendId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Test email send failed";
+      await db
+        .from("communication_template_test_sends")
+        .update({ status: "failed" } as never)
+        .eq("id", testSendId);
+      throw new Error(message);
+    }
+
     await auditService.log({
       actorId: admin.id,
       action: COMMUNICATION_AUDIT_ACTIONS.TEMPLATE_TEST_SEND,
       entityType: COMMUNICATION_ENTITY_TYPE,
-      entityId: (data as { id: string }).id,
+      entityId: testSendId,
       newValues: {
         slug: input.slug,
         recipient: input.recipientEmail,
       },
     });
 
-    return { testSendId: (data as { id: string }).id, preview };
+    return { testSendId, preview };
   },
 };

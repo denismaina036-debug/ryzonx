@@ -16,7 +16,9 @@ export function interpolateTemplate(
 ): string {
   if (!template) return "";
 
-  return template.replace(VARIABLE_PATTERN, (_, key: string) => {
+  const normalized = template.replace(/\\n/g, "\n");
+
+  return normalized.replace(VARIABLE_PATTERN, (_, key: string) => {
     const value = variables[key];
     if (value == null) return "";
     return String(value);

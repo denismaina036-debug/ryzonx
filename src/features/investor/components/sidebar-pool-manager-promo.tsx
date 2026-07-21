@@ -1,23 +1,23 @@
 import Link from "next/link";
 import { ArrowRight, Medal } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
-import { USER_ROLES } from "@/constants/roles";
 import { CHALLENGE_DISPLAY_STATUS, type ChallengeDisplayStatus } from "@/domain/challenge/types";
+import {
+  pmJourneyCardCta,
+  pmJourneyCardTitle,
+  type PmJourneyCardVariant,
+} from "@/domain/investor/pm-journey-variant";
 
 interface SidebarPoolManagerPromoProps {
-  userRole?: string;
+  pmJourneyVariant?: PmJourneyCardVariant;
   challengeDisplayStatus?: ChallengeDisplayStatus;
 }
 
 export function SidebarPoolManagerPromo({
-  userRole,
+  pmJourneyVariant = "hidden",
   challengeDisplayStatus,
 }: SidebarPoolManagerPromoProps) {
-  if (
-    userRole === USER_ROLES.POOL_MANAGER ||
-    userRole === USER_ROLES.POOL_MANAGER_APPLICANT ||
-    userRole === USER_ROLES.ADMINISTRATOR
-  ) {
+  if (pmJourneyVariant === "hidden") {
     return null;
   }
 
@@ -30,15 +30,19 @@ export function SidebarPoolManagerPromo({
       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--id-accent)]/20">
         <Medal className="h-4 w-4 text-[var(--id-accent-text)]" strokeWidth={1.75} />
       </div>
-      <p className="mt-3 text-sm font-semibold text-[var(--id-text)]">Become a Pool Manager</p>
+      <p className="mt-3 text-sm font-semibold text-[var(--id-text)]">
+        {pmJourneyCardTitle(pmJourneyVariant)}
+      </p>
       <p className="mt-1.5 text-xs leading-relaxed text-[var(--id-text-secondary)]">
-        Submit one application. After approval, launch strategies and investment cycles immediately.
+        {pmJourneyVariant === "continue"
+          ? "Pick up where you left off in your Pool Manager application."
+          : "Submit one application. After approval, launch strategies and investment cycles immediately."}
       </p>
       <Link
         href={ROUTES.applyPoolManager}
         className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-[var(--id-accent)] px-3.5 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
       >
-        Apply Now
+        {pmJourneyCardCta(pmJourneyVariant)}
         <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
       </Link>
     </div>

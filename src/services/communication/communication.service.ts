@@ -128,7 +128,7 @@ export const communicationService = {
         communicationId,
         channel,
         recipientAddress: channel === "email" ? recipientEmail : null,
-        status: channel === "email" ? "queued" : "sending",
+        status: "sending",
       });
 
       const adapter = getChannelAdapter(channel);
@@ -151,7 +151,14 @@ export const communicationService = {
         deliveryId,
         recipientUserId: input.recipientUserId,
         recipientEmail,
-        rendered,
+        rendered: {
+          subject: rendered.subject,
+          body: rendered.body,
+          html: rendered.html,
+          plainText: rendered.plainText,
+          inAppTitle: rendered.inAppTitle,
+          inAppBody: rendered.inAppBody,
+        },
         notificationType,
         metadata: {
           ...(input.metadata ?? {}),
@@ -326,7 +333,7 @@ export const communicationService = {
 
     const { data: delivery } = await db
       .from("communication_deliveries")
-      .select("id, channel, communication_id, retry_count, max_retries")
+      .select("id, channel, communication_id, retry_count, max_retries, recipient_address, status")
       .eq("id", deliveryId)
       .maybeSingle();
 
@@ -338,10 +345,39 @@ export const communicationService = {
       communication_id: string;
       retry_count: number;
       max_retries: number;
+      recipient_address: string | null;
+      status: CommunicationStatus;
     };
 
     if (row.retry_count >= row.max_retries) {
       throw new Error("Maximum retry attempts reached.");
+    }
+
+    if (row.channel === "email") {
+      await communicationRepository.updateDelivery(deliveryId, {
+        status: "queued",
+        retryCount: row.retry_count + 1,
+      });
+
+      const result = await emailQueueService.processDelivery({
+        id: deliveryId,
+        communication_id: row.communication_id,
+        channel: "email",
+        status: "queued",
+        recipient_address: row.recipient_address,
+        retry_count: row.retry_count + 1,
+        max_retries: row.max_retries,
+      });
+
+      const user = await requireRole(USER_ROLES.ADMINISTRATOR);
+      await auditService.log({
+        actorId: user.id,
+        action: COMMUNICATION_AUDIT_ACTIONS.DELIVERY_RETRY,
+        entityType: COMMUNICATION_ENTITY_TYPE,
+        entityId: deliveryId,
+        newValues: { status: result === "sent" ? "sent" : "failed", channel: "email" },
+      });
+      return;
     }
 
     const { data: commRow } = await db

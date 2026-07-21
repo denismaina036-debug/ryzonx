@@ -29,10 +29,12 @@ import {
   transitionCycle,
   updateCycle,
 } from "./pm-api";
+import { TRADE_ENTRY_DIRECTION_LABELS } from "@/constants/trade-entry";
 
 const TRANSITION_LABELS: Record<string, string> = {
   funding: "Open Funding",
-  trading: "Close Funding & Start Trading",
+  trading: "Begin Trading",
+  distribution: "Close Investment Cycle",
   archived: "Archive",
 };
 
@@ -49,6 +51,9 @@ export function PmCycleDetailClient({
   const [cycle, setCycle] = useState(initialCycle);
   const [values, setValues] = useState<CycleFormValues>(cycleToFormValues(cycle));
   const [allocations, setAllocations] = useState<InvestmentAllocation[]>([]);
+  const [openTrades, setOpenTrades] = useState<Array<{ instrument: string; direction: string }>>(
+    []
+  );
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; variant: "success" | "error" } | null>(
     null
@@ -62,6 +67,20 @@ export function PmCycleDetailClient({
       .then(setAllocations)
       .catch(() => setAllocations([]));
   }, [cycle.id]);
+
+  useEffect(() => {
+    if (cycle.status !== "trading") {
+      setOpenTrades([]);
+      return;
+    }
+    void fetch(`/api/pool-manager/investment-cycles/${cycle.id}/journal`)
+      .then((res) => res.json())
+      .then((data: { entries?: Array<{ instrument: string; direction: string; status: string }> }) => {
+        const open = (data.entries ?? []).filter((e) => e.status === "open" || e.status === "partially_closed");
+        setOpenTrades(open.map((e) => ({ instrument: e.instrument, direction: e.direction })));
+      })
+      .catch(() => setOpenTrades([]));
+  }, [cycle.id, cycle.status]);
 
   const runAction = useCallback(
     async (action: () => Promise<InvestmentCycle>, success: string) => {
@@ -181,6 +200,34 @@ export function PmCycleDetailClient({
                 target={cycle.targetCapital}
                 investorCount={cycle.investorCount}
               />
+            </PmSectionCard>
+          )}
+
+          {cycle.status === "trading" && (
+            <PmSectionCard
+              title="Active Cycle Status"
+              description="Open trades remain visible until every active trade is closed."
+            >
+              {openTrades.length > 0 ? (
+                <>
+                  <p className="text-sm font-medium text-white">Running Active Trades</p>
+                  <ul className="mt-3 space-y-2 text-sm text-navy-300">
+                    {openTrades.map((trade, index) => (
+                      <li key={`${trade.instrument}-${index}`}>
+                        {trade.instrument}{" "}
+                        {TRADE_ENTRY_DIRECTION_LABELS[
+                          trade.direction as keyof typeof TRADE_ENTRY_DIRECTION_LABELS
+                        ] ?? trade.direction}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-3 text-xs text-navy-500">
+                    {openTrades.length} active trade{openTrades.length === 1 ? "" : "s"}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-emerald-300">All Trades Closed</p>
+              )}
             </PmSectionCard>
           )}
 

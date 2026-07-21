@@ -19,6 +19,7 @@
 
 
 import type { ReturnTier } from "@/features/investor/types/account";
+import type { ManagedPoolReturnModel } from "@/domain/pools/return-model";
 import {
   DEFAULT_COVER_IMAGE_POSITION,
   type CoverImagePosition,
@@ -140,6 +141,18 @@ export interface ManagedPoolConfig {
 
   tradingHours?: string;
 
+  returnModel?: ManagedPoolReturnModel;
+
+  tradingSessionKey?: string;
+
+  tradingSessionCustom?: string;
+
+  tradingTimeNy?: string;
+
+  marketTypeCode?: string;
+
+  tradingInstrumentCode?: string;
+
 
 
   expectedBehavior?: string;
@@ -259,6 +272,18 @@ export interface ManagedPoolFormInput {
 
 
   tradingHours: string;
+
+  returnModel: ManagedPoolReturnModel;
+
+  tradingSessionKey: string;
+
+  tradingSessionCustom: string;
+
+  tradingTimeNy: string;
+
+  marketTypeCode: string;
+
+  tradingInstrumentCode: string;
 
 
 
@@ -407,6 +432,18 @@ export function emptyManagedPoolForm(): ManagedPoolFormInput {
 
 
     tradingHours: "",
+
+    returnModel: "variable",
+
+    tradingSessionKey: "",
+
+    tradingSessionCustom: "",
+
+    tradingTimeNy: "",
+
+    marketTypeCode: "",
+
+    tradingInstrumentCode: "",
 
 
 

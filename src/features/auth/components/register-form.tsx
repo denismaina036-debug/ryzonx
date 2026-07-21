@@ -3,28 +3,50 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { FormField } from "@/components/ui/form-field";
-import { registerSchema, type RegisterSchema } from "@/lib/validations/auth";
+import { ReferenceCountryPicker } from "@/components/reference-data/reference-country-picker";
+import { createRegisterSchema, type RegisterSchemaWithIntent } from "@/lib/validations/auth";
 import { useAuthActions } from "@/hooks/use-auth";
 import { ROUTES } from "@/constants/routes";
+import {
+  REGISTRATION_INTENTS,
+  isRegistrationIntent,
+  type RegistrationIntent,
+} from "@/constants/registration";
+
+function resolveIntent(raw: string | null): RegistrationIntent {
+  return isRegistrationIntent(raw) ? raw : REGISTRATION_INTENTS.JOIN_POOL;
+}
 
 export function RegisterForm() {
+  const searchParams = useSearchParams();
+  const intent = resolveIntent(searchParams.get("intent"));
+  const isCreatePool = intent === REGISTRATION_INTENTS.CREATE_POOL;
+  const schema = useMemo(() => createRegisterSchema(intent), [intent]);
   const { signUp } = useAuthActions();
+
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
-  } = useForm<RegisterSchema>({
-    resolver: zodResolver(registerSchema),
+  } = useForm<RegisterSchemaWithIntent>({
+    resolver: zodResolver(schema),
     defaultValues: {
       middleName: "",
+      country: "",
     },
   });
 
-  async function onSubmit(data: RegisterSchema) {
+  const country = watch("country");
+
+  async function onSubmit(data: RegisterSchemaWithIntent) {
     await signUp({
       email: data.email,
       password: data.password,
@@ -33,6 +55,8 @@ export function RegisterForm() {
       middleName: data.middleName,
       lastName: data.lastName,
       phone: data.phone,
+      country: data.country,
+      registrationIntent: intent,
       acceptTerms: data.acceptTerms,
     });
   }
@@ -40,9 +64,13 @@ export function RegisterForm() {
   return (
     <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
       <div className="mb-8 text-center">
-        <h1 className="text-2xl font-semibold text-navy-950">Join Ryvonx</h1>
+        <h1 className="text-2xl font-semibold text-navy-950">
+          {isCreatePool ? "Create your RyvonX account" : "Join Ryvonx"}
+        </h1>
         <p className="mt-2 text-sm text-navy-500">
-          Create your account and start investing in the pool
+          {isCreatePool
+            ? "Create your account and start managing investor capital"
+            : "Create your account and start investing in the pool"}
         </p>
       </div>
 
@@ -126,6 +154,22 @@ export function RegisterForm() {
             {...register("phone")}
           />
         </FormField>
+
+        {isCreatePool ? (
+          <FormField
+            label="Country"
+            htmlFor="country"
+            required
+            error={errors.country?.message}
+          >
+            <ReferenceCountryPicker
+              value={country}
+              onChange={(code) =>
+                setValue("country", code, { shouldValidate: true, shouldDirty: true })
+              }
+            />
+          </FormField>
+        ) : null}
 
         <FormField
           label="Password"

@@ -10,6 +10,8 @@ import {
   calculateProfitDistribution,
   computeCycleRealizedTradingProfit,
 } from "@/lib/financial/profit-distribution-calculator";
+import { calculateFixedReturnDistribution } from "@/lib/financial/fixed-return-distribution";
+import type { ManagedPoolReturnModel } from "@/domain/pools/return-model";
 import { platformSettingsService } from "@/services/platform-settings.service";
 import { auditService } from "@/services/audit.service";
 import { investmentCycleService } from "@/services/investment-cycle.service";
@@ -129,26 +131,40 @@ function parseReturnTiers(raw: unknown): ReturnTier[] {
     }));
 }
 
+function readManagedReturnModel(poolFaq: unknown): ManagedPoolReturnModel {
+  if (!poolFaq || typeof poolFaq !== "object" || Array.isArray(poolFaq)) return "variable";
+  const model = (poolFaq as { managedPool?: { returnModel?: string } }).managedPool?.returnModel;
+  return model === "fixed" ? "fixed" : "variable";
+}
+
 async function readPoolFinancialConfig(fundId: string | null): Promise<{
+  returnModel: ManagedPoolReturnModel;
   investorSharePct: number;
   poolManagerSharePct: number;
   returnStructure: ReturnTier[];
 }> {
   if (!fundId) {
-    return { investorSharePct: 80, poolManagerSharePct: 20, returnStructure: [] };
+    return {
+      returnModel: "variable",
+      investorSharePct: 80,
+      poolManagerSharePct: 20,
+      returnStructure: [],
+    };
   }
   const db = createAdminClient();
   const { data } = await db
     .from("funds")
-    .select("investor_share_pct, pool_manager_share_pct, return_tiers")
+    .select("investor_share_pct, pool_manager_share_pct, return_tiers, pool_faq")
     .eq("id", fundId)
     .maybeSingle();
   const row = data as {
     investor_share_pct?: number;
     pool_manager_share_pct?: number;
     return_tiers?: unknown;
+    pool_faq?: unknown;
   } | null;
   return {
+    returnModel: readManagedReturnModel(row?.pool_faq),
     investorSharePct: toNumber(row?.investor_share_pct) || 80,
     poolManagerSharePct: toNumber(row?.pool_manager_share_pct) || 20,
     returnStructure: parseReturnTiers(row?.return_tiers),
@@ -189,6 +205,15 @@ export const profitDistributionService = {
     options?: { grossTradingProfitOverride?: number }
   ): Promise<ProfitSettlement> {
     await requireRole(USER_ROLES.ADMINISTRATOR);
+    return this.initiateSettlementForCycle(cycleId, actorId, options);
+  },
+
+  /** PM or admin — calculates settlement when a cycle enters distribution. */
+  async initiateSettlementForCycle(
+    cycleId: string,
+    actorId: string,
+    options?: { grossTradingProfitOverride?: number }
+  ): Promise<ProfitSettlement> {
     const cycle = await investmentCycleService.getById(cycleId);
     if (!cycle) throw new Error("Cycle not found.");
     if (!["distribution", "completed"].includes(cycle.status)) {
@@ -212,27 +237,36 @@ export const profitDistributionService = {
     const journalProfit = computeCycleRealizedTradingProfit(tradeEntries);
     const grossTradingProfit =
       options?.grossTradingProfitOverride != null
-        ? Math.max(0, options.grossTradingProfitOverride)
+        ? options.grossTradingProfitOverride
         : journalProfit;
 
     const poolConfig = await readPoolFinancialConfig(cycle.fundId);
     const cycleCapital = settled.reduce((s, a) => s + a.amount, 0);
     const platformFeeRate = await platformSettingsService.getPlatformServiceFeeRate();
+    const allocationInput = settled.map((a) => ({
+      allocationId: a.id,
+      investorId: a.investorId,
+      capitalBasis: a.amount,
+    }));
 
-    const breakdown = calculateProfitDistribution({
-      grossTradingProfit,
-      platformServiceFeeRate: platformFeeRate,
-      profitSharing: {
-        investorSharePct: poolConfig.investorSharePct,
-        poolManagerSharePct: poolConfig.poolManagerSharePct,
-      },
-      returnStructure: poolConfig.returnStructure,
-      allocations: settled.map((a) => ({
-        allocationId: a.id,
-        investorId: a.investorId,
-        capitalBasis: a.amount,
-      })),
-    });
+    const breakdown =
+      poolConfig.returnModel === "fixed"
+        ? calculateFixedReturnDistribution({
+            grossTradingProfit,
+            platformServiceFeeRate: platformFeeRate,
+            returnStructure: poolConfig.returnStructure,
+            allocations: allocationInput,
+          })
+        : calculateProfitDistribution({
+            grossTradingProfit: Math.max(0, grossTradingProfit),
+            platformServiceFeeRate: platformFeeRate,
+            profitSharing: {
+              investorSharePct: poolConfig.investorSharePct,
+              poolManagerSharePct: poolConfig.poolManagerSharePct,
+            },
+            returnStructure: poolConfig.returnStructure,
+            allocations: allocationInput,
+          });
 
     const db = createAdminClient();
     const settlementPayload = {
@@ -252,14 +286,22 @@ export const profitDistributionService = {
       settlement_date: new Date().toISOString(),
       currency: "USD",
       metadata: {
-        settlementSequence: [
-          "gross_trading_profit",
-          "platform_service_fee",
-          "net_distributable_profit",
-          "pool_manager_share",
-          "investor_profit_pool",
-          "return_structure_distribution",
-        ],
+        returnModel: poolConfig.returnModel,
+        settlementSequence:
+          poolConfig.returnModel === "fixed"
+            ? [
+                "gross_trading_profit",
+                "platform_service_fee",
+                "fixed_return_obligations",
+              ]
+            : [
+                "gross_trading_profit",
+                "platform_service_fee",
+                "net_distributable_profit",
+                "pool_manager_share",
+                "investor_profit_pool",
+                "return_structure_distribution",
+              ],
         returnStructure: poolConfig.returnStructure,
         investorProfitPool: breakdown.investorProfitPool,
       },

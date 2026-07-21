@@ -38,6 +38,7 @@ export interface MarketplaceAdminFields {
   lifecycleStatus: string;
   maxAum: string;
   maxInvestorsCap: string;
+  displayActiveInvestors: string;
 }
 
 export function AdminMarketplacePanel({
@@ -77,6 +78,9 @@ export function AdminMarketplacePanel({
           lifecycleStatus: form.lifecycleStatus,
           maxAum: form.maxAum ? Number(form.maxAum) : null,
           maxInvestorsCap: form.maxInvestorsCap ? Number(form.maxInvestorsCap) : null,
+          displayActiveInvestors: form.displayActiveInvestors
+            ? Number(form.displayActiveInvestors)
+            : 0,
         }),
       });
       const body = await res.json();
@@ -229,6 +233,12 @@ export function AdminMarketplacePanel({
           onChange={(e) => setForm({ ...form, maxInvestorsCap: e.target.value })}
         />
       </div>
+
+      <Input
+        placeholder="Initial displayed investors (marketplace baseline)"
+        value={form.displayActiveInvestors}
+        onChange={(e) => setForm({ ...form, displayActiveInvestors: e.target.value })}
+      />
 
       <Input
         placeholder="Max AUM"

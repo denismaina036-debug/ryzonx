@@ -53,6 +53,30 @@ export interface MarketplacePoolCard {
   investorPct: number;
   ryvonxPct: number;
   growthRatePct: number | null;
+  /** Card presentation — active cycle & funding (Prompt 3). */
+  activeCycle: MarketplaceActiveCycle | null;
+  canParticipate: boolean;
+  fundingPeriodEndsAt: string | null;
+  raisedCapital: number;
+  targetCapital: number;
+  cycleParticipantCount: number;
+  maxParticipants: number | null;
+  investorSharePct: number;
+  poolManagerSharePct: number;
+  returnModel: "fixed" | "variable";
+  coverSubtitle: string | null;
+  tradingAssetTag: string | null;
+  strategyTag: string | null;
+  tradingStyleTag: string | null;
+  riskLevelTag: string | null;
+  expectedDurationLabel: string;
+  poolLevelLabel: string;
+  poolVerified: boolean;
+  managerRating: number | null;
+  managerReviewCount: number;
+  poolDurationDays: number | null;
+  /** Pool name without leading instrument symbol for card title. */
+  displayPoolName: string;
 }
 
 export interface MarketplacePoolDetail extends MarketplacePoolCard {
@@ -76,8 +100,16 @@ export interface MarketplacePoolDetail extends MarketplacePoolCard {
   allocationReviewAt: string | null;
   activeCycle: MarketplaceActiveCycle | null;
   canParticipate: boolean;
+  /** End of the public funding period countdown. */
+  fundingPeriodEndsAt: string | null;
   /** Best-known datetime when live trading is scheduled to begin. */
   tradingStartsAt: string | null;
+  returnModel: "fixed" | "variable";
+  tradingSessionLabel: string | null;
+  tradingTimeNy: string | null;
+  marketTypeCode: string | null;
+  tradingInstrumentCode: string | null;
+  activeOpenTrades: Array<{ instrument: string; direction: string }>;
   manager: PoolManagerPublicSummary | null;
   faq: Array<{ question: string; answer: string }>;
 }

@@ -18,6 +18,8 @@ export interface UserProfile {
   phone: string | null;
   isActive: boolean;
   emailVerified: boolean;
+  registrationIntent?: import("@/constants/registration").RegistrationIntent | null;
+  registrationCountry?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -302,6 +304,8 @@ export interface RegisterFormData {
   middleName?: string;
   lastName: string;
   phone: string;
+  country?: string;
+  registrationIntent: import("@/constants/registration").RegistrationIntent;
   acceptTerms: boolean;
 }
 

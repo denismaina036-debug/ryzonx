@@ -23,6 +23,7 @@ import {
 } from "@/features/admin/constants/pm-initial-rating";
 import { getCountryName, resolveCountry } from "@/constants/countries";
 import { countryCodeToFlag } from "@/lib/country-flag";
+import { formatTradingInstruments } from "@/domain/pool-manager/professional-background";
 import { PM_APPLICATION_STATUS, PM_ADMISSION_PATH, type PoolManagerApplicationStatus } from "@/domain/pool-manager/types";
 import type { PoolManagerApplication } from "@/domain/pool-manager/types";
 
@@ -44,6 +45,9 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
   const [initialBalance, setInitialBalance] = useState("10000");
   const [challengeAccountInfo, setChallengeAccountInfo] = useState("");
   const [initialRating, setInitialRating] = useState("3.5");
+  const [displayReviewCount, setDisplayReviewCount] = useState("0");
+  const [displayTradeCount, setDisplayTradeCount] = useState("0");
+  const [displayInvestorCount, setDisplayInvestorCount] = useState("0");
   const [experienceLevel, setExperienceLevel] = useState<PmExperienceLevel>("intermediate");
   const [riskClassification, setRiskClassification] = useState<PmRiskClassification>("balanced");
   const [isVerified, setIsVerified] = useState(true);
@@ -98,6 +102,9 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
         status === PM_APPLICATION_STATUS.APPROVED
           ? {
               ryvonxRating: Number(initialRating) || 3.5,
+              displayReviewCount: Math.max(0, Math.floor(Number(displayReviewCount) || 0)),
+              displayTradeCount: Math.max(0, Math.floor(Number(displayTradeCount) || 0)),
+              displayInvestorCount: Math.max(0, Math.floor(Number(displayInvestorCount) || 0)),
               experienceLevel,
               riskClassification,
               isVerified,
@@ -281,13 +288,44 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
           )}
 
           <section className="space-y-4 border-t border-navy-100 pt-6">
-            <h3 className="text-sm font-semibold text-navy-800">Initial Manager Rating</h3>
+            <h3 className="text-sm font-semibold text-navy-800">Public Display Metrics</h3>
             <p className="text-xs text-navy-500">
-              Assign the onboarding rating before approval. Performance intelligence updates ratings after trading begins.
+              Set every visible marketplace stat before approval — rating, reviews, trades, and investor count.
+              Live platform data replaces these baselines once it exceeds the values you enter.
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Overall Rating (0–5)">
                 <Input type="number" min={0} max={5} step="0.1" value={initialRating} onChange={(e) => setInitialRating(e.target.value)} />
+              </Field>
+              <Field label="Review Count">
+                <Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={displayReviewCount}
+                  onChange={(e) => setDisplayReviewCount(e.target.value)}
+                  placeholder="From funded-account reviews"
+                />
+              </Field>
+              <Field label="Trade Count">
+                <Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={displayTradeCount}
+                  onChange={(e) => setDisplayTradeCount(e.target.value)}
+                  placeholder="Verified trades on record"
+                />
+              </Field>
+              <Field label="Initial Investors">
+                <Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={displayInvestorCount}
+                  onChange={(e) => setDisplayInvestorCount(e.target.value)}
+                  placeholder="Baseline investor count"
+                />
               </Field>
               <Field label="Experience Level">
                 <Select
@@ -407,8 +445,7 @@ function formatAdminCountry(value: string | undefined): string | undefined {
 function formatAdminInstrument(
   bg: PoolManagerApplication["applicationData"]["professionalBackground"]
 ): string | undefined {
-  if (!bg?.primaryTradingInstrument) return undefined;
-  return bg.primaryTradingInstrumentOther?.trim() || bg.primaryTradingInstrument;
+  return formatTradingInstruments(bg);
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

@@ -71,6 +71,7 @@ export const TEMPLATE_NOTIFICATION_TYPE: Record<string, string> = {
   admin_new_deposit: "admin_message",
   admin_new_withdrawal: "admin_message",
   admin_new_pm_application: "admin_message",
+  admin_new_registration: "admin_message",
   admin_support_ticket: "admin_message",
   admin_platform_alert: "admin_message",
   admin_communication_failure: "admin_message",

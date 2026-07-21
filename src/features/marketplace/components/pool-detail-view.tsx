@@ -30,6 +30,10 @@ import type {
   MarketplacePoolCard,
 } from "@/domain/marketplace/types";
 import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
+import { TRADE_ENTRY_DIRECTION_LABELS } from "@/constants/trade-entry";
+import { formatFundingPeriodCountdown } from "@/features/marketplace/utils/funding-countdown";
+import { TRADING_TIME_ZONE_LABEL } from "@/domain/pools/trading-session";
+import { MANAGED_POOL_RETURN_MODEL_LABELS } from "@/domain/pools/return-model";
 
 interface PoolDetailViewProps {
   pool: MarketplacePoolDetail;
@@ -121,25 +125,58 @@ export function PoolDetailView({
       <section className="rounded-xl border border-border bg-card p-5">
         <h2 className="text-sm font-semibold text-[var(--id-text)]">Current Investment Cycle</h2>
         {pool.activeCycle ? (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="font-medium text-[var(--id-text)]">
-                Cycle {pool.activeCycle.cycleNumber}
-                {pool.activeCycle.name ? ` — ${pool.activeCycle.name}` : ""}
-              </p>
-              <p className="text-sm text-[var(--id-text-muted)]">
-                {INVESTMENT_CYCLE_STATUS_LABELS[pool.activeCycle.status] ??
-                  pool.activeCycle.status}
-                {pool.activeCycle.openingDate &&
-                  ` · Opens ${new Date(pool.activeCycle.openingDate).toLocaleDateString()}`}
-                {pool.activeCycle.closingDate &&
-                  ` · Closes ${new Date(pool.activeCycle.closingDate).toLocaleDateString()}`}
-              </p>
+          <div className="mt-3 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-medium text-[var(--id-text)]">
+                  Cycle {pool.activeCycle.cycleNumber}
+                  {pool.activeCycle.name ? ` — ${pool.activeCycle.name}` : ""}
+                </p>
+                <p className="text-sm text-[var(--id-text-muted)]">
+                  {INVESTMENT_CYCLE_STATUS_LABELS[pool.activeCycle.status] ??
+                    pool.activeCycle.status}
+                </p>
+              </div>
+              {pool.canParticipate && (
+                <Button asChild size="sm">
+                  <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Participate</Link>
+                </Button>
+              )}
             </div>
-            {pool.canParticipate && (
-              <Button asChild size="sm">
-                <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Participate</Link>
-              </Button>
+            {formatFundingPeriodCountdown(pool) && (
+              <div className="rounded-lg bg-[var(--id-surface-muted)] px-4 py-3">
+                <p className="text-[10px] uppercase tracking-wider text-[var(--id-text-faint)]">
+                  Starts In
+                </p>
+                <p className="mt-1 text-lg font-semibold text-[var(--id-text)]">
+                  {formatFundingPeriodCountdown(pool)}
+                </p>
+              </div>
+            )}
+            {pool.activeCycle.status === "trading" && (
+              <div className="rounded-lg border border-border px-4 py-3">
+                <p className="text-sm font-semibold text-[var(--id-text)]">Running Active Trades</p>
+                {pool.activeOpenTrades.length > 0 ? (
+                  <>
+                    <ul className="mt-2 space-y-1 text-sm text-[var(--id-text-secondary)]">
+                      {pool.activeOpenTrades.map((trade, index) => (
+                        <li key={`${trade.instrument}-${index}`}>
+                          {trade.instrument}{" "}
+                          {TRADE_ENTRY_DIRECTION_LABELS[
+                            trade.direction as keyof typeof TRADE_ENTRY_DIRECTION_LABELS
+                          ] ?? trade.direction}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 text-xs text-[var(--id-text-muted)]">
+                      {pool.activeOpenTrades.length} active trade
+                      {pool.activeOpenTrades.length === 1 ? "" : "s"}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm text-[var(--id-text-muted)]">All Trades Closed</p>
+                )}
+              </div>
             )}
           </div>
         ) : (
@@ -149,8 +186,19 @@ export function PoolDetailView({
         )}
       </section>
 
+      <section className="rounded-xl border border-border bg-card p-5">
+        <h2 className="text-sm font-semibold text-[var(--id-text)]">Trading Details</h2>
+        <dl className="mt-3 grid gap-3 sm:grid-cols-2 text-sm">
+          <Row label="Trading Session" value={pool.tradingSessionLabel ?? "—"} />
+          <Row label="Trading Time" value={pool.tradingTimeNy ? `${pool.tradingTimeNy} (${TRADING_TIME_ZONE_LABEL})` : "—"} />
+          <Row label="Market Type" value={pool.marketTypeCode ?? "—"} />
+          <Row label="Trading Instrument" value={pool.tradingInstrumentCode ?? pool.tradingPair ?? "—"} />
+          <Row label="Return Model" value={MANAGED_POOL_RETURN_MODEL_LABELS[pool.returnModel]} />
+        </dl>
+      </section>
+
       {pool.returnTiers.length > 0 && (
-        <section className="rounded-xl border border-border bg-card p-5">
+        <section id="return-structure" className="rounded-xl border border-border bg-card p-5">
           <h2 className="text-sm font-semibold text-[var(--id-text)]">Return by Investment Amount</h2>
           <div className="mt-3 space-y-2">
             {pool.returnTiers.map((tier, index) => (

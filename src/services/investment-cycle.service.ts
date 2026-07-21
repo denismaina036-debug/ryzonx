@@ -5,6 +5,7 @@ import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 import { INVESTMENT_CYCLE_ALLOCATABLE_STATUSES } from "@/constants/investment-cycle";
 import { auditService } from "@/services/audit.service";
 import { strategyService } from "@/services/strategy.service";
+import { tradeEntryService } from "@/services/trade-entry.service";
 import {
   assertInvestmentCycleTransition,
   isInvestmentCycleEditable,
@@ -156,6 +157,34 @@ const STRATEGY_STATUSES_FOR_CYCLES = new Set([
   "paused",
 ]);
 
+function readManagedConfigFromFund(fund: Record<string, unknown>) {
+  const poolFaq = fund.pool_faq;
+  if (!poolFaq || typeof poolFaq !== "object" || Array.isArray(poolFaq)) return {};
+  return ((poolFaq as { managedPool?: Record<string, unknown> }).managedPool ?? {}) as {
+    fundingPeriodDays?: number;
+    openingDate?: string;
+    closingDate?: string;
+    scheduleOpenEnded?: boolean;
+  };
+}
+
+function computeFundingDeadline(
+  fund: Record<string, unknown>,
+  closingDate: string | null
+): string | null {
+  if (closingDate) return closingDate;
+  const managed = readManagedConfigFromFund(fund);
+  if (managed.scheduleOpenEnded) return null;
+  if (managed.closingDate) return new Date(managed.closingDate).toISOString();
+  const days = managed.fundingPeriodDays;
+  if (days != null && days > 0) {
+    const end = new Date();
+    end.setDate(end.getDate() + days);
+    return end.toISOString();
+  }
+  return null;
+}
+
 function readStrategyIdFromFund(fund: Record<string, unknown>): string | null {
   const poolFaq = fund.pool_faq;
   const managedPool =
@@ -257,6 +286,7 @@ async function insertCycleFromPoolFund(
   const closingDate = input.closingDate
     ? new Date(input.closingDate).toISOString()
     : null;
+  const fundingDeadline = computeFundingDeadline(fund, closingDate);
 
   const { data, error } = await db
     .from("investment_cycles")
@@ -276,7 +306,7 @@ async function insertCycleFromPoolFund(
       duration_days: capacity.durationDays,
       opening_date: openingDate,
       closing_date: closingDate,
-      funding_deadline: closingDate,
+      funding_deadline: fundingDeadline,
       status: "draft",
     } as never)
     .select("*")
@@ -356,22 +386,67 @@ export const investmentCycleService = {
     return this.listByFund(fundId);
   },
 
-  /** Active cycle accepting or preparing for investors — funding first, then approved. */
+  /** Current cycle for marketplace display — funding, trading, or distribution. */
   async getActiveForFund(fundId: string): Promise<InvestmentCycle | null> {
     const db = createAdminClient();
     const { data, error } = await db
       .from("investment_cycles")
       .select("*")
       .eq("fund_id", fundId)
-      .in("status", ["funding", "approved"])
+      .in("status", ["funding", "trading", "distribution", "approved"])
       .order("cycle_number", { ascending: false });
 
     if (error) throw new Error(error.message);
     const rows = (data ?? []) as CycleRow[];
-    const funding = rows.find((r) => r.status === "funding");
-    if (funding) return mapCycle(funding);
-    const approved = rows.find((r) => r.status === "approved");
-    return approved ? mapCycle(approved) : null;
+    const priority: InvestmentCycleStatus[] = [
+      "funding",
+      "trading",
+      "distribution",
+      "approved",
+    ];
+    for (const status of priority) {
+      const match = rows.find((r) => r.status === status);
+      if (match) return mapCycle(match);
+    }
+    return null;
+  },
+
+  /** First investment cycle for a draft pool — stays in draft until go-live. */
+  async createDraftCycleForPool(
+    fundId: string,
+    actorUserId: string
+  ): Promise<InvestmentCycle> {
+    const existing = await this.listByFund(fundId);
+    if (existing.length > 0) return existing[0]!;
+
+    const db = createAdminClient();
+    const { data: fundRow, error: fundError } = await db
+      .from("funds")
+      .select("*")
+      .eq("id", fundId)
+      .single();
+    if (fundError || !fundRow) throw new Error("Pool not found.");
+    const fund = fundRow as Record<string, unknown>;
+    const managerId = fund.pool_manager_id as string;
+    if (!managerId) throw new Error("Pool has no assigned manager.");
+
+    const managed = readManagedConfigFromFund(fund);
+    const openingDate = managed.openingDate
+      ? new Date(managed.openingDate).toISOString()
+      : undefined;
+    const closingDate = managed.scheduleOpenEnded
+      ? undefined
+      : managed.closingDate
+        ? new Date(managed.closingDate).toISOString()
+        : undefined;
+
+    return insertCycleFromPoolFund(
+      fund,
+      fundId,
+      managerId,
+      { fundId, openingDate, closingDate },
+      actorUserId
+    );
   },
 
   async createFromPool(input: CreatePoolInvestmentCycleInput): Promise<InvestmentCycle> {
@@ -619,6 +694,13 @@ export const investmentCycleService = {
 
     assertInvestmentCycleTransition(existing.status, nextStatus, actor);
 
+    if (actor === "manager" && nextStatus === "distribution") {
+      const openTrades = await tradeEntryService.listOpenByCycle(id);
+      if (openTrades.length > 0) {
+        throw new Error("Close all active trades before closing the investment cycle.");
+      }
+    }
+
     const now = new Date().toISOString();
     const db = createAdminClient();
     const { data, error } = await db
@@ -690,6 +772,37 @@ export const investmentCycleService = {
           summary: `Cycle ${cycle.name} status changed to ${nextStatus}`,
         },
       });
+    }
+
+    if (nextStatus === "funding" && existing.fundId) {
+      const { data: fundRow } = await db
+        .from("funds")
+        .select("*")
+        .eq("id", existing.fundId)
+        .maybeSingle();
+      if (fundRow) {
+        const deadline = computeFundingDeadline(
+          fundRow as Record<string, unknown>,
+          existing.closingDate
+        );
+        if (deadline) {
+          await db
+            .from("investment_cycles")
+            .update({ funding_deadline: deadline } as never)
+            .eq("id", id);
+        }
+      }
+    }
+
+    if (nextStatus === "distribution") {
+      try {
+        const { profitDistributionService } = await import(
+          "@/services/profit-distribution.service"
+        );
+        await profitDistributionService.initiateSettlementForCycle(id, userId);
+      } catch {
+        /* settlement may require allocations — retry from finance panel */
+      }
     }
 
     return cycle;

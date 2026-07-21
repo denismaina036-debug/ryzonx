@@ -26,19 +26,199 @@ import type {
   PoolManagerPublicSummary,
 } from "@/domain/marketplace/types";
 import type { ReturnTier } from "@/features/investor/types/account";
-import { investmentCycleService } from "@/services/investment-cycle.service";
+import { tradeEntryService } from "@/services/trade-entry.service";
+import { tradingSessionLabel } from "@/domain/pools/trading-session";
 import { INVESTMENT_CYCLE_ALLOCATABLE_STATUSES } from "@/constants/investment-cycle";
+import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
+import {
+  formatExpectedDurationLabel,
+  formatPoolLevelLabel,
+  formatRiskLevelTag,
+  resolveTradingAssetLabel,
+  stripInstrumentFromPoolName,
+  resolvePublicDisplayCount,
+} from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
   return typeof value === "number" ? value : Number(value);
 }
 
-function readManagedOpeningDate(poolFaq: unknown): string | null {
-  if (!poolFaq || typeof poolFaq !== "object" || Array.isArray(poolFaq)) return null;
-  const managed = (poolFaq as { managedPool?: { openingDate?: string } }).managedPool;
-  const value = managed?.openingDate?.trim();
-  return value || null;
+function readManagedPoolConfig(poolFaq: unknown) {
+  if (!poolFaq || typeof poolFaq !== "object" || Array.isArray(poolFaq)) return {};
+  return ((poolFaq as { managedPool?: Record<string, unknown> }).managedPool ?? {}) as {
+    returnModel?: string;
+    tradingSessionKey?: string;
+    tradingSessionCustom?: string;
+    tradingTimeNy?: string;
+    marketTypeCode?: string;
+    tradingInstrumentCode?: string;
+    fundingPeriodDays?: number;
+    strategyName?: string;
+    durationUnit?: string;
+    tradingStyle?: string;
+  };
+}
+
+type CycleRow = {
+  id: string;
+  fund_id: string | null;
+  status: InvestmentCycleStatus;
+  cycle_number: number;
+  name: string;
+  opening_date: string | null;
+  closing_date: string | null;
+  funding_deadline: string | null;
+  raised_capital: number | string | null;
+  target_capital: number | string | null;
+  investor_count: number | null;
+  max_capacity: number | string | null;
+};
+
+const ACTIVE_CYCLE_PRIORITY: InvestmentCycleStatus[] = [
+  "funding",
+  "trading",
+  "distribution",
+  "approved",
+];
+
+function pickActiveCycleForFund(
+  cycles: CycleRow[],
+  fundId: string
+): CycleRow | null {
+  const fundCycles = cycles.filter((c) => c.fund_id === fundId);
+  for (const status of ACTIVE_CYCLE_PRIORITY) {
+    const match = fundCycles.find((c) => c.status === status);
+    if (match) return match;
+  }
+  return null;
+}
+
+async function enrichPoolCards(
+  db: ReturnType<typeof createAdminClient>,
+  rows: FundRow[],
+  cards: MarketplacePoolCard[],
+  managersMap: Map<string, ManagerRow>
+): Promise<MarketplacePoolCard[]> {
+  if (rows.length === 0) return cards;
+
+  const poolIds = rows.map((r) => r.id as string);
+  const { data: cycleRows } = await db
+    .from("investment_cycles")
+    .select(
+      "id, fund_id, status, cycle_number, name, opening_date, closing_date, funding_deadline, raised_capital, target_capital, investor_count, max_capacity"
+    )
+    .in("fund_id", poolIds)
+    .in("status", ["funding", "trading", "distribution", "approved"]);
+
+  const cycles = (cycleRows ?? []) as CycleRow[];
+
+  const managerIdsForReviews = [
+    ...new Set(cards.map((c) => c.managerId).filter(Boolean)),
+  ] as string[];
+  const liveReviewCounts = new Map<string, number>();
+  if (managerIdsForReviews.length > 0) {
+    const { data: reviewRows } = await db
+      .from("pool_manager_reviews")
+      .select("pool_manager_id")
+      .in("pool_manager_id", managerIdsForReviews);
+    for (const review of (reviewRows ?? []) as Array<{ pool_manager_id: string }>) {
+      liveReviewCounts.set(
+        review.pool_manager_id,
+        (liveReviewCounts.get(review.pool_manager_id) ?? 0) + 1
+      );
+    }
+  }
+
+  return cards.map((card) => {
+    const row = rows.find((r) => (r.id as string) === card.id);
+    if (!row) return card;
+
+    const managed = readManagedPoolConfig(row.pool_faq);
+    const cycle = pickActiveCycleForFund(cycles, card.id);
+    const manager = card.managerId ? managersMap.get(card.managerId) ?? null : null;
+    const targetCapital = cycle?.target_capital != null
+      ? toNumber(cycle.target_capital)
+      : toNumber(row.target_capital as number | null);
+    const raisedCapital = cycle?.raised_capital != null
+      ? toNumber(cycle.raised_capital)
+      : toNumber(row.current_capital as number | null);
+    const maxParticipants =
+      row.target_investors != null
+        ? toNumber(row.target_investors as number)
+        : cycle?.max_capacity != null
+          ? toNumber(cycle.max_capacity)
+          : null;
+    const cycleParticipantCount = cycle?.investor_count ?? card.activeInvestors;
+    const fundingPeriodEndsAt =
+      cycle?.funding_deadline ?? cycle?.closing_date ?? null;
+    const tradingAssetTag = resolveTradingAssetLabel({
+      tradingInstrumentCode: managed.tradingInstrumentCode ?? null,
+      tradingPair: card.tradingPair,
+      marketsTraded: card.marketsTraded,
+    });
+    const returnModel = managed.returnModel === "fixed" ? "fixed" : "variable";
+    const liveInvestors = toNumber(row.active_investors as number);
+    const seedInvestors = toNumber(row.display_active_investors as number);
+    const managerSeedInvestors = manager?.display_investor_count ?? 0;
+    const liveReviewCount = card.managerId
+      ? liveReviewCounts.get(card.managerId) ?? 0
+      : 0;
+    const seedReviewCount = manager?.display_review_count ?? 0;
+
+    return {
+      ...card,
+      name: card.name,
+      displayPoolName: stripInstrumentFromPoolName(card.name, tradingAssetTag),
+      activeInvestors: resolvePublicDisplayCount(
+        Math.max(seedInvestors, managerSeedInvestors),
+        liveInvestors
+      ),
+      activeCycle: cycle
+        ? {
+            id: cycle.id,
+            cycleNumber: cycle.cycle_number,
+            name: cycle.name,
+            status: cycle.status,
+            openingDate: cycle.opening_date,
+            closingDate: cycle.closing_date,
+            fundingDeadline: cycle.funding_deadline,
+            poolVersion: 1,
+          }
+        : null,
+      canParticipate: cycle
+        ? INVESTMENT_CYCLE_ALLOCATABLE_STATUSES.includes(cycle.status)
+        : false,
+      fundingPeriodEndsAt,
+      raisedCapital,
+      targetCapital,
+      cycleParticipantCount,
+      maxParticipants,
+      investorSharePct: toNumber(row.investor_share_pct as number | null) || 80,
+      poolManagerSharePct: toNumber(row.pool_manager_share_pct as number | null) || 20,
+      returnModel,
+      coverSubtitle:
+        managed.strategyName?.trim() ||
+        card.tagline?.trim() ||
+        managed.tradingStyle?.trim() ||
+        null,
+      tradingAssetTag,
+      strategyTag: managed.strategyName?.trim() || null,
+      tradingStyleTag:
+        managed.tradingStyle?.trim() || card.tradingStyle?.trim() || null,
+      riskLevelTag: formatRiskLevelTag(card.aggressivenessLevel),
+      expectedDurationLabel: formatExpectedDurationLabel(
+        row.pool_duration_days as number | null,
+        managed.durationUnit as string | undefined
+      ),
+      poolLevelLabel: formatPoolLevelLabel(card.capacityStatus),
+      poolVerified: card.governanceVerified,
+      managerRating:
+        manager?.ryvonx_rating != null ? toNumber(manager.ryvonx_rating) : null,
+      managerReviewCount: resolvePublicDisplayCount(seedReviewCount, liveReviewCount),
+      poolDurationDays: row.pool_duration_days as number | null,
+    };
+  });
 }
 
 type FundRow = Record<string, unknown>;
@@ -66,6 +246,9 @@ type ManagerRow = {
   max_drawdown_pct: number | null;
   approved_at: string | null;
   created_at: string;
+  display_review_count?: number;
+  display_trade_count?: number;
+  display_investor_count?: number;
 };
 
 function managerPublicLabel(row: ManagerRow | null): string | null {
@@ -198,6 +381,28 @@ function mapToCard(
       return t > 0 ? Math.round((rx / t) * 1000) / 10 : 0;
     })(),
     growthRatePct: row.growth_rate_pct != null ? toNumber(row.growth_rate_pct as number) : null,
+    activeCycle: null,
+    canParticipate: false,
+    fundingPeriodEndsAt: null,
+    raisedCapital: 0,
+    targetCapital: 0,
+    cycleParticipantCount: 0,
+    maxParticipants: null,
+    investorSharePct: toNumber(row.investor_share_pct as number | null) || 80,
+    poolManagerSharePct: toNumber(row.pool_manager_share_pct as number | null) || 20,
+    returnModel: "variable",
+    coverSubtitle: null,
+    tradingAssetTag: null,
+    strategyTag: null,
+    tradingStyleTag: null,
+    riskLevelTag: null,
+    expectedDurationLabel: "—",
+    poolLevelLabel: formatPoolLevelLabel((row.capacity_status as string) ?? "open"),
+    poolVerified: Boolean(row.governance_verified),
+    managerRating: null,
+    managerReviewCount: 0,
+    displayPoolName: row.name as string,
+    poolDurationDays: row.pool_duration_days as number | null,
   };
 }
 
@@ -378,7 +583,8 @@ export const marketplaceService = {
       return mapToCard(row, manager, monthlyMap.get(row.id as string) ?? 0);
     });
 
-    const filtered = applyFilters(cards, filters);
+    const enriched = await enrichPoolCards(db, rows, cards, managersMap);
+    const filtered = applyFilters(enriched, filters);
     return sortPools(filtered, filters.sort);
   },
 
@@ -451,6 +657,10 @@ export const marketplaceService = {
 
     const monthlyMap = await fetchMonthlyRoiMap(db, [row.id as string]);
     const card = mapToCard(row, manager, monthlyMap.get(row.id as string) ?? 0);
+    const managersMap = new Map<string, ManagerRow>();
+    if (manager) managersMap.set(manager.id, manager);
+    const [enriched] = await enrichPoolCards(db, [row], [card], managersMap);
+    const enrichedCard: MarketplacePoolCard = enriched ?? card;
     const faqRaw = row.pool_faq;
     const faq = Array.isArray(faqRaw)
       ? (faqRaw as Array<{ question: string; answer: string }>)
@@ -458,33 +668,14 @@ export const marketplaceService = {
     const returnTiers = Array.isArray(row.return_tiers)
       ? (row.return_tiers as ReturnTier[])
       : [];
-    const activeCycleRow = await investmentCycleService.getActiveForFund(row.id as string);
-    const activeCycle = activeCycleRow
-      ? {
-          id: activeCycleRow.id,
-          cycleNumber: activeCycleRow.cycleNumber,
-          name: activeCycleRow.name,
-          status: activeCycleRow.status,
-          openingDate: activeCycleRow.openingDate,
-          closingDate: activeCycleRow.closingDate,
-          fundingDeadline: activeCycleRow.fundingDeadline,
-          poolVersion: activeCycleRow.poolVersion,
-        }
-      : null;
-    const canParticipate = activeCycleRow
-      ? INVESTMENT_CYCLE_ALLOCATABLE_STATUSES.includes(activeCycleRow.status)
-      : false;
+    const managedConfig = readManagedPoolConfig(row.pool_faq);
+    const activeOpenTrades =
+      enrichedCard.activeCycle?.status === "trading" && enrichedCard.activeCycle.id
+        ? await tradeEntryService.listOpenTradesPublic(enrichedCard.activeCycle.id)
+        : [];
 
-    const managedOpeningDate = readManagedOpeningDate(row.pool_faq);
-    const tradingStartsAt =
-      activeCycleRow?.openingDate ??
-      managedOpeningDate ??
-      activeCycleRow?.closingDate ??
-      activeCycleRow?.fundingDeadline ??
-      null;
-
-    return {
-      ...card,
+    const detail: MarketplacePoolDetail = {
+      ...enrichedCard,
       description: (row.description as string) ?? "",
       poolDescription: (row.pool_description as string) ?? (row.description as string) ?? "",
       poolDurationDays: row.pool_duration_days as number | null,
@@ -493,11 +684,18 @@ export const marketplaceService = {
       ),
       riskSummary: (row.risk_summary as string | null) ?? null,
       adminComments: (row.admin_comments as string | null) ?? null,
-      targetCapital: toNumber(row.target_capital as number),
+      targetCapital:
+        enrichedCard.targetCapital > 0
+          ? enrichedCard.targetCapital
+          : toNumber(row.target_capital as number),
       currentCapital: toNumber(row.current_capital as number),
       maxAum: row.max_aum != null ? toNumber(row.max_aum as number) : null,
       maxInvestorsCap:
-        row.max_investors_cap != null ? toNumber(row.max_investors_cap as number) : null,
+        row.target_investors != null
+          ? toNumber(row.target_investors as number)
+          : row.max_investors_cap != null
+            ? toNumber(row.max_investors_cap as number)
+            : null,
       profitTargetPct: toNumber(row.profit_target_pct as number),
       maxInvestment: row.max_investment != null ? toNumber(row.max_investment as number) : null,
       returnTiers,
@@ -506,12 +704,20 @@ export const marketplaceService = {
       suspendedAt: (row.suspended_at as string | null) ?? null,
       allocationStatus: (row.allocation_status as string) ?? "none",
       allocationReviewAt: (row.allocation_review_at as string | null) ?? null,
-      activeCycle,
-      canParticipate,
-      tradingStartsAt,
+      tradingStartsAt: enrichedCard.fundingPeriodEndsAt,
+      tradingSessionLabel: tradingSessionLabel(
+        managedConfig.tradingSessionKey,
+        managedConfig.tradingSessionCustom
+      ),
+      tradingTimeNy: managedConfig.tradingTimeNy ?? null,
+      marketTypeCode: managedConfig.marketTypeCode ?? null,
+      tradingInstrumentCode: managedConfig.tradingInstrumentCode ?? null,
+      activeOpenTrades,
       manager: mapManagerSummary(manager),
       faq,
     };
+
+    return detail;
   },
 
   async getFeaturedSections(): Promise<FeaturedMarketplaceSection[]> {
@@ -591,15 +797,16 @@ export const marketplaceService = {
       .eq("status", "active");
 
     const rows = (data ?? []) as FundRow[];
-    const { data: fullManager } = await db.from("pool_managers").select("*").eq("id", managerId).single();
+    const managersMap = await fetchManagersMap(db, [managerId]);
     const monthlyMap = await fetchMonthlyRoiMap(
       db,
       rows.map((r) => r.id as string)
     );
-
-    return rows.map((row) =>
-      mapToCard(row, fullManager as unknown as ManagerRow, monthlyMap.get(row.id as string) ?? 0)
-    );
+    const cards = rows.map((row) => {
+      const mgr = managersMap.get(managerId) ?? null;
+      return mapToCard(row, mgr, monthlyMap.get(row.id as string) ?? 0);
+    });
+    return enrichPoolCards(db, rows, cards, managersMap);
   },
 
   async getPerformanceAnalytics(poolId: string): Promise<MarketplacePerformanceAnalytics> {

@@ -130,6 +130,41 @@ export const tradeEntryService = {
     return entries.filter((e) => e.status === "open" || e.status === "partially_closed");
   },
 
+  /** Public open trades for marketplace display during trading status. */
+  async listOpenTradesPublic(
+    cycleId: string
+  ): Promise<Array<{ instrument: string; direction: string }>> {
+    const db = createAdminClient();
+    const { data: cycleRow } = await db
+      .from("investment_cycles")
+      .select("status, fund_id")
+      .eq("id", cycleId)
+      .maybeSingle();
+    const cycle = cycleRow as { status: string; fund_id: string | null } | null;
+    if (!cycle || cycle.status !== "trading" || !cycle.fund_id) return [];
+
+    const { data: fundRow } = await db
+      .from("funds")
+      .select("is_marketplace_listed, lifecycle_status")
+      .eq("id", cycle.fund_id)
+      .maybeSingle();
+    const fund = fundRow as { is_marketplace_listed?: boolean; lifecycle_status?: string } | null;
+    if (!fund?.is_marketplace_listed || fund.lifecycle_status !== "live") return [];
+
+    const { data, error } = await db
+      .from("trade_entries")
+      .select("instrument, direction, status")
+      .eq("investment_cycle_id", cycleId)
+      .in("status", ["open", "partially_closed"])
+      .order("opened_at", { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as Array<{ instrument: string; direction: string }>).map((row) => ({
+      instrument: row.instrument,
+      direction: row.direction,
+    }));
+  },
+
   async listClosedByCycle(cycleId: string): Promise<TradeEntry[]> {
     const entries = await this.listByCycle(cycleId);
     return entries.filter((e) => e.status === "closed");

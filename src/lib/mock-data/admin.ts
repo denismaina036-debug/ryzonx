@@ -103,6 +103,7 @@ export const mockAdminFunds: AdminFund[] = [
     lifecycleStatus: "live",
     maxAum: 1000000,
     maxInvestorsCap: 100,
+    displayActiveInvestors: 0,
   },
 ];
 

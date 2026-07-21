@@ -15,7 +15,7 @@ export function isSectionComplete(
       return Boolean(
         s?.tradingExperience?.trim() &&
           s.marketsTraded?.length &&
-          s.primaryTradingInstrument?.trim() &&
+          (s.primaryTradingInstruments?.length || s.primaryTradingInstrument?.trim()) &&
           s.countryOfResidence?.trim()
       );
     }

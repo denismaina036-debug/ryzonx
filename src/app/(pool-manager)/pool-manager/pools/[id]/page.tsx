@@ -19,7 +19,7 @@ export default async function PoolManagerPoolDetailPage({
 
   const { id } = await params;
   try {
-    const [{ pool, config, marketsTraded, profitSharing }, strategies, cycles] = await Promise.all([
+    const [{ pool, config, marketsTraded, profitSharing, targetInvestors, aggressivenessLevel }, strategies, cycles] = await Promise.all([
       managedPoolService.getForManager(id),
       strategyService.listApprovedForPoolCreation(),
       investmentCycleService.listByFundForManager(id).catch(() => []),
@@ -28,7 +28,14 @@ export default async function PoolManagerPoolDetailPage({
     return (
       <ManagedPoolEditClient
         pool={pool}
-        initialValues={poolToManagedForm(pool, config, marketsTraded, profitSharing)}
+        initialValues={poolToManagedForm(
+          pool,
+          config,
+          marketsTraded,
+          profitSharing,
+          targetInvestors,
+          aggressivenessLevel
+        )}
         editable={editable}
         approvedStrategies={strategies.map((s) => ({ id: s.id, name: s.name }))}
         cycles={cycles}

@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { mapProfileToUser } from "@/lib/auth/utils";
 import { ensureInvestorBootstrap } from "@/lib/auth/ensure-investor-bootstrap";
+import { parseRegistrationIntent } from "@/domain/investor/pm-journey-variant";
 import type { UserProfile } from "@/types";
+import type { User } from "@supabase/supabase-js";
 
 /**
  * Get the current authenticated user with profile data.
@@ -52,7 +54,18 @@ export async function getCurrentUser(): Promise<UserProfile | null> {
     return null;
   }
 
-  return mapProfileToUser(profile);
+  return mergeAuthMetadata(mapProfileToUser(profile), user);
+}
+
+function mergeAuthMetadata(profile: UserProfile, authUser: User): UserProfile {
+  const meta = authUser.user_metadata ?? {};
+  const country = typeof meta.country === "string" ? meta.country : null;
+
+  return {
+    ...profile,
+    registrationIntent: parseRegistrationIntent(meta.registration_intent),
+    registrationCountry: country,
+  };
 }
 
 /**

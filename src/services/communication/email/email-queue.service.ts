@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { CommunicationChannel, CommunicationStatus } from "@/domain/communication/types";
 import { sendResendEmail, isResendConfigured } from "./resend.service";
+import { getOutboundEmailConfig } from "./email-config.service";
 import { COMMUNICATION_AUDIT_ACTIONS, COMMUNICATION_ENTITY_TYPE } from "@/constants/communication";
 import { auditService } from "@/services/audit.service";
 import { adminNotifyService } from "@/services/communication/admin-notify.service";
@@ -125,11 +126,14 @@ export const emailQueueService = {
       .eq("id", delivery.id);
 
     try {
+      const emailConfig = await getOutboundEmailConfig();
       const resendResult = await sendResendEmail({
         to: delivery.recipient_address,
         subject,
         html: html ?? `<pre>${plainText}</pre>`,
         text: plainText,
+        replyTo: emailConfig.replyTo,
+        from: emailConfig.from,
       });
 
       const now = new Date().toISOString();

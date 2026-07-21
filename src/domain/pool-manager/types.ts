@@ -57,6 +57,7 @@ export interface ProfessionalBackgroundSection {
   marketsTraded?: string[];
   primaryTradingInstrument?: string;
   primaryTradingInstrumentOther?: string;
+  primaryTradingInstruments?: string[];
   countryOfResidence?: string;
 }
 
@@ -224,6 +225,8 @@ export interface PoolManagerPublicProfile {
   yearsOnRyvonX: number;
   approvedAt: string | null;
   managerLevel: string | null;
+  publicReviewCount: number;
+  publicTradeCount: number;
   achievements: Array<{ title: string; awardedAt: string }>;
 }
 

@@ -26,7 +26,13 @@ export function InvestorTransactionsView({
         </h1>
         <p className="mt-2 text-sm text-[var(--id-text-secondary)]">
           Deposits, withdrawals, pool allocations, and balance movements — with pool
-          context.
+          context.{" "}
+          <Link
+            href={ROUTES.platformActivity}
+            className="font-medium text-[var(--id-accent-text)] hover:underline"
+          >
+            View platform activity
+          </Link>
         </p>
       </div>
 

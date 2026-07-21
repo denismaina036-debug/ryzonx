@@ -24,7 +24,7 @@ import {
   TRADING_EXPERIENCE_OPTIONS,
 } from "@/features/pool-manager/constants/admission-form";
 import { ReferenceMultiSelect } from "@/components/reference-data/reference-multi-select";
-import { ReferenceInstrumentPicker } from "@/components/reference-data/reference-instrument-picker";
+import { ReferenceInstrumentMultiSelect } from "@/components/reference-data/reference-instrument-multi-select";
 import { ReferenceCountryPicker } from "@/components/reference-data/reference-country-picker";
 import { SearchableCombobox } from "@/components/reference-data/searchable-combobox";
 import { useReferenceData } from "@/hooks/use-reference-data";
@@ -60,11 +60,16 @@ import { resolveCountry } from "@/constants/countries";
 import { countryCodeToFlag } from "@/lib/country-flag";
 import type { PmAdmissionSettings } from "@/domain/pool-manager/admission-settings";
 import type { AdmissionPaymentState } from "@/domain/pool-manager/admission-errors";
+import {
+  normalizeProfessionalBackground,
+  formatTradingInstruments,
+} from "@/domain/pool-manager/professional-background";
 
 interface PoolManagerAdmissionWizardProps {
   userRole: string;
   initialApplication: PoolManagerApplication | null;
   initialSettings: PmAdmissionSettings;
+  registrationCountry?: string | null;
 }
 
 const PENDING_STATUSES: ReadonlySet<PoolManagerApplicationStatus> = new Set([
@@ -79,6 +84,7 @@ export function PoolManagerAdmissionWizard({
   userRole,
   initialApplication,
   initialSettings,
+  registrationCountry,
 }: PoolManagerAdmissionWizardProps) {
   const router = useRouter();
   const [application, setApplication] = useState(initialApplication);
@@ -89,9 +95,25 @@ export function PoolManagerAdmissionWizard({
       PM_APPLICATION_SECTIONS.REVIEW
     )
   );
-  const [formData, setFormData] = useState<PoolManagerApplicationData>(
-    initialApplication?.applicationData ?? EMPTY_DATA
-  );
+  const [formData, setFormData] = useState<PoolManagerApplicationData>(() => {
+    const base = initialApplication?.applicationData ?? EMPTY_DATA;
+    const normalized = {
+      ...base,
+      professionalBackground: normalizeProfessionalBackground(base.professionalBackground),
+    };
+
+    if (
+      registrationCountry &&
+      !normalized.professionalBackground?.countryOfResidence
+    ) {
+      normalized.professionalBackground = {
+        ...normalized.professionalBackground,
+        countryOfResidence: registrationCountry,
+      };
+    }
+
+    return normalized;
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentState, setPaymentState] = useState<AdmissionPaymentState | null>(null);
@@ -113,13 +135,29 @@ export function PoolManagerAdmissionWizard({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setApplication(data.application);
-      setFormData(data.application.applicationData ?? {});
+      const loaded = data.application.applicationData ?? {};
+      const normalized = {
+        ...loaded,
+        professionalBackground: normalizeProfessionalBackground(
+          loaded.professionalBackground
+        ),
+      };
+      if (
+        registrationCountry &&
+        !normalized.professionalBackground?.countryOfResidence
+      ) {
+        normalized.professionalBackground = {
+          ...normalized.professionalBackground,
+          countryOfResidence: registrationCountry,
+        };
+      }
+      setFormData(normalized);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start application");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [registrationCountry]);
 
   useEffect(() => {
     if (!application && !isPoolManager) {
@@ -418,6 +456,7 @@ function ProfessionalBackgroundFields({
   function onMarketsChange(codes: string[]) {
     patch({
       marketsTraded: normalizeMarketCodes(codes),
+      primaryTradingInstruments: [],
       primaryTradingInstrument: undefined,
     });
   }
@@ -448,11 +487,16 @@ function ProfessionalBackgroundFields({
           loading={marketsLoading}
         />
       </Field>
-      <Field label="Primary Trading Instrument *">
-        <ReferenceInstrumentPicker
+      <Field label="Primary Trading Instruments *">
+        <ReferenceInstrumentMultiSelect
           marketCodes={normalizedMarkets}
-          value={bg.primaryTradingInstrument}
-          onChange={(code) => patch({ primaryTradingInstrument: code })}
+          value={bg.primaryTradingInstruments ?? []}
+          onChange={(codes) =>
+            patch({
+              primaryTradingInstruments: codes,
+              primaryTradingInstrument: codes[0],
+            })
+          }
           disabled={disabled}
         />
       </Field>
@@ -1009,8 +1053,7 @@ function formatCountryReview(codeOrName: string | undefined): string | undefined
 function formatInstrumentReview(
   bg: PoolManagerApplicationData["professionalBackground"]
 ): string | undefined {
-  if (!bg?.primaryTradingInstrument) return undefined;
-  return bg.primaryTradingInstrumentOther?.trim() || bg.primaryTradingInstrument;
+  return formatTradingInstruments(bg);
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

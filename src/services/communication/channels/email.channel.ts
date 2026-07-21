@@ -1,29 +1,55 @@
 import type { CommunicationChannelAdapter, ChannelDispatchResult } from "./types";
+import { sendResendEmail, isResendConfigured } from "@/services/communication/email/resend.service";
+import { getOutboundEmailConfig } from "@/services/communication/email/email-config.service";
 
 /**
- * Email channel stub — queues delivery without calling Resend (Phase 5.5.2+).
- * Records intent in communication_deliveries for admin review and future send.
+ * Email channel — sends immediately via Resend when configured.
  */
 export const emailChannel: CommunicationChannelAdapter = {
   channel: "email",
 
   async dispatch(ctx): Promise<ChannelDispatchResult> {
-    if (!ctx.recipientEmail) {
+    if (!ctx.recipientEmail?.trim()) {
       return { status: "failed", error: "Recipient has no email address." };
     }
 
+    const metadata = ctx.metadata ?? {};
+    const html =
+      (ctx.rendered.html as string | null | undefined) ??
+      (metadata.rendered_html as string | undefined) ??
+      null;
+    const plainText =
+      ctx.rendered.plainText ??
+      (metadata.rendered_plain_text as string | undefined) ??
+      ctx.rendered.body;
     const subject = ctx.rendered.subject ?? "RyvonX";
-    const body = ctx.rendered.body;
 
-    if (!body.trim()) {
-      return { status: "failed", error: "No email body content to deliver." };
+    if (!html?.trim() && !plainText?.trim()) {
+      return { status: "failed", error: "No email content to deliver." };
     }
 
-    // Resend integration deferred — mark as queued for outbound processor
-    void subject;
+    if (!isResendConfigured()) {
+      return { status: "failed", error: "RESEND_API_KEY is not configured." };
+    }
 
-    return {
-      status: "queued",
-    };
+    try {
+      const emailConfig = await getOutboundEmailConfig();
+      const result = await sendResendEmail({
+        to: ctx.recipientEmail.trim(),
+        subject,
+        html: html ?? `<pre>${plainText}</pre>`,
+        text: plainText,
+        replyTo: emailConfig.replyTo,
+        from: emailConfig.from,
+      });
+
+      return {
+        status: "sent",
+        externalId: result.id,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Email send failed";
+      return { status: "failed", error: message };
+    }
   },
 };

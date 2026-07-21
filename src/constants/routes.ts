@@ -14,6 +14,10 @@ export const ROUTES = {
   contact: "/contact",
   about: "/about",
   activity: "/activity",
+  /** Optional public marketplace activity feed */
+  platformActivity: "/activity",
+  /** Personal deposits, withdrawals, and pool movements */
+  personalActivity: "/dashboard/transactions",
   transparency: "/investors",
   marketplace: "/marketplace",
   marketplaceStrategies: "/marketplace/strategies",

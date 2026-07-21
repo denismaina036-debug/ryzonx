@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { APP_NAME, ROUTES } from "@/constants/routes";
+import { GetStartedModal } from "@/features/public/components/get-started-modal";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +30,7 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [getStartedOpen, setGetStartedOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -97,8 +99,8 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
                 <Button asChild variant="ghost" size="sm">
                   <Link href={ROUTES.login}>Login</Link>
                 </Button>
-                <Button asChild size="sm">
-                  <Link href={ROUTES.register}>Join Pool</Link>
+                <Button type="button" size="sm" onClick={() => setGetStartedOpen(true)}>
+                  Get Started
                 </Button>
               </>
             )}
@@ -165,8 +167,16 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
                     <Button asChild variant="outline" className="w-full" size="lg">
                       <Link href={ROUTES.login}>Login</Link>
                     </Button>
-                    <Button asChild className="w-full" size="lg">
-                      <Link href={ROUTES.register}>Join Pool</Link>
+                    <Button
+                      type="button"
+                      className="w-full"
+                      size="lg"
+                      onClick={() => {
+                        setMobileOpen(false);
+                        setGetStartedOpen(true);
+                      }}
+                    >
+                      Get Started
                     </Button>
                   </>
                 )}
@@ -175,6 +185,8 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
           </>
         )}
       </AnimatePresence>
+
+      <GetStartedModal open={getStartedOpen} onOpenChange={setGetStartedOpen} />
 
       <div className="h-16 lg:h-18" />
     </>

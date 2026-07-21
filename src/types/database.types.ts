@@ -812,6 +812,7 @@ export type Database = {
       funds: {
         Row: {
           active_investors: number
+          display_active_investors: number
           admin_comments: string | null
           admin_ranking: number
           aggressiveness_level: string | null
@@ -899,6 +900,7 @@ export type Database = {
         }
         Insert: {
           active_investors?: number
+          display_active_investors?: number
           assets_under_management?: number
           approved_at?: string | null
           card_background_color?: string | null
@@ -938,6 +940,7 @@ export type Database = {
         }
         Update: {
           active_investors?: number
+          display_active_investors?: number
           assets_under_management?: number
           approved_at?: string | null
           card_background_color?: string | null
@@ -997,6 +1000,9 @@ export type Database = {
           cover_image_position: Json
           created_at: string
           display_name: string
+          display_investor_count: number
+          display_review_count: number
+          display_trade_count: number
           icon_url: string | null
           id: string
           is_platform_managed: boolean
@@ -1035,6 +1041,9 @@ export type Database = {
           cover_image_position?: Json
           created_at?: string
           display_name: string
+          display_investor_count?: number
+          display_review_count?: number
+          display_trade_count?: number
           icon_url?: string | null
           id?: string
           is_platform_managed?: boolean
@@ -1067,6 +1076,9 @@ export type Database = {
           cover_image_position?: Json
           created_at?: string
           display_name?: string
+          display_investor_count?: number
+          display_review_count?: number
+          display_trade_count?: number
           icon_url?: string | null
           id?: string
           is_platform_managed?: boolean

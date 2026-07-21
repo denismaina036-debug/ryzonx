@@ -169,14 +169,14 @@ export function JoinPoolConfirmation({
             <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--id-accent)]" aria-hidden />
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-[var(--id-text-muted)]">
-                Time left before start
+                Starts In
               </p>
               <p className="mt-1 text-sm font-semibold text-[var(--id-text)] sm:text-base">
                 {timeUntilTrading}
               </p>
               {tradingStartDate && (
                 <p className="mt-1 text-xs text-[var(--id-text-muted)]">
-                  Trading scheduled for{" "}
+                  Funding period ends{" "}
                   {new Date(tradingStartDate).toLocaleString(undefined, {
                     dateStyle: "medium",
                     timeStyle: "short",

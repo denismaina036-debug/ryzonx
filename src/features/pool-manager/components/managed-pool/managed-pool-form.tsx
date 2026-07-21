@@ -11,12 +11,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ROUTES } from "@/constants/routes";
+import { REFERENCE_SET_KEYS } from "@/domain/reference-data/set-keys";
 import {
   MANAGED_POOL_DURATION_UNITS,
   MANAGED_POOL_RISK_LEVELS,
   MANAGED_POOL_VISIBILITY,
   type ManagedPoolFormInput,
 } from "@/domain/pools/managed-pool";
+import {
+  MANAGED_POOL_RETURN_MODEL_LABELS,
+  MANAGED_POOL_RETURN_MODELS,
+} from "@/domain/pools/return-model";
+import {
+  TRADING_SESSION_OPTIONS,
+  TRADING_TIME_ZONE_LABEL,
+} from "@/domain/pools/trading-session";
+import { ReferenceMultiSelect } from "@/components/reference-data/reference-multi-select";
+import { ReferenceInstrumentPicker } from "@/components/reference-data/reference-instrument-picker";
+import { useReferenceData } from "@/hooks/use-reference-data";
 import {
   pmInputClass,
   pmSelectContentClass,
@@ -28,6 +40,13 @@ import { PmFormField } from "@/features/pool-manager/components/workspace/pm-for
 import { PmSectionCard } from "@/features/pool-manager/components/workspace/pm-page-header";
 import { PoolImageUpload } from "./pool-image-upload";
 import { PmReturnTiersEditor } from "./pm-return-tiers-editor";
+
+function buildStrategyReturnUrl(poolId?: string): string {
+  const returnTo = poolId
+    ? `${ROUTES.poolManagerPools}/${poolId}`
+    : `${ROUTES.poolManagerPools}/new`;
+  return `${ROUTES.poolManagerStrategies}/new?returnTo=${encodeURIComponent(returnTo)}`;
+}
 
 export function ManagedPoolForm({
   values,
@@ -42,9 +61,16 @@ export function ManagedPoolForm({
   poolId?: string;
   approvedStrategies?: { id: string; name: string }[];
 }) {
+  const { items: marketOptions, loading: marketsLoading } = useReferenceData(
+    REFERENCE_SET_KEYS.FINANCIAL_MARKETS
+  );
+
   function patch<K extends keyof ManagedPoolFormInput>(key: K, value: ManagedPoolFormInput[K]) {
     onChange({ ...values, [key]: value });
   }
+
+  const isFixedReturn = values.returnModel === "fixed";
+  const marketCodes = values.marketTypeCode ? [values.marketTypeCode] : [];
 
   return (
     <div className="space-y-8">
@@ -84,9 +110,9 @@ export function ManagedPoolForm({
 
       <PmSectionCard
         title="Strategy"
-        description="Choose one approved strategy. Create and submit strategies separately before building a pool."
+        description="Every pool must use an approved strategy."
       >
-        <PmFormField label="Approved Strategy" hint="Only approved strategies can be linked to a pool." required>
+        <PmFormField label="Approved Strategy" hint="Includes your default application strategy and any additional approved strategies." required>
           <Select
             value={values.strategyId || "none"}
             onValueChange={(v) => patch("strategyId", v === "none" ? "" : v)}
@@ -107,101 +133,111 @@ export function ManagedPoolForm({
             </SelectContent>
           </Select>
         </PmFormField>
+        {editable && (
+          <p className="text-sm text-[var(--id-text-muted)]">
+            <Link href={buildStrategyReturnUrl(poolId)} className="text-[var(--id-accent-text)] underline">
+              Set New Strategy
+            </Link>
+            {" — opens strategy creation and returns here after saving."}
+          </p>
+        )}
         {approvedStrategies.length === 0 && editable && (
           <p className="text-sm text-[var(--id-text-muted)]">
             No approved strategies yet.{" "}
-            <Link href={ROUTES.poolManagerStrategies} className="text-[var(--id-accent-text)] underline">
-              Manage strategies
+            <Link href={buildStrategyReturnUrl(poolId)} className="text-[var(--id-accent-text)] underline">
+              Create a strategy
             </Link>
           </p>
         )}
       </PmSectionCard>
 
       <PmSectionCard
-        title="Trading Session"
-        description="Describe how this pool operates during live trading."
+        title="Trading Details"
+        description="Publicly visible trading session and instrument information. All times use New York Time."
       >
         <div className="space-y-6">
-          <PmFormField label="Trading Methodology">
-            <Textarea
-              value={values.tradingMethodology}
-              onChange={(e) => patch("tradingMethodology", e.target.value)}
+          <PmFormField label="Trading Session" required>
+            <Select
+              value={values.tradingSessionKey || "none"}
+              onValueChange={(v) => patch("tradingSessionKey", v === "none" ? "" : v)}
               disabled={!editable}
-              rows={4}
-              className={pmTextareaClass}
-            />
+            >
+              <SelectTrigger className={pmSelectTriggerClass}>
+                <SelectValue placeholder="Select session" />
+              </SelectTrigger>
+              <SelectContent className={pmSelectContentClass}>
+                <SelectItem value="none" className={pmSelectItemClass}>Select session</SelectItem>
+                {TRADING_SESSION_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value} className={pmSelectItemClass}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </PmFormField>
-          <PmFormField label="Markets" hint="Comma-separated symbols or markets.">
+          {values.tradingSessionKey === "custom" && (
+            <PmFormField label="Custom Session Name">
+              <Input
+                value={values.tradingSessionCustom}
+                onChange={(e) => patch("tradingSessionCustom", e.target.value)}
+                disabled={!editable}
+                className={pmInputClass}
+              />
+            </PmFormField>
+          )}
+          <PmFormField label="Trading Time" hint={TRADING_TIME_ZONE_LABEL}>
             <Input
-              value={values.markets}
-              onChange={(e) => patch("markets", e.target.value)}
-              disabled={!editable}
-              placeholder="XAU/USD, EUR/USD"
-              className={pmInputClass}
-            />
-          </PmFormField>
-          <PmFormField label="Sessions" hint="e.g. London, New York, Asian">
-            <Input
-              value={values.tradingSessions}
-              onChange={(e) => patch("tradingSessions", e.target.value)}
+              type="time"
+              value={values.tradingTimeNy}
+              onChange={(e) => patch("tradingTimeNy", e.target.value)}
               disabled={!editable}
               className={pmInputClass}
-            />
-          </PmFormField>
-          <PmFormField label="Trading Hours">
-            <Input
-              value={values.tradingHours}
-              onChange={(e) => patch("tradingHours", e.target.value)}
-              disabled={!editable}
-              placeholder="e.g. 08:00–17:00 UTC"
-              className={pmInputClass}
-            />
-          </PmFormField>
-          <PmFormField label="Timeframes">
-            <Input
-              value={values.timeframes}
-              onChange={(e) => patch("timeframes", e.target.value)}
-              disabled={!editable}
-              placeholder="H1, H4, Daily"
-              className={pmInputClass}
-            />
-          </PmFormField>
-          <PmFormField label="Expected Trade Frequency">
-            <Textarea
-              value={values.expectedBehavior}
-              onChange={(e) => patch("expectedBehavior", e.target.value)}
-              disabled={!editable}
-              rows={3}
-              className={pmTextareaClass}
-            />
-          </PmFormField>
-          <PmFormField label="Manager Notes" hint="Additional context for investors and administrators.">
-            <Textarea
-              value={values.managerNotes}
-              onChange={(e) => patch("managerNotes", e.target.value)}
-              disabled={!editable}
-              rows={3}
-              className={pmTextareaClass}
             />
           </PmFormField>
         </div>
       </PmSectionCard>
 
-      <PmSectionCard title="Investment Rules" description="Funding terms and participation limits.">
+      <PmSectionCard title="What Is Traded" description="Publicly visible market and instrument.">
+        <div className="space-y-6">
+          <PmFormField label="Market Type" required>
+            <ReferenceMultiSelect
+              options={marketOptions}
+              value={marketCodes}
+              onChange={(codes) => {
+                const next = codes.length === 0 ? "" : codes[codes.length - 1]!;
+                patch("marketTypeCode", next);
+                if (next !== values.marketTypeCode) patch("tradingInstrumentCode", "");
+              }}
+              disabled={!editable}
+              loading={marketsLoading}
+            />
+          </PmFormField>
+          <PmFormField label="Trading Instrument" required>
+            <ReferenceInstrumentPicker
+              marketCodes={marketCodes}
+              value={values.tradingInstrumentCode}
+              onChange={(code) => patch("tradingInstrumentCode", code)}
+              disabled={!editable}
+            />
+          </PmFormField>
+        </div>
+      </PmSectionCard>
+
+      <PmSectionCard title="Investment Rules" description="Participation requirements for the investment cycle.">
         <div className="grid gap-6 sm:grid-cols-2">
-          <PmFormField label="Minimum Investment" hint="Must not exceed maximum capacity when submitting.">
+          <PmFormField label="Minimum Investment" hint="Must not exceed maximum investment when submitting.">
             <Input type="number" min={0} value={values.minInvestment} onChange={(e) => patch("minInvestment", e.target.value)} disabled={!editable} className={pmInputClass} />
           </PmFormField>
           <PmFormField label="Maximum Investment">
             <Input type="number" min={0} value={values.maxInvestment} onChange={(e) => patch("maxInvestment", e.target.value)} disabled={!editable} className={pmInputClass} />
           </PmFormField>
-          <PmFormField label="Maximum Capacity" hint="Target capital to raise.">
+          <PmFormField label="Target Capital" hint="Target capital to raise for this cycle.">
             <Input type="number" min={0} value={values.maxPoolSize} onChange={(e) => patch("maxPoolSize", e.target.value)} disabled={!editable} className={pmInputClass} />
           </PmFormField>
-          <PmFormField label="Maximum Investors">
+          <PmFormField label="Target Investors">
             <Input type="number" min={1} value={values.maxInvestors} onChange={(e) => patch("maxInvestors", e.target.value)} disabled={!editable} className={pmInputClass} />
           </PmFormField>
-          <PmFormField label="Funding Period (days)">
+          <PmFormField label="Funding Period (days)" hint="Public funding countdown duration.">
             <Input type="number" min={1} value={values.fundingPeriodDays} onChange={(e) => patch("fundingPeriodDays", e.target.value)} disabled={!editable} className={pmInputClass} />
           </PmFormField>
         </div>
@@ -252,7 +288,7 @@ export function ManagedPoolForm({
         </div>
       </PmSectionCard>
 
-      <PmSectionCard title="Risk Configuration" description="Risk profile and return targets.">
+      <PmSectionCard title="Risk Configuration" description="Risk profile and return targets for this pool.">
         <div className="grid gap-6 sm:grid-cols-2">
           <PmFormField label="Risk Level">
             <Select value={values.riskLevel || "none"} onValueChange={(v) => patch("riskLevel", v === "none" ? "" : v as ManagedPoolFormInput["riskLevel"])} disabled={!editable}>
@@ -268,7 +304,7 @@ export function ManagedPoolForm({
           <PmFormField label="Target Return (%)">
             <Input type="number" min={0} step="0.1" value={values.targetReturnPct} onChange={(e) => patch("targetReturnPct", e.target.value)} disabled={!editable} className={pmInputClass} />
           </PmFormField>
-          <PmFormField label="Maximum Drawdown (%)">
+          <PmFormField label="Target Drawdown (%)">
             <Input type="number" min={0} step="0.1" value={values.maxDrawdownPct} onChange={(e) => patch("maxDrawdownPct", e.target.value)} disabled={!editable} className={pmInputClass} />
           </PmFormField>
           <PmFormField label="Leverage (optional)">
@@ -277,42 +313,70 @@ export function ManagedPoolForm({
         </div>
       </PmSectionCard>
 
-      <PmSectionCard title="Return Structure" description="Defines how the Investor Profit Pool is allocated by investment amount tier (return multipliers and tier weighting).">
-        <PmReturnTiersEditor
-          tiers={values.returnTiers}
-          onChange={(returnTiers) => patch("returnTiers", returnTiers)}
-          disabled={!editable}
-        />
-      </PmSectionCard>
+      <PmSectionCard title="Return Structure" description="Select how investor returns are calculated at settlement.">
+        <PmFormField label="Return Model" required>
+          <Select
+            value={values.returnModel}
+            onValueChange={(v) => patch("returnModel", v as ManagedPoolFormInput["returnModel"])}
+            disabled={!editable}
+          >
+            <SelectTrigger className={pmSelectTriggerClass}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className={pmSelectContentClass}>
+              {MANAGED_POOL_RETURN_MODELS.map((model) => (
+                <SelectItem key={model} value={model} className={pmSelectItemClass}>
+                  {MANAGED_POOL_RETURN_MODEL_LABELS[model]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </PmFormField>
 
-      <PmSectionCard
-        title="Profit Sharing Agreement"
-        description="Split of net profit after the RyvonX 2.5% service fee. Must total 100%."
-      >
-        <div className="grid gap-6 sm:grid-cols-2">
-          <PmFormField label="Investor Share (%)">
-            <Input
-              type="number"
-              min={1}
-              max={99}
-              value={values.investorSharePct}
-              onChange={(e) => patch("investorSharePct", e.target.value)}
+        {isFixedReturn ? (
+          <div className="mt-6">
+            <p className="mb-4 text-sm text-[var(--id-text-muted)]">
+              Define fixed investor returns by investment amount tier. At settlement, promised returns are paid first from net trading profits after the 2.5% platform fee.
+            </p>
+            <PmReturnTiersEditor
+              tiers={values.returnTiers}
+              onChange={(returnTiers) => patch("returnTiers", returnTiers)}
               disabled={!editable}
-              className={pmInputClass}
             />
-          </PmFormField>
-          <PmFormField label="Pool Manager Share (%)">
-            <Input
-              type="number"
-              min={1}
-              max={99}
-              value={values.poolManagerSharePct}
-              onChange={(e) => patch("poolManagerSharePct", e.target.value)}
+          </div>
+        ) : (
+          <div className="mt-6 space-y-6">
+            <PmReturnTiersEditor
+              tiers={values.returnTiers}
+              onChange={(returnTiers) => patch("returnTiers", returnTiers)}
               disabled={!editable}
-              className={pmInputClass}
             />
-          </PmFormField>
-        </div>
+            <div className="grid gap-6 sm:grid-cols-2 border-t border-white/10 pt-6">
+              <PmFormField label="Investor Share (%)" hint="Share of net profit after platform fee. Must total 100% with PM share.">
+                <Input
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={values.investorSharePct}
+                  onChange={(e) => patch("investorSharePct", e.target.value)}
+                  disabled={!editable}
+                  className={pmInputClass}
+                />
+              </PmFormField>
+              <PmFormField label="Pool Manager Share (%)">
+                <Input
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={values.poolManagerSharePct}
+                  onChange={(e) => patch("poolManagerSharePct", e.target.value)}
+                  disabled={!editable}
+                  className={pmInputClass}
+                />
+              </PmFormField>
+            </div>
+          </div>
+        )}
       </PmSectionCard>
 
       <PmSectionCard title="Pool Appearance & Visibility" description="Presentation and marketplace visibility.">

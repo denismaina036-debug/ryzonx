@@ -14,14 +14,23 @@ import {
   getManagerJourneyProgress,
 } from "@/features/investor/constants/manager-journey";
 import type { ChallengeEnrollment } from "@/features/investor/types";
+import {
+  pmJourneyCardCta,
+  pmJourneyCardTitle,
+  type PmJourneyCardVariant,
+} from "@/domain/investor/pm-journey-variant";
 
 interface ManagerJourneyCardProps {
   enrollment: ChallengeEnrollment | null;
+  pmJourneyVariant?: PmJourneyCardVariant;
 }
 
 const STEPPER_STAGES = MANAGER_JOURNEY_STAGES.slice(0, 5);
 
-export function ManagerJourneyCard({ enrollment }: ManagerJourneyCardProps) {
+export function ManagerJourneyCard({
+  enrollment,
+  pmJourneyVariant = "become",
+}: ManagerJourneyCardProps) {
   const { currentStageIndex, nextStep } = getManagerJourneyProgress(
     enrollment?.status
   );
@@ -29,7 +38,7 @@ export function ManagerJourneyCard({ enrollment }: ManagerJourneyCardProps) {
 
   return (
     <DashboardCard
-      title="Your Manager Journey"
+      title={pmJourneyCardTitle(pmJourneyVariant)}
       headerAction={
         <Link
           href={ROUTES.applyPoolManager}
@@ -103,7 +112,7 @@ export function ManagerJourneyCard({ enrollment }: ManagerJourneyCardProps) {
           className="mt-4 h-10 w-full rounded-xl bg-[var(--id-accent)] text-sm font-semibold text-white hover:opacity-90"
         >
           <Link href={ROUTES.applyPoolManager}>
-            Continue Journey
+            {pmJourneyCardCta(pmJourneyVariant)}
             <ArrowRight className="ml-2 h-4 w-4" strokeWidth={1.75} />
           </Link>
         </Button>

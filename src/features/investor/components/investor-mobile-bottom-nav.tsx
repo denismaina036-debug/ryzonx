@@ -33,9 +33,9 @@ const LEFT_ITEMS: MobileNavItem[] = [
 const RIGHT_ITEMS: MobileNavItem[] = [
   {
     label: "Activity",
-    href: ROUTES.transactions,
+    href: ROUTES.personalActivity,
     icon: Activity,
-    matchPrefixes: [ROUTES.transactions, ROUTES.trades],
+    matchPrefixes: [ROUTES.personalActivity, ROUTES.trades],
   },
   {
     label: "Profile",

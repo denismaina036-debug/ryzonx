@@ -221,6 +221,23 @@ export const SUPPORT_TEMPLATES = [
     defaultChannels: ["email", "in_app"],
   }),
   defineEmailTemplate({
+    slug: "support_closed",
+    name: "Support Ticket Closed",
+    category: "support",
+    description: "Ticket closed.",
+    subjectTemplate: "Support ticket closed — {{support_ticket}}",
+    emailSpec: {
+      title: "Ticket closed",
+      intro: "Your support ticket has been closed. Reply to reopen if you need further assistance.",
+      badge: { label: "Closed", variant: "completed" },
+      primaryAction: dashboardCta("View Support"),
+    },
+    variablesSchema: baseVars([{ key: "support_ticket", label: "Ticket", sample: "Deposit not showing" }]),
+    defaultChannels: ["email", "in_app"],
+    inAppTitleTemplate: "Support ticket closed",
+    inAppBodyTemplate: "{{support_ticket}} has been closed.",
+  }),
+  defineEmailTemplate({
     slug: "support_satisfaction",
     name: "Customer Satisfaction Request",
     category: "support",

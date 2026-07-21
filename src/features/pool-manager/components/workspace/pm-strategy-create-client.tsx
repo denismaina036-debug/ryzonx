@@ -34,7 +34,7 @@ import { createStrategy } from "./pm-api";
 
 
 
-export function PmStrategyCreateClient() {
+export function PmStrategyCreateClient({ returnTo }: { returnTo?: string | null }) {
 
   const router = useRouter();
 
@@ -66,7 +66,7 @@ export function PmStrategyCreateClient() {
 
       const strategy = await createStrategy(formValuesToPayload(values));
 
-      router.push(`${ROUTES.poolManagerStrategies}/${strategy.id}`);
+      router.push(returnTo?.trim() || `${ROUTES.poolManagerStrategies}/${strategy.id}`);
 
     } catch (err) {
 
@@ -140,7 +140,7 @@ export function PmStrategyCreateClient() {
 
         <Button type="button" variant="outline" className={pmSecondaryButtonClass} asChild>
 
-          <Link href={ROUTES.poolManagerStrategies}>Cancel</Link>
+          <Link href={returnTo?.trim() || ROUTES.poolManagerStrategies}>Cancel</Link>
 
         </Button>
 

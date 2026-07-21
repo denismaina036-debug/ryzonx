@@ -33,46 +33,9 @@ export function resolvePoolMaximumCapital(pool: MarketplacePoolDetail): number |
   return null;
 }
 
-function readManagedOpeningDate(poolFaq: unknown): string | null {
-  if (!poolFaq || typeof poolFaq !== "object" || Array.isArray(poolFaq)) return null;
-  const managed = (poolFaq as { managedPool?: { openingDate?: string } }).managedPool;
-  const value = managed?.openingDate?.trim();
-  return value || null;
-}
-
-export function resolveTradingStartDate(pool: MarketplacePoolDetail): string | null {
-  if (pool.tradingStartsAt) return pool.tradingStartsAt;
-  const cycle = pool.activeCycle;
-  if (cycle?.openingDate) return cycle.openingDate;
-  if (cycle?.closingDate) return cycle.closingDate;
-  if (cycle?.fundingDeadline) return cycle.fundingDeadline;
-  return null;
-}
-
-export function formatTimeUntilTradingStart(pool: MarketplacePoolDetail): string | null {
-  const tradingStartIso = resolveTradingStartDate(pool);
-  if (!tradingStartIso) return null;
-
-  const tradingStart = new Date(tradingStartIso);
-  if (Number.isNaN(tradingStart.getTime())) return null;
-
-  const diffMs = tradingStart.getTime() - Date.now();
-  if (diffMs <= 0) {
-    return pool.activeCycle?.status === "funding" || pool.activeCycle?.status === "approved"
-      ? "Trading begins soon"
-      : "Trading has started";
-  }
-
-  const totalMinutes = Math.ceil(diffMs / (60 * 1000));
-  const days = Math.floor(totalMinutes / (60 * 24));
-  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
-  const minutes = totalMinutes % 60;
-
-  if (days > 0) {
-    return `${days} day${days === 1 ? "" : "s"}${hours > 0 ? ` ${hours} hr${hours === 1 ? "" : "s"}` : ""}`;
-  }
-  if (hours > 0) {
-    return `${hours} hr${hours === 1 ? "" : "s"}${minutes > 0 ? ` ${minutes} min` : ""}`;
-  }
-  return `${minutes} minute${minutes === 1 ? "" : "s"}`;
-}
+export {
+  formatFundingPeriodCountdown,
+  formatTimeUntilTradingStart,
+  resolveFundingPeriodEnd,
+  resolveTradingStartDate,
+} from "@/features/marketplace/utils/funding-countdown";

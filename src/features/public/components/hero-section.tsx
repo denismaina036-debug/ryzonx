@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { FadeIn } from "@/components/ui/motion";
 import { ROUTES } from "@/constants/routes";
+import { registerRoute, REGISTRATION_INTENTS } from "@/constants/registration";
 import { fundService } from "@/services/fund.service";
 import { RecentTransactionsTicker } from "@/features/public/components/recent-transactions-ticker";
 import { formatCurrency, formatPercentage, formatCompactNumber } from "@/lib/utils";
@@ -46,13 +47,15 @@ export async function HeroSection() {
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Button asChild size="xl">
-              <Link href={ROUTES.register}>
+              <Link href={registerRoute(REGISTRATION_INTENTS.JOIN_POOL)}>
                 Join Pool
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
             <Button asChild variant="outline" size="xl">
-              <Link href={ROUTES.performance}>View Performance</Link>
+              <Link href={registerRoute(REGISTRATION_INTENTS.CREATE_POOL)}>
+                Create Pool
+              </Link>
             </Button>
           </div>
         </FadeIn>

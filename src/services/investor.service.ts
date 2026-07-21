@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_FUND_ID } from "@/constants/funds";
 import { requireAuth } from "@/lib/auth/session";
-import { anonymizeDisplayName } from "@/lib/utils";
 import {
   resolvePoolManagerPublicLabel,
   resolvePublicManagerName,
@@ -43,7 +42,6 @@ type TransactionSnapshot = Pick<
 >;
 
 type RankSnapshot = Pick<Tables<"investor_portfolios">, "user_id" | "total_invested">;
-type ProfileSnapshot = Pick<Tables<"profiles">, "id" | "full_name">;
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
@@ -218,6 +216,7 @@ export const investorService = {
       supabase
         .from("transactions")
         .select("id, type, amount, status, created_at, user_id")
+        .eq("user_id", user.id)
         .in("status", ["approved", "completed", "pending"])
         .in("type", ["deposit", "withdrawal"])
         .order("created_at", { ascending: false })
@@ -322,22 +321,9 @@ export const investorService = {
     let recentActivity: InvestorPoolActivityItem[] = [];
     const activityRows = (activityResult.data ?? []) as TransactionSnapshot[];
     if (activityRows.length > 0) {
-      const userIds = [...new Set(activityRows.map((t) => t.user_id))];
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .in("id", userIds);
-
-      const nameMap = new Map(
-        ((profiles ?? []) as ProfileSnapshot[]).map((p) => [
-          p.id,
-          anonymizeDisplayName(p.full_name),
-        ])
-      );
-
       recentActivity = activityRows.map((tx) => ({
         id: tx.id,
-        investorName: nameMap.get(tx.user_id) ?? "Investor",
+        investorName: "You",
         action:
           tx.type === "withdrawal"
             ? ("withdrew" as const)

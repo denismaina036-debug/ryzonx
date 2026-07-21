@@ -14,12 +14,14 @@ import type { InvestorHomeData } from "@/domain/investment/investor-presentation
 import type { UserProfile } from "@/types";
 import Link from "next/link";
 import { ROUTES } from "@/constants/routes";
+import type { PmJourneyCardVariant } from "@/domain/investor/pm-journey-variant";
 
 interface MobileDashboardViewProps {
   user: UserProfile;
   data: InvestorDashboardPageData;
   homeInvestment?: InvestorHomeData;
-  showContinueJourney?: boolean;
+  showManagerJourneyCard?: boolean;
+  pmJourneyVariant?: PmJourneyCardVariant;
 }
 
 const item = {
@@ -36,7 +38,8 @@ export function MobileDashboardView({
   user,
   data,
   homeInvestment,
-  showContinueJourney = true,
+  showManagerJourneyCard = false,
+  pmJourneyVariant = "become",
 }: MobileDashboardViewProps) {
   const firstName = user.fullName.split(" ")[0] ?? user.fullName;
   const hasInvestments = data.investment.participations.length > 0;
@@ -105,9 +108,12 @@ export function MobileDashboardView({
         <MobileRecentActivity activity={data.recentActivity} />
       </motion.div>
 
-      {showContinueJourney && (
+      {showManagerJourneyCard && (
         <motion.div variants={item}>
-          <MobileManagerJourney enrollment={data.challengeEnrollment} />
+          <MobileManagerJourney
+            enrollment={data.challengeEnrollment}
+            pmJourneyVariant={pmJourneyVariant}
+          />
         </motion.div>
       )}
     </motion.div>

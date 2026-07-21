@@ -21,6 +21,7 @@ import { useAuthActions } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 import type { ChallengeDisplayStatus } from "@/domain/challenge/types";
+import type { PmJourneyCardVariant } from "@/domain/investor/pm-journey-variant";
 
 interface DashboardLayoutShellProps {
   children: ReactNode;
@@ -29,6 +30,7 @@ interface DashboardLayoutShellProps {
   unreadNotifications?: number;
   hasActivePool?: boolean;
   challengeDisplayStatus?: ChallengeDisplayStatus;
+  pmJourneyVariant?: PmJourneyCardVariant;
 }
 
 export function DashboardLayoutShell({
@@ -38,6 +40,7 @@ export function DashboardLayoutShell({
   unreadNotifications = 0,
   hasActivePool = false,
   challengeDisplayStatus,
+  pmJourneyVariant = "hidden",
 }: DashboardLayoutShellProps) {
   return (
     <InvestorThemeProvider>
@@ -46,6 +49,7 @@ export function DashboardLayoutShell({
           userName={userName}
           userRole={userRole}
           challengeDisplayStatus={challengeDisplayStatus}
+          pmJourneyVariant={pmJourneyVariant}
         />
 
         <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden lg:pl-[17rem]">
@@ -67,10 +71,12 @@ function DashboardSidebar({
   userName,
   userRole,
   challengeDisplayStatus,
+  pmJourneyVariant,
 }: {
   userName?: string;
   userRole?: string;
   challengeDisplayStatus?: ChallengeDisplayStatus;
+  pmJourneyVariant?: PmJourneyCardVariant;
 }) {
   const pathname = usePathname();
   const { signOut } = useAuthActions();
@@ -82,6 +88,7 @@ function DashboardSidebar({
         userName={userName}
         userRole={userRole}
         challengeDisplayStatus={challengeDisplayStatus}
+        pmJourneyVariant={pmJourneyVariant}
         onSignOut={() => signOut()}
       />
     </aside>
@@ -93,12 +100,14 @@ function SidebarContent({
   userName,
   userRole,
   challengeDisplayStatus,
+  pmJourneyVariant,
   onSignOut,
 }: {
   pathname: string;
   userName?: string;
   userRole?: string;
   challengeDisplayStatus?: ChallengeDisplayStatus;
+  pmJourneyVariant?: PmJourneyCardVariant;
   onSignOut: () => void;
 }) {
   const LogoutIcon = INVESTOR_LOGOUT_ITEM.icon;
@@ -160,7 +169,10 @@ function SidebarContent({
           userRole={userRole}
           challengeDisplayStatus={challengeDisplayStatus}
         />
-        <SidebarPoolManagerPromo userRole={userRole} challengeDisplayStatus={challengeDisplayStatus} />
+        <SidebarPoolManagerPromo
+          pmJourneyVariant={pmJourneyVariant}
+          challengeDisplayStatus={challengeDisplayStatus}
+        />
 
         <div className="flex items-center justify-between px-1">
           <span className="text-xs text-[var(--id-text-muted)]">Dark Mode</span>

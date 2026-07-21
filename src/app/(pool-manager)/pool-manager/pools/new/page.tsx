@@ -12,10 +12,15 @@ export default async function PoolManagerCreatePoolPage() {
   }
 
   const strategies = await strategyService.listApprovedForPoolCreation();
+  const defaultStrategyId =
+    strategies.length > 0
+      ? [...strategies].sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0]!.id
+      : null;
 
   return (
     <ManagedPoolCreateClient
       approvedStrategies={strategies.map((s) => ({ id: s.id, name: s.name }))}
+      defaultStrategyId={defaultStrategyId}
     />
   );
 }

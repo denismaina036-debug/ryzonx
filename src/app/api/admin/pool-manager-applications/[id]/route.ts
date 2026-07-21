@@ -34,6 +34,9 @@ export async function PATCH(
       initialBalance?: number;
       initialRating?: {
         ryvonxRating?: number;
+        displayReviewCount?: number;
+        displayTradeCount?: number;
+        displayInvestorCount?: number;
         experienceLevel?: string;
         riskClassification?: string;
         isVerified?: boolean;

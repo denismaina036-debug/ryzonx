@@ -9,13 +9,20 @@ import {
   getManagerJourneyProgress,
 } from "@/features/investor/constants/manager-journey";
 import type { ChallengeEnrollment } from "@/features/investor/types";
+import {
+  pmJourneyCardCta,
+  pmJourneyCardTitle,
+  type PmJourneyCardVariant,
+} from "@/domain/investor/pm-journey-variant";
 
 const STEPPER_STAGES = MANAGER_JOURNEY_STAGES.slice(0, 5);
 
 export function MobileManagerJourney({
   enrollment,
+  pmJourneyVariant = "become",
 }: {
   enrollment: ChallengeEnrollment | null;
+  pmJourneyVariant?: PmJourneyCardVariant;
 }) {
   const { currentStageIndex, nextStep } = getManagerJourneyProgress(
     enrollment?.status
@@ -30,7 +37,9 @@ export function MobileManagerJourney({
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--id-accent-soft)] text-[var(--id-accent-text)]">
             <Route className="h-3.5 w-3.5" strokeWidth={2} />
           </span>
-          <h2 className="text-sm font-semibold text-[var(--id-text)]">Manager Journey</h2>
+          <h2 className="text-sm font-semibold text-[var(--id-text)]">
+            {pmJourneyCardTitle(pmJourneyVariant)}
+          </h2>
         </div>
         <Link
           href={ROUTES.applyPoolManager}
@@ -81,7 +90,7 @@ export function MobileManagerJourney({
         href={ROUTES.applyPoolManager}
         className="mt-3 flex h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--id-accent)] text-xs font-semibold text-white transition-opacity active:opacity-90"
       >
-        Continue Journey
+        {pmJourneyCardCta(pmJourneyVariant)}
         <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
       </Link>
     </section>

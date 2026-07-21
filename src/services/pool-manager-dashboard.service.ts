@@ -18,6 +18,7 @@ import type {
   PoolManagerPublicProfile,
 } from "@/domain/pool-manager/types";
 import type { Pool } from "@/domain/pools/types";
+import { resolvePublicDisplayCount } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
@@ -365,10 +366,10 @@ export const poolManagerDashboardService = {
     const managerId = row.id as string;
 
     const db = createAdminClient();
-    const [poolsRes, achievementsRes] = await Promise.all([
+    const [poolsRes, achievementsRes, reviewCountRes, tradeMetricsRes] = await Promise.all([
       db
         .from("funds")
-        .select("active_investors, assets_under_management")
+        .select("active_investors, display_active_investors, assets_under_management")
         .eq("pool_manager_id", managerId)
         .in("lifecycle_status", ["live", "approved"]),
       db
@@ -376,10 +377,22 @@ export const poolManagerDashboardService = {
         .select("title, awarded_at")
         .eq("pool_manager_id", managerId)
         .order("awarded_at", { ascending: false }),
+      db
+        .from("pool_manager_reviews")
+        .select("id", { count: "exact", head: true })
+        .eq("pool_manager_id", managerId),
+      db
+        .from("trade_snapshots")
+        .select("total_trades")
+        .eq("pool_manager_id", managerId)
+        .order("snapshot_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     const poolRows = (poolsRes.data ?? []) as Array<{
       active_investors: number;
+      display_active_investors: number;
       assets_under_management: number;
     }>;
     const achievements = (achievementsRes.data ?? []).map((a) => ({
@@ -398,6 +411,18 @@ export const poolManagerDashboardService = {
       show_full_name: row.show_full_name as boolean | null,
       social_links: row.social_links,
     });
+
+    const liveInvestors = poolRows.reduce((s, p) => s + toNumber(p.active_investors), 0);
+    const seedInvestors = Math.max(
+      toNumber(row.display_investor_count as number),
+      ...poolRows.map((p) => toNumber(p.display_active_investors))
+    );
+    const liveReviewCount = reviewCountRes.count ?? 0;
+    const seedReviewCount = toNumber(row.display_review_count as number);
+    const liveTradeCount = toNumber(
+      (tradeMetricsRes.data as { total_trades?: number } | null)?.total_trades
+    );
+    const seedTradeCount = toNumber(row.display_trade_count as number);
 
     return {
       id: managerId,
@@ -436,11 +461,13 @@ export const poolManagerDashboardService = {
         (s, p) => s + toNumber(p.assets_under_management),
         0
       ),
-      activeInvestors: poolRows.reduce((s, p) => s + toNumber(p.active_investors), 0),
+      activeInvestors: resolvePublicDisplayCount(seedInvestors, liveInvestors),
       poolsManaged: poolRows.length,
       yearsOnRyvonX: Math.max(0, Math.round(yearsOn * 10) / 10),
       approvedAt: (row.approved_at as string) ?? null,
       managerLevel: (row.manager_level as string | null) ?? null,
+      publicReviewCount: resolvePublicDisplayCount(seedReviewCount, liveReviewCount),
+      publicTradeCount: resolvePublicDisplayCount(seedTradeCount, liveTradeCount),
       achievements,
     };
   },
