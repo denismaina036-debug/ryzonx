@@ -138,6 +138,11 @@ export const ADMIN_DEPARTMENTS: AdminNavDepartment[] = [
         icon: Trophy,
       },
       {
+        label: "Challenge Templates",
+        href: ROUTES.adminPoolManagersChallengeTemplates,
+        icon: FileText,
+      },
+      {
         label: "Admission Settings",
         href: ROUTES.adminPoolManagersAdmissionSettings,
         icon: Settings,
@@ -307,6 +312,7 @@ export const POOL_MANAGERS_SECTION_NAV = [
   },
   { label: "Managers", href: ROUTES.adminPoolManagersManagers },
   { label: "Challenges", href: ROUTES.adminPoolManagersChallenges },
+  { label: "Templates", href: ROUTES.adminPoolManagersChallengeTemplates },
   {
     label: "Development",
     href: ROUTES.adminPoolManagersDevelopment,

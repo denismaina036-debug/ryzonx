@@ -13,6 +13,7 @@ import { auditService } from "@/services/audit.service";
 import { ledgerService } from "@/services/ledger.service";
 import { ledgerAccountService } from "@/services/ledger-account.service";
 import { investmentCycleService } from "@/services/investment-cycle.service";
+import { investmentCycleMetricsService } from "@/services/investment-cycle-metrics.service";
 import { walletProjectionService } from "@/services/wallet-projection.service";
 import type { SettlementBatch } from "@/domain/financial/types";
 import type { InvestmentAllocationStatus } from "@/constants/investment-allocation";
@@ -115,6 +116,8 @@ export const settlementService = {
       } as never)
       .eq("id", allocationId);
 
+    await investmentCycleMetricsService.recalculateCycleRaisedCapital(allocation.investment_cycle_id);
+
     await auditService.log({
       actorId,
       action: FINANCIAL_AUDIT_ACTIONS.ALLOCATION_FUNDING_CONFIRMED,
@@ -176,6 +179,8 @@ export const settlementService = {
       } as never)
       .eq("id", allocationId);
 
+    await investmentCycleMetricsService.recalculateCycleRaisedCapital(allocation.investment_cycle_id);
+
     await auditService.log({
       actorId,
       action: FINANCIAL_AUDIT_ACTIONS.ALLOCATION_SETTLED,
@@ -226,6 +231,8 @@ export const settlementService = {
       .from("investment_allocations")
       .update({ status: "rejected" } as never)
       .eq("id", allocationId);
+
+    await investmentCycleMetricsService.recalculateCycleRaisedCapital(allocation.investment_cycle_id);
 
     await auditService.log({
       actorId,

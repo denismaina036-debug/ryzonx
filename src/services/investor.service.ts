@@ -17,6 +17,12 @@ import type {
   ChallengeEnrollment,
 } from "@/features/investor/types";
 import { walletService } from "@/services/wallet.service";
+import { investmentCycleService } from "@/services/investment-cycle.service";
+import {
+  computeInvestorOwnershipShare,
+  RAISED_CAPITAL_ALLOCATION_STATUSES,
+} from "@/domain/investment/cycle-metrics";
+import type { InvestmentAllocationStatus } from "@/constants/investment-allocation";
 
 type TradeSnapshot = Pick<
   Tables<"trades">,
@@ -296,10 +302,37 @@ export const investorService = {
 
     const poolBalance =
       toNumber(pool?.total_pool_value) || toNumber(fund?.pool_value);
-    const sharePct =
-      poolBalance > 0 && myInvestment > 0
-        ? (myInvestment / poolBalance) * 100
-        : 0;
+
+    let sharePct = 0;
+    if (primaryFundId) {
+      const activeCycle = await investmentCycleService.getActiveForFund(primaryFundId);
+      if (activeCycle?.targetCapital && activeCycle.targetCapital > 0) {
+        const { data: allocationRow } = await supabase
+          .from("investment_allocations")
+          .select("amount, status")
+          .eq("investor_id", user.id)
+          .eq("investment_cycle_id", activeCycle.id)
+          .maybeSingle();
+
+        const allocation = allocationRow as { amount: number | string; status: string } | null;
+        const confirmedAllocation =
+          allocation &&
+          RAISED_CAPITAL_ALLOCATION_STATUSES.includes(
+            allocation.status as InvestmentAllocationStatus
+          )
+            ? toNumber(allocation.amount)
+            : null;
+
+        const investmentBasis = confirmedAllocation ?? myInvestment;
+        sharePct =
+          computeInvestorOwnershipShare(investmentBasis, activeCycle.targetCapital) ?? 0;
+      } else if (poolBalance > 0 && myInvestment > 0) {
+        sharePct = (myInvestment / poolBalance) * 100;
+      }
+    } else if (poolBalance > 0 && myInvestment > 0) {
+      sharePct = (myInvestment / poolBalance) * 100;
+    }
+
     const totalProfitPct =
       myInvestment > 0 ? (totalProfit / myInvestment) * 100 : 0;
     const dailyRoi = toNumber(pool?.daily_roi);

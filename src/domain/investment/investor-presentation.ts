@@ -58,6 +58,7 @@ export interface InvestorAllocationView {
   strategyName: string;
   managerName: string;
   canCancel: boolean;
+  ownershipSharePct: number | null;
 }
 
 export interface InvestorPortfolioData {

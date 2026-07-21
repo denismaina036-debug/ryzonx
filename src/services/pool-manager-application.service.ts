@@ -51,6 +51,7 @@ type ApplicationRow = {
   admission_fee_amount?: number | string | null;
   strategy_submitted_at: string | null;
   challenge_enrollment_id: string | null;
+  challenge_template_id?: string | null;
   pool_manager_id: string | null;
   admin_notes: string | null;
   submitted_at: string | null;
@@ -86,6 +87,7 @@ function mapApplication(row: ApplicationRow): PoolManagerApplication {
       row.admission_fee_amount != null ? Number(row.admission_fee_amount) : null,
     strategySubmittedAt: row.strategy_submitted_at,
     challengeEnrollmentId: row.challenge_enrollment_id,
+    challengeTemplateId: row.challenge_template_id ?? null,
     poolManagerId: row.pool_manager_id,
     adminNotes: row.admin_notes,
     submittedAt: row.submitted_at,
@@ -1022,10 +1024,18 @@ export const poolManagerAdminService = {
 
   async approveChallengeApplication(input: {
     applicationId: string;
+    templateId: string;
     notes?: string;
   }): Promise<PoolManagerApplication> {
     const admin = await requireRole(USER_ROLES.ADMINISTRATOR);
     const db = createAdminClient();
+
+    const template = await import("@/services/challenge-template.service").then((m) =>
+      m.challengeTemplateService.getById(input.templateId)
+    );
+    if (!template || template.status !== "active") {
+      throw new Error("Active challenge template not found.");
+    }
 
     const { data: current, error: fetchError } = await db
       .from("pool_manager_applications")
@@ -1046,7 +1056,6 @@ export const poolManagerAdminService = {
       throw new Error("Challenge approval applies only to Trading Challenge applicants.");
     }
 
-    const settings = await pmAdmissionSettingsService.get();
     const { DEFAULT_FUND_ID } = await import("@/constants/funds");
 
     const { data: challengeRow } = await db
@@ -1063,19 +1072,18 @@ export const poolManagerAdminService = {
     const challengeId = (challengeRow as { id: string }).id;
     let enrollmentId = row.challenge_enrollment_id;
 
-    if (!enrollmentId) {
-      const deadline = new Date();
-      deadline.setDate(deadline.getDate() + settings.challengeDurationDays);
+    const deadline = new Date();
+    deadline.setDate(deadline.getDate() + template.maxEvaluationDays);
 
+    if (!enrollmentId) {
       const { data: enrollment, error: enrollError } = await db
         .from("trader_challenge_enrollments")
         .insert({
           user_id: row.user_id,
           challenge_id: challengeId,
           application_id: row.id,
+          challenge_template_id: input.templateId,
           status: "approved",
-          admin_rules: settings.challengeRules,
-          challenge_account_details: settings.challengeInstructions,
           challenge_deadline: deadline.toISOString(),
         } as never)
         .select("id")
@@ -1091,7 +1099,8 @@ export const poolManagerAdminService = {
         .update({
           status: "approved",
           application_id: row.id,
-          admin_rules: settings.challengeRules,
+          challenge_template_id: input.templateId,
+          challenge_deadline: deadline.toISOString(),
           updated_at: new Date().toISOString(),
         } as never)
         .eq("id", enrollmentId);
@@ -1103,6 +1112,7 @@ export const poolManagerAdminService = {
       .update({
         status: PM_APPLICATION_STATUS.UNDER_REVIEW,
         challenge_enrollment_id: enrollmentId,
+        challenge_template_id: input.templateId,
         reviewed_at: now,
         admin_notes: input.notes?.trim() || row.admin_notes,
       } as never)
@@ -1117,7 +1127,9 @@ export const poolManagerAdminService = {
       reviewer_id: admin.id,
       previous_status: row.status,
       new_status: PM_APPLICATION_STATUS.UNDER_REVIEW,
-      notes: input.notes?.trim() || "Challenge approved — assign account credentials.",
+      notes:
+        input.notes?.trim() ||
+        `Challenge approved — assigned template: ${template.name}. Assign account credentials.`,
     } as never);
 
     const updated = mapApplication(data as ApplicationRow);
@@ -1136,13 +1148,15 @@ export const poolManagerAdminService = {
 
   async updateChallengeAccountInfo(input: {
     applicationId: string;
+    templateId: string;
     challengeAccountInfo?: string;
     broker?: string;
     server?: string;
     login?: string;
-    initialBalance?: number;
+    password?: string;
+    investorPassword?: string;
   }): Promise<PoolManagerApplication> {
-    await requireRole(USER_ROLES.ADMINISTRATOR);
+    const admin = await requireRole(USER_ROLES.ADMINISTRATOR);
     const db = createAdminClient();
 
     const { data: current, error: fetchError } = await db
@@ -1156,14 +1170,16 @@ export const poolManagerAdminService = {
     }
 
     const row = current as ApplicationRow;
-    const basicInfo = {
-      ...(row.basic_info ?? {}),
-      challengeAccountInfo: input.challengeAccountInfo?.trim() ?? row.basic_info?.challengeAccountInfo,
-    };
+    const templateId = input.templateId || row.challenge_template_id;
+    if (!templateId) {
+      throw new Error("Challenge template is required.");
+    }
 
     const { data, error } = await db
       .from("pool_manager_applications")
-      .update({ basic_info: basicInfo } as never)
+      .update({
+        challenge_template_id: templateId,
+      } as never)
       .eq("id", input.applicationId)
       .select("*")
       .single();
@@ -1173,18 +1189,24 @@ export const poolManagerAdminService = {
     const updated = mapApplication(data as ApplicationRow);
 
     const hasStructuredAccount =
-      input.broker?.trim() && input.server?.trim() && input.login?.trim();
+      input.broker?.trim() &&
+      input.server?.trim() &&
+      input.login?.trim() &&
+      input.password?.trim();
 
     if (hasStructuredAccount) {
       const { challengeCenterService } = await import("@/services/challenge-center.service");
       await challengeCenterService.provisionChallengeAccount({
         applicationId: updated.id,
         userId: updated.userId,
+        templateId,
         broker: input.broker!.trim(),
         server: input.server!.trim(),
         login: input.login!.trim(),
-        initialBalance: input.initialBalance ?? 10000,
+        password: input.password!.trim(),
+        investorPassword: input.investorPassword?.trim(),
         notes: input.challengeAccountInfo?.trim(),
+        assignedBy: admin.id,
       });
     } else if (input.challengeAccountInfo?.trim()) {
       await notificationService.sendToUser({

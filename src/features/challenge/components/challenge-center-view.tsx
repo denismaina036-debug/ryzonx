@@ -9,6 +9,7 @@ import { CHALLENGE_DISPLAY_STATUS, type ChallengeCenterState } from "@/domain/ch
 import { ChallengeAccountCard } from "@/features/challenge/components/challenge-account-card";
 import { ChallengeDashboard } from "@/features/challenge/components/challenge-dashboard";
 import { ChallengeJournal } from "@/features/challenge/components/challenge-journal";
+import { ChallengeTemplateDetails } from "@/features/challenge/components/challenge-template-details";
 import { cn } from "@/lib/utils";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -103,7 +104,7 @@ export function ChallengeCenterView({ initialState }: ChallengeCenterViewProps) 
     );
   }
 
-  const { enrollment, challenge, statistics, displayStatus } = state;
+  const { enrollment, challenge, template, statistics, displayStatus } = state;
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -113,7 +114,7 @@ export function ChallengeCenterView({ initialState }: ChallengeCenterViewProps) 
             Pool Manager Challenge
           </p>
           <h1 className="mt-1 text-3xl font-semibold tracking-tight text-[var(--id-text)]">
-            Challenge Center
+            {template?.name ?? challenge?.title ?? "Challenge Center"}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--id-text-secondary)]">
             Complete your trading challenge to qualify for Pool Manager approval. Every trade is
@@ -157,9 +158,12 @@ export function ChallengeCenterView({ initialState }: ChallengeCenterViewProps) 
         <ChallengeAccountCard
           enrollment={enrollment}
           challenge={challenge}
+          template={template}
           currentTradingDay={statistics?.currentTradingDay ?? 0}
         />
       )}
+
+      {template && <ChallengeTemplateDetails template={template} />}
 
       {statistics && (
         <section className="rounded-2xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] p-6">

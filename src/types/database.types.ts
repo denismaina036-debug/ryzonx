@@ -576,6 +576,93 @@ export type Database = {
           },
         ]
       }
+      challenge_templates: {
+        Row: {
+          automatic_failure_conditions: Json
+          created_at: string
+          currency: string
+          default_broker: string
+          description: string | null
+          evaluation_criteria: Json
+          id: string
+          is_default: boolean
+          max_daily_drawdown_pct: number
+          max_evaluation_days: number
+          max_overall_drawdown_pct: number
+          max_risk_per_trade_pct: number
+          max_simultaneous_positions: number
+          max_total_exposure_pct: number
+          min_closed_trades: number
+          min_trading_days: number
+          name: string
+          platform: string
+          profit_target_pct: number
+          slug: string
+          starting_balance: number
+          status: string
+          trade_requirements: Json
+          trading_journal: Json
+          trading_rules: Json
+          updated_at: string
+        }
+        Insert: {
+          automatic_failure_conditions?: Json
+          created_at?: string
+          currency?: string
+          default_broker: string
+          description?: string | null
+          evaluation_criteria?: Json
+          id?: string
+          is_default?: boolean
+          max_daily_drawdown_pct: number
+          max_evaluation_days: number
+          max_overall_drawdown_pct: number
+          max_risk_per_trade_pct: number
+          max_simultaneous_positions: number
+          max_total_exposure_pct: number
+          min_closed_trades: number
+          min_trading_days: number
+          name: string
+          platform: string
+          profit_target_pct: number
+          slug: string
+          starting_balance: number
+          status?: string
+          trade_requirements?: Json
+          trading_journal?: Json
+          trading_rules?: Json
+          updated_at?: string
+        }
+        Update: {
+          automatic_failure_conditions?: Json
+          created_at?: string
+          currency?: string
+          default_broker?: string
+          description?: string | null
+          evaluation_criteria?: Json
+          id?: string
+          is_default?: boolean
+          max_daily_drawdown_pct?: number
+          max_evaluation_days?: number
+          max_overall_drawdown_pct?: number
+          max_risk_per_trade_pct?: number
+          max_simultaneous_positions?: number
+          max_total_exposure_pct?: number
+          min_closed_trades?: number
+          min_trading_days?: number
+          name?: string
+          platform?: string
+          profit_target_pct?: number
+          slug?: string
+          starting_balance?: number
+          status?: string
+          trade_requirements?: Json
+          trading_journal?: Json
+          trading_rules?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       communications: {
         Row: {
           category: Database["public"]["Enums"]["communication_category"]
@@ -1122,6 +1209,7 @@ export type Database = {
           approved_at: string | null
           basic_info: Json
           challenge_enrollment_id: string | null
+          challenge_template_id: string | null
           created_at: string
           current_stage: number
           id: string
@@ -1140,6 +1228,7 @@ export type Database = {
           approved_at?: string | null
           basic_info?: Json
           challenge_enrollment_id?: string | null
+          challenge_template_id?: string | null
           created_at?: string
           current_stage?: number
           id?: string
@@ -1158,6 +1247,7 @@ export type Database = {
           approved_at?: string | null
           basic_info?: Json
           challenge_enrollment_id?: string | null
+          challenge_template_id?: string | null
           created_at?: string
           current_stage?: number
           id?: string
@@ -2838,13 +2928,18 @@ export type Database = {
       trader_challenge_enrollments: {
         Row: {
           account_broker: string | null
+          account_investor_password: string | null
           account_login: string | null
+          account_password: string | null
           account_server: string | null
           admin_rules: string | null
           amount_paid: number | null
           application_id: string | null
+          assigned_at: string | null
+          assigned_by: string | null
           challenge_account_details: string | null
           challenge_id: string
+          challenge_template_id: string | null
           created_at: string
           id: string
           initial_balance: number | null
@@ -2856,13 +2951,18 @@ export type Database = {
         }
         Insert: {
           account_broker?: string | null
+          account_investor_password?: string | null
           account_login?: string | null
+          account_password?: string | null
           account_server?: string | null
           admin_rules?: string | null
           amount_paid?: number | null
           application_id?: string | null
+          assigned_at?: string | null
+          assigned_by?: string | null
           challenge_account_details?: string | null
           challenge_id: string
+          challenge_template_id?: string | null
           created_at?: string
           id?: string
           initial_balance?: number | null
@@ -2874,13 +2974,18 @@ export type Database = {
         }
         Update: {
           account_broker?: string | null
+          account_investor_password?: string | null
           account_login?: string | null
+          account_password?: string | null
           account_server?: string | null
           admin_rules?: string | null
           amount_paid?: number | null
           application_id?: string | null
+          assigned_at?: string | null
+          assigned_by?: string | null
           challenge_account_details?: string | null
           challenge_id?: string
+          challenge_template_id?: string | null
           created_at?: string
           id?: string
           initial_balance?: number | null

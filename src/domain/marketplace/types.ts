@@ -59,6 +59,8 @@ export interface MarketplacePoolCard {
   fundingPeriodEndsAt: string | null;
   raisedCapital: number;
   targetCapital: number;
+  remainingCapital?: number | null;
+  fundingProgressPct?: number | null;
   cycleParticipantCount: number;
   maxParticipants: number | null;
   investorSharePct: number;

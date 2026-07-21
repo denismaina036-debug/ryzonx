@@ -36,10 +36,14 @@ export const CHALLENGE_TRADE_SOURCE = {
 export type ChallengeTradeSource =
   (typeof CHALLENGE_TRADE_SOURCE)[keyof typeof CHALLENGE_TRADE_SOURCE];
 
+import type { ChallengeTemplate } from "@/domain/challenge/challenge-template";
+
 export interface ChallengeAccountInfo {
   broker: string | null;
   server: string | null;
   login: string | null;
+  password: string | null;
+  investorPassword: string | null;
   initialBalance: number;
   notes: string | null;
 }
@@ -52,6 +56,9 @@ export interface ChallengeConfig {
   maxDailyLossPct: number | null;
   minTradingDays: number;
   durationDays: number;
+  minClosedTrades: number;
+  currency: string;
+  platform: string;
   rulesSummary: string | null;
   tradingRules: string | null;
 }
@@ -100,6 +107,7 @@ export interface ChallengeStatistics {
   currentTradingDay: number;
   remainingDays: number;
   minTradingDays: number;
+  minClosedTrades: number;
   tradesSubmitted: number;
   tradesApproved: number;
   tradesRejected: number;
@@ -114,6 +122,7 @@ export interface ChallengeStatistics {
   progressPct: number;
   profitTargetMet: boolean;
   minDaysMet: boolean;
+  minClosedTradesMet: boolean;
   drawdownWithinLimit: boolean;
 }
 
@@ -124,6 +133,7 @@ export interface ChallengeCenterState {
   applicationId: string | null;
   enrollment: ChallengeEnrollmentRecord | null;
   challenge: ChallengeConfig | null;
+  template: ChallengeTemplate | null;
   statistics: ChallengeStatistics | null;
   trades: ChallengeTrade[];
 }
@@ -147,9 +157,12 @@ export type UpdateChallengeTradeInput = Partial<CreateChallengeTradeInput>;
 export interface ProvisionChallengeAccountInput {
   applicationId: string;
   userId: string;
+  templateId: string;
   broker: string;
   server: string;
   login: string;
-  initialBalance: number;
+  password: string;
+  investorPassword?: string;
   notes?: string;
+  assignedBy: string;
 }

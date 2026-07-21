@@ -39,6 +39,8 @@ export interface InvestmentCycle {
   minInvestment: number | null;
   maxCapacity: number | null;
   raisedCapital: number;
+  remainingCapital?: number | null;
+  fundingProgressPct?: number | null;
   investorCount: number;
   openingDate: string | null;
   closingDate: string | null;

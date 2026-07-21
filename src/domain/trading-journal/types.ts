@@ -97,6 +97,8 @@ export interface InvestorCycleOperationsView {
   portfolioProgress: {
     raisedCapital: number;
     targetCapital: number | null;
+    remainingCapital?: number | null;
+    fundingProgressPct?: number | null;
     investorCount: number;
     cycleStatus: string;
   };

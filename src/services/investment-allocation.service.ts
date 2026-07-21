@@ -6,6 +6,7 @@ import { INVESTMENT_ALLOCATION_MUTABLE_STATUSES } from "@/constants/investment-a
 import { auditService } from "@/services/audit.service";
 import { publishPlatformEvent, PLATFORM_EVENT_TYPES } from "@/lib/platform-events/publish";
 import { investmentCycleService } from "@/services/investment-cycle.service";
+import { investmentCycleMetricsService } from "@/services/investment-cycle-metrics.service";
 import { generateAllocationReference } from "@/lib/investment/utils";
 import type {
   CreateInvestmentAllocationInput,
@@ -152,7 +153,8 @@ export const investmentAllocationService = {
       throw new Error(`Minimum investment is ${cycle.minInvestment}.`);
     }
 
-    if (cycle.maxCapacity != null && cycle.raisedCapital + input.amount > cycle.maxCapacity) {
+    const committedCapital = await investmentCycleMetricsService.sumCommittedCapitalForCycle(cycle.id);
+    if (cycle.maxCapacity != null && committedCapital + input.amount > cycle.maxCapacity) {
       throw new Error("Allocation would exceed cycle capacity.");
     }
 
@@ -184,10 +186,11 @@ export const investmentAllocationService = {
     await db
       .from("investment_cycles")
       .update({
-        raised_capital: cycle.raisedCapital + input.amount,
         investor_count: cycle.investorCount + 1,
       } as never)
       .eq("id", cycle.id);
+
+    await investmentCycleMetricsService.recalculateCycleRaisedCapital(cycle.id);
 
     await auditService.log({
       actorId: user.id,
@@ -250,10 +253,11 @@ export const investmentAllocationService = {
     await db
       .from("investment_cycles")
       .update({
-        raised_capital: Math.max(0, cycle.raisedCapital - existing.amount),
         investor_count: Math.max(0, cycle.investorCount - 1),
       } as never)
       .eq("id", cycle.id);
+
+    await investmentCycleMetricsService.recalculateCycleRaisedCapital(cycle.id);
 
     await auditService.log({
       actorId: user.id,
@@ -314,6 +318,8 @@ export const investmentAllocationService = {
 
     if (error) throw new Error(error.message);
     const allocation = mapAllocation(data as AllocationRow);
+
+    await investmentCycleMetricsService.recalculateCycleRaisedCapital(allocation.investmentCycleId);
 
     await auditService.log({
       actorId: user.id,

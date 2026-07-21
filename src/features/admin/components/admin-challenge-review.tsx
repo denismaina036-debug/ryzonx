@@ -130,6 +130,7 @@ export function AdminChallengeReview({ initialState }: AdminChallengeReviewProps
           <ChallengeAccountCard
             enrollment={state.enrollment}
             challenge={state.challenge}
+            template={state.template}
             currentTradingDay={state.statistics.currentTradingDay}
           />
 

@@ -10,9 +10,10 @@ export function InvestorCycleOperationsPanel({
   const { journalSummary, portfolioProgress } = operations;
   const target = portfolioProgress.targetCapital;
   const progressPct =
-    target && target > 0
+    portfolioProgress.fundingProgressPct ??
+    (target && target > 0
       ? Math.min(100, Math.round((portfolioProgress.raisedCapital / target) * 100))
-      : null;
+      : null);
 
   return (
     <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5">

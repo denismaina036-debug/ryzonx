@@ -174,6 +174,7 @@ export interface PoolManagerApplication {
   admissionFeeAmount: number | null;
   strategySubmittedAt: string | null;
   challengeEnrollmentId: string | null;
+  challengeTemplateId: string | null;
   poolManagerId: string | null;
   adminNotes: string | null;
   submittedAt: string | null;

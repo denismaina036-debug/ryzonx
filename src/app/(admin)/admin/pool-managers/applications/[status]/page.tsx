@@ -5,6 +5,7 @@ import { AdminStatusNav } from "@/features/admin/components/admin-sub-nav";
 import { POOL_MANAGERS_APPLICATION_STATUS_NAV } from "@/features/admin/constants/nav";
 import type { PoolManagerApplicationFilter } from "@/constants/routes";
 import { poolManagerAdminService } from "@/services/pool-manager-application.service";
+import { challengeTemplateService } from "@/services/challenge-template.service";
 import {
   countPoolManagerApplicationsByFilter,
   filterPoolManagerApplications,
@@ -24,10 +25,15 @@ export default async function AdminPoolManagersApplicationsPage({ params }: Page
 
   const filter = status as PoolManagerApplicationFilter;
   let applications: Awaited<ReturnType<typeof poolManagerAdminService.listApplications>> = [];
+  let challengeTemplates: Awaited<ReturnType<typeof challengeTemplateService.listActive>> = [];
   try {
-    applications = await poolManagerAdminService.listApplications();
+    [applications, challengeTemplates] = await Promise.all([
+      poolManagerAdminService.listApplications(),
+      challengeTemplateService.listActive(),
+    ]);
   } catch {
     applications = [];
+    challengeTemplates = [];
   }
 
   const counts = countPoolManagerApplicationsByFilter(applications);
@@ -48,7 +54,7 @@ export default async function AdminPoolManagersApplicationsPage({ params }: Page
         />
       }
     >
-      <AdminPmApplications applications={filtered} />
+      <AdminPmApplications applications={filtered} challengeTemplates={challengeTemplates} />
     </AdminPoolManagersShell>
   );
 }

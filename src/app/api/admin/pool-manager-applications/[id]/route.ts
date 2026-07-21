@@ -27,11 +27,13 @@ export async function PATCH(
       status?: PoolManagerApplicationStatus;
       notes?: string;
       approveChallenge?: boolean;
+      templateId?: string;
       challengeAccountInfo?: string;
       broker?: string;
       server?: string;
       login?: string;
-      initialBalance?: number;
+      password?: string;
+      investorPassword?: string;
       initialRating?: {
         ryvonxRating?: number;
         displayReviewCount?: number;
@@ -49,22 +51,30 @@ export async function PATCH(
       body.broker !== undefined ||
       body.server !== undefined ||
       body.login !== undefined ||
-      body.initialBalance !== undefined
+      body.password !== undefined ||
+      body.investorPassword !== undefined ||
+      body.templateId !== undefined
     ) {
       const application = await poolManagerAdminService.updateChallengeAccountInfo({
         applicationId: id,
+        templateId: body.templateId ?? "",
         challengeAccountInfo: body.challengeAccountInfo,
         broker: body.broker,
         server: body.server,
         login: body.login,
-        initialBalance: body.initialBalance,
+        password: body.password,
+        investorPassword: body.investorPassword,
       });
       return NextResponse.json({ application });
     }
 
     if (body.approveChallenge) {
+      if (!body.templateId) {
+        return NextResponse.json({ error: "templateId is required" }, { status: 400 });
+      }
       const application = await poolManagerAdminService.approveChallengeApplication({
         applicationId: id,
+        templateId: body.templateId,
         notes: body.notes,
       });
       return NextResponse.json({ application });

@@ -92,6 +92,7 @@ export const ROUTES = {
   adminPoolManagersApplications: "/admin/pool-managers/applications/pending",
   adminPoolManagersManagers: "/admin/pool-managers/managers",
   adminPoolManagersChallenges: "/admin/pool-managers/challenges",
+  adminPoolManagersChallengeTemplates: "/admin/pool-managers/challenge-templates",
   adminChallengeReview: "/admin/pool-managers/challenge-review",
   adminPoolManagersDevelopment: "/admin/pool-managers/development",
   adminPoolManagersAchievements: "/admin/pool-managers/achievements",

@@ -351,6 +351,8 @@ export const cycleProgressService = {
         portfolioProgress: {
           raisedCapital: cycle.raisedCapital,
           targetCapital: cycle.targetCapital,
+          remainingCapital: cycle.remainingCapital ?? null,
+          fundingProgressPct: cycle.fundingProgressPct ?? null,
           investorCount: cycle.investorCount,
           cycleStatus: cycle.status,
         },
@@ -395,6 +397,8 @@ export const cycleProgressService = {
       portfolioProgress: {
         raisedCapital: cycle.raisedCapital,
         targetCapital: cycle.targetCapital,
+        remainingCapital: cycle.remainingCapital ?? null,
+        fundingProgressPct: cycle.fundingProgressPct ?? null,
         investorCount: cycle.investorCount,
         cycleStatus: cycle.status,
       },

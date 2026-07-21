@@ -30,6 +30,7 @@ import {
   sanitizeCycleCapacityFields,
   validateCycleCapacityFields,
 } from "@/domain/investment/cycle-validation";
+import { investmentCycleMetricsService } from "@/services/investment-cycle-metrics.service";
 
 type CycleRow = {
   id: string;
@@ -106,6 +107,17 @@ function mapCycle(row: CycleRow): InvestmentCycle {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+async function mapCyclesWithLiveMetrics(rows: CycleRow[]): Promise<InvestmentCycle[]> {
+  return investmentCycleMetricsService.enrichCycles(rows.map(mapCycle));
+}
+
+async function mapCycleWithLiveMetrics(row: CycleRow): Promise<InvestmentCycle> {
+  const cycles = await mapCyclesWithLiveMetrics([row]);
+  const cycle = cycles[0];
+  if (!cycle) throw new Error("Investment cycle not found.");
+  return cycle;
 }
 
 async function getManagerIdForUser(userId: string): Promise<string | null> {
@@ -339,7 +351,7 @@ export const investmentCycleService = {
       .order("created_at", { ascending: false });
 
     if (error) throw new Error(error.message);
-    return ((data ?? []) as CycleRow[]).map(mapCycle);
+    return mapCyclesWithLiveMetrics((data ?? []) as CycleRow[]);
   },
 
   async listByStrategy(strategyId: string): Promise<InvestmentCycle[]> {
@@ -357,7 +369,7 @@ export const investmentCycleService = {
       .order("created_at", { ascending: false });
 
     if (error) throw new Error(error.message);
-    return ((data ?? []) as CycleRow[]).map(mapCycle);
+    return mapCyclesWithLiveMetrics((data ?? []) as CycleRow[]);
   },
 
   async listByFund(fundId: string): Promise<InvestmentCycle[]> {
@@ -369,7 +381,7 @@ export const investmentCycleService = {
       .order("cycle_number", { ascending: true });
 
     if (error) throw new Error(error.message);
-    return ((data ?? []) as CycleRow[]).map(mapCycle);
+    return mapCyclesWithLiveMetrics((data ?? []) as CycleRow[]);
   },
 
   async listByFundForManager(fundId: string): Promise<InvestmentCycle[]> {
@@ -406,7 +418,7 @@ export const investmentCycleService = {
     ];
     for (const status of priority) {
       const match = rows.find((r) => r.status === status);
-      if (match) return mapCycle(match);
+      if (match) return mapCycleWithLiveMetrics(match);
     }
     return null;
   },
@@ -539,7 +551,7 @@ export const investmentCycleService = {
 
     const { data, error } = await query;
     if (error) throw new Error(error.message);
-    return ((data ?? []) as CycleRow[]).map(mapCycle);
+    return mapCyclesWithLiveMetrics((data ?? []) as CycleRow[]);
   },
 
   async getById(id: string): Promise<InvestmentCycle | null> {
@@ -552,7 +564,7 @@ export const investmentCycleService = {
 
     if (error) throw new Error(error.message);
     if (!data) return null;
-    return mapCycle(data as CycleRow);
+    return mapCycleWithLiveMetrics(data as CycleRow);
   },
 
   async getByIdForManager(id: string): Promise<InvestmentCycle> {
@@ -855,7 +867,7 @@ export const investmentCycleService = {
       .order("created_at", { ascending: false });
 
     if (error) throw new Error(error.message);
-    return ((data ?? []) as CycleRow[]).map(mapCycle);
+    return mapCyclesWithLiveMetrics((data ?? []) as CycleRow[]);
   },
 
   async getPublicBySlug(slug: string): Promise<InvestmentCycle | null> {
@@ -869,7 +881,7 @@ export const investmentCycleService = {
     if (error) throw new Error(error.message);
     if (!data) return null;
 
-    const cycle = mapCycle(data as CycleRow);
+    const cycle = await mapCycleWithLiveMetrics(data as CycleRow);
     const strategy = await strategyService.getById(cycle.strategyId);
     if (!strategy || strategy.visibility !== "public") return null;
     if (!["approved", "available", "operating", "paused", "archived"].includes(strategy.status)) {

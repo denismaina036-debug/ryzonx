@@ -34,8 +34,7 @@ export function CycleOpportunityView({
   operations?: InvestorCycleOperationsView | null;
   intelligence?: CycleIntelligence | null;
 }) {
-  const remaining =
-    cycle.maxCapacity != null ? Math.max(0, cycle.maxCapacity - cycle.raisedCapital) : null;
+  const remaining = cycle.remainingCapital;
   const canAllocate = cycle.status === "funding";
 
   return (

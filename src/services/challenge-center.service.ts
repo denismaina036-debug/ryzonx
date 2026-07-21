@@ -5,6 +5,10 @@ import { DEFAULT_FUND_ID } from "@/constants/funds";
 import { notificationService } from "@/services/notification.service";
 import { challengeTradeService } from "@/services/challenge-trade.service";
 import {
+  challengeTemplateService,
+  templateToChallengeConfig,
+} from "@/services/challenge-template.service";
+import {
   computeChallengeStatistics,
   isChallengeCriteriaMet,
   resolveChallengeDisplayStatus,
@@ -16,6 +20,7 @@ import {
   type ChallengeEnrollmentRecord,
   type ProvisionChallengeAccountInput,
 } from "@/domain/challenge/types";
+import type { ChallengeTemplate } from "@/domain/challenge/challenge-template";
 import { PM_APPLICATION_STATUS } from "@/domain/pool-manager/types";
 
 type EnrollmentRow = {
@@ -23,12 +28,15 @@ type EnrollmentRow = {
   challenge_id: string;
   user_id: string;
   application_id: string | null;
+  challenge_template_id: string | null;
   status: string;
   started_at: string | null;
   initial_balance: string | number | null;
   account_broker: string | null;
   account_server: string | null;
   account_login: string | null;
+  account_password: string | null;
+  account_investor_password: string | null;
   challenge_account_details: string | null;
   admin_rules: string | null;
 };
@@ -50,7 +58,7 @@ function toNumber(value: string | number | null | undefined): number {
   return typeof value === "number" ? value : Number(value);
 }
 
-function mapChallenge(row: ChallengeRow): ChallengeConfig {
+function mapLegacyChallenge(row: ChallengeRow): ChallengeConfig {
   return {
     id: row.id,
     title: row.title,
@@ -60,12 +68,20 @@ function mapChallenge(row: ChallengeRow): ChallengeConfig {
       row.max_daily_loss_pct != null ? toNumber(row.max_daily_loss_pct) : null,
     minTradingDays: row.min_trading_days ?? 0,
     durationDays: row.duration_days,
+    minClosedTrades: 0,
+    currency: "USD",
+    platform: "MetaTrader 5 (MT5)",
     rulesSummary: row.rules_summary,
     tradingRules: row.trading_rules,
   };
 }
 
-function mapEnrollment(row: EnrollmentRow): ChallengeEnrollmentRecord {
+function mapEnrollment(row: EnrollmentRow, template: ChallengeTemplate | null): ChallengeEnrollmentRecord {
+  const initialBalance =
+    row.initial_balance != null
+      ? toNumber(row.initial_balance)
+      : template?.startingBalance ?? 0;
+
   return {
     id: row.id,
     challengeId: row.challenge_id,
@@ -77,8 +93,10 @@ function mapEnrollment(row: EnrollmentRow): ChallengeEnrollmentRecord {
       broker: row.account_broker,
       server: row.account_server,
       login: row.account_login,
-      initialBalance: toNumber(row.initial_balance),
-      notes: row.challenge_account_details ?? row.admin_rules,
+      password: row.account_password,
+      investorPassword: row.account_investor_password,
+      initialBalance,
+      notes: row.challenge_account_details ?? null,
     },
   };
 }
@@ -104,24 +122,33 @@ async function getPoolManagerChallenge(): Promise<ChallengeRow | null> {
   return (fallback as ChallengeRow | null) ?? null;
 }
 
+async function resolveTemplateForEnrollment(
+  enrollmentRow: EnrollmentRow | null,
+  applicationTemplateId: string | null
+): Promise<ChallengeTemplate | null> {
+  const templateId = enrollmentRow?.challenge_template_id ?? applicationTemplateId;
+  if (templateId) {
+    return challengeTemplateService.getById(templateId);
+  }
+  return challengeTemplateService.getDefault();
+}
+
 export const challengeCenterService = {
   async getChallengeCenterState(userId?: string): Promise<ChallengeCenterState> {
     const resolvedUserId = userId ?? (await requireAuth()).id;
     const db = createAdminClient();
 
-    const [applicationResult, challengeRow] = await Promise.all([
-      db
-        .from("pool_manager_applications")
-        .select("id, status, challenge_enrollment_id")
-        .eq("user_id", resolvedUserId)
-        .maybeSingle(),
-      getPoolManagerChallenge(),
-    ]);
+    const applicationResult = await db
+      .from("pool_manager_applications")
+      .select("id, status, challenge_enrollment_id, challenge_template_id")
+      .eq("user_id", resolvedUserId)
+      .maybeSingle();
 
     const application = applicationResult.data as {
       id: string;
       status: string;
       challenge_enrollment_id: string | null;
+      challenge_template_id: string | null;
     } | null;
 
     let enrollmentRow: EnrollmentRow | null = null;
@@ -157,8 +184,20 @@ export const challengeCenterService = {
       enrollmentRow = (data as EnrollmentRow | null) ?? null;
     }
 
-    const challenge = challengeRow ? mapChallenge(challengeRow) : null;
-    const enrollment = enrollmentRow ? mapEnrollment(enrollmentRow) : null;
+    const template = await resolveTemplateForEnrollment(
+      enrollmentRow,
+      application?.challenge_template_id ?? null
+    );
+
+    let challenge: ChallengeConfig | null = null;
+    if (template) {
+      challenge = templateToChallengeConfig(template);
+    } else {
+      const challengeRow = await getPoolManagerChallenge();
+      challenge = challengeRow ? mapLegacyChallenge(challengeRow) : null;
+    }
+
+    const enrollment = enrollmentRow ? mapEnrollment(enrollmentRow, template) : null;
     const applicationRejected = application?.status === PM_APPLICATION_STATUS.REJECTED;
 
     const displayStatus = resolveChallengeDisplayStatus(enrollment, applicationRejected);
@@ -171,6 +210,7 @@ export const challengeCenterService = {
         applicationId: application?.id ?? null,
         enrollment,
         challenge,
+        template,
         statistics: null,
         trades: [],
       };
@@ -194,6 +234,7 @@ export const challengeCenterService = {
       applicationId: application?.id ?? enrollment.applicationId,
       enrollment,
       challenge,
+      template,
       statistics,
       trades,
     };
@@ -254,13 +295,19 @@ export const challengeCenterService = {
     await requireRole(USER_ROLES.ADMINISTRATOR);
     const db = createAdminClient();
 
+    const template = await challengeTemplateService.getById(input.templateId);
+    if (!template) {
+      throw new Error("Challenge template not found.");
+    }
+
     const challengeRow = await getPoolManagerChallenge();
     if (!challengeRow) {
       throw new Error("No active Pool Manager challenge configuration found.");
     }
 
     const notes = input.notes?.trim() || null;
-    const initialBalance = input.initialBalance > 0 ? input.initialBalance : 10000;
+    const initialBalance = template.startingBalance;
+    const now = new Date().toISOString();
 
     const { data: existingEnrollment } = await db
       .from("trader_challenge_enrollments")
@@ -278,12 +325,17 @@ export const challengeCenterService = {
         .update({
           status: "challenge_assigned",
           application_id: input.applicationId,
+          challenge_template_id: input.templateId,
           account_broker: input.broker.trim(),
           account_server: input.server.trim(),
           account_login: input.login.trim(),
+          account_password: input.password.trim(),
+          account_investor_password: input.investorPassword?.trim() || null,
           initial_balance: initialBalance,
           challenge_account_details: notes,
-          updated_at: new Date().toISOString(),
+          assigned_at: now,
+          assigned_by: input.assignedBy,
+          updated_at: now,
         } as never)
         .eq("id", enrollmentId);
 
@@ -295,12 +347,17 @@ export const challengeCenterService = {
           user_id: input.userId,
           challenge_id: challengeRow.id,
           application_id: input.applicationId,
+          challenge_template_id: input.templateId,
           status: "challenge_assigned",
           account_broker: input.broker.trim(),
           account_server: input.server.trim(),
           account_login: input.login.trim(),
+          account_password: input.password.trim(),
+          account_investor_password: input.investorPassword?.trim() || null,
           initial_balance: initialBalance,
           challenge_account_details: notes,
+          assigned_at: now,
+          assigned_by: input.assignedBy,
         } as never)
         .select("id")
         .single();
@@ -313,6 +370,7 @@ export const challengeCenterService = {
       .from("pool_manager_applications")
       .update({
         challenge_enrollment_id: enrollmentId,
+        challenge_template_id: input.templateId,
         current_stage: 2,
       } as never)
       .eq("id", input.applicationId);
@@ -387,10 +445,19 @@ export const challengeCenterService = {
     const db = createAdminClient();
 
     if (input.outcome === "passed") {
-      const settings = await import("@/services/pm-admission-settings.service").then(
-        (m) => m.pmAdmissionSettingsService.get()
-      );
-      if (settings.challengeJournalRequired) {
+      const { data: enrollmentData } = await db
+        .from("trader_challenge_enrollments")
+        .select("challenge_template_id")
+        .eq("id", input.enrollmentId)
+        .maybeSingle();
+
+      const templateId = (enrollmentData as { challenge_template_id: string | null } | null)
+        ?.challenge_template_id;
+      const template = templateId
+        ? await challengeTemplateService.getById(templateId)
+        : await challengeTemplateService.getDefault();
+
+      if (template?.tradingJournal.required) {
         const { count } = await db
           .from("challenge_trades")
           .select("id", { count: "exact", head: true })
@@ -464,7 +531,7 @@ export const challengeCenterService = {
       email: string;
     } | null;
 
-    const enrollmentRow = enrollmentData as EnrollmentRow;
+    const enrollmentRow = enrollmentData as unknown as EnrollmentRow;
     const userId = enrollmentRow.user_id;
 
     const state = await this.getChallengeCenterState(userId);

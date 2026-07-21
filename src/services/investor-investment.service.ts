@@ -15,6 +15,7 @@ import type {
   InvestorStrategyCard,
 } from "@/domain/investment/investor-presentation";
 import { INVESTMENT_ALLOCATION_STATUS_LABELS } from "@/constants/investment-allocation";
+import { computeInvestorOwnershipShare } from "@/domain/investment/cycle-metrics";
 
 type ManagerRow = {
   id: string;
@@ -46,13 +47,15 @@ async function loadManagers(ids: string[]): Promise<Map<string, ManagerRow>> {
 }
 
 function fundingPct(cycle: InvestmentCycle): number | null {
+  if (cycle.fundingProgressPct != null) return cycle.fundingProgressPct;
   if (cycle.targetCapital == null || cycle.targetCapital <= 0) return null;
   return Math.min(100, Math.round((cycle.raisedCapital / cycle.targetCapital) * 1000) / 10);
 }
 
 function remainingCapacity(cycle: InvestmentCycle): number | null {
-  if (cycle.maxCapacity == null) return null;
-  return Math.max(0, cycle.maxCapacity - cycle.raisedCapital);
+  if (cycle.remainingCapital != null) return cycle.remainingCapital;
+  if (cycle.targetCapital == null || cycle.targetCapital <= 0) return null;
+  return Math.max(0, cycle.targetCapital - cycle.raisedCapital);
 }
 
 function toCycleCard(
@@ -177,6 +180,7 @@ async function enrichAllocations(allocations: InvestmentAllocation[]): Promise<I
       strategyName: strategy?.name ?? "Strategy",
       managerName: managerPublicName(manager),
       canCancel,
+      ownershipSharePct: computeInvestorOwnershipShare(allocation.amount, cycle.targetCapital),
     };
   });
 }

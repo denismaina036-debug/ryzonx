@@ -26,23 +26,33 @@ import { countryCodeToFlag } from "@/lib/country-flag";
 import { formatTradingInstruments } from "@/domain/pool-manager/professional-background";
 import { PM_APPLICATION_STATUS, PM_ADMISSION_PATH, type PoolManagerApplicationStatus } from "@/domain/pool-manager/types";
 import type { PoolManagerApplication } from "@/domain/pool-manager/types";
+import type { ChallengeTemplate } from "@/domain/challenge/challenge-template";
 
 interface AdminPmApplicationsProps {
   applications: Array<
     PoolManagerApplication & { applicantName: string; applicantEmail: string }
   >;
+  challengeTemplates: ChallengeTemplate[];
 }
 
-export function AdminPmApplications({ applications }: AdminPmApplicationsProps) {
+export function AdminPmApplications({
+  applications,
+  challengeTemplates,
+}: AdminPmApplicationsProps) {
+  const defaultTemplate =
+    challengeTemplates.find((template) => template.isDefault) ?? challengeTemplates[0] ?? null;
+
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(
     applications[0]?.id ?? null
   );
   const [notes, setNotes] = useState("");
-  const [broker, setBroker] = useState("");
+  const [templateId, setTemplateId] = useState(defaultTemplate?.id ?? "");
+  const [broker, setBroker] = useState(defaultTemplate?.defaultBroker ?? "");
   const [server, setServer] = useState("");
   const [login, setLogin] = useState("");
-  const [initialBalance, setInitialBalance] = useState("10000");
+  const [password, setPassword] = useState("");
+  const [investorPassword, setInvestorPassword] = useState("");
   const [challengeAccountInfo, setChallengeAccountInfo] = useState("");
   const [initialRating, setInitialRating] = useState("3.5");
   const [displayReviewCount, setDisplayReviewCount] = useState("0");
@@ -55,13 +65,30 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
   const [error, setError] = useState<string | null>(null);
 
   const selected = applications.find((a) => a.id === selectedId);
+  const selectedTemplate =
+    challengeTemplates.find((template) => template.id === templateId) ?? defaultTemplate;
 
   function selectApplication(id: string) {
     setSelectedId(id);
     const app = applications.find((a) => a.id === id);
     setChallengeAccountInfo(app?.basicInfo.challengeAccountInfo ?? "");
+    setTemplateId(app?.challengeTemplateId ?? defaultTemplate?.id ?? "");
+    setBroker(
+      app?.challengeTemplateId
+        ? challengeTemplates.find((template) => template.id === app.challengeTemplateId)
+            ?.defaultBroker ?? defaultTemplate?.defaultBroker ?? ""
+        : defaultTemplate?.defaultBroker ?? ""
+    );
     setNotes("");
     setError(null);
+  }
+
+  function handleTemplateChange(nextTemplateId: string) {
+    setTemplateId(nextTemplateId);
+    const template = challengeTemplates.find((item) => item.id === nextTemplateId);
+    if (template && !broker.trim()) {
+      setBroker(template.defaultBroker);
+    }
   }
 
   async function patchApplication(body: Record<string, unknown>) {
@@ -86,10 +113,12 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
 
   async function saveChallengeInfo() {
     await patchApplication({
+      templateId,
       broker,
       server,
       login,
-      initialBalance: Number(initialBalance) || 10000,
+      password,
+      investorPassword: investorPassword.trim() || undefined,
       challengeAccountInfo,
     });
   }
@@ -122,7 +151,11 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
       const res = await fetch(`/api/admin/pool-manager-applications/${selectedId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ approveChallenge: true, notes: notes.trim() || undefined }),
+        body: JSON.stringify({
+          approveChallenge: true,
+          templateId,
+          notes: notes.trim() || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -237,11 +270,53 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
 
           {isTradingChallenge && (
           <section className="space-y-3 border-t border-navy-100 pt-6">
-            <h3 className="text-sm font-semibold text-navy-800">Challenge Account</h3>
+            <h3 className="text-sm font-semibold text-navy-800">Challenge Assignment</h3>
             <p className="text-xs text-navy-500">
-              Assign challenge credentials. The applicant&apos;s Challenge Center will unlock
-              automatically.
+              Select a challenge template and assign account credentials. All evaluation rules load
+              automatically from the template.
             </p>
+            <Field label="Challenge Template">
+              <Select value={templateId} onValueChange={handleTemplateChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select challenge template" />
+                </SelectTrigger>
+                <SelectContent>
+                  {challengeTemplates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+
+            {selectedTemplate && (
+              <div className="rounded-xl border border-navy-100 bg-navy-50/50 p-4 text-sm text-navy-700">
+                <p className="font-medium text-navy-900">{selectedTemplate.name}</p>
+                <p className="mt-1 text-xs text-navy-500">{selectedTemplate.description}</p>
+                <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <SummaryItem
+                    label="Starting Balance"
+                    value={`$${selectedTemplate.startingBalance.toLocaleString()} ${selectedTemplate.currency}`}
+                  />
+                  <SummaryItem label="Platform" value={selectedTemplate.platform} />
+                  <SummaryItem label="Profit Target" value={`${selectedTemplate.profitTargetPct}%`} />
+                  <SummaryItem
+                    label="Max Drawdown"
+                    value={`${selectedTemplate.maxOverallDrawdownPct}%`}
+                  />
+                  <SummaryItem
+                    label="Min Trading Days"
+                    value={String(selectedTemplate.minTradingDays)}
+                  />
+                  <SummaryItem
+                    label="Min Closed Trades"
+                    value={String(selectedTemplate.minClosedTrades)}
+                  />
+                </dl>
+              </div>
+            )}
+
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Broker">
                 <Input value={broker} onChange={(e) => setBroker(e.target.value)} placeholder="Broker name" />
@@ -252,18 +327,26 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
               <Field label="Login Number">
                 <Input value={login} onChange={(e) => setLogin(e.target.value)} placeholder="Account login" />
               </Field>
-              <Field label="Challenge Balance">
+              <Field label="Password">
                 <Input
-                  type="number"
-                  value={initialBalance}
-                  onChange={(e) => setInitialBalance(e.target.value)}
-                  placeholder="10000"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Account password"
+                />
+              </Field>
+              <Field label="Investor Password (optional)">
+                <Input
+                  type="password"
+                  value={investorPassword}
+                  onChange={(e) => setInvestorPassword(e.target.value)}
+                  placeholder="Investor password"
                 />
               </Field>
             </div>
-            <Field label="Additional Notes">
+            <Field label="Additional Notes (optional)">
               <Textarea
-                placeholder="Rules, deadlines, platform instructions…"
+                placeholder="Optional notes for the applicant…"
                 value={challengeAccountInfo}
                 onChange={(e) => setChallengeAccountInfo(e.target.value)}
                 rows={3}
@@ -273,7 +356,14 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
               variant="outline"
               size="sm"
               onClick={() => void saveChallengeInfo()}
-              disabled={loading || !broker.trim() || !server.trim() || !login.trim()}
+              disabled={
+                loading ||
+                !templateId ||
+                !broker.trim() ||
+                !server.trim() ||
+                !login.trim() ||
+                !password.trim()
+              }
             >
               Assign Challenge Account
             </Button>
@@ -385,7 +475,10 @@ export function AdminPmApplications({ applications }: AdminPmApplicationsProps) 
             <div className="flex flex-wrap gap-3">
               {isTradingChallenge &&
                 selected.status === PM_APPLICATION_STATUS.PENDING && (
-                  <Button onClick={() => void approveChallenge()} disabled={loading}>
+                  <Button
+                    onClick={() => void approveChallenge()}
+                    disabled={loading || !templateId}
+                  >
                     Approve Challenge
                   </Button>
                 )}
@@ -446,6 +539,15 @@ function formatAdminInstrument(
   bg: PoolManagerApplication["applicationData"]["professionalBackground"]
 ): string | undefined {
   return formatTradingInstruments(bg);
+}
+
+function SummaryItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-navy-500">{label}</dt>
+      <dd className="font-medium text-navy-800">{value}</dd>
+    </div>
+  );
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

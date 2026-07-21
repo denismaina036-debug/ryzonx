@@ -113,6 +113,7 @@ export function computeChallengeStatistics(input: {
 
   const profitTargetMet = currentProfit >= profitTargetAmount;
   const minDaysMet = uniqueTradingDays >= challenge.minTradingDays;
+  const minClosedTradesMet = approved.length >= challenge.minClosedTrades;
   const drawdownWithinLimit = maxDrawdownPct <= challenge.maxOverallLossPct;
 
   return {
@@ -125,6 +126,7 @@ export function computeChallengeStatistics(input: {
     currentTradingDay,
     remainingDays,
     minTradingDays: challenge.minTradingDays,
+    minClosedTrades: challenge.minClosedTrades,
     tradesSubmitted: trades.length,
     tradesApproved: approved.length,
     tradesRejected: rejected.length,
@@ -139,10 +141,16 @@ export function computeChallengeStatistics(input: {
     progressPct,
     profitTargetMet,
     minDaysMet,
+    minClosedTradesMet,
     drawdownWithinLimit,
   };
 }
 
 export function isChallengeCriteriaMet(stats: ChallengeStatistics): boolean {
-  return stats.profitTargetMet && stats.minDaysMet && stats.drawdownWithinLimit;
+  return (
+    stats.profitTargetMet &&
+    stats.minDaysMet &&
+    stats.minClosedTradesMet &&
+    stats.drawdownWithinLimit
+  );
 }

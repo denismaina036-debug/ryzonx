@@ -38,6 +38,11 @@ import {
   stripInstrumentFromPoolName,
   resolvePublicDisplayCount,
 } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
+import {
+  computeFundingProgressPct,
+  computeRemainingCapital,
+} from "@/domain/investment/cycle-metrics";
+import { investmentCycleMetricsService } from "@/services/investment-cycle-metrics.service";
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
@@ -112,6 +117,15 @@ async function enrichPoolCards(
     .in("status", ["funding", "trading", "distribution", "approved"]);
 
   const cycles = (cycleRows ?? []) as CycleRow[];
+  const activeCycleIds = [
+    ...new Set(
+      rows
+        .map((row) => pickActiveCycleForFund(cycles, row.id as string))
+        .filter((cycle): cycle is CycleRow => cycle != null)
+        .map((cycle) => cycle.id)
+    ),
+  ];
+  const raisedByCycle = await investmentCycleMetricsService.sumRaisedCapitalForCycles(activeCycleIds);
 
   const managerIdsForReviews = [
     ...new Set(cards.map((c) => c.managerId).filter(Boolean)),
@@ -140,9 +154,11 @@ async function enrichPoolCards(
     const targetCapital = cycle?.target_capital != null
       ? toNumber(cycle.target_capital)
       : toNumber(row.target_capital as number | null);
-    const raisedCapital = cycle?.raised_capital != null
-      ? toNumber(cycle.raised_capital)
+    const raisedCapital = cycle
+      ? raisedByCycle.get(cycle.id) ?? 0
       : toNumber(row.current_capital as number | null);
+    const remainingCapital = computeRemainingCapital(targetCapital, raisedCapital);
+    const fundingProgressPct = computeFundingProgressPct(targetCapital, raisedCapital);
     const maxParticipants =
       row.target_investors != null
         ? toNumber(row.target_investors as number)
@@ -192,6 +208,8 @@ async function enrichPoolCards(
       fundingPeriodEndsAt,
       raisedCapital,
       targetCapital,
+      remainingCapital,
+      fundingProgressPct,
       cycleParticipantCount,
       maxParticipants,
       investorSharePct: toNumber(row.investor_share_pct as number | null) || 80,
