@@ -518,7 +518,7 @@ export const challengeCenterService = {
 
     const { data: enrollmentData, error } = await db
       .from("trader_challenge_enrollments")
-      .select("*, profiles(full_name, email)")
+      .select("*, profiles!trader_challenge_enrollments_user_id_fkey(full_name, email)")
       .eq("id", enrollmentId)
       .single();
 
@@ -557,7 +557,7 @@ export const challengeCenterService = {
 
     const { data, error } = await db
       .from("trader_challenge_enrollments")
-      .select("id, status, started_at, user_id, profiles(full_name)")
+      .select("id, status, started_at, user_id, profiles!trader_challenge_enrollments_user_id_fkey(full_name)")
       .in("status", [
         "waiting",
         "approved",

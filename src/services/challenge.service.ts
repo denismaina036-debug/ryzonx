@@ -304,7 +304,7 @@ export const challengeService = {
 
     const { data, error } = await db
       .from("trader_challenge_enrollments")
-      .select("*, profiles(full_name, email), trader_challenges(title)")
+      .select("*, profiles!trader_challenge_enrollments_user_id_fkey(full_name, email), trader_challenges(title)")
       .in("status", ["awaiting_setup", "paid", "active"])
       .order("created_at", { ascending: false });
 
