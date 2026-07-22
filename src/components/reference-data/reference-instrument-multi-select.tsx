@@ -19,8 +19,9 @@ export function ReferenceInstrumentMultiSelect({
   disabled,
 }: ReferenceInstrumentMultiSelectProps) {
   const normalizedMarkets = useMemo(() => normalizeMarketCodes(marketCodes), [marketCodes]);
-  const { items, loading } = useInstrumentsForMarkets(normalizedMarkets);
+  const { items, loading, error } = useInstrumentsForMarkets(normalizedMarkets);
   const noMarkets = normalizedMarkets.length === 0;
+  const safeValue = value ?? [];
 
   if (noMarkets) {
     return (
@@ -28,13 +29,35 @@ export function ReferenceInstrumentMultiSelect({
     );
   }
 
+  if (loading && items.length === 0) {
+    return <p className="text-sm text-[var(--id-text-muted)]">Loading instruments…</p>;
+  }
+
+  if (error && items.length === 0) {
+    return (
+      <p className="text-sm text-rose-600">
+        Could not load instruments. Refresh the page and try again.
+      </p>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <p className="text-sm text-[var(--id-text-muted)]">
+        No instruments found for the selected markets.
+      </p>
+    );
+  }
+
   return (
-    <ReferenceMultiSelect
-      options={items}
-      value={value}
-      onChange={onChange}
-      disabled={disabled}
-      loading={loading}
-    />
+    <div className="max-h-72 overflow-y-auto rounded-lg border border-[var(--id-border)] p-3">
+      <ReferenceMultiSelect
+        options={items}
+        value={safeValue}
+        onChange={onChange}
+        disabled={disabled}
+        loading={loading}
+      />
+    </div>
   );
 }

@@ -1,5 +1,8 @@
-import type { ReturnTier } from "@/features/investor/types/account";
-import { resolveReturnTier } from "@/lib/financial/return-structure-distribution";
+import type { FixedReturnRow } from "@/domain/pools/fixed-return";
+import {
+  fixedReturnProfitAmount,
+  resolveFixedReturnAmount,
+} from "@/domain/pools/fixed-return";
 import type {
   AllocationCapitalBasis,
   InvestorProfitAllocation,
@@ -11,23 +14,19 @@ function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function promisedReturnAmount(investment: number, tier: ReturnTier | null): number {
-  if (!tier || investment <= 0) return 0;
-  return roundMoney(investment * (Number(tier.returnPct) / 100));
-}
-
 /**
- * Fixed Return settlement:
- * 1. Gross profit → 2.5% platform fee → net
- * 2. If net covers total promised fixed returns → pay promises, PM gets remainder
- * 3. If insufficient → pro-rata by entitlement, PM gets nothing
- * 4. If loss → pro-rata loss by capital contribution
+ * Fixed Return settlement (independent from Variable Return):
+ * 1. Gross trading profit
+ * 2. Deduct 2.5% platform fee
+ * 3. Pay each investor their promised fixed return profit (total payout − principal)
+ * 4. Pool Manager receives any remaining profit; nothing if insufficient
+ * 5. Losses distributed proportionally by investment amount; PM receives nothing
  */
 export function calculateFixedReturnDistribution(input: {
   grossTradingProfit: number;
   platformServiceFeeRate?: number;
   allocations: AllocationCapitalBasis[];
-  returnStructure: ReturnTier[];
+  fixedReturnSchedule: FixedReturnRow[];
 }): ProfitDistributionBreakdown {
   const feeRate = input.platformServiceFeeRate ?? PLATFORM_SERVICE_FEE_RATE;
   const taxableGross = input.grossTradingProfit > 0 ? input.grossTradingProfit : 0;
@@ -35,9 +34,15 @@ export function calculateFixedReturnDistribution(input: {
   const netDistributableProfit = roundMoney(taxableGross - platformServiceFee);
 
   const rows = input.allocations.map((alloc) => {
-    const tier = resolveReturnTier(alloc.capitalBasis, input.returnStructure);
-    const promised = promisedReturnAmount(alloc.capitalBasis, tier);
-    return { ...alloc, tier, promised };
+    const totalPayout = resolveFixedReturnAmount(
+      alloc.capitalBasis,
+      input.fixedReturnSchedule
+    );
+    const promised =
+      totalPayout != null
+        ? fixedReturnProfitAmount(alloc.capitalBasis, totalPayout)
+        : 0;
+    return { ...alloc, totalPayout, promised };
   });
 
   const totalPromised = roundMoney(rows.reduce((s, r) => s + r.promised, 0));
@@ -55,9 +60,9 @@ export function calculateFixedReturnDistribution(input: {
         allocationId: row.allocationId,
         investorId: row.investorId,
         capitalBasis: row.capitalBasis,
-        tierReturnPct: row.tier ? Number(row.tier.returnPct) : null,
+        tierReturnPct: null,
         returnMultiplier: 0,
-        tierWeight: row.tier ? Number(row.tier.returnPct) : 0,
+        tierWeight: 0,
         allocationWeight: row.capitalBasis,
         ownershipPct: share,
         profitShare,
@@ -68,9 +73,9 @@ export function calculateFixedReturnDistribution(input: {
       allocationId: row.allocationId,
       investorId: row.investorId,
       capitalBasis: row.capitalBasis,
-      tierReturnPct: row.tier ? Number(row.tier.returnPct) : null,
-      returnMultiplier: row.tier ? Number(row.tier.returnPct) / 100 : 0,
-      tierWeight: row.tier ? Number(row.tier.returnPct) : 0,
+      tierReturnPct: null,
+      returnMultiplier: 0,
+      tierWeight: 0,
       allocationWeight: row.promised,
       ownershipPct: totalPromised > 0 ? row.promised / totalPromised : 0,
       profitShare: row.promised,
@@ -84,9 +89,9 @@ export function calculateFixedReturnDistribution(input: {
         allocationId: row.allocationId,
         investorId: row.investorId,
         capitalBasis: row.capitalBasis,
-        tierReturnPct: row.tier ? Number(row.tier.returnPct) : null,
-        returnMultiplier: row.tier ? Number(row.tier.returnPct) / 100 : 0,
-        tierWeight: row.tier ? Number(row.tier.returnPct) : 0,
+        tierReturnPct: null,
+        returnMultiplier: 0,
+        tierWeight: 0,
         allocationWeight: row.promised,
         ownershipPct: share,
         profitShare,
@@ -103,8 +108,8 @@ export function calculateFixedReturnDistribution(input: {
         investorId: row.investorId,
         capitalBasis: row.capitalBasis,
         tierReturnPct: null,
-        returnMultiplier: 1,
-        tierWeight: 100,
+        returnMultiplier: 0,
+        tierWeight: 0,
         allocationWeight: row.capitalBasis,
         ownershipPct: share,
         profitShare,

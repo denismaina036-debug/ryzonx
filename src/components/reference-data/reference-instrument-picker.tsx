@@ -41,8 +41,8 @@ export function ReferenceInstrumentPicker({
       onChange={onChange}
       disabled={disabled || noMarkets}
       loading={loading}
-      minSearchLength={1}
-      largeListThreshold={40}
+      minSearchLength={0}
+      largeListThreshold={60}
       placeholder={
         noMarkets ? "Select markets first" : "Search instruments…"
       }

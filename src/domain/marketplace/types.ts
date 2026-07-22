@@ -1,4 +1,5 @@
 import type { ReturnTier } from "@/features/investor/types/account";
+import type { FixedReturnRow } from "@/domain/pools/fixed-return";
 import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 import type { CoverImagePosition } from "@/domain/pools/cover-image-position";
 
@@ -95,6 +96,7 @@ export interface MarketplacePoolDetail extends MarketplacePoolCard {
   profitTargetPct: number;
   maxInvestment: number | null;
   returnTiers: ReturnTier[];
+  fixedReturnRows: FixedReturnRow[];
   isInviteOnly: boolean;
   suspensionReason: string | null;
   suspendedAt: string | null;
@@ -106,11 +108,12 @@ export interface MarketplacePoolDetail extends MarketplacePoolCard {
   fundingPeriodEndsAt: string | null;
   /** Best-known datetime when live trading is scheduled to begin. */
   tradingStartsAt: string | null;
-  returnModel: "fixed" | "variable";
   tradingSessionLabel: string | null;
   tradingTimeNy: string | null;
   marketTypeCode: string | null;
   tradingInstrumentCode: string | null;
+  marketsTradedCodes: string[];
+  tradingInstrumentCodes: string[];
   activeOpenTrades: Array<{ instrument: string; direction: string }>;
   manager: PoolManagerPublicSummary | null;
   faq: Array<{ question: string; answer: string }>;

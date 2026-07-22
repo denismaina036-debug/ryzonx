@@ -18,28 +18,32 @@ export function ReferenceMultiSelect({
   disabled,
   loading,
 }: ReferenceMultiSelectProps) {
-  function toggle(code: string) {
-    if (value.includes(code)) {
-      onChange(value.filter((v) => v !== code));
-    } else {
-      onChange([...value, code]);
-    }
-  }
+  const safeValue = value ?? [];
 
   if (loading && options.length === 0) {
-    return <p className="text-sm text-[var(--id-text-muted)]">Loading markets…</p>;
+    return <p className="text-sm text-[var(--id-text-muted)]">Loading…</p>;
+  }
+
+  if (options.length === 0) {
+    return <p className="text-sm text-[var(--id-text-muted)]">No options available.</p>;
   }
 
   return (
     <div className="flex flex-wrap gap-2">
       {options.map((market) => {
-        const selected = value.includes(market.code);
+        const selected = safeValue.includes(market.code);
         return (
           <button
             key={market.code}
             type="button"
             disabled={disabled}
-            onClick={() => toggle(market.code)}
+            onClick={() => {
+              if (safeValue.includes(market.code)) {
+                onChange(safeValue.filter((v) => v !== market.code));
+              } else {
+                onChange([...safeValue, market.code]);
+              }
+            }}
             className={cn(
               "rounded-lg border px-3 py-1.5 text-xs font-medium transition",
               selected

@@ -26,6 +26,8 @@ import type {
   PoolManagerPublicSummary,
 } from "@/domain/marketplace/types";
 import type { ReturnTier } from "@/features/investor/types/account";
+import { normalizeFixedReturnRows, type FixedReturnRow } from "@/domain/pools/fixed-return";
+import { normalizeMarketCodes } from "@/domain/reference-data/utils";
 import { tradeEntryService } from "@/services/trade-entry.service";
 import { tradingSessionLabel } from "@/domain/pools/trading-session";
 import { INVESTMENT_CYCLE_ALLOCATABLE_STATUSES } from "@/constants/investment-cycle";
@@ -53,11 +55,14 @@ function readManagedPoolConfig(poolFaq: unknown) {
   if (!poolFaq || typeof poolFaq !== "object" || Array.isArray(poolFaq)) return {};
   return ((poolFaq as { managedPool?: Record<string, unknown> }).managedPool ?? {}) as {
     returnModel?: string;
+    fixedReturnRows?: FixedReturnRow[];
     tradingSessionKey?: string;
     tradingSessionCustom?: string;
     tradingTimeNy?: string;
     marketTypeCode?: string;
     tradingInstrumentCode?: string;
+    marketsTradedCodes?: string[];
+    tradingInstrumentCodes?: string[];
     fundingPeriodDays?: number;
     strategyName?: string;
     durationUnit?: string;
@@ -169,7 +174,8 @@ async function enrichPoolCards(
     const fundingPeriodEndsAt =
       cycle?.funding_deadline ?? cycle?.closing_date ?? null;
     const tradingAssetTag = resolveTradingAssetLabel({
-      tradingInstrumentCode: managed.tradingInstrumentCode ?? null,
+      tradingInstrumentCode:
+        managed.tradingInstrumentCodes?.[0] ?? managed.tradingInstrumentCode ?? null,
       tradingPair: card.tradingPair,
       marketsTraded: card.marketsTraded,
     });
@@ -687,6 +693,18 @@ export const marketplaceService = {
       ? (row.return_tiers as ReturnTier[])
       : [];
     const managedConfig = readManagedPoolConfig(row.pool_faq);
+    const returnModel = managedConfig.returnModel === "fixed" ? "fixed" : "variable";
+    const fixedReturnRows =
+      returnModel === "fixed"
+        ? managedConfig.fixedReturnRows?.length
+          ? normalizeFixedReturnRows(managedConfig.fixedReturnRows)
+          : normalizeFixedReturnRows(
+              returnTiers.map((tier) => ({
+                investmentAmount: tier.minAmount,
+                fixedReturnAmount: tier.minAmount * (1 + tier.returnPct / 100),
+              }))
+            )
+        : [];
     const activeOpenTrades =
       enrichedCard.activeCycle?.status === "trading" && enrichedCard.activeCycle.id
         ? await tradeEntryService.listOpenTradesPublic(enrichedCard.activeCycle.id)
@@ -716,7 +734,8 @@ export const marketplaceService = {
             : null,
       profitTargetPct: toNumber(row.profit_target_pct as number),
       maxInvestment: row.max_investment != null ? toNumber(row.max_investment as number) : null,
-      returnTiers,
+      returnTiers: returnModel === "variable" ? returnTiers : [],
+      fixedReturnRows,
       isInviteOnly: Boolean(row.is_invite_only),
       suspensionReason: (row.suspension_reason as string | null) ?? null,
       suspendedAt: (row.suspended_at as string | null) ?? null,
@@ -730,6 +749,16 @@ export const marketplaceService = {
       tradingTimeNy: managedConfig.tradingTimeNy ?? null,
       marketTypeCode: managedConfig.marketTypeCode ?? null,
       tradingInstrumentCode: managedConfig.tradingInstrumentCode ?? null,
+      marketsTradedCodes: managedConfig.marketsTradedCodes?.length
+        ? normalizeMarketCodes(managedConfig.marketsTradedCodes)
+        : managedConfig.marketTypeCode
+          ? normalizeMarketCodes([managedConfig.marketTypeCode])
+          : [],
+      tradingInstrumentCodes: managedConfig.tradingInstrumentCodes?.length
+        ? managedConfig.tradingInstrumentCodes
+        : managedConfig.tradingInstrumentCode
+          ? [managedConfig.tradingInstrumentCode]
+          : [],
       activeOpenTrades,
       manager: mapManagerSummary(manager),
       faq,

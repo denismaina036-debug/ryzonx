@@ -202,7 +202,14 @@ export const referenceDataService = {
 
     if (!error && data?.length) {
       scheduleSeed();
-      return (data as ItemRow[]).map((row) => toOption(mapItem(row)));
+      const seen = new Set<string>();
+      return (data as ItemRow[])
+        .map((row) => toOption(mapItem(row)))
+        .filter((option) => {
+          if (seen.has(option.code)) return false;
+          seen.add(option.code);
+          return true;
+        });
     }
 
     scheduleSeed();

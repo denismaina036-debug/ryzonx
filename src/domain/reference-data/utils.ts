@@ -23,7 +23,8 @@ export function normalizeMarketCode(value: string): string {
   return LEGACY_MARKET_LABEL_TO_CODE[trimmed] ?? trimmed.toLowerCase();
 }
 
-export function normalizeMarketCodes(values: string[]): string[] {
+export function normalizeMarketCodes(values: string[] | null | undefined): string[] {
+  if (!values?.length) return [];
   return [...new Set(values.map(normalizeMarketCode).filter(Boolean))];
 }
 

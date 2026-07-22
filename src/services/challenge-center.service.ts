@@ -107,6 +107,7 @@ async function getPoolManagerChallenge(): Promise<ChallengeRow | null> {
     .from("trader_challenges")
     .select("*")
     .eq("fund_id", DEFAULT_FUND_ID)
+    .eq("purpose", "pool_manager")
     .eq("is_active", true)
     .maybeSingle();
 
@@ -116,10 +117,81 @@ async function getPoolManagerChallenge(): Promise<ChallengeRow | null> {
     .from("trader_challenges")
     .select("*")
     .eq("fund_id", DEFAULT_FUND_ID)
-    .eq("purpose", "pool_manager")
+    .eq("is_active", true)
     .maybeSingle();
 
   return (fallback as ChallengeRow | null) ?? null;
+}
+
+/** Ensures a trader_challenges row exists for PM enrollments (FK). Rules come from the template. */
+export async function ensurePoolManagerChallengeRow(
+  template?: ChallengeTemplate | null
+): Promise<ChallengeRow> {
+  const existing = await getPoolManagerChallenge();
+  if (existing) return existing;
+
+  const db = createAdminClient();
+  const { data: poolManagerRow } = await db
+    .from("trader_challenges")
+    .select("*")
+    .eq("fund_id", DEFAULT_FUND_ID)
+    .eq("purpose", "pool_manager")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (poolManagerRow) {
+    const { data: reactivated, error } = await db
+      .from("trader_challenges")
+      .update({
+        is_active: true,
+        title: template?.name ?? (poolManagerRow as ChallengeRow).title,
+        description:
+          template?.description ??
+          "Pool Manager evaluation challenge. Rules are defined by the assigned challenge template.",
+        profit_target_pct: template?.profitTargetPct ?? undefined,
+        max_overall_loss_pct: template?.maxOverallDrawdownPct ?? undefined,
+        max_daily_loss_pct: template?.maxDailyDrawdownPct ?? undefined,
+        min_trading_days: template?.minTradingDays ?? undefined,
+        duration_days: template?.maxEvaluationDays ?? undefined,
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq("id", (poolManagerRow as { id: string }).id)
+      .select("*")
+      .single();
+
+    if (error || !reactivated) {
+      throw new Error(error?.message ?? "Could not activate Pool Manager challenge configuration.");
+    }
+    return reactivated as ChallengeRow;
+  }
+
+  const { data: created, error } = await db
+    .from("trader_challenges")
+    .insert({
+      fund_id: DEFAULT_FUND_ID,
+      title: template?.name ?? "Pool Manager Challenge",
+      description:
+        template?.description ??
+        "Pool Manager evaluation challenge. Rules are defined by the assigned challenge template.",
+      price: 0,
+      profit_target_pct: template?.profitTargetPct ?? 10,
+      max_overall_loss_pct: template?.maxOverallDrawdownPct ?? 10,
+      max_daily_loss_pct: template?.maxDailyDrawdownPct ?? 5,
+      min_trading_days: template?.minTradingDays ?? 5,
+      duration_days: template?.maxEvaluationDays ?? 30,
+      purpose: "pool_manager",
+      is_active: true,
+      button_text: "Start Challenge",
+    } as never)
+    .select("*")
+    .single();
+
+  if (error || !created) {
+    throw new Error(error?.message ?? "Could not create Pool Manager challenge configuration.");
+  }
+
+  return created as ChallengeRow;
 }
 
 async function resolveTemplateForEnrollment(
@@ -300,10 +372,7 @@ export const challengeCenterService = {
       throw new Error("Challenge template not found.");
     }
 
-    const challengeRow = await getPoolManagerChallenge();
-    if (!challengeRow) {
-      throw new Error("No active Pool Manager challenge configuration found.");
-    }
+    const challengeRow = await ensurePoolManagerChallengeRow(template);
 
     const notes = input.notes?.trim() || null;
     const initialBalance = template.startingBalance;
@@ -312,14 +381,24 @@ export const challengeCenterService = {
     const { data: existingEnrollment } = await db
       .from("trader_challenge_enrollments")
       .select("id")
-      .eq("user_id", input.userId)
-      .eq("challenge_id", challengeRow.id)
+      .eq("application_id", input.applicationId)
       .maybeSingle();
+
+    const { data: existingByUser } = existingEnrollment
+      ? { data: null }
+      : await db
+          .from("trader_challenge_enrollments")
+          .select("id")
+          .eq("user_id", input.userId)
+          .eq("challenge_id", challengeRow.id)
+          .maybeSingle();
 
     let enrollmentId: string;
 
-    if (existingEnrollment) {
-      enrollmentId = (existingEnrollment as { id: string }).id;
+    const enrollmentMatch = existingEnrollment ?? existingByUser;
+
+    if (enrollmentMatch) {
+      enrollmentId = (enrollmentMatch as { id: string }).id;
       const { error } = await db
         .from("trader_challenge_enrollments")
         .update({

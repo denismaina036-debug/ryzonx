@@ -32,7 +32,8 @@ import type {
 import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
 import { TRADE_ENTRY_DIRECTION_LABELS } from "@/constants/trade-entry";
 import { formatFundingPeriodCountdown } from "@/features/marketplace/utils/funding-countdown";
-import { TRADING_TIME_ZONE_LABEL } from "@/domain/pools/trading-session";
+import { formatTradingDateTimeLabel } from "@/domain/pools/trading-session";
+import { formatFixedReturnRowLabel } from "@/domain/pools/fixed-return";
 import { MANAGED_POOL_RETURN_MODEL_LABELS } from "@/domain/pools/return-model";
 
 interface PoolDetailViewProps {
@@ -190,16 +191,53 @@ export function PoolDetailView({
         <h2 className="text-sm font-semibold text-[var(--id-text)]">Trading Details</h2>
         <dl className="mt-3 grid gap-3 sm:grid-cols-2 text-sm">
           <Row label="Trading Session" value={pool.tradingSessionLabel ?? "—"} />
-          <Row label="Trading Time" value={pool.tradingTimeNy ? `${pool.tradingTimeNy} (${TRADING_TIME_ZONE_LABEL})` : "—"} />
-          <Row label="Market Type" value={pool.marketTypeCode ?? "—"} />
-          <Row label="Trading Instrument" value={pool.tradingInstrumentCode ?? pool.tradingPair ?? "—"} />
+          <Row label="Trading Date & Time" value={formatTradingDateTimeLabel(pool.tradingTimeNy ?? undefined) ?? "—"} />
+          <Row
+            label="Markets Traded"
+            value={
+              pool.marketsTradedCodes.length > 0
+                ? pool.marketsTradedCodes.join(", ")
+                : pool.marketTypeCode ?? "—"
+            }
+          />
+          <Row
+            label="Trading Instruments"
+            value={
+              pool.tradingInstrumentCodes.length > 0
+                ? pool.tradingInstrumentCodes
+                    .map((code) => code.split(":").pop()?.replace(/_/g, " ") ?? code)
+                    .join(", ")
+                : pool.tradingInstrumentCode ?? pool.tradingPair ?? "—"
+            }
+          />
           <Row label="Return Model" value={MANAGED_POOL_RETURN_MODEL_LABELS[pool.returnModel]} />
         </dl>
       </section>
 
-      {pool.returnTiers.length > 0 && (
+      {pool.returnModel === "fixed" && pool.fixedReturnRows.length > 0 && (
         <section id="return-structure" className="rounded-xl border border-border bg-card p-5">
-          <h2 className="text-sm font-semibold text-[var(--id-text)]">Return by Investment Amount</h2>
+          <h2 className="text-sm font-semibold text-[var(--id-text)]">Fixed Return Schedule</h2>
+          <div className="mt-3 space-y-2">
+            {pool.fixedReturnRows.map((row, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between rounded-lg border border-border px-4 py-2 text-sm"
+              >
+                <span className="text-[var(--id-text-secondary)]">
+                  {formatCurrency(row.investmentAmount)}
+                </span>
+                <span className="font-medium text-[var(--id-text)]">
+                  {formatFixedReturnRowLabel(row)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {pool.returnModel === "variable" && pool.returnTiers.length > 0 && (
+        <section id="return-structure" className="rounded-xl border border-border bg-card p-5">
+          <h2 className="text-sm font-semibold text-[var(--id-text)]">Variable Return Tiers</h2>
           <div className="mt-3 space-y-2">
             {pool.returnTiers.map((tier, index) => (
               <div
@@ -216,6 +254,10 @@ export function PoolDetailView({
               </div>
             ))}
           </div>
+          <dl className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-2 text-sm">
+            <Row label="Investor Share" value={`${Math.round(pool.investorSharePct)}%`} />
+            <Row label="Pool Manager Share" value={`${Math.round(pool.poolManagerSharePct)}%`} />
+          </dl>
         </section>
       )}
 

@@ -1056,20 +1056,10 @@ export const poolManagerAdminService = {
       throw new Error("Challenge approval applies only to Trading Challenge applicants.");
     }
 
-    const { DEFAULT_FUND_ID } = await import("@/constants/funds");
+    const { ensurePoolManagerChallengeRow } = await import("@/services/challenge-center.service");
 
-    const { data: challengeRow } = await db
-      .from("trader_challenges")
-      .select("id")
-      .eq("fund_id", DEFAULT_FUND_ID)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (!challengeRow) {
-      throw new Error("No active challenge configuration found.");
-    }
-
-    const challengeId = (challengeRow as { id: string }).id;
+    const challengeRow = await ensurePoolManagerChallengeRow(template);
+    const challengeId = challengeRow.id;
     let enrollmentId = row.challenge_enrollment_id;
 
     const deadline = new Date();

@@ -38,7 +38,7 @@ const FOREX_PAIRS = [
   "GBP/NZD", "AUD/NZD", "EUR/SEK", "EUR/NOK", "USD/SEK", "USD/NOK", "USD/MXN",
   "USD/ZAR", "USD/TRY", "USD/SGD", "USD/HKD", "USD/PLN", "USD/DKK", "EUR/PLN",
   "GBP/CHF", "AUD/CHF", "NZD/CAD", "EUR/HUF", "USD/CNH", "USD/INR", "USD/BRL",
-  "EUR/TRY", "GBP/JPY", "AUD/USD", "CAD/CHF",
+  "CAD/CHF",
 ];
 
 const CRYPTO_PAIRS = [

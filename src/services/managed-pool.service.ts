@@ -12,8 +12,13 @@ import type {
   ManagedPoolRiskLevel,
 } from "@/domain/pools/managed-pool";
 import { DEFAULT_MANAGED_POOL_RETURN_TIERS } from "@/domain/pools/managed-pool";
+import {
+  normalizeFixedReturnRows,
+  type FixedReturnRow,
+} from "@/domain/pools/fixed-return";
+import { normalizeVariableReturnTiers } from "@/domain/pools/variable-return";
 import type { ManagedPoolReturnModel } from "@/domain/pools/return-model";
-import { tradingSessionLabel } from "@/domain/pools/trading-session";
+import { tradingSessionLabel, formatTradingDateTimeLabel } from "@/domain/pools/trading-session";
 import { poolGovernanceLockService } from "@/services/pool-governance-lock.service";
 import {
   normalizeManagedPoolForm,
@@ -24,6 +29,7 @@ import {
   parseCoverImagePosition,
   serializeCoverImagePosition,
 } from "@/domain/pools/cover-image-position";
+import { normalizeMarketCodes } from "@/domain/reference-data/utils";
 import { resolvePoolManagerPublicLabel, managerRowToIdentity } from "@/domain/pool-manager/public-profile";
 
 function parseAmount(value: string): number | undefined {
@@ -79,12 +85,22 @@ function buildPoolFaq(existing: unknown, config: ManagedPoolConfig): Record<stri
 }
 
 function normalizeReturnTiers(tiers: ReturnTier[]): ReturnTier[] {
-  if (!tiers.length) return [...DEFAULT_MANAGED_POOL_RETURN_TIERS];
-  return tiers.map((t) => ({
-    minAmount: t.minAmount,
-    maxAmount: t.maxAmount,
-    returnPct: t.returnPct,
-  }));
+  return normalizeVariableReturnTiers(tiers);
+}
+
+function readFixedReturnRows(config: ManagedPoolConfig, legacyTiers: ReturnTier[]): FixedReturnRow[] {
+  if (config.fixedReturnRows?.length) {
+    return normalizeFixedReturnRows(config.fixedReturnRows);
+  }
+  if (config.returnModel === "fixed" && legacyTiers.length) {
+    return normalizeFixedReturnRows(
+      legacyTiers.map((tier) => ({
+        investmentAmount: tier.minAmount,
+        fixedReturnAmount: tier.minAmount * (1 + tier.returnPct / 100),
+      }))
+    );
+  }
+  return [];
 }
 
 function formToFundPatch(
@@ -99,12 +115,17 @@ function formToFundPatch(
   const durationDays = parseAmount(input.tradingDurationDays);
   const targetReturn = parseAmount(input.targetReturnPct);
   const visibility = input.visibility;
-  const returnTiers = normalizeReturnTiers(input.returnTiers);
   const returnModel = resolveReturnModel(input.returnModel);
+  const returnTiers =
+    returnModel === "variable" ? normalizeReturnTiers(input.returnTiers) : [];
+  const fixedReturnRows =
+    returnModel === "fixed" ? normalizeFixedReturnRows(input.fixedReturnRows) : [];
   const sessionLabel = tradingSessionLabel(input.tradingSessionKey, input.tradingSessionCustom);
-  const instrumentCode = input.tradingInstrumentCode.trim();
-  const marketCode = input.marketTypeCode.trim();
-  const marketsTraded = [instrumentCode, marketCode].filter(Boolean);
+  const marketsTradedCodes = normalizeMarketCodes(input.marketsTradedCodes);
+  const tradingInstrumentCodes = (input.tradingInstrumentCodes ?? []).filter(Boolean);
+  const marketCode = marketsTradedCodes[0] ?? input.marketTypeCode.trim();
+  const instrumentCode = tradingInstrumentCodes[0] ?? input.tradingInstrumentCode.trim();
+  const marketsTraded = [...new Set([...tradingInstrumentCodes, ...marketsTradedCodes])];
 
   const managedConfig: ManagedPoolConfig = {
     ...config,
@@ -114,14 +135,17 @@ function formToFundPatch(
     timeframes: input.timeframes.trim(),
     tradingSessions: sessionLabel ?? input.tradingSessions.trim(),
     tradingHours: input.tradingTimeNy.trim()
-      ? `${input.tradingTimeNy.trim()} (New York Time)`
+      ? formatTradingDateTimeLabel(input.tradingTimeNy.trim()) ?? input.tradingHours.trim()
       : input.tradingHours.trim(),
     returnModel,
+    fixedReturnRows: returnModel === "fixed" ? fixedReturnRows : undefined,
     tradingSessionKey: input.tradingSessionKey || undefined,
     tradingSessionCustom: input.tradingSessionCustom.trim() || undefined,
     tradingTimeNy: input.tradingTimeNy.trim() || undefined,
     marketTypeCode: marketCode || undefined,
     tradingInstrumentCode: instrumentCode || undefined,
+    marketsTradedCodes: marketsTradedCodes.length ? marketsTradedCodes : undefined,
+    tradingInstrumentCodes: tradingInstrumentCodes.length ? tradingInstrumentCodes : undefined,
     expectedBehavior: input.expectedBehavior.trim(),
     managerNotes: input.managerNotes.trim(),
     tradingMethodology: input.tradingMethodology.trim(),
@@ -150,8 +174,10 @@ function formToFundPatch(
     ),
     card_background_color: input.cardBackgroundColor?.trim() || "#0f1623",
     return_tiers: returnTiers,
-    investor_share_pct: parseAmount(input.investorSharePct) ?? 80,
-    pool_manager_share_pct: parseAmount(input.poolManagerSharePct) ?? 20,
+    investor_share_pct:
+      returnModel === "variable" ? (parseAmount(input.investorSharePct) ?? 80) : 80,
+    pool_manager_share_pct:
+      returnModel === "variable" ? (parseAmount(input.poolManagerSharePct) ?? 20) : 20,
     tagline: input.poolName.trim() || null,
     markets_traded: marketsTraded.length ? marketsTraded : parseMarkets(input.markets),
     min_investment: minInvestment ?? 100,
@@ -182,6 +208,18 @@ export function poolToManagedForm(
 
   const instrumentFromConfig = config.tradingInstrumentCode ?? "";
   const marketFromConfig = config.marketTypeCode ?? "";
+  const marketsTradedCodes = config.marketsTradedCodes?.length
+    ? normalizeMarketCodes(config.marketsTradedCodes)
+    : marketFromConfig
+      ? normalizeMarketCodes([marketFromConfig])
+      : marketsTraded?.length
+        ? normalizeMarketCodes(marketsTraded.filter((code) => !code.includes(":")))
+        : [];
+  const tradingInstrumentCodes = config.tradingInstrumentCodes?.length
+    ? config.tradingInstrumentCodes
+    : instrumentFromConfig
+      ? [instrumentFromConfig]
+      : marketsTraded?.filter((code) => code.includes(":")) ?? [];
   const legacyMarkets = marketsTraded?.length
     ? marketsTraded.join(", ")
     : config.tradingStyle?.includes(",")
@@ -205,12 +243,14 @@ export function poolToManagedForm(
       ? config.tradingTimeNy
       : config.tradingHours?.replace(/\s*\(New York Time\)$/i, "") ?? "",
     returnModel: config.returnModel ?? "variable",
+    fixedReturnRows: readFixedReturnRows(config, pool.returnTiers ?? []),
     tradingSessionKey: config.tradingSessionKey ?? "",
     tradingSessionCustom: config.tradingSessionCustom ?? "",
     tradingTimeNy: config.tradingTimeNy ?? "",
-    marketTypeCode: marketFromConfig || (marketsTraded?.[1] ?? marketsTraded?.[0] ?? ""),
-    tradingInstrumentCode:
-      instrumentFromConfig || (marketsTraded?.[0] && marketsTraded.length > 1 ? marketsTraded[0] : ""),
+    marketTypeCode: marketsTradedCodes[0] ?? marketFromConfig,
+    tradingInstrumentCode: tradingInstrumentCodes[0] ?? instrumentFromConfig,
+    marketsTradedCodes,
+    tradingInstrumentCodes,
     expectedBehavior: config.expectedBehavior ?? "",
     managerNotes: config.managerNotes ?? "",
     tradingMethodology: config.tradingMethodology ?? pool.poolDescription ?? "",

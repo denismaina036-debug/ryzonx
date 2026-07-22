@@ -25,9 +25,11 @@ import {
 import {
   TRADING_SESSION_OPTIONS,
   TRADING_TIME_ZONE_LABEL,
+  toTradingDateTimeLocalValue,
 } from "@/domain/pools/trading-session";
+import { normalizeMarketCodes } from "@/domain/reference-data/utils";
 import { ReferenceMultiSelect } from "@/components/reference-data/reference-multi-select";
-import { ReferenceInstrumentPicker } from "@/components/reference-data/reference-instrument-picker";
+import { ReferenceInstrumentMultiSelect } from "@/components/reference-data/reference-instrument-multi-select";
 import { useReferenceData } from "@/hooks/use-reference-data";
 import {
   pmInputClass,
@@ -39,7 +41,8 @@ import {
 import { PmFormField } from "@/features/pool-manager/components/workspace/pm-form-field";
 import { PmSectionCard } from "@/features/pool-manager/components/workspace/pm-page-header";
 import { PoolImageUpload } from "./pool-image-upload";
-import { PmReturnTiersEditor } from "./pm-return-tiers-editor";
+import { PmFixedReturnEditor } from "./pm-fixed-return-editor";
+import { PmVariableReturnEditor } from "./pm-variable-return-editor";
 
 function buildStrategyReturnUrl(poolId?: string): string {
   const returnTo = poolId
@@ -70,7 +73,28 @@ export function ManagedPoolForm({
   }
 
   const isFixedReturn = values.returnModel === "fixed";
-  const marketCodes = values.marketTypeCode ? [values.marketTypeCode] : [];
+  const marketsTradedCodes = values.marketsTradedCodes ?? [];
+  const tradingInstrumentCodes = values.tradingInstrumentCodes ?? [];
+  const normalizedMarkets = normalizeMarketCodes(marketsTradedCodes);
+
+  function onMarketsChange(codes: string[]) {
+    const nextMarkets = normalizeMarketCodes(codes);
+    onChange({
+      ...values,
+      marketsTradedCodes: nextMarkets,
+      marketTypeCode: nextMarkets[0] ?? "",
+      tradingInstrumentCodes: [],
+      tradingInstrumentCode: "",
+    });
+  }
+
+  function onInstrumentsChange(codes: string[]) {
+    onChange({
+      ...values,
+      tradingInstrumentCodes: codes,
+      tradingInstrumentCode: codes[0] ?? "",
+    });
+  }
 
   return (
     <div className="space-y-8">
@@ -185,10 +209,14 @@ export function ManagedPoolForm({
               />
             </PmFormField>
           )}
-          <PmFormField label="Trading Time" hint={TRADING_TIME_ZONE_LABEL}>
+          <PmFormField
+            label="Trading Date & Time"
+            hint={`When trading begins — ${TRADING_TIME_ZONE_LABEL}.`}
+            required
+          >
             <Input
-              type="time"
-              value={values.tradingTimeNy}
+              type="datetime-local"
+              value={toTradingDateTimeLocalValue(values.tradingTimeNy)}
               onChange={(e) => patch("tradingTimeNy", e.target.value)}
               disabled={!editable}
               className={pmInputClass}
@@ -197,28 +225,33 @@ export function ManagedPoolForm({
         </div>
       </PmSectionCard>
 
-      <PmSectionCard title="What Is Traded" description="Publicly visible market and instrument.">
+      <PmSectionCard
+        title="What Is Traded"
+        description="Select the markets and instruments this pool trades — same as your Pool Manager application."
+      >
         <div className="space-y-6">
-          <PmFormField label="Market Type" required>
+          <PmFormField label="Markets Traded" required>
             <ReferenceMultiSelect
               options={marketOptions}
-              value={marketCodes}
-              onChange={(codes) => {
-                const next = codes.length === 0 ? "" : codes[codes.length - 1]!;
-                patch("marketTypeCode", next);
-                if (next !== values.marketTypeCode) patch("tradingInstrumentCode", "");
-              }}
+              value={normalizedMarkets}
+              onChange={onMarketsChange}
               disabled={!editable}
               loading={marketsLoading}
             />
           </PmFormField>
-          <PmFormField label="Trading Instrument" required>
-            <ReferenceInstrumentPicker
-              marketCodes={marketCodes}
-              value={values.tradingInstrumentCode}
-              onChange={(code) => patch("tradingInstrumentCode", code)}
+          <PmFormField label="Trading Instruments" required>
+            <ReferenceInstrumentMultiSelect
+              marketCodes={normalizedMarkets}
+              value={tradingInstrumentCodes}
+              onChange={onInstrumentsChange}
               disabled={!editable}
             />
+            {tradingInstrumentCodes.length > 0 && (
+              <p className="mt-2 text-xs text-[var(--id-text-muted)]">
+                {tradingInstrumentCodes.length} instrument
+                {tradingInstrumentCodes.length === 1 ? "" : "s"} selected
+              </p>
+            )}
           </PmFormField>
         </div>
       </PmSectionCard>
@@ -236,9 +269,6 @@ export function ManagedPoolForm({
           </PmFormField>
           <PmFormField label="Target Investors">
             <Input type="number" min={1} value={values.maxInvestors} onChange={(e) => patch("maxInvestors", e.target.value)} disabled={!editable} className={pmInputClass} />
-          </PmFormField>
-          <PmFormField label="Funding Period (days)" hint="Public funding countdown duration.">
-            <Input type="number" min={1} value={values.fundingPeriodDays} onChange={(e) => patch("fundingPeriodDays", e.target.value)} disabled={!editable} className={pmInputClass} />
           </PmFormField>
         </div>
       </PmSectionCard>
@@ -307,13 +337,13 @@ export function ManagedPoolForm({
           <PmFormField label="Target Drawdown (%)">
             <Input type="number" min={0} step="0.1" value={values.maxDrawdownPct} onChange={(e) => patch("maxDrawdownPct", e.target.value)} disabled={!editable} className={pmInputClass} />
           </PmFormField>
-          <PmFormField label="Leverage (optional)">
-            <Input value={values.leverage} onChange={(e) => patch("leverage", e.target.value)} disabled={!editable} placeholder="e.g. 1:30" className={pmInputClass} />
-          </PmFormField>
         </div>
       </PmSectionCard>
 
-      <PmSectionCard title="Return Structure" description="Select how investor returns are calculated at settlement.">
+      <PmSectionCard
+        title="Return Structure"
+        description="Choose one settlement model. Fixed Return and Variable Return are completely independent."
+      >
         <PmFormField label="Return Model" required>
           <Select
             value={values.returnModel}
@@ -335,68 +365,31 @@ export function ManagedPoolForm({
 
         {isFixedReturn ? (
           <div className="mt-6">
-            <p className="mb-4 text-sm text-[var(--id-text-muted)]">
-              Define fixed investor returns by investment amount tier. At settlement, promised returns are paid first from net trading profits after the 2.5% platform fee.
-            </p>
-            <PmReturnTiersEditor
-              tiers={values.returnTiers}
-              onChange={(returnTiers) => patch("returnTiers", returnTiers)}
+            <PmFixedReturnEditor
+              rows={values.fixedReturnRows}
+              onChange={(fixedReturnRows) => patch("fixedReturnRows", fixedReturnRows)}
               disabled={!editable}
             />
           </div>
         ) : (
-          <div className="mt-6 space-y-6">
-            <PmReturnTiersEditor
+          <div className="mt-6">
+            <PmVariableReturnEditor
               tiers={values.returnTiers}
-              onChange={(returnTiers) => patch("returnTiers", returnTiers)}
+              investorSharePct={values.investorSharePct}
+              poolManagerSharePct={values.poolManagerSharePct}
+              onTiersChange={(returnTiers) => patch("returnTiers", returnTiers)}
+              onInvestorShareChange={(investorSharePct) => patch("investorSharePct", investorSharePct)}
+              onPoolManagerShareChange={(poolManagerSharePct) =>
+                patch("poolManagerSharePct", poolManagerSharePct)
+              }
               disabled={!editable}
             />
-            <div className="grid gap-6 sm:grid-cols-2 border-t border-white/10 pt-6">
-              <PmFormField label="Investor Share (%)" hint="Share of net profit after platform fee. Must total 100% with PM share.">
-                <Input
-                  type="number"
-                  min={1}
-                  max={99}
-                  value={values.investorSharePct}
-                  onChange={(e) => patch("investorSharePct", e.target.value)}
-                  disabled={!editable}
-                  className={pmInputClass}
-                />
-              </PmFormField>
-              <PmFormField label="Pool Manager Share (%)">
-                <Input
-                  type="number"
-                  min={1}
-                  max={99}
-                  value={values.poolManagerSharePct}
-                  onChange={(e) => patch("poolManagerSharePct", e.target.value)}
-                  disabled={!editable}
-                  className={pmInputClass}
-                />
-              </PmFormField>
-            </div>
           </div>
         )}
       </PmSectionCard>
 
-      <PmSectionCard title="Pool Appearance & Visibility" description="Presentation and marketplace visibility.">
-        <div className="space-y-6">
-          <PmFormField label="Card Background Color" hint="Hex color used on your marketplace pool card.">
-            <div className="flex items-center gap-3">
-              <Input
-                value={values.cardBackgroundColor}
-                onChange={(e) => patch("cardBackgroundColor", e.target.value)}
-                disabled={!editable}
-                placeholder="#0f1623"
-                className={pmInputClass}
-              />
-              <span
-                className="h-10 w-10 shrink-0 rounded-md border border-border"
-                style={{ backgroundColor: values.cardBackgroundColor || "#0f1623" }}
-              />
-            </div>
-          </PmFormField>
-          <PmFormField label="Pool Visibility">
+      <PmSectionCard title="Pool Visibility" description="Control who can discover and join this pool.">
+        <PmFormField label="Pool Visibility">
           <Select value={values.visibility} onValueChange={(v) => patch("visibility", v as ManagedPoolFormInput["visibility"])} disabled={!editable}>
             <SelectTrigger className={pmSelectTriggerClass}><SelectValue /></SelectTrigger>
             <SelectContent className={pmSelectContentClass}>
@@ -405,8 +398,7 @@ export function ManagedPoolForm({
               ))}
             </SelectContent>
           </Select>
-          </PmFormField>
-        </div>
+        </PmFormField>
       </PmSectionCard>
     </div>
   );

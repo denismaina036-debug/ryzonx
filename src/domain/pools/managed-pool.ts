@@ -20,6 +20,9 @@
 
 import type { ReturnTier } from "@/features/investor/types/account";
 import type { ManagedPoolReturnModel } from "@/domain/pools/return-model";
+import type { FixedReturnRow } from "@/domain/pools/fixed-return";
+import { DEFAULT_FIXED_RETURN_ROWS } from "@/domain/pools/fixed-return";
+import { DEFAULT_VARIABLE_RETURN_TIERS } from "@/domain/pools/variable-return";
 import {
   DEFAULT_COVER_IMAGE_POSITION,
   type CoverImagePosition,
@@ -87,23 +90,7 @@ export type ManagedPoolDurationUnit = (typeof MANAGED_POOL_DURATION_UNITS)[numbe
 
 
 
-export const DEFAULT_MANAGED_POOL_RETURN_TIERS: ReturnTier[] = [
-
-
-
-  { minAmount: 100, maxAmount: 499, returnPct: 8 },
-
-
-
-  { minAmount: 500, maxAmount: 999, returnPct: 12 },
-
-
-
-  { minAmount: 1000, maxAmount: null, returnPct: 18 },
-
-
-
-];
+export const DEFAULT_MANAGED_POOL_RETURN_TIERS: ReturnTier[] = [...DEFAULT_VARIABLE_RETURN_TIERS];
 
 
 
@@ -143,6 +130,9 @@ export interface ManagedPoolConfig {
 
   returnModel?: ManagedPoolReturnModel;
 
+  /** Fixed Return schedule — only used when returnModel is "fixed". */
+  fixedReturnRows?: FixedReturnRow[];
+
   tradingSessionKey?: string;
 
   tradingSessionCustom?: string;
@@ -152,6 +142,12 @@ export interface ManagedPoolConfig {
   marketTypeCode?: string;
 
   tradingInstrumentCode?: string;
+
+  /** Selected market codes (multi-select, same as PM application). */
+  marketsTradedCodes?: string[];
+
+  /** Selected instrument codes for the chosen markets. */
+  tradingInstrumentCodes?: string[];
 
 
 
@@ -275,6 +271,12 @@ export interface ManagedPoolFormInput {
 
   returnModel: ManagedPoolReturnModel;
 
+  /** Fixed Return amount mapping — independent from returnTiers. */
+  fixedReturnRows: FixedReturnRow[];
+
+  /** Variable Return tiers — independent from fixedReturnRows. */
+  returnTiers: ReturnTier[];
+
   tradingSessionKey: string;
 
   tradingSessionCustom: string;
@@ -284,6 +286,10 @@ export interface ManagedPoolFormInput {
   marketTypeCode: string;
 
   tradingInstrumentCode: string;
+
+  marketsTradedCodes: string[];
+
+  tradingInstrumentCodes: string[];
 
 
 
@@ -352,10 +358,6 @@ export interface ManagedPoolFormInput {
 
 
   leverage: string;
-
-
-
-  returnTiers: ReturnTier[];
 
 
 
@@ -435,6 +437,10 @@ export function emptyManagedPoolForm(): ManagedPoolFormInput {
 
     returnModel: "variable",
 
+    fixedReturnRows: [...DEFAULT_FIXED_RETURN_ROWS],
+
+    returnTiers: [...DEFAULT_MANAGED_POOL_RETURN_TIERS],
+
     tradingSessionKey: "",
 
     tradingSessionCustom: "",
@@ -444,6 +450,10 @@ export function emptyManagedPoolForm(): ManagedPoolFormInput {
     marketTypeCode: "",
 
     tradingInstrumentCode: "",
+
+    marketsTradedCodes: [],
+
+    tradingInstrumentCodes: [],
 
 
 
@@ -512,10 +522,6 @@ export function emptyManagedPoolForm(): ManagedPoolFormInput {
 
 
     leverage: "",
-
-
-
-    returnTiers: [...DEFAULT_MANAGED_POOL_RETURN_TIERS],
 
 
 

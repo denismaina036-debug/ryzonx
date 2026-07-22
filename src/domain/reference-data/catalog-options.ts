@@ -49,6 +49,7 @@ function getInstrumentsByMarket(): Map<string, ReferenceDataOption[]> {
   for (const item of getCatalogOptions(REFERENCE_SET_KEYS.FINANCIAL_INSTRUMENTS)) {
     if (!item.parentCode) continue;
     const bucket = instrumentsByMarket.get(item.parentCode) ?? [];
+    if (bucket.some((existing) => existing.code === item.code)) continue;
     bucket.push(item);
     instrumentsByMarket.set(item.parentCode, bucket);
   }
@@ -61,10 +62,16 @@ export function getCatalogInstrumentsForMarkets(marketCodes: string[]): Referenc
   if (markets.length === 0) return [];
 
   const byMarket = getInstrumentsByMarket();
+  const seen = new Set<string>();
   const result: ReferenceDataOption[] = [];
   for (const market of markets) {
     const bucket = byMarket.get(market);
-    if (bucket) result.push(...bucket);
+    if (!bucket) continue;
+    for (const option of bucket) {
+      if (seen.has(option.code)) continue;
+      seen.add(option.code);
+      result.push(option);
+    }
   }
 
   return result;

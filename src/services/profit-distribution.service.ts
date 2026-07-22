@@ -7,10 +7,10 @@ import {
 } from "@/constants/profit-distribution";
 import { generateLedgerReference } from "@/lib/financial/ledger-utils";
 import {
-  calculateProfitDistribution,
   computeCycleRealizedTradingProfit,
 } from "@/lib/financial/profit-distribution-calculator";
 import { calculateFixedReturnDistribution } from "@/lib/financial/fixed-return-distribution";
+import { calculateVariableReturnDistribution } from "@/lib/financial/variable-return-distribution";
 import type { ManagedPoolReturnModel } from "@/domain/pools/return-model";
 import { platformSettingsService } from "@/services/platform-settings.service";
 import { auditService } from "@/services/audit.service";
@@ -21,6 +21,10 @@ import { ledgerService } from "@/services/ledger.service";
 import { ledgerAccountService } from "@/services/ledger-account.service";
 import { publishPlatformEvent, PLATFORM_EVENT_TYPES } from "@/lib/platform-events/publish";
 import type { ReturnTier } from "@/features/investor/types/account";
+import {
+  normalizeFixedReturnRows,
+  type FixedReturnRow,
+} from "@/domain/pools/fixed-return";
 import type {
   ProfitSettlement,
   ProfitSettlementAllocation,
@@ -137,11 +141,23 @@ function readManagedReturnModel(poolFaq: unknown): ManagedPoolReturnModel {
   return model === "fixed" ? "fixed" : "variable";
 }
 
+function parseFixedReturnRows(raw: unknown, poolFaq: unknown): FixedReturnRow[] {
+  if (poolFaq && typeof poolFaq === "object" && !Array.isArray(poolFaq)) {
+    const managed = (poolFaq as { managedPool?: { fixedReturnRows?: unknown } }).managedPool;
+    if (Array.isArray(managed?.fixedReturnRows)) {
+      return normalizeFixedReturnRows(managed.fixedReturnRows as FixedReturnRow[]);
+    }
+  }
+  return [];
+}
+
 async function readPoolFinancialConfig(fundId: string | null): Promise<{
   returnModel: ManagedPoolReturnModel;
   investorSharePct: number;
   poolManagerSharePct: number;
   returnStructure: ReturnTier[];
+  fixedReturnSchedule: FixedReturnRow[];
+  targetCapital: number;
 }> {
   if (!fundId) {
     return {
@@ -149,12 +165,14 @@ async function readPoolFinancialConfig(fundId: string | null): Promise<{
       investorSharePct: 80,
       poolManagerSharePct: 20,
       returnStructure: [],
+      fixedReturnSchedule: [],
+      targetCapital: 0,
     };
   }
   const db = createAdminClient();
   const { data } = await db
     .from("funds")
-    .select("investor_share_pct, pool_manager_share_pct, return_tiers, pool_faq")
+    .select("investor_share_pct, pool_manager_share_pct, return_tiers, pool_faq, target_capital")
     .eq("id", fundId)
     .maybeSingle();
   const row = data as {
@@ -162,12 +180,26 @@ async function readPoolFinancialConfig(fundId: string | null): Promise<{
     pool_manager_share_pct?: number;
     return_tiers?: unknown;
     pool_faq?: unknown;
+    target_capital?: number;
   } | null;
+  const returnModel = readManagedReturnModel(row?.pool_faq);
+  const legacyTiers = parseReturnTiers(row?.return_tiers);
+  let fixedReturnSchedule = parseFixedReturnRows(row?.return_tiers, row?.pool_faq);
+  if (returnModel === "fixed" && fixedReturnSchedule.length === 0 && legacyTiers.length) {
+    fixedReturnSchedule = normalizeFixedReturnRows(
+      legacyTiers.map((tier) => ({
+        investmentAmount: tier.minAmount,
+        fixedReturnAmount: tier.minAmount * (1 + tier.returnPct / 100),
+      }))
+    );
+  }
   return {
-    returnModel: readManagedReturnModel(row?.pool_faq),
+    returnModel,
     investorSharePct: toNumber(row?.investor_share_pct) || 80,
     poolManagerSharePct: toNumber(row?.pool_manager_share_pct) || 20,
-    returnStructure: parseReturnTiers(row?.return_tiers),
+    returnStructure: returnModel === "variable" ? legacyTiers : [],
+    fixedReturnSchedule,
+    targetCapital: toNumber(row?.target_capital),
   };
 }
 
@@ -254,17 +286,17 @@ export const profitDistributionService = {
         ? calculateFixedReturnDistribution({
             grossTradingProfit,
             platformServiceFeeRate: platformFeeRate,
-            returnStructure: poolConfig.returnStructure,
+            fixedReturnSchedule: poolConfig.fixedReturnSchedule,
             allocations: allocationInput,
           })
-        : calculateProfitDistribution({
+        : calculateVariableReturnDistribution({
             grossTradingProfit: Math.max(0, grossTradingProfit),
             platformServiceFeeRate: platformFeeRate,
             profitSharing: {
               investorSharePct: poolConfig.investorSharePct,
               poolManagerSharePct: poolConfig.poolManagerSharePct,
             },
-            returnStructure: poolConfig.returnStructure,
+            targetCapital: poolConfig.targetCapital || cycleCapital,
             allocations: allocationInput,
           });
 
@@ -293,16 +325,20 @@ export const profitDistributionService = {
                 "gross_trading_profit",
                 "platform_service_fee",
                 "fixed_return_obligations",
+                "pool_manager_remainder",
               ]
             : [
                 "gross_trading_profit",
                 "platform_service_fee",
                 "net_distributable_profit",
-                "pool_manager_share",
-                "investor_profit_pool",
-                "return_structure_distribution",
+                "profit_split",
+                "target_capital_allocation",
               ],
-        returnStructure: poolConfig.returnStructure,
+        fixedReturnSchedule:
+          poolConfig.returnModel === "fixed" ? poolConfig.fixedReturnSchedule : undefined,
+        returnStructure:
+          poolConfig.returnModel === "variable" ? poolConfig.returnStructure : undefined,
+        targetCapital: poolConfig.targetCapital,
         investorProfitPool: breakdown.investorProfitPool,
       },
     };
