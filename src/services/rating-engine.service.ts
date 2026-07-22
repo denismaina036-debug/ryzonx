@@ -89,6 +89,8 @@ export const ratingEngineService = {
       };
       if (hasSufficientData || adminRating == null) {
         ratingPatch.ryvonx_rating = overallRating;
+      } else {
+        // Keep the admin Overall Rating; never replace with empty-metric ~2.5 scores.
       }
 
       await db

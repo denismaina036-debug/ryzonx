@@ -1,8 +1,9 @@
 import type { InvestmentAllocationStatus } from "@/constants/investment-allocation";
 import type { InvestmentCycle } from "@/domain/investment/types";
 
-/** Statuses that count toward displayed Raised Capital (confirmed commitments). */
+/** Statuses that count toward displayed Raised Capital (all funded commitments). */
 export const RAISED_CAPITAL_ALLOCATION_STATUSES: InvestmentAllocationStatus[] = [
+  "pending",
   "funding_confirmed",
   "confirmed",
   "settled",

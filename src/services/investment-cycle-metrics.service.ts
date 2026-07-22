@@ -91,10 +91,37 @@ export const investmentCycleMetricsService = {
 
   async enrichCycles(cycles: InvestmentCycle[]): Promise<InvestmentCycle[]> {
     if (cycles.length === 0) return cycles;
-    const raisedByCycle = await this.sumRaisedCapitalForCycles(cycles.map((cycle) => cycle.id));
-    return cycles.map((cycle) =>
-      applyCycleFundingMetrics(cycle, raisedByCycle.get(cycle.id) ?? 0)
+
+    // Repair historical marketplace joins that never created cycle allocations.
+    const { investmentAllocationService } = await import(
+      "@/services/investment-allocation.service"
     );
+    await Promise.all(
+      cycles.map(async (cycle) => {
+        if (!cycle.fundId) return;
+        const live = await this.sumRaisedCapitalForCycle(cycle.id);
+        if (live > 0) return;
+        await investmentAllocationService.syncPortfolioInvestmentsToCycle(
+          cycle.fundId,
+          cycle.id
+        );
+      })
+    );
+
+    const raisedByCycle = await this.sumRaisedCapitalForCycles(cycles.map((cycle) => cycle.id));
+    const investorCounts = await Promise.all(
+      cycles.map(async (cycle) => [cycle.id, await countActiveInvestors(cycle.id)] as const)
+    );
+    const investorByCycle = new Map(investorCounts);
+
+    return cycles.map((cycle) => {
+      const raised = raisedByCycle.get(cycle.id) ?? 0;
+      const enriched = applyCycleFundingMetrics(cycle, raised);
+      return {
+        ...enriched,
+        investorCount: investorByCycle.get(cycle.id) ?? cycle.investorCount,
+      };
+    });
   },
 
   async enrichCycle(cycle: InvestmentCycle | null): Promise<InvestmentCycle | null> {

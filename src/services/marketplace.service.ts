@@ -133,6 +133,46 @@ async function enrichPoolCards(
   ];
   const raisedByCycle = await investmentCycleMetricsService.sumRaisedCapitalForCycles(activeCycleIds);
 
+  // Repair historical joins that updated fund capital but never created cycle allocations.
+  const repairTargets = rows
+    .map((row) => {
+      const cycle = pickActiveCycleForFund(cycles, row.id as string);
+      if (!cycle) return null;
+      const live = raisedByCycle.get(cycle.id) ?? 0;
+      const fundCapital = toNumber(row.current_capital as number | null);
+      if (live <= 0 && fundCapital > 0) {
+        return { fundId: row.id as string, cycleId: cycle.id };
+      }
+      return null;
+    })
+    .filter((v): v is { fundId: string; cycleId: string } => v != null);
+
+  const repairedInvestorCounts = new Map<string, number>();
+  if (repairTargets.length > 0) {
+    const { investmentAllocationService } = await import(
+      "@/services/investment-allocation.service"
+    );
+    await Promise.all(
+      repairTargets.map(({ fundId, cycleId }) =>
+        investmentAllocationService.syncPortfolioInvestmentsToCycle(fundId, cycleId)
+      )
+    );
+    const repaired = await investmentCycleMetricsService.sumRaisedCapitalForCycles(activeCycleIds);
+    for (const [cycleId, amount] of repaired) {
+      raisedByCycle.set(cycleId, amount);
+    }
+    const { data: repairedCycles } = await db
+      .from("investment_cycles")
+      .select("id, investor_count")
+      .in(
+        "id",
+        repairTargets.map((t) => t.cycleId)
+      );
+    for (const row of (repairedCycles ?? []) as Array<{ id: string; investor_count: number }>) {
+      repairedInvestorCounts.set(row.id, toNumber(row.investor_count));
+    }
+  }
+
   const managerIdsForReviews = [
     ...new Set(cards.map((c) => c.managerId).filter(Boolean)),
   ] as string[];
@@ -178,7 +218,11 @@ async function enrichPoolCards(
           ? toNumber(row.max_investors_cap as number)
           : null;
     const liveParticipantCount =
-      cycle?.investor_count != null ? toNumber(cycle.investor_count) : liveInvestors;
+      cycle != null && repairedInvestorCounts.has(cycle.id)
+        ? (repairedInvestorCounts.get(cycle.id) ?? 0)
+        : cycle?.investor_count != null
+          ? toNumber(cycle.investor_count)
+          : liveInvestors;
     const cycleParticipantCount = resolvePublicDisplayCount(seedInvestors, liveParticipantCount);
     const fundingPeriodEndsAt =
       cycle?.funding_deadline ?? cycle?.closing_date ?? null;
@@ -193,11 +237,24 @@ async function enrichPoolCards(
       ? liveReviewCounts.get(card.managerId) ?? 0
       : 0;
     const seedReviewCount = manager?.display_review_count ?? 0;
-    // Star rating = admin Overall Rating on the manager (never aggressiveness 2.5).
+    // Star rating = admin Overall Rating. Never use aggressiveness (often 2.5 Balanced).
     const managerOverallRating =
       manager?.ryvonx_rating != null
         ? toNumber(manager.ryvonx_rating)
         : card.ryvonxRating;
+    const aggressiveness =
+      manager?.aggressiveness_rating != null
+        ? toNumber(manager.aggressiveness_rating)
+        : null;
+    const looksLikeAggressivenessBleed =
+      managerOverallRating != null &&
+      aggressiveness != null &&
+      managerOverallRating === aggressiveness &&
+      card.ryvonxRating != null &&
+      card.ryvonxRating !== managerOverallRating;
+    const resolvedManagerRating = looksLikeAggressivenessBleed
+      ? card.ryvonxRating
+      : managerOverallRating;
 
     return {
       ...card,
@@ -249,7 +306,7 @@ async function enrichPoolCards(
       ),
       poolLevelLabel: formatPoolLevelLabel(card.capacityStatus),
       poolVerified: card.governanceVerified,
-      managerRating: managerOverallRating,
+      managerRating: resolvedManagerRating,
       managerReviewCount: resolvePublicDisplayCount(seedReviewCount, liveReviewCount),
       poolDurationDays: row.pool_duration_days as number | null,
     };

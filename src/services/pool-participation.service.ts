@@ -5,6 +5,8 @@ import { requireAuth } from "@/lib/auth/session";
 import { communicationTriggers } from "@/services/communication";
 import { formatMoney } from "@/services/communication/user-variables";
 import { isPoolJoinBlocked } from "@/lib/governance/protection-indicators";
+import { investmentCycleService } from "@/services/investment-cycle.service";
+import { investmentAllocationService } from "@/services/investment-allocation.service";
 import type { ReturnTier } from "@/features/investor/types/account";
 import type {
   ParticipatablePool,
@@ -418,6 +420,22 @@ export const poolParticipationService = {
       "Could not update pool statistics."
     );
 
+    // Wire the wallet investment to the Active Investment Cycle so Raised Capital
+    // updates on the PM cycle page and marketplace cards.
+    const activeCycle = await investmentCycleService.getActiveForFund(poolId);
+    if (activeCycle && (activeCycle.status === "funding" || activeCycle.status === "approved")) {
+      await investmentAllocationService.recordMarketplaceJoin({
+        cycleId: activeCycle.id,
+        investorId: user.id,
+        amount,
+      });
+    } else if (activeCycle) {
+      await investmentAllocationService.syncPortfolioInvestmentsToCycle(
+        poolId,
+        activeCycle.id
+      );
+    }
+
     const { error: txError } = await db.from("transactions").insert({
       user_id: user.id,
       fund_id: poolId,
@@ -587,6 +605,14 @@ export const poolParticipationService = {
         active_investors: Math.max(0, toNumber(fundRow.active_investors) - 1),
       } as never)
       .eq("id", poolId);
+
+    const activeCycle = await investmentCycleService.getActiveForFund(poolId);
+    if (activeCycle) {
+      await investmentAllocationService.cancelMarketplaceParticipation({
+        cycleId: activeCycle.id,
+        investorId: user.id,
+      });
+    }
 
     await db.from("transactions").insert({
       user_id: user.id,

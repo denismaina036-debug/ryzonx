@@ -318,4 +318,160 @@ export const investmentAllocationService = {
 
     return allocation;
   },
+
+  /**
+   * After a marketplace join (wallet debit), attach the investment to the active cycle
+   * so Raised Capital / investor count update on PM + marketplace views.
+   */
+  async recordMarketplaceJoin(input: {
+    cycleId: string;
+    investorId: string;
+    amount: number;
+  }): Promise<InvestmentAllocation> {
+    if (input.amount <= 0) throw new Error("Allocation amount must be positive.");
+
+    const cycle = await investmentCycleService.getById(input.cycleId);
+    if (!cycle) throw new Error("Investment cycle not found.");
+    if (cycle.status !== "funding" && cycle.status !== "approved") {
+      throw new Error("Investment cycle is not accepting allocations.");
+    }
+
+    const db = createAdminClient();
+    const { data: existingRow } = await db
+      .from("investment_allocations")
+      .select("*")
+      .eq("investment_cycle_id", input.cycleId)
+      .eq("investor_id", input.investorId)
+      .maybeSingle();
+
+    const existing = existingRow ? mapAllocation(existingRow as AllocationRow) : null;
+    const now = new Date().toISOString();
+
+    if (existing && existing.status !== "cancelled" && existing.status !== "rejected") {
+      const nextAmount = existing.amount + input.amount;
+      const { data, error } = await db
+        .from("investment_allocations")
+        .update({
+          amount: nextAmount,
+          status: "funding_confirmed",
+          funding_confirmed_at: existing.fundingConfirmedAt ?? now,
+        } as never)
+        .eq("id", existing.id)
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(error?.message ?? "Could not update allocation.");
+      await investmentCycleMetricsService.recalculateCycleRaisedCapital(input.cycleId);
+      return mapAllocation(data as AllocationRow);
+    }
+
+    const { data, error } = await db
+      .from("investment_allocations")
+      .insert({
+        investment_cycle_id: input.cycleId,
+        investor_id: input.investorId,
+        amount: input.amount,
+        currency: "USD",
+        status: "funding_confirmed",
+        funding_confirmed_at: now,
+        reference_number: generateAllocationReference(),
+      } as never)
+      .select("*")
+      .single();
+
+    if (error || !data) throw new Error(error?.message ?? "Could not create allocation.");
+    await investmentCycleMetricsService.recalculateCycleRaisedCapital(input.cycleId);
+    return mapAllocation(data as AllocationRow);
+  },
+
+  /**
+   * Repair path: copy fund portfolio investments onto the cycle when join historically
+   * skipped allocation rows (so Raised Capital stayed $0).
+   */
+  async syncPortfolioInvestmentsToCycle(fundId: string, cycleId: string): Promise<number> {
+    const db = createAdminClient();
+    const raised = await investmentCycleMetricsService.sumRaisedCapitalForCycle(cycleId);
+    if (raised > 0) return raised;
+
+    const { data: fund } = await db
+      .from("funds")
+      .select("current_capital")
+      .eq("id", fundId)
+      .maybeSingle();
+    if (toNumber((fund as { current_capital?: number } | null)?.current_capital) <= 0) {
+      return 0;
+    }
+
+    const { data: portfolios, error } = await db
+      .from("investor_portfolios")
+      .select("user_id, total_invested")
+      .eq("fund_id", fundId)
+      .gt("total_invested", 0);
+
+    if (error) throw new Error(error.message);
+    const rows = (portfolios ?? []) as Array<{ user_id: string; total_invested: number }>;
+    if (rows.length === 0) return 0;
+
+    const now = new Date().toISOString();
+    for (const row of rows) {
+      const amount = toNumber(row.total_invested);
+      if (amount <= 0) continue;
+
+      const { data: existingRow } = await db
+        .from("investment_allocations")
+        .select("id, status")
+        .eq("investment_cycle_id", cycleId)
+        .eq("investor_id", row.user_id)
+        .maybeSingle();
+
+      const existing = existingRow as { id: string; status: string } | null;
+      if (existing && existing.status !== "cancelled" && existing.status !== "rejected") {
+        await db
+          .from("investment_allocations")
+          .update({
+            amount,
+            status: "funding_confirmed",
+            funding_confirmed_at: now,
+          } as never)
+          .eq("id", existing.id);
+      } else {
+        await db.from("investment_allocations").insert({
+          investment_cycle_id: cycleId,
+          investor_id: row.user_id,
+          amount,
+          currency: "USD",
+          status: "funding_confirmed",
+          funding_confirmed_at: now,
+          reference_number: generateAllocationReference(),
+        } as never);
+      }
+    }
+
+    return investmentCycleMetricsService.recalculateCycleRaisedCapital(cycleId);
+  },
+
+  /** Clear cycle allocation when an investor fully exits a pool. */
+  async cancelMarketplaceParticipation(input: {
+    cycleId: string;
+    investorId: string;
+  }): Promise<void> {
+    const db = createAdminClient();
+    const { data: existingRow } = await db
+      .from("investment_allocations")
+      .select("id, status")
+      .eq("investment_cycle_id", input.cycleId)
+      .eq("investor_id", input.investorId)
+      .maybeSingle();
+
+    const existing = existingRow as { id: string; status: string } | null;
+    if (!existing || existing.status === "cancelled" || existing.status === "rejected") {
+      return;
+    }
+
+    await db
+      .from("investment_allocations")
+      .update({ status: "cancelled" } as never)
+      .eq("id", existing.id);
+
+    await investmentCycleMetricsService.recalculateCycleRaisedCapital(input.cycleId);
+  },
 };
