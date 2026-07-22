@@ -900,6 +900,7 @@ export type Database = {
         Row: {
           active_investors: number
           display_active_investors: number
+          display_raised_capital: number
           admin_comments: string | null
           admin_ranking: number
           aggressiveness_level: string | null
@@ -988,6 +989,7 @@ export type Database = {
         Insert: {
           active_investors?: number
           display_active_investors?: number
+          display_raised_capital?: number
           assets_under_management?: number
           approved_at?: string | null
           card_background_color?: string | null
@@ -1028,6 +1030,7 @@ export type Database = {
         Update: {
           active_investors?: number
           display_active_investors?: number
+          display_raised_capital?: number
           assets_under_management?: number
           approved_at?: string | null
           card_background_color?: string | null

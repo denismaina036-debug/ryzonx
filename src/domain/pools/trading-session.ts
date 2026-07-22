@@ -17,7 +17,15 @@ export function toTradingDateTimeLocalValue(value: string | undefined): string {
   const trimmed = value?.trim() ?? "";
   if (!trimmed) return "";
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(trimmed)) {
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) {
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
+    }
     return trimmed.slice(0, 16);
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return `${trimmed}T00:00`;
   }
   if (/^\d{2}:\d{2}(:\d{2})?$/.test(trimmed)) {
     const time = trimmed.slice(0, 5);
@@ -32,8 +40,8 @@ export function formatTradingDateTimeLabel(value: string | undefined): string | 
   if (!trimmed) return null;
 
   let date: Date | null = null;
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(trimmed)) {
-    date = new Date(trimmed);
+  if (/^\d{4}-\d{2}-\d{2}T/.test(trimmed) || /^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    date = new Date(trimmed.includes("T") ? trimmed : `${trimmed}T00:00:00`);
   } else if (/^\d{2}:\d{2}(:\d{2})?$/.test(trimmed)) {
     const today = new Date().toISOString().slice(0, 10);
     date = new Date(`${today}T${trimmed.slice(0, 5)}`);

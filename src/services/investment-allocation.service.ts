@@ -183,13 +183,6 @@ export const investmentAllocationService = {
 
     const allocation = mapAllocation(data as AllocationRow);
 
-    await db
-      .from("investment_cycles")
-      .update({
-        investor_count: cycle.investorCount + 1,
-      } as never)
-      .eq("id", cycle.id);
-
     await investmentCycleMetricsService.recalculateCycleRaisedCapital(cycle.id);
 
     await auditService.log({
@@ -249,13 +242,6 @@ export const investmentAllocationService = {
 
     if (error) throw new Error(error.message);
     const allocation = mapAllocation(data as AllocationRow);
-
-    await db
-      .from("investment_cycles")
-      .update({
-        investor_count: Math.max(0, cycle.investorCount - 1),
-      } as never)
-      .eq("id", cycle.id);
 
     await investmentCycleMetricsService.recalculateCycleRaisedCapital(cycle.id);
 

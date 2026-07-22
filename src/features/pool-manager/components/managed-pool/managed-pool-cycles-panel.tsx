@@ -97,10 +97,14 @@ export function ManagedPoolCyclesPanel({
                   </p>
                   <p className="text-[var(--id-text-muted)]">
                     {INVESTMENT_CYCLE_STATUS_LABELS[cycle.status] ?? cycle.status}
-                    {cycle.openingDate &&
-                      ` · Opens ${new Date(cycle.openingDate).toLocaleDateString()}`}
+                    {(cycle.fundingStartedAt || cycle.openingDate) &&
+                      ` · Funding Start ${new Date(cycle.fundingStartedAt ?? cycle.openingDate!).toLocaleString()}`}
                     {cycle.closingDate &&
-                      ` · Closes ${new Date(cycle.closingDate).toLocaleDateString()}`}
+                      ` · Funding End ${new Date(cycle.closingDate).toLocaleString()}`}
+                    {cycle.raisedCapital != null &&
+                      ` · Raised ${cycle.raisedCapital.toLocaleString()}`}
+                    {cycle.fundingProgressPct != null && ` (${cycle.fundingProgressPct}%)`}
+                    {` · Investors ${cycle.investorCount}`}
                   </p>
                 </div>
                 <span className="text-xs text-[var(--id-text-muted)]">Pool v{cycle.poolVersion}</span>

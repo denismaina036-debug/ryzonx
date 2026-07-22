@@ -124,6 +124,7 @@ export interface AdminFund {
   maxAum: number | null;
   maxInvestorsCap: number | null;
   displayActiveInvestors: number;
+  displayRaisedCapital: number;
 }
 
 export interface AdminTrade {

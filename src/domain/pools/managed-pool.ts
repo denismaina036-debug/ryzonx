@@ -319,7 +319,11 @@ export interface ManagedPoolFormInput {
 
   maxInvestors: string;
 
+  /** Marketplace display seed — participants numerator until live exceeds. */
+  displayActiveInvestors: string;
 
+  /** Marketplace display seed — raised capital until live exceeds. */
+  displayRaisedCapital: string;
 
   fundingPeriodDays: string;
 
@@ -483,7 +487,9 @@ export function emptyManagedPoolForm(): ManagedPoolFormInput {
 
     maxInvestors: "",
 
+    displayActiveInvestors: "",
 
+    displayRaisedCapital: "",
 
     fundingPeriodDays: "",
 

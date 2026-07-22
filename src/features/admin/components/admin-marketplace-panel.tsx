@@ -39,6 +39,7 @@ export interface MarketplaceAdminFields {
   maxAum: string;
   maxInvestorsCap: string;
   displayActiveInvestors: string;
+  displayRaisedCapital: string;
 }
 
 export function AdminMarketplacePanel({
@@ -80,6 +81,9 @@ export function AdminMarketplacePanel({
           maxInvestorsCap: form.maxInvestorsCap ? Number(form.maxInvestorsCap) : null,
           displayActiveInvestors: form.displayActiveInvestors
             ? Number(form.displayActiveInvestors)
+            : 0,
+          displayRaisedCapital: form.displayRaisedCapital
+            ? Number(form.displayRaisedCapital)
             : 0,
         }),
       });
@@ -238,6 +242,11 @@ export function AdminMarketplacePanel({
         placeholder="Initial displayed investors (marketplace baseline)"
         value={form.displayActiveInvestors}
         onChange={(e) => setForm({ ...form, displayActiveInvestors: e.target.value })}
+      />
+      <Input
+        placeholder="Initial displayed raised capital (marketplace baseline)"
+        value={form.displayRaisedCapital}
+        onChange={(e) => setForm({ ...form, displayRaisedCapital: e.target.value })}
       />
 
       <Input

@@ -36,6 +36,22 @@ async function sumAllocationAmounts(
   return totals;
 }
 
+async function countActiveInvestors(cycleId: string): Promise<number> {
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("investment_allocations")
+    .select("investor_id")
+    .eq("investment_cycle_id", cycleId)
+    .in("status", COMMITTED_ALLOCATION_STATUSES);
+
+  if (error) throw new Error(error.message);
+
+  const unique = new Set(
+    ((data ?? []) as Array<{ investor_id: string }>).map((row) => row.investor_id)
+  );
+  return unique.size;
+}
+
 export const investmentCycleMetricsService = {
   async sumRaisedCapitalForCycle(cycleId: string): Promise<number> {
     const totals = await sumAllocationAmounts([cycleId], RAISED_CAPITAL_ALLOCATION_STATUSES);
@@ -51,12 +67,22 @@ export const investmentCycleMetricsService = {
     return sumAllocationAmounts(cycleIds, RAISED_CAPITAL_ALLOCATION_STATUSES);
   },
 
+  /**
+   * Recalculate live Active Cycle funding metrics from allocations.
+   * Raised Capital = confirmed investments; Investor Count = distinct committed investors.
+   */
   async recalculateCycleRaisedCapital(cycleId: string): Promise<number> {
-    const raisedCapital = await this.sumRaisedCapitalForCycle(cycleId);
+    const [raisedCapital, investorCount] = await Promise.all([
+      this.sumRaisedCapitalForCycle(cycleId),
+      countActiveInvestors(cycleId),
+    ]);
     const db = createAdminClient();
     const { error } = await db
       .from("investment_cycles")
-      .update({ raised_capital: raisedCapital } as never)
+      .update({
+        raised_capital: raisedCapital,
+        investor_count: investorCount,
+      } as never)
       .eq("id", cycleId);
 
     if (error) throw new Error(error.message);

@@ -267,8 +267,35 @@ export function ManagedPoolForm({
           <PmFormField label="Target Capital" hint="Target capital to raise for this cycle.">
             <Input type="number" min={0} value={values.maxPoolSize} onChange={(e) => patch("maxPoolSize", e.target.value)} disabled={!editable} className={pmInputClass} />
           </PmFormField>
-          <PmFormField label="Target Investors">
+          <PmFormField label="Target Investors" hint="Max participants shown on the marketplace (e.g. 0 / 200).">
             <Input type="number" min={1} value={values.maxInvestors} onChange={(e) => patch("maxInvestors", e.target.value)} disabled={!editable} className={pmInputClass} />
+          </PmFormField>
+          <PmFormField
+            label="Display Participants"
+            hint="Manual participant count seed. Live investors replace this once higher."
+          >
+            <Input
+              type="number"
+              min={0}
+              value={values.displayActiveInvestors}
+              onChange={(e) => patch("displayActiveInvestors", e.target.value)}
+              disabled={!editable}
+              className={pmInputClass}
+            />
+          </PmFormField>
+          <PmFormField
+            label="Display Raised Capital"
+            hint="Manual raised amount seed. Live commitments replace this once higher."
+          >
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              value={values.displayRaisedCapital}
+              onChange={(e) => patch("displayRaisedCapital", e.target.value)}
+              disabled={!editable}
+              className={pmInputClass}
+            />
           </PmFormField>
         </div>
       </PmSectionCard>
@@ -292,11 +319,29 @@ export function ManagedPoolForm({
           </PmFormField>
           {!values.scheduleOpenEnded && (
             <div className="grid gap-6 sm:grid-cols-2">
-              <PmFormField label="Opening Date">
-                <Input type="date" value={values.openingDate} onChange={(e) => patch("openingDate", e.target.value)} disabled={!editable} className={pmInputClass} />
+              <PmFormField
+                label="Funding Start Date & Time"
+                hint={`When funding opens — ${TRADING_TIME_ZONE_LABEL}.`}
+              >
+                <Input
+                  type="datetime-local"
+                  value={toTradingDateTimeLocalValue(values.openingDate)}
+                  onChange={(e) => patch("openingDate", e.target.value)}
+                  disabled={!editable}
+                  className={pmInputClass}
+                />
               </PmFormField>
-              <PmFormField label="Closing Date">
-                <Input type="date" value={values.closingDate} onChange={(e) => patch("closingDate", e.target.value)} disabled={!editable} className={pmInputClass} />
+              <PmFormField
+                label="Funding End Date & Time"
+                hint={`When funding closes — ${TRADING_TIME_ZONE_LABEL}.`}
+              >
+                <Input
+                  type="datetime-local"
+                  value={toTradingDateTimeLocalValue(values.closingDate)}
+                  onChange={(e) => patch("closingDate", e.target.value)}
+                  disabled={!editable}
+                  className={pmInputClass}
+                />
               </PmFormField>
             </div>
           )}

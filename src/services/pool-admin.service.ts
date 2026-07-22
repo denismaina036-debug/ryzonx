@@ -41,6 +41,7 @@ type FundRow = {
   card_background_color: string | null;
   pool_manager_name: string | null;
   pool_manager_icon_url: string | null;
+  pool_manager_id?: string | null;
   created_at: string;
   is_marketplace_listed?: boolean;
   featured?: boolean;
@@ -60,6 +61,7 @@ type FundRow = {
   max_aum?: number | null;
   max_investors_cap?: number | null;
   display_active_investors?: number;
+  display_raised_capital?: number;
 };
 
 function mapFund(row: FundRow, canDelete = false): AdminFund {
@@ -109,6 +111,7 @@ function mapFund(row: FundRow, canDelete = false): AdminFund {
     maxAum: row.max_aum != null ? toNumber(row.max_aum) : null,
     maxInvestorsCap: row.max_investors_cap != null ? toNumber(row.max_investors_cap) : null,
     displayActiveInvestors: toNumber(row.display_active_investors),
+    displayRaisedCapital: toNumber(row.display_raised_capital),
   };
 }
 
@@ -420,6 +423,7 @@ export const poolAdminService = {
       maxAum?: number | null;
       maxInvestorsCap?: number | null;
       displayActiveInvestors?: number;
+      displayRaisedCapital?: number;
     }
   ): Promise<AdminFund> {
     await requireRole("administrator");
@@ -455,6 +459,9 @@ export const poolAdminService = {
     if (input.displayActiveInvestors !== undefined) {
       updates.display_active_investors = Math.max(0, Math.floor(input.displayActiveInvestors));
     }
+    if (input.displayRaisedCapital !== undefined) {
+      updates.display_raised_capital = Math.max(0, Number(input.displayRaisedCapital) || 0);
+    }
 
     if (input.lifecycleStatus != null) {
       updates.lifecycle_status = input.lifecycleStatus;
@@ -473,6 +480,17 @@ export const poolAdminService = {
       .single();
 
     if (error || !data) throw new Error(error?.message ?? "Failed to update marketplace settings.");
+
+    // Keep marketplace star rating in sync with admin Overall / pool RyvonX rating.
+    if (input.ryvonxRating !== undefined) {
+      const managerId = (data as FundRow).pool_manager_id;
+      if (managerId) {
+        await db
+          .from("pool_managers")
+          .update({ ryvonx_rating: input.ryvonxRating } as never)
+          .eq("id", managerId);
+      }
+    }
 
     const deletableIds = await getDeletableFundIds(db, [data as FundRow]);
     return mapFund(data as FundRow, deletableIds.has(fundId));

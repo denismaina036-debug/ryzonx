@@ -69,16 +69,37 @@ export const ratingEngineService = {
 
     if (entityType === "pool_manager") {
       const db = createAdminClient();
+      // Preserve admin Overall Rating until there is enough live operational data.
+      // Empty-metric recalcs otherwise overwrite approval ratings with ~2.5 stars.
+      const hasSufficientData =
+        metrics.closedTrades >= 3 ||
+        metrics.completedCycles >= 1 ||
+        metrics.totalInvestors > 0;
+
+      const { data: managerRow } = await db
+        .from("pool_managers")
+        .select("ryvonx_rating")
+        .eq("id", entityId)
+        .maybeSingle();
+      const adminRating =
+        (managerRow as { ryvonx_rating?: number | null } | null)?.ryvonx_rating ?? null;
+
+      const ratingPatch: Record<string, unknown> = {
+        win_rate_pct: metrics.winRate * 100,
+      };
+      if (hasSufficientData || adminRating == null) {
+        ratingPatch.ryvonx_rating = overallRating;
+      }
+
       await db
         .from("pool_managers")
-        .update({
-          ryvonx_rating: overallRating,
-          win_rate_pct: metrics.winRate * 100,
-        } as never)
+        .update(ratingPatch as never)
         .eq("id", entityId);
 
+      const publishedRating =
+        hasSufficientData || adminRating == null ? overallRating : Number(adminRating);
       const previousRating = existing?.overallRating ?? null;
-      if (previousRating !== overallRating) {
+      if (previousRating !== publishedRating && (hasSufficientData || adminRating == null)) {
         const poolManagerUserId = await resolvePoolManagerUserId(entityId);
         publishPlatformEvent({
           eventType: PLATFORM_EVENT_TYPES.RATING_CHANGED,
@@ -89,11 +110,11 @@ export const ratingEngineService = {
           payload: {
             poolManagerUserId,
             previousRating,
-            newRating: overallRating,
+            newRating: publishedRating,
             overallScore,
             trend,
             reason,
-            summary: `Rating changed from ${previousRating ?? "none"} to ${overallRating}`,
+            summary: `Rating changed from ${previousRating ?? "none"} to ${publishedRating}`,
           },
         });
       }

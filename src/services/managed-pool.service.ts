@@ -112,6 +112,8 @@ function formToFundPatch(
   const maxInvestment = parseAmount(input.maxInvestment);
   const targetCapital = parseAmount(input.maxPoolSize);
   const maxInvestors = parseAmount(input.maxInvestors);
+  const displayActiveInvestors = parseAmount(input.displayActiveInvestors);
+  const displayRaisedCapital = parseAmount(input.displayRaisedCapital);
   const durationDays = parseAmount(input.tradingDurationDays);
   const targetReturn = parseAmount(input.targetReturnPct);
   const visibility = input.visibility;
@@ -185,6 +187,10 @@ function formToFundPatch(
     target_capital: targetCapital ?? null,
     max_aum: targetCapital ?? null,
     target_investors: maxInvestors != null ? Math.floor(maxInvestors) : null,
+    display_active_investors:
+      displayActiveInvestors != null ? Math.max(0, Math.floor(displayActiveInvestors)) : 0,
+    display_raised_capital:
+      displayRaisedCapital != null ? Math.max(0, displayRaisedCapital) : 0,
     pool_duration_days: durationDays ?? null,
     profit_target_pct: targetReturn ?? null,
     aggressiveness_level: riskToAggressiveness(input.riskLevel),
@@ -201,7 +207,8 @@ export function poolToManagedForm(
   marketsTraded?: string[],
   profitSharing?: { investorSharePct?: number; poolManagerSharePct?: number },
   targetInvestors?: number | null,
-  aggressivenessLevel?: string | null
+  aggressivenessLevel?: string | null,
+  displayMetrics?: { displayActiveInvestors?: number; displayRaisedCapital?: number } | null
 ): ManagedPoolFormInput {
   const returnTiers =
     pool.returnTiers?.length > 0 ? pool.returnTiers : [...DEFAULT_MANAGED_POOL_RETURN_TIERS];
@@ -263,6 +270,14 @@ export function poolToManagedForm(
         : pool.targetInvestors
           ? String(pool.targetInvestors)
           : "",
+    displayActiveInvestors:
+      displayMetrics?.displayActiveInvestors != null && displayMetrics.displayActiveInvestors > 0
+        ? String(displayMetrics.displayActiveInvestors)
+        : "",
+    displayRaisedCapital:
+      displayMetrics?.displayRaisedCapital != null && displayMetrics.displayRaisedCapital > 0
+        ? String(displayMetrics.displayRaisedCapital)
+        : "",
     fundingPeriodDays: config.fundingPeriodDays != null ? String(config.fundingPeriodDays) : "",
     tradingDurationDays: pool.poolDurationDays != null ? String(pool.poolDurationDays) : "",
     durationUnit: config.durationUnit ?? "days",
@@ -313,6 +328,90 @@ async function ensureDraftCycleForPool(
     .eq("id", poolId);
 }
 
+/** Statuses where the owning Pool Manager may edit operational pool details. */
+const PM_OPERATIONAL_EDITABLE_STATUSES = new Set([
+  "draft",
+  "live",
+  "approved",
+  "paused",
+]);
+
+function parseIsoOrNull(value: string | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  const date = new Date(trimmed);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+/**
+ * Keep the Active Investment Cycle synchronized with pool operational config.
+ * Does not change cycle status or investment workflow.
+ */
+async function syncActiveCycleFromPoolConfig(
+  poolId: string,
+  input: ManagedPoolFormInput,
+  config: ManagedPoolConfig
+): Promise<void> {
+  const db = createAdminClient();
+  const { data: cycles } = await db
+    .from("investment_cycles")
+    .select("id, status, funding_started_at")
+    .eq("fund_id", poolId)
+    .in("status", ["draft", "submitted", "approved", "funding", "trading", "distribution"])
+    .order("cycle_number", { ascending: false })
+    .limit(1);
+
+  const cycle = (cycles ?? [])[0] as
+    | { id: string; status: string; funding_started_at: string | null }
+    | undefined;
+  if (!cycle) return;
+
+  const openingDate = input.scheduleOpenEnded ? null : parseIsoOrNull(input.openingDate);
+  const closingDate = input.scheduleOpenEnded ? null : parseIsoOrNull(input.closingDate);
+  const durationDays = parseAmount(input.tradingDurationDays);
+  const targetCapital = parseAmount(input.maxPoolSize);
+  const minInvestment = parseAmount(input.minInvestment);
+
+  const patch: Record<string, unknown> = {
+    opening_date: openingDate,
+    closing_date: closingDate,
+    funding_deadline: closingDate,
+    duration_days: durationDays ?? null,
+    target_capital: targetCapital ?? null,
+    min_investment: minInvestment ?? null,
+    max_capacity: targetCapital ?? null,
+  };
+
+  // Explicit PM edit of Funding Start updates the live timestamp once funding has begun.
+  if (
+    openingDate &&
+    (cycle.status === "funding" ||
+      cycle.status === "trading" ||
+      cycle.status === "distribution" ||
+      Boolean(cycle.funding_started_at))
+  ) {
+    patch.funding_started_at = openingDate;
+  }
+
+  const { error } = await db
+    .from("investment_cycles")
+    .update(patch as never)
+    .eq("id", cycle.id);
+  if (error) throw new Error(error.message);
+
+  // Keep linked cycle id on pool config for continuity.
+  if (!config.internalCycleId) {
+    const nextConfig: ManagedPoolConfig = { ...config, internalCycleId: cycle.id };
+    const { data: fund } = await db.from("funds").select("pool_faq").eq("id", poolId).single();
+    await db
+      .from("funds")
+      .update({
+        pool_faq: buildPoolFaq((fund as { pool_faq?: unknown } | null)?.pool_faq, nextConfig),
+      } as never)
+      .eq("id", poolId);
+  }
+}
+
 export const managedPoolService = {
   async listMine(): Promise<Pool[]> {
     return poolManagerDashboardService.getMyPools();
@@ -325,6 +424,8 @@ export const managedPoolService = {
     profitSharing?: { investorSharePct?: number; poolManagerSharePct?: number };
     targetInvestors?: number | null;
     aggressivenessLevel?: string | null;
+    displayActiveInvestors?: number;
+    displayRaisedCapital?: number;
   }> {
     const managerId = await poolManagerDashboardService.getManagerId();
     const db = createAdminClient();
@@ -356,6 +457,8 @@ export const managedPoolService = {
       targetInvestors:
         row.target_investors != null ? Number(row.target_investors as number) : null,
       aggressivenessLevel: (row.aggressiveness_level as string | null) ?? null,
+      displayActiveInvestors: Number(row.display_active_investors ?? 0) || 0,
+      displayRaisedCapital: Number(row.display_raised_capital ?? 0) || 0,
     };
   },
 
@@ -417,13 +520,12 @@ export const managedPoolService = {
 
   async updateDraft(poolId: string, input: ManagedPoolFormInput): Promise<void> {
     const normalized = normalizeManagedPoolForm(input);
-    const validationError = validateManagedPoolForm(normalized, { mode: "draft" });
+    const validationError = validateManagedPoolForm(normalized, {
+      mode: "draft",
+    });
     if (validationError) throw new Error(validationError);
 
     const user = await requireRole(USER_ROLES.POOL_MANAGER);
-
-    await poolGovernanceLockService.assertPoolEditable(poolId);
-
     const managerId = await poolManagerDashboardService.getManagerId();
     const db = createAdminClient();
 
@@ -440,8 +542,18 @@ export const managedPoolService = {
       pool_faq: unknown;
     };
     if (row.pool_manager_id !== managerId) throw new Error("Not your pool.");
-    if (row.lifecycle_status !== "draft") {
-      throw new Error("Only draft pools can be edited.");
+
+    const lifecycle = row.lifecycle_status || "draft";
+    if (!PM_OPERATIONAL_EDITABLE_STATUSES.has(lifecycle)) {
+      throw new Error(
+        "This pool can no longer be edited by the Pool Manager. Contact an administrator."
+      );
+    }
+
+    // Draft pools remain fully locked against active-cycle conflicts.
+    // Approved/live pools allow operational edits by the owning PM.
+    if (lifecycle === "draft") {
+      await poolGovernanceLockService.assertPoolEditable(poolId);
     }
 
     const config = readManagedConfig(row.pool_faq);
@@ -451,7 +563,11 @@ export const managedPoolService = {
     if (error) throw new Error(error.message);
 
     const nextConfig = readManagedConfig(patch.pool_faq);
-    await ensureDraftCycleForPool(poolId, user.id, nextConfig, patch.pool_faq);
+    if (lifecycle === "draft") {
+      await ensureDraftCycleForPool(poolId, user.id, nextConfig, patch.pool_faq);
+    }
+
+    await syncActiveCycleFromPoolConfig(poolId, normalized, nextConfig);
   },
 
   /** Apply an admin-approved pool revision (internal — called by entityRevisionService). */
@@ -475,8 +591,15 @@ export const managedPoolService = {
   },
 
   async submitForReview(poolId: string): Promise<void> {
-    const { pool, config, marketsTraded, targetInvestors, aggressivenessLevel } =
-      await this.getForManager(poolId);
+    const {
+      pool,
+      config,
+      marketsTraded,
+      targetInvestors,
+      aggressivenessLevel,
+      displayActiveInvestors,
+      displayRaisedCapital,
+    } = await this.getForManager(poolId);
     if ((pool.lifecycleStatus ?? "draft") !== "draft") {
       throw new Error("Only draft pools can be submitted.");
     }
@@ -487,7 +610,8 @@ export const managedPoolService = {
       marketsTraded,
       undefined,
       targetInvestors,
-      aggressivenessLevel
+      aggressivenessLevel,
+      { displayActiveInvestors, displayRaisedCapital }
     );
     const validationError = validateManagedPoolForm(form, { mode: "submit" });
     if (validationError) throw new Error(validationError);

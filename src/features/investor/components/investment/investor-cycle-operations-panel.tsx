@@ -30,6 +30,15 @@ export function InvestorCycleOperationsPanel({
         <Stat label="Closed positions" value={String(journalSummary.closedPositionsCount)} />
       </div>
 
+      {portfolioProgress.fundingStartedAt && (
+        <p className="mt-4 text-sm text-[var(--id-text-muted)]">
+          Funding Start:{" "}
+          <span className="font-medium text-[var(--id-text)]">
+            {new Date(portfolioProgress.fundingStartedAt).toLocaleString()}
+          </span>
+        </p>
+      )}
+
       {progressPct != null && (
         <div className="mt-6">
           <div className="flex justify-between text-xs text-[var(--id-text-muted)]">

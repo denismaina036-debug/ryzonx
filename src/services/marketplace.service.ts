@@ -79,6 +79,7 @@ type CycleRow = {
   opening_date: string | null;
   closing_date: string | null;
   funding_deadline: string | null;
+  funding_started_at: string | null;
   raised_capital: number | string | null;
   target_capital: number | string | null;
   investor_count: number | null;
@@ -116,7 +117,7 @@ async function enrichPoolCards(
   const { data: cycleRows } = await db
     .from("investment_cycles")
     .select(
-      "id, fund_id, status, cycle_number, name, opening_date, closing_date, funding_deadline, raised_capital, target_capital, investor_count, max_capacity"
+      "id, fund_id, status, cycle_number, name, opening_date, closing_date, funding_deadline, funding_started_at, raised_capital, target_capital, investor_count, max_capacity"
     )
     .in("fund_id", poolIds)
     .in("status", ["funding", "trading", "distribution", "approved"]);
@@ -159,18 +160,26 @@ async function enrichPoolCards(
     const targetCapital = cycle?.target_capital != null
       ? toNumber(cycle.target_capital)
       : toNumber(row.target_capital as number | null);
-    const raisedCapital = cycle
+    const liveInvestors = toNumber(row.active_investors as number);
+    const seedInvestors = toNumber(row.display_active_investors as number);
+    const managerSeedInvestors = manager?.display_investor_count ?? 0;
+    const liveRaisedCapital = cycle
       ? raisedByCycle.get(cycle.id) ?? 0
       : toNumber(row.current_capital as number | null);
+    const seedRaisedCapital = toNumber(row.display_raised_capital as number);
+    const raisedCapital = resolvePublicDisplayCount(seedRaisedCapital, liveRaisedCapital);
     const remainingCapital = computeRemainingCapital(targetCapital, raisedCapital);
     const fundingProgressPct = computeFundingProgressPct(targetCapital, raisedCapital);
+    // Participant max is target investors — never cycle.max_capacity (that stores capital).
     const maxParticipants =
       row.target_investors != null
         ? toNumber(row.target_investors as number)
-        : cycle?.max_capacity != null
-          ? toNumber(cycle.max_capacity)
+        : row.max_investors_cap != null
+          ? toNumber(row.max_investors_cap as number)
           : null;
-    const cycleParticipantCount = cycle?.investor_count ?? card.activeInvestors;
+    const liveParticipantCount =
+      cycle?.investor_count != null ? toNumber(cycle.investor_count) : liveInvestors;
+    const cycleParticipantCount = resolvePublicDisplayCount(seedInvestors, liveParticipantCount);
     const fundingPeriodEndsAt =
       cycle?.funding_deadline ?? cycle?.closing_date ?? null;
     const tradingAssetTag = resolveTradingAssetLabel({
@@ -180,13 +189,15 @@ async function enrichPoolCards(
       marketsTraded: card.marketsTraded,
     });
     const returnModel = managed.returnModel === "fixed" ? "fixed" : "variable";
-    const liveInvestors = toNumber(row.active_investors as number);
-    const seedInvestors = toNumber(row.display_active_investors as number);
-    const managerSeedInvestors = manager?.display_investor_count ?? 0;
     const liveReviewCount = card.managerId
       ? liveReviewCounts.get(card.managerId) ?? 0
       : 0;
     const seedReviewCount = manager?.display_review_count ?? 0;
+    // Star rating = admin Overall Rating on the manager (never aggressiveness 2.5).
+    const managerOverallRating =
+      manager?.ryvonx_rating != null
+        ? toNumber(manager.ryvonx_rating)
+        : card.ryvonxRating;
 
     return {
       ...card,
@@ -205,6 +216,7 @@ async function enrichPoolCards(
             openingDate: cycle.opening_date,
             closingDate: cycle.closing_date,
             fundingDeadline: cycle.funding_deadline,
+            fundingStartedAt: cycle.funding_started_at ?? cycle.opening_date,
             poolVersion: 1,
           }
         : null,
@@ -237,8 +249,7 @@ async function enrichPoolCards(
       ),
       poolLevelLabel: formatPoolLevelLabel(card.capacityStatus),
       poolVerified: card.governanceVerified,
-      managerRating:
-        manager?.ryvonx_rating != null ? toNumber(manager.ryvonx_rating) : null,
+      managerRating: managerOverallRating,
       managerReviewCount: resolvePublicDisplayCount(seedReviewCount, liveReviewCount),
       poolDurationDays: row.pool_duration_days as number | null,
     };

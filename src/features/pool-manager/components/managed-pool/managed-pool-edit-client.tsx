@@ -22,12 +22,14 @@ export function ManagedPoolEditClient({
   pool,
   initialValues,
   editable,
+  canSubmit = false,
   approvedStrategies = [],
   cycles = [],
 }: {
   pool: Pool;
   initialValues: ManagedPoolFormInput;
   editable: boolean;
+  canSubmit?: boolean;
   approvedStrategies?: { id: string; name: string }[];
   cycles?: InvestmentCycle[];
 }) {
@@ -38,10 +40,13 @@ export function ManagedPoolEditClient({
 
   const lifecycle = pool.lifecycleStatus ?? "draft";
   const statusLabel = MANAGED_POOL_STATUS_LABELS[lifecycle] ?? lifecycle;
+  const isDraft = lifecycle === "draft";
 
-  async function saveDraft() {
+  async function saveChanges() {
     const normalized = normalizeManagedPoolForm(values);
-    const validationError = validateManagedPoolForm(normalized, { mode: "draft" });
+    const validationError = validateManagedPoolForm(normalized, {
+      mode: isDraft ? "draft" : "submit",
+    });
     if (validationError) {
       setError(validationError);
       return;
@@ -112,18 +117,24 @@ export function ManagedPoolEditClient({
               <Button
                 disabled={isBusy}
                 className={pmPrimaryButtonClass}
-                onClick={() => void saveDraft()}
+                onClick={() => void saveChanges()}
               >
-                {loading === "draft" ? "Saving…" : "Save Draft"}
+                {loading === "draft"
+                  ? "Saving…"
+                  : isDraft
+                    ? "Save Draft"
+                    : "Save Changes"}
               </Button>
-              <Button
-                disabled={isBusy}
-                variant="outline"
-                className={pmSecondaryButtonClass}
-                onClick={() => void submitPool()}
-              >
-                {loading === "submit" ? "Submitting…" : "Submit Pool"}
-              </Button>
+              {canSubmit && (
+                <Button
+                  disabled={isBusy}
+                  variant="outline"
+                  className={pmSecondaryButtonClass}
+                  onClick={() => void submitPool()}
+                >
+                  {loading === "submit" ? "Submitting…" : "Submit Pool"}
+                </Button>
+              )}
             </div>
           ) : undefined
         }

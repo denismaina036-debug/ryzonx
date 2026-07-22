@@ -27,6 +27,7 @@ import {
   formatReturnStructureLabel,
   participantIndicatorCount,
 } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
+import { formatTradingDateTimeLabel } from "@/domain/pools/trading-session";
 
 interface MarketplacePoolCardProps {
   pool: MarketplacePoolCard;
@@ -200,7 +201,18 @@ export function MarketplacePoolCardView({ pool }: MarketplacePoolCardProps) {
             <div className="space-y-3">
               <CycleStat
                 icon={Clock}
-                label="Cycle Starts In"
+                label="Funding Start"
+                value={
+                  formatTradingDateTimeLabel(
+                    pool.activeCycle?.fundingStartedAt ??
+                      pool.activeCycle?.openingDate ??
+                      undefined
+                  ) ?? "—"
+                }
+              />
+              <CycleStat
+                icon={Clock}
+                label="Funding Ends In"
                 value={countdown ?? "—"}
               />
               <CycleStat

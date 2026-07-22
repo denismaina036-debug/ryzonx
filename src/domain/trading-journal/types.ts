@@ -101,6 +101,7 @@ export interface InvestorCycleOperationsView {
     fundingProgressPct?: number | null;
     investorCount: number;
     cycleStatus: string;
+    fundingStartedAt?: string | null;
   };
 }
 

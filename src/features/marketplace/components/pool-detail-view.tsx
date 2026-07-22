@@ -137,6 +137,14 @@ export function PoolDetailView({
                   {INVESTMENT_CYCLE_STATUS_LABELS[pool.activeCycle.status] ??
                     pool.activeCycle.status}
                 </p>
+                <p className="mt-1 text-xs text-[var(--id-text-muted)]">
+                  Funding Start:{" "}
+                  {formatTradingDateTimeLabel(
+                    pool.activeCycle.fundingStartedAt ??
+                      pool.activeCycle.openingDate ??
+                      undefined
+                  ) ?? "—"}
+                </p>
               </div>
               {pool.canParticipate && (
                 <Button asChild size="sm">

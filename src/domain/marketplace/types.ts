@@ -11,6 +11,8 @@ export interface MarketplaceActiveCycle {
   openingDate: string | null;
   closingDate: string | null;
   fundingDeadline: string | null;
+  /** Official Funding Start Date & Time once funding has opened. */
+  fundingStartedAt: string | null;
   poolVersion: number;
 }
 

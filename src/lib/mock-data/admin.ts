@@ -104,6 +104,7 @@ export const mockAdminFunds: AdminFund[] = [
     maxAum: 1000000,
     maxInvestorsCap: 100,
     displayActiveInvestors: 0,
+    displayRaisedCapital: 0,
   },
 ];
 

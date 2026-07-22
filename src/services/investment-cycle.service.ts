@@ -140,23 +140,25 @@ async function requireManagerId(): Promise<{ userId: string; managerId: string }
 
 function statusTimestampPatch(
   status: InvestmentCycleStatus,
-  now: string
+  now: string,
+  existing?: InvestmentCycle | null
 ): Partial<CycleRow> {
   switch (status) {
     case "submitted":
-      return { submitted_at: now };
+      return existing?.submittedAt ? {} : { submitted_at: now };
     case "approved":
-      return { approved_at: now };
+      return existing?.approvedAt ? {} : { approved_at: now };
     case "funding":
-      return { funding_started_at: now };
+      // Funding Start is fixed once set unless a PM explicitly edits it later.
+      return existing?.fundingStartedAt ? {} : { funding_started_at: now };
     case "trading":
-      return { trading_started_at: now };
+      return existing?.tradingStartedAt ? {} : { trading_started_at: now };
     case "distribution":
-      return { distribution_started_at: now };
+      return existing?.distributionStartedAt ? {} : { distribution_started_at: now };
     case "completed":
-      return { completed_at: now };
+      return existing?.completedAt ? {} : { completed_at: now };
     case "archived":
-      return { archived_at: now };
+      return existing?.archivedAt ? {} : { archived_at: now };
     default:
       return {};
   }
@@ -719,7 +721,7 @@ export const investmentCycleService = {
       .from("investment_cycles")
       .update({
         status: nextStatus,
-        ...statusTimestampPatch(nextStatus, now),
+        ...statusTimestampPatch(nextStatus, now, existing),
       } as never)
       .eq("id", id)
       .select("*")

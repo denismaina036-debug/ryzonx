@@ -355,6 +355,7 @@ export const cycleProgressService = {
           fundingProgressPct: cycle.fundingProgressPct ?? null,
           investorCount: cycle.investorCount,
           cycleStatus: cycle.status,
+          fundingStartedAt: cycle.fundingStartedAt ?? cycle.openingDate,
         },
       };
     }
@@ -401,6 +402,7 @@ export const cycleProgressService = {
         fundingProgressPct: cycle.fundingProgressPct ?? null,
         investorCount: cycle.investorCount,
         cycleStatus: cycle.status,
+        fundingStartedAt: cycle.fundingStartedAt ?? cycle.openingDate,
       },
     };
   },
