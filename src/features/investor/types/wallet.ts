@@ -27,11 +27,21 @@ export interface InvestorTransaction {
   status: string;
   paymentMethod: string | null;
   reference: string | null;
+  transactionReference: string | null;
   cryptoSymbol: string | null;
   cryptoNetwork: string | null;
   cryptoAmount: number | null;
+  fundId: string;
   fundName: string;
   poolWinRate: number | null;
   createdAt: string;
   processedAt: string | null;
+  title: string;
+  subtitle: string;
+  category: import("@/domain/transaction/types").TransactionDisplayCategory;
+  iconKind: import("@/domain/transaction/types").TransactionIconKind;
+  amountPrefix: "+" | "-";
+  amountSuffix: string;
+  statusLabel: string;
+  isCredit: boolean;
 }

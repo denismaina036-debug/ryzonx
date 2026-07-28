@@ -41,6 +41,7 @@ export const ROUTES = {
   withdraw: "/dashboard/withdrawals",
   withdrawals: "/dashboard/withdrawals",
   transactions: "/dashboard/transactions",
+  transactionDetail: (id: string) => `/dashboard/transactions/${id}` as const,
   investments: "/dashboard/investments",
   trades: "/dashboard/trades",
   /** @deprecated Removed from nav — redirects to dashboard */

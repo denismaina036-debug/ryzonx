@@ -23,6 +23,8 @@ import {
   RAISED_CAPITAL_ALLOCATION_STATUSES,
 } from "@/domain/investment/cycle-metrics";
 import type { InvestmentAllocationStatus } from "@/constants/investment-allocation";
+import { mapRawTransactionToActivityItem, type RawTransactionRow } from "@/lib/transaction/map";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type TradeSnapshot = Pick<
   Tables<"trades">,
@@ -40,11 +42,6 @@ type TradeSnapshot = Pick<
   | "opened_at"
   | "updated_at"
   | "published_at"
->;
-
-type TransactionSnapshot = Pick<
-  Tables<"transactions">,
-  "id" | "type" | "amount" | "status" | "created_at" | "user_id"
 >;
 
 type RankSnapshot = Pick<Tables<"investor_portfolios">, "user_id" | "total_invested">;
@@ -221,10 +218,11 @@ export const investorService = {
         : Promise.resolve({ data: [], error: null }),
       supabase
         .from("transactions")
-        .select("id, type, amount, status, created_at, user_id")
+        .select(
+          "id, fund_id, type, amount, status, payment_method, reference, transaction_reference, notes, destination, crypto_symbol, crypto_network, crypto_amount, metadata, created_at, user_id"
+        )
         .eq("user_id", user.id)
         .in("status", ["approved", "completed", "pending"])
-        .in("type", ["deposit", "withdrawal"])
         .order("created_at", { ascending: false })
         .limit(15),
       supabase
@@ -352,18 +350,24 @@ export const investorService = {
       .slice(0, 5);
 
     let recentActivity: InvestorPoolActivityItem[] = [];
-    const activityRows = (activityResult.data ?? []) as TransactionSnapshot[];
+    const activityRows = (activityResult.data ?? []) as RawTransactionRow[];
     if (activityRows.length > 0) {
-      recentActivity = activityRows.map((tx) => ({
-        id: tx.id,
-        investorName: "You",
-        action:
-          tx.type === "withdrawal"
-            ? ("withdrew" as const)
-            : ("deposited" as const),
-        amount: toNumber(tx.amount),
-        createdAt: tx.created_at,
-      }));
+      const activityFundIds = [...new Set(activityRows.map((row) => row.fund_id))];
+      const admin = createAdminClient();
+      const { data: activityFunds } = await admin
+        .from("funds")
+        .select("id, name")
+        .in("id", activityFundIds);
+      const activityFundMap = new Map(
+        ((activityFunds ?? []) as Array<{ id: string; name: string }>).map((fund) => [
+          fund.id,
+          fund.name,
+        ])
+      );
+
+      recentActivity = activityRows.map((tx) =>
+        mapRawTransactionToActivityItem(tx, activityFundMap.get(tx.fund_id) ?? "—")
+      );
     }
 
     let challenge: TraderChallenge | null = null;

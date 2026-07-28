@@ -134,6 +134,7 @@ export const landingPageActivityService = {
     const { data: transactions } = await db
       .from("transactions")
       .select("id, amount, type, status, created_at, payment_method, fund_id, user_id")
+      .eq("is_public", true)
       .in("type", ["deposit", "withdrawal", "adjustment"])
       .in("status", ["approved", "completed"])
       .order("created_at", { ascending: false })

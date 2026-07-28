@@ -8,6 +8,7 @@ import type {
   ChallengeEnrollmentStatus,
   TraderChallenge,
 } from "@/features/investor/types";
+import { attachTransactionReference } from "@/lib/transaction/insert";
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
@@ -219,15 +220,27 @@ export const challengeService = {
 
     if (error || !enrollment) throw new Error(error?.message ?? "Enrollment failed.");
 
-    await db.from("transactions").insert({
+    const challengeNotes = `Trader challenge enrollment — ${challengeRow.title}`;
+
+    const { data: challengeTx, error: challengeTxError } = await db.from("transactions").insert({
       user_id: user.id,
       fund_id: DEFAULT_FUND_ID,
       type: "adjustment",
       amount: price,
       status: "completed",
       payment_method: "challenge_fee",
-      notes: `Trader challenge enrollment — ${challengeRow.title}`,
-    } as never);
+      notes: challengeNotes,
+    } as never).select("id").single();
+
+    if (challengeTxError || !challengeTx) {
+      throw new Error(challengeTxError?.message ?? "Failed to record challenge payment.");
+    }
+
+    await attachTransactionReference(db, (challengeTx as { id: string }).id, {
+      type: "adjustment",
+      payment_method: "challenge_fee",
+      notes: challengeNotes,
+    });
 
     await notificationService.sendToUser({
       userId: user.id,

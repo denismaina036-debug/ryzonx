@@ -6,6 +6,7 @@ import { DEFAULT_FUND_ID } from "@/constants/funds";
 import { notificationService } from "@/services/notification.service";
 import { adminNotifyService } from "@/services/communication";
 import { platformSettingsService } from "@/services/platform-settings.service";
+import { attachTransactionReference } from "@/lib/transaction/insert";
 import {
   PM_APPLICATION_STAGES,
   PM_APPLICATION_SECTIONS,
@@ -163,15 +164,27 @@ async function chargeAdmissionFee(input: {
       ? "Trading Challenge"
       : "Direct Access";
 
-  await db.from("transactions").insert({
+  const admissionNotes = `Pool Manager admission fee — ${pathLabel}`;
+
+  const { data: admissionTx, error: admissionTxError } = await db.from("transactions").insert({
     user_id: input.userId,
     fund_id: DEFAULT_FUND_ID,
     type: "adjustment",
     amount: input.amount,
     status: "completed",
     payment_method: "pm_admission_fee",
-    notes: `Pool Manager admission fee — ${pathLabel}`,
-  } as never);
+    notes: admissionNotes,
+  } as never).select("id").single();
+
+  if (admissionTxError || !admissionTx) {
+    throw new Error(admissionTxError?.message ?? "Failed to record admission fee.");
+  }
+
+  await attachTransactionReference(db, (admissionTx as { id: string }).id, {
+    type: "adjustment",
+    payment_method: "pm_admission_fee",
+    notes: admissionNotes,
+  });
 }
 
 async function ensureApplicantRole(userId: string): Promise<void> {

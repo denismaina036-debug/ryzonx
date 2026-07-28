@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { InvestorPoolActivityItem } from "@/features/investor/types";
+import { TransactionIcon } from "@/features/investor/components/transactions/transaction-icon";
 
 function formatActivityTime(dateString: string): string {
   const diffMs = Date.now() - new Date(dateString).getTime();
@@ -44,43 +44,40 @@ export function MobileRecentActivity({
         </p>
       ) : (
         <ul className="mt-2">
-          {items.map((item) => {
-            const deposited = item.action === "deposited";
-            const Icon = deposited ? ArrowDownLeft : ArrowUpRight;
-            return (
-              <li
-                key={item.id}
-                className="flex items-center gap-3 border-b border-[var(--id-border)] py-3 last:border-0"
+          {items.map((item) => (
+            <li key={item.id} className="border-b border-[var(--id-border)] last:border-0">
+              <Link
+                href={ROUTES.transactionDetail(item.id)}
+                className="flex items-center gap-3 py-3 transition-colors hover:opacity-90"
               >
-                <span
-                  className={cn(
-                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                    deposited
-                      ? "bg-[var(--id-success-soft)] text-[var(--id-success)]"
-                      : "bg-orange-500/10 text-orange-400"
-                  )}
-                >
-                  <Icon className="h-3.5 w-3.5" strokeWidth={2} />
-                </span>
+                <TransactionIcon kind={item.iconKind} size="sm" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-[var(--id-text)]">
-                    {item.investorName}
+                    {item.title}
                   </p>
-                  <p className="text-[11px] text-[var(--id-text-muted)]">
-                    {deposited ? "Deposited" : "Withdrew"}
+                  <p className="truncate text-xs text-[var(--id-text-muted)]">
+                    {item.subtitle}
                   </p>
                 </div>
-                <div className="shrink-0 text-right">
-                  <p className="font-mono text-sm font-semibold tabular-nums text-[var(--id-text)]">
+                <div className="text-right">
+                  <p
+                    className={cn(
+                      "font-mono text-sm font-semibold tabular-nums",
+                      item.amountPrefix === "+"
+                        ? "text-[var(--id-success)]"
+                        : "text-[var(--id-text)]"
+                    )}
+                  >
+                    {item.amountPrefix}
                     {formatCurrency(item.amount)}
                   </p>
-                  <p className="text-[11px] text-[var(--id-text-faint)]">
+                  <p className="text-[10px] text-[var(--id-text-faint)]">
                     {formatActivityTime(item.createdAt)}
                   </p>
                 </div>
-              </li>
-            );
-          })}
+              </Link>
+            </li>
+          ))}
         </ul>
       )}
     </section>

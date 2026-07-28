@@ -10,6 +10,7 @@ import {
 } from "@/lib/storage/trade-screenshots";
 import type { AdminTrade } from "@/features/admin/types";
 import type { Tables } from "@/types/database.types";
+import { attachTransactionReference } from "@/lib/transaction/insert";
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
@@ -314,21 +315,33 @@ export const tradeAdminService = {
         .eq("user_id", userId)
         .eq("fund_id", input.fundId);
 
-      await db.from("transactions").insert({
+      const profitNotes =
+        input.distributionMode === "individual"
+          ? `Individual trade profit: ${input.symbol} (${fundName})`
+          : `Pool trade profit share: ${input.symbol} (${fundName})`;
+
+      const { data: tradeTx, error: tradeTxError } = await db.from("transactions").insert({
         user_id: userId,
         fund_id: input.fundId,
         type: "adjustment",
         amount: Math.abs(share),
         status: "completed",
         payment_method: "trade_profit",
-        notes:
-          input.distributionMode === "individual"
-            ? `Individual trade profit: ${input.symbol} (${fundName})`
-            : `Pool trade profit share: ${input.symbol} (${fundName})`,
+        notes: share < 0 ? profitNotes.replace("profit", "loss") : profitNotes,
         reference: tradeId,
         processed_by: admin.id,
         processed_at: now,
-      } as never);
+      } as never).select("id").single();
+
+      if (tradeTxError || !tradeTx) {
+        throw new Error(tradeTxError?.message ?? "Failed to record trade profit.");
+      }
+
+      await attachTransactionReference(db, (tradeTx as { id: string }).id, {
+        type: "adjustment",
+        payment_method: "trade_profit",
+        notes: share < 0 ? profitNotes.replace("profit", "loss") : profitNotes,
+      });
 
       const profitLabel = share >= 0 ? "profit" : "loss";
       await communicationTriggers.poolProfitShare({

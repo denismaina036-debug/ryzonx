@@ -57,10 +57,13 @@ export interface InvestorDashboardTrade {
 
 export interface InvestorPoolActivityItem {
   id: string;
-  investorName: string;
-  action: "deposited" | "withdrew";
+  title: string;
+  subtitle: string;
   amount: number;
+  amountPrefix: "+" | "-";
   createdAt: string;
+  category: import("@/domain/transaction/types").TransactionDisplayCategory;
+  iconKind: import("@/domain/transaction/types").TransactionIconKind;
 }
 
 export interface TraderChallenge {

@@ -7,6 +7,7 @@ import { formatMoney } from "@/services/communication/user-variables";
 import { isPoolJoinBlocked } from "@/lib/governance/protection-indicators";
 import { investmentCycleService } from "@/services/investment-cycle.service";
 import { investmentAllocationService } from "@/services/investment-allocation.service";
+import { attachTransactionReference } from "@/lib/transaction/insert";
 import type { ReturnTier } from "@/features/investor/types/account";
 import type {
   ParticipatablePool,
@@ -436,7 +437,7 @@ export const poolParticipationService = {
       );
     }
 
-    const { error: txError } = await db.from("transactions").insert({
+    const { data: txData, error: txError } = await db.from("transactions").insert({
       user_id: user.id,
       fund_id: poolId,
       type: "adjustment",
@@ -444,11 +445,17 @@ export const poolParticipationService = {
       status: "completed",
       payment_method: "pool_allocation",
       notes: `Allocated to ${fundRow.name}`,
-    } as never);
+    } as never).select("id").single();
 
-    if (txError) {
-      throw new Error(txError.message);
+    if (txError || !txData) {
+      throw new Error(txError?.message ?? "Failed to record allocation.");
     }
+
+    await attachTransactionReference(db, (txData as { id: string }).id, {
+      type: "adjustment",
+      payment_method: "pool_allocation",
+      notes: `Allocated to ${fundRow.name}`,
+    });
 
     await communicationTriggers.poolInvestmentConfirmed({
       userId: user.id,
@@ -614,17 +621,29 @@ export const poolParticipationService = {
       });
     }
 
-    await db.from("transactions").insert({
+    const exitNotes = profitReturned > 0
+      ? `Opted out of ${fundRow.name} — principal and profit returned to Funding Wallet`
+      : `Opted out of ${fundRow.name} — principal returned to Funding Wallet`;
+
+    const { data: exitTx, error: exitTxError } = await db.from("transactions").insert({
       user_id: user.id,
       fund_id: poolId,
       type: "adjustment",
       amount: returnAmount,
       status: "completed",
       payment_method: "pool_exit",
-      notes: profitReturned > 0
-        ? `Opted out of ${fundRow.name} — principal and profit returned to Funding Wallet`
-        : `Opted out of ${fundRow.name} — principal returned to Funding Wallet`,
-    } as never);
+      notes: exitNotes,
+    } as never).select("id").single();
+
+    if (exitTxError || !exitTx) {
+      throw new Error(exitTxError?.message ?? "Failed to record pool exit.");
+    }
+
+    await attachTransactionReference(db, (exitTx as { id: string }).id, {
+      type: "adjustment",
+      payment_method: "pool_exit",
+      notes: exitNotes,
+    });
 
     await communicationTriggers.investmentClosed({
       userId: user.id,
@@ -721,15 +740,27 @@ export const poolParticipationService = {
       );
     }
 
-    await db.from("transactions").insert({
+    const profitNotes = `Pool profit transferred to Funding Wallet — ${poolName}`;
+
+    const { data: profitTx, error: profitTxError } = await db.from("transactions").insert({
       user_id: user.id,
       fund_id: fundId,
       type: "adjustment",
       amount: applied,
       status: "completed",
       payment_method: "profit_transfer",
-      notes: `Pool profit transferred to Funding Wallet — ${poolName}`,
-    } as never);
+      notes: profitNotes,
+    } as never).select("id").single();
+
+    if (profitTxError || !profitTx) {
+      throw new Error(profitTxError?.message ?? "Failed to record profit transfer.");
+    }
+
+    await attachTransactionReference(db, (profitTx as { id: string }).id, {
+      type: "adjustment",
+      payment_method: "profit_transfer",
+      notes: profitNotes,
+    });
 
     await communicationTriggers.investmentUpdated({
       userId: user.id,
@@ -810,15 +841,27 @@ export const poolParticipationService = {
         .eq("id", fundId);
     }
 
-    await db.from("transactions").insert({
+    const reinvestNotes = `Pool profit reinvested — ${poolName}`;
+
+    const { data: reinvestTx, error: reinvestTxError } = await db.from("transactions").insert({
       user_id: user.id,
       fund_id: fundId,
       type: "adjustment",
       amount: applied,
       status: "completed",
       payment_method: "profit_reinvest",
-      notes: `Pool profit reinvested — ${poolName}`,
-    } as never);
+      notes: reinvestNotes,
+    } as never).select("id").single();
+
+    if (reinvestTxError || !reinvestTx) {
+      throw new Error(reinvestTxError?.message ?? "Failed to record reinvestment.");
+    }
+
+    await attachTransactionReference(db, (reinvestTx as { id: string }).id, {
+      type: "adjustment",
+      payment_method: "profit_reinvest",
+      notes: reinvestNotes,
+    });
 
     await communicationTriggers.investmentUpdated({
       userId: user.id,

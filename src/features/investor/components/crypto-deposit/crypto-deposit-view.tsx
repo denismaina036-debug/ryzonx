@@ -457,24 +457,31 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
         ) : (
           <ul className="divide-y divide-[var(--id-border)]">
             {data.recentDeposits.map((dep) => (
-              <li
-                key={dep.id}
-                className="flex items-center justify-between gap-4 px-5 py-4 sm:px-6"
-              >
-                <div>
-                  <p className="text-sm font-semibold text-[var(--id-text)]">
-                    {dep.cryptoAmount ?? dep.amount} {dep.symbol}
-                  </p>
-                  <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">
-                    {new Date(dep.createdAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}{" "}
-                    · {dep.network}
-                  </p>
-                </div>
-                <StatusPill status={dep.status} />
+              <li key={dep.id}>
+                <Link
+                  href={ROUTES.transactionDetail(dep.id)}
+                  className="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-[var(--id-surface-hover)] sm:px-6"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--id-text)]">Deposit</p>
+                    <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">
+                      {dep.symbol} • {dep.network}
+                    </p>
+                    <p className="mt-0.5 text-xs text-[var(--id-text-faint)]">
+                      {new Date(dep.createdAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-mono text-sm font-semibold tabular-nums text-[var(--id-success)]">
+                      +{dep.cryptoAmount ?? dep.amount} {dep.symbol}
+                    </p>
+                    <StatusPill status={dep.status} />
+                  </div>
+                </Link>
               </li>
             ))}
           </ul>

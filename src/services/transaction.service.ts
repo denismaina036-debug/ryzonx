@@ -4,11 +4,14 @@ import { DEFAULT_FUND_ID } from "@/constants/funds";
 import { requireAuth, requireRole } from "@/lib/auth/session";
 import type { AdminDepositRequest, AdminTransaction, AdminWithdrawalRequest } from "@/features/admin/types";
 import type { InvestorTransaction } from "@/features/investor/types/wallet";
+import type { InvestorTransactionDetail } from "@/domain/transaction/types";
 import type { TransactionStatus } from "@/types";
 import { communicationTriggers } from "@/services/communication/communication-triggers.service";
 import { adminNotifyService } from "@/services/communication/admin-notify.service";
 import { formatMoney } from "@/services/communication/user-variables";
 import { ensurePlatformFundingFund } from "@/services/platform-funding.service";
+import { buildInvestorTransactionDetail, buildTransactionPresentation } from "@/lib/transaction/presentation";
+import { attachTransactionReference } from "@/lib/transaction/insert";
 
 export type { InvestorTransaction };
 
@@ -26,14 +29,17 @@ type TransactionRow = {
   status: string;
   payment_method: string | null;
   reference: string | null;
+  transaction_reference?: string | null;
   notes: string | null;
   admin_notes: string | null;
   destination: string | null;
   crypto_symbol: string | null;
   crypto_network: string | null;
   crypto_amount: number | string | null;
+  metadata?: Record<string, unknown> | null;
   processed_at: string | null;
   approved_by: string | null;
+  processed_by: string | null;
   created_at: string;
 };
 
@@ -184,7 +190,7 @@ function mapAdminTransaction(
     type: row.type as AdminTransaction["type"],
     amount: toNumber(row.amount),
     status: row.status as TransactionStatus,
-    reference: row.reference,
+    reference: row.transaction_reference ?? row.reference,
     createdAt: row.created_at,
     processedAt: row.processed_at,
   };
@@ -202,11 +208,10 @@ function parseCryptoFromNotes(notes: string | null): {
   return { symbol: match[1] ?? null, network: match[2] ?? null };
 }
 
-function mapInvestorTransaction(
+function toPresentationInput(
   row: TransactionRow,
-  fundName: string,
-  poolWinRate: number | null
-): InvestorTransaction {
+  fundName: string
+): Parameters<typeof buildTransactionPresentation>[0] {
   const parsed = parseCryptoFromNotes(row.notes);
   return {
     id: row.id,
@@ -215,14 +220,54 @@ function mapInvestorTransaction(
     status: row.status,
     paymentMethod: row.payment_method,
     reference: row.reference,
+    transactionReference: row.transaction_reference ?? null,
+    notes: row.notes,
+    adminNotes: row.admin_notes,
+    destination: row.destination,
+    fundId: row.fund_id,
+    fundName,
     cryptoSymbol: row.crypto_symbol ?? parsed.symbol,
     cryptoNetwork: row.crypto_network ?? parsed.network,
     cryptoAmount:
       row.crypto_amount != null ? toNumber(row.crypto_amount) : toNumber(row.amount),
+    createdAt: row.created_at,
+    processedAt: row.processed_at,
+    metadata: row.metadata ?? null,
+  };
+}
+
+function mapInvestorTransaction(
+  row: TransactionRow,
+  fundName: string,
+  poolWinRate: number | null
+): InvestorTransaction {
+  const input = toPresentationInput(row, fundName);
+  const presentation = buildTransactionPresentation(input);
+
+  return {
+    id: row.id,
+    type: row.type,
+    amount: input.amount,
+    status: row.status,
+    paymentMethod: row.payment_method,
+    reference: row.reference,
+    transactionReference: row.transaction_reference ?? null,
+    cryptoSymbol: input.cryptoSymbol,
+    cryptoNetwork: input.cryptoNetwork,
+    cryptoAmount: input.cryptoAmount,
+    fundId: row.fund_id,
     fundName,
     poolWinRate,
     createdAt: row.created_at,
     processedAt: row.processed_at,
+    title: presentation.title,
+    subtitle: presentation.subtitle,
+    category: presentation.category,
+    iconKind: presentation.iconKind,
+    amountPrefix: presentation.amountPrefix,
+    amountSuffix: presentation.amountSuffix,
+    statusLabel: presentation.statusLabel,
+    isCredit: presentation.isCredit,
   };
 }
 
@@ -293,6 +338,94 @@ export const transactionService = {
         winRateMap.get(row.fund_id) ?? null
       )
     );
+  },
+
+  async getInvestorTransactionById(
+    transactionId: string
+  ): Promise<InvestorTransactionDetail | null> {
+    const user = await requireAuth();
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("*")
+      .eq("id", transactionId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (error || !data) {
+      return null;
+    }
+
+    const row = data as TransactionRow;
+    const db = createAdminClient();
+
+    const [fundResult, portfolioResult, cycleResult, processorResult] =
+      await Promise.all([
+        db
+          .from("funds")
+          .select("name, pool_manager_id, pool_managers(display_name)")
+          .eq("id", row.fund_id)
+          .maybeSingle(),
+        db
+          .from("investor_portfolios")
+          .select("total_invested, current_value")
+          .eq("user_id", user.id)
+          .eq("fund_id", row.fund_id)
+          .maybeSingle(),
+        db
+          .from("investment_cycles")
+          .select("name, status")
+          .eq("fund_id", row.fund_id)
+          .in("status", ["funding", "approved", "trading", "distribution", "completed"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        row.processed_by || row.approved_by
+          ? db
+              .from("profiles")
+              .select("full_name")
+              .eq("id", row.processed_by ?? row.approved_by ?? "")
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
+
+    const fundRow = fundResult.data as {
+      name?: string;
+      pool_managers?: { display_name?: string } | { display_name?: string }[] | null;
+    } | null;
+
+    const fundName = fundRow?.name ?? "—";
+    const poolManagers = fundRow?.pool_managers;
+    const managerRecord = Array.isArray(poolManagers)
+      ? poolManagers[0]
+      : poolManagers;
+    const poolManagerName = managerRecord?.display_name ?? null;
+
+    const portfolio = portfolioResult.data as {
+      total_invested?: number;
+      current_value?: number;
+    } | null;
+
+    const poolBalance = toNumber(portfolio?.current_value);
+    const myInvestment = toNumber(portfolio?.total_invested);
+    const investorSharePct =
+      poolBalance > 0 && myInvestment > 0 ? (myInvestment / poolBalance) * 100 : null;
+
+    const cycleRow = cycleResult.data as { name?: string; status?: string } | null;
+    const investmentCycleLabel = cycleRow?.name
+      ? `${cycleRow.name}${cycleRow.status ? ` (${cycleRow.status})` : ""}`
+      : null;
+
+    const processor = processorResult.data as { full_name?: string } | null;
+
+    return buildInvestorTransactionDetail(toPresentationInput(row, fundName), {
+      poolManagerName,
+      investorSharePct,
+      investmentCycleLabel,
+      processedByName: processor?.full_name ?? null,
+      createdByName: "You",
+    });
   },
 
   async getAdminDeposits(
@@ -392,6 +525,11 @@ export const transactionService = {
     }
 
     const txId = (data as { id: string }).id;
+    await attachTransactionReference(db, txId, {
+      type: "withdrawal",
+      payment_method: "bank",
+      notes: `Withdrawal request to ${input.destination.trim()}`,
+    });
     await communicationTriggers.withdrawalRequested({
       userId: user.id,
       amount: formatMoney(input.amount),

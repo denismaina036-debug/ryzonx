@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_FUND_ID, DEFAULT_FUND_NAME } from "@/constants/funds";
 import { requireAuth } from "@/lib/auth/session";
 import { ensurePlatformFundingFund } from "@/services/platform-funding.service";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { attachTransactionReference } from "@/lib/transaction/insert";
 import {
   communicationTriggers,
   adminNotifyService,
@@ -278,6 +280,11 @@ export const depositService = {
 
     if (!withCrypto.error && withCrypto.data) {
       const id = withCrypto.data.id;
+      await attachTransactionReference(createAdminClient(), id, {
+        type: "deposit",
+        payment_method: "crypto",
+        notes,
+      });
       await communicationTriggers.depositSubmitted({
         userId: user.id,
         amount: formatMoney(input.amount),
@@ -314,6 +321,11 @@ export const depositService = {
     }
 
     const id = fallback.data.id;
+    await attachTransactionReference(createAdminClient(), id, {
+      type: "deposit",
+      payment_method: "crypto",
+      notes,
+    });
     await communicationTriggers.depositSubmitted({
       userId: user.id,
       amount: formatMoney(input.amount),

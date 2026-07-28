@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { cn, formatCurrency } from "@/lib/utils";
 import {
@@ -9,6 +8,7 @@ import {
   dashboardCardBodyClass,
 } from "@/features/investor/components/dashboard-card";
 import type { InvestorPoolActivityItem } from "@/features/investor/types";
+import { TransactionIcon } from "@/features/investor/components/transactions/transaction-icon";
 
 function formatActivityTime(dateString: string): string {
   const diffMs = Date.now() - new Date(dateString).getTime();
@@ -21,21 +21,6 @@ function formatActivityTime(dateString: string): string {
     month: "short",
     day: "numeric",
   });
-}
-
-function getActivityVisual(action: InvestorPoolActivityItem["action"]) {
-  if (action === "deposited") {
-    return {
-      icon: ArrowDownLeft,
-      className: "bg-[var(--id-success-soft)] text-[var(--id-success)]",
-      label: "Deposited",
-    };
-  }
-  return {
-    icon: ArrowUpRight,
-    className: "bg-orange-500/10 text-orange-400",
-    label: "Withdrew",
-  };
 }
 
 interface RecentActivityTimelineProps {
@@ -69,36 +54,34 @@ export function RecentActivityTimeline({
           </p>
         ) : (
           <ul className="space-y-0">
-            {items.map((item) => {
-              const visual = getActivityVisual(item.action);
-              const Icon = visual.icon;
-
-              return (
-                <li
-                  key={item.id}
-                  className="flex items-start gap-3 border-b border-[var(--id-border)] py-3.5 last:border-0"
+            {items.map((item) => (
+              <li key={item.id} className="border-b border-[var(--id-border)] last:border-0">
+                <Link
+                  href={ROUTES.transactionDetail(item.id)}
+                  className="flex items-start gap-3 py-3.5 transition-colors hover:bg-[var(--id-surface-hover)]"
                 >
-                  <div
-                    className={cn(
-                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                      visual.className
-                    )}
-                  >
-                    <Icon className="h-3.5 w-3.5" strokeWidth={2} />
-                  </div>
+                  <TransactionIcon kind={item.iconKind} size="sm" />
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="text-sm font-medium text-[var(--id-text)]">
-                          {item.investorName}
+                          {item.title}
                         </p>
                         <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">
-                          {visual.label}
+                          {item.subtitle}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-mono text-sm font-semibold tabular-nums text-[var(--id-text)]">
+                        <p
+                          className={cn(
+                            "font-mono text-sm font-semibold tabular-nums",
+                            item.amountPrefix === "+"
+                              ? "text-[var(--id-success)]"
+                              : "text-[var(--id-text)]"
+                          )}
+                        >
+                          {item.amountPrefix}
                           {formatCurrency(item.amount)}
                         </p>
                         <p className="mt-0.5 text-[11px] text-[var(--id-text-faint)]">
@@ -107,9 +90,9 @@ export function RecentActivityTimeline({
                       </div>
                     </div>
                   </div>
-                </li>
-              );
-            })}
+                </Link>
+              </li>
+            ))}
           </ul>
         )}
       </div>
