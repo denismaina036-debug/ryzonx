@@ -48,32 +48,34 @@ export function MobileRecentActivity({
             <li key={item.id} className="border-b border-[var(--id-border)] last:border-0">
               <Link
                 href={ROUTES.transactionDetail(item.id)}
-                className="flex items-center gap-3 py-3 transition-colors hover:opacity-90"
+                className="flex items-start gap-3 py-3 transition-colors hover:opacity-90"
               >
                 <TransactionIcon kind={item.iconKind} size="sm" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-[var(--id-text)]">
-                    {item.title}
-                  </p>
-                  <p className="truncate text-xs text-[var(--id-text-muted)]">
-                    {item.subtitle}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p
-                    className={cn(
-                      "font-mono text-sm font-semibold tabular-nums",
-                      item.amountPrefix === "+"
-                        ? "text-[var(--id-success)]"
-                        : "text-[var(--id-text)]"
-                    )}
-                  >
-                    {item.amountPrefix}
-                    {formatCurrency(item.amount)}
-                  </p>
-                  <p className="text-[10px] text-[var(--id-text-faint)]">
-                    {formatActivityTime(item.createdAt)}
-                  </p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 break-words text-sm font-medium text-[var(--id-text)]">
+                      {item.title}
+                    </p>
+                    <p
+                      className={cn(
+                        "shrink-0 font-mono text-sm font-semibold tabular-nums",
+                        item.amountPrefix === "+"
+                          ? "text-[var(--id-success)]"
+                          : "text-[var(--id-text)]"
+                      )}
+                    >
+                      {item.amountPrefix}
+                      {formatCurrency(item.amount)}
+                    </p>
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+                    <p className="min-w-0 break-words text-xs text-[var(--id-text-muted)]">
+                      {item.subtitle}
+                    </p>
+                    <p className="shrink-0 text-[10px] text-[var(--id-text-faint)]">
+                      {formatActivityTime(item.createdAt)}
+                    </p>
+                  </div>
                 </div>
               </Link>
             </li>

@@ -44,7 +44,7 @@ export function InvestmentActivityFeed({
         return (
           <div
             key={item.id}
-            className="flex items-center gap-4 rounded-xl border border-border bg-card px-4 py-3.5 transition-colors hover:bg-surface-1"
+            className="flex items-start gap-3 rounded-xl border border-border bg-card px-4 py-3.5 transition-colors hover:bg-surface-1 md:items-center md:gap-4"
           >
             <div
               className={cn(
@@ -55,13 +55,22 @@ export function InvestmentActivityFeed({
               <Icon className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-navy-950">
-                {item.displayName}
+              <div className="flex items-start justify-between gap-2 md:block">
+                <p className="min-w-0 break-words text-sm font-medium text-navy-950 md:truncate">
+                  {item.displayName}
+                </p>
+                <p className="shrink-0 font-mono text-sm font-semibold tabular-nums text-navy-950 md:hidden">
+                  {formatCurrency(item.amount)}
+                </p>
+              </div>
+              <p className="mt-0.5 break-words text-xs text-navy-500 md:truncate">
+                {item.subtitle}
               </p>
-              <p className="truncate text-xs text-navy-500">{item.subtitle}</p>
-              <p className="text-xs text-navy-400">{formatRelativeTime(item.createdAt)}</p>
+              <p className="mt-0.5 text-xs text-navy-400">
+                {formatRelativeTime(item.createdAt)}
+              </p>
             </div>
-            <p className="shrink-0 font-mono text-sm font-semibold text-navy-950">
+            <p className="hidden shrink-0 font-mono text-sm font-semibold tabular-nums text-navy-950 md:block">
               {formatCurrency(item.amount)}
             </p>
           </div>
