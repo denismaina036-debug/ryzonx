@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
-import type { PublicLandingPageContent } from "@/services/landing-page.service";
+import type { PublicLandingPageContent } from "@/domain/landing-page/types";
 
 const LandingContentContext = createContext<PublicLandingPageContent | null>(null);
 

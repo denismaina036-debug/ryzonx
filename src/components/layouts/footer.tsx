@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -7,7 +9,8 @@ import {
   Twitter,
   Youtube,
 } from "lucide-react";
-import { landingPageService } from "@/services/landing-page.service";
+import { useOptionalLandingContent } from "@/providers/landing-content-provider";
+import { DEFAULT_LANDING_PAGE_CONTENT } from "@/domain/landing-page/defaults";
 
 function DiscordIcon({ className }: { className?: string }) {
   return (
@@ -25,9 +28,11 @@ function TelegramIcon({ className }: { className?: string }) {
   );
 }
 
-export async function Footer() {
-  const content = await landingPageService.getPublicContent();
-  const { footer, contact, social } = content;
+export function Footer() {
+  const landing = useOptionalLandingContent();
+  const footer = landing?.footer ?? DEFAULT_LANDING_PAGE_CONTENT.footer;
+  const contact = landing?.contact ?? DEFAULT_LANDING_PAGE_CONTENT.contact;
+  const social = landing?.social ?? DEFAULT_LANDING_PAGE_CONTENT.social;
 
   const socialLinks = [
     { key: "facebook", href: social.facebook, icon: Facebook, label: "Facebook" },

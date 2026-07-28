@@ -182,6 +182,17 @@ export interface LandingPageContent {
   seo: LandingSeoContent;
 }
 
+export interface ResolvedLandingStat extends LandingStatItem {
+  resolvedValue: string;
+  changeType?: "positive" | "negative" | "neutral";
+}
+
+/** Landing CMS content with resolved stat values for public pages. */
+export interface PublicLandingPageContent extends Omit<LandingPageContent, "heroStats" | "statistics"> {
+  heroStats: ResolvedLandingStat[];
+  statistics: ResolvedLandingStat[];
+}
+
 export type LandingInvestmentActivityType =
   | "pool_join"
   | "deposit"

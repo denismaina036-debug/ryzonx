@@ -1,7 +1,6 @@
 import { cache } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/auth/authorization";
-import { auditService } from "@/services/audit.service";
 import { platformSettingsService } from "@/services/platform-settings.service";
 import { landingPageStatsService } from "@/services/landing-page-stats.service";
 import { DEFAULT_LANDING_PAGE_CONTENT } from "@/domain/landing-page/defaults";
@@ -10,12 +9,11 @@ import type {
   LandingHeroFloatingStat,
   LandingPageContent,
   LandingStatItem,
+  PublicLandingPageContent,
+  ResolvedLandingStat,
 } from "@/domain/landing-page/types";
 
-export interface ResolvedLandingStat extends LandingStatItem {
-  resolvedValue: string;
-  changeType?: "positive" | "negative" | "neutral";
-}
+export type { PublicLandingPageContent, ResolvedLandingStat };
 
 async function resolveStats(stats: LandingStatItem[]): Promise<ResolvedLandingStat[]> {
   return Promise.all(
@@ -50,7 +48,7 @@ export const landingPageService = {
     return parseLandingPageContent(raw);
   }),
 
-  getPublicContent: cache(async () => {
+  getPublicContent: cache(async (): Promise<PublicLandingPageContent> => {
     const content = await landingPageService.getRawContent();
     const [heroStats, statistics] = await Promise.all([
       resolveHeroStats(content.heroStats),
@@ -79,6 +77,7 @@ export const landingPageService = {
     );
     if (error) throw new Error(error.message);
 
+    const { auditService } = await import("@/services/audit.service");
     await auditService.log({
       actorId,
       action: "landing_page_content_updated",
@@ -94,7 +93,3 @@ export const landingPageService = {
     return DEFAULT_LANDING_PAGE_CONTENT;
   },
 };
-
-export type PublicLandingPageContent = Awaited<
-  ReturnType<typeof landingPageService.getPublicContent>
->;
