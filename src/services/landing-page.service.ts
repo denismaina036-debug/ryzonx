@@ -23,6 +23,7 @@ async function resolveStats(stats: LandingStatItem[]): Promise<ResolvedLandingSt
         mode: stat.mode,
         manualValue: stat.manualValue,
         automaticKey: stat.automaticKey,
+        valueFormat: stat.valueFormat,
       }),
     }))
   );
@@ -36,6 +37,7 @@ async function resolveHeroStats(stats: LandingHeroFloatingStat[]): Promise<Resol
         mode: stat.mode,
         manualValue: stat.manualValue,
         automaticKey: stat.automaticKey,
+        valueFormat: stat.valueFormat,
       }),
       changeType: stat.changeType,
     }))

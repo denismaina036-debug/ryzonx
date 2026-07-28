@@ -1,5 +1,23 @@
-import type { LandingPageContent } from "@/domain/landing-page/types";
+import type { LandingPageContent, LandingStatItem } from "@/domain/landing-page/types";
 import { DEFAULT_LANDING_PAGE_CONTENT } from "@/domain/landing-page/defaults";
+import { inferFormatFromAutomaticKey } from "@/domain/landing-page/stat-format";
+
+function normalizeStatItem(stat: LandingStatItem): LandingStatItem {
+  return {
+    ...stat,
+    valueFormat:
+      stat.valueFormat ??
+      (stat.automaticKey ? inferFormatFromAutomaticKey(stat.automaticKey) : "number"),
+  };
+}
+
+function normalizeLandingContent(content: LandingPageContent): LandingPageContent {
+  return {
+    ...content,
+    heroStats: content.heroStats.map(normalizeStatItem),
+    statistics: content.statistics.map(normalizeStatItem),
+  };
+}
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value != null && !Array.isArray(value);
@@ -29,7 +47,7 @@ function deepMerge<T>(defaults: T, stored: unknown): T {
 }
 
 export function mergeLandingPageContent(stored: unknown): LandingPageContent {
-  return deepMerge(DEFAULT_LANDING_PAGE_CONTENT, stored);
+  return normalizeLandingContent(deepMerge(DEFAULT_LANDING_PAGE_CONTENT, stored));
 }
 
 export function parseLandingPageContent(raw: unknown): LandingPageContent {

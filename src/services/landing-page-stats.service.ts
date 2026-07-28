@@ -1,8 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_FUND_ID } from "@/constants/funds";
 import { fundService } from "@/services/fund.service";
-import type { LandingAutomaticStatKey } from "@/domain/landing-page/types";
-import { formatCompactNumber, formatCurrency, formatPercentage } from "@/lib/utils";
+import type { LandingAutomaticStatKey, LandingStatValueFormat } from "@/domain/landing-page/types";
+import {
+  formatLandingStatValue,
+  inferFormatFromAutomaticKey,
+  resolveManualStatValue,
+} from "@/domain/landing-page/stat-format";
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
@@ -56,22 +60,31 @@ async function countTotalInvestors(db: ReturnType<typeof createAdminClient>): Pr
   return count ?? 0;
 }
 
+function resolveValueFormat(input: {
+  valueFormat?: LandingStatValueFormat;
+  automaticKey?: LandingAutomaticStatKey;
+}): LandingStatValueFormat {
+  if (input.valueFormat) return input.valueFormat;
+  if (input.automaticKey) return inferFormatFromAutomaticKey(input.automaticKey);
+  return "number";
+}
+
 export const landingPageStatsService = {
-  async resolveAutomaticValue(key: LandingAutomaticStatKey): Promise<string> {
+  async resolveAutomaticNumericValue(key: LandingAutomaticStatKey): Promise<number | null> {
     const db = createAdminClient();
 
     try {
       switch (key) {
         case "verified_pool_managers":
-          return String(await countApprovedPoolManagers(db));
+          return await countApprovedPoolManagers(db);
         case "active_pools":
-          return String(await countActivePools(db));
+          return await countActivePools(db);
         case "completed_cycles":
-          return String(await countCompletedCycles(db));
+          return await countCompletedCycles(db);
         case "total_capital":
-          return formatCurrency(await sumTotalCapital(db));
+          return await sumTotalCapital(db);
         case "total_investors":
-          return String(await countTotalInvestors(db));
+          return await countTotalInvestors(db);
         default: {
           const [stats, investorStats] = await Promise.all([
             fundService.getStats(DEFAULT_FUND_ID),
@@ -79,34 +92,34 @@ export const landingPageStatsService = {
           ]);
           switch (key) {
             case "total_pool_value":
-              return formatCurrency(stats.totalPoolValue);
+              return stats.totalPoolValue;
             case "active_investors":
-              return String(stats.totalActiveInvestors);
+              return stats.totalActiveInvestors;
             case "daily_roi":
-              return formatPercentage(stats.dailyRoi);
+              return stats.dailyRoi;
             case "monthly_roi":
-              return formatPercentage(stats.monthlyRoi);
+              return stats.monthlyRoi;
             case "win_rate":
-              return `${stats.winRate}%`;
+              return stats.winRate;
             case "closed_trades":
-              return formatCompactNumber(stats.totalClosedTrades);
+              return stats.totalClosedTrades;
             case "average_investment":
-              return formatCurrency(investorStats.averageInvestment);
+              return investorStats.averageInvestment;
             case "largest_investment":
-              return formatCurrency(investorStats.largestInvestment);
+              return investorStats.largestInvestment;
             case "average_roi":
-              return formatPercentage(investorStats.averageRoi);
+              return investorStats.averageRoi;
             case "total_deposits":
-              return formatCurrency(investorStats.totalDeposits);
+              return investorStats.totalDeposits;
             case "total_withdrawals":
-              return formatCurrency(investorStats.totalWithdrawals);
+              return investorStats.totalWithdrawals;
             default:
-              return "—";
+              return null;
           }
         }
       }
     } catch {
-      return "—";
+      return null;
     }
   },
 
@@ -114,11 +127,19 @@ export const landingPageStatsService = {
     mode: "manual" | "automatic";
     manualValue?: string;
     automaticKey?: LandingAutomaticStatKey;
+    valueFormat?: LandingStatValueFormat;
   }): Promise<string> {
+    const format = resolveValueFormat(input);
+
     if (input.mode === "manual") {
-      return input.manualValue?.trim() || "—";
+      return resolveManualStatValue(input.manualValue, format);
     }
+
     if (!input.automaticKey) return "—";
-    return this.resolveAutomaticValue(input.automaticKey);
+
+    const raw = await this.resolveAutomaticNumericValue(input.automaticKey);
+    if (raw == null || !Number.isFinite(raw)) return "—";
+
+    return formatLandingStatValue(raw, format);
   },
 };

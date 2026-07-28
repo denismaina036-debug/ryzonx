@@ -1,5 +1,7 @@
 export type LandingStatMode = "manual" | "automatic";
 
+export type LandingStatValueFormat = "currency" | "percentage" | "number";
+
 export type LandingAutomaticStatKey =
   | "total_investors"
   | "verified_pool_managers"
@@ -39,6 +41,8 @@ export interface LandingStatItem {
   manualValue?: string;
   automaticKey?: LandingAutomaticStatKey;
   icon: LandingStatIcon;
+  /** How the resolved value is displayed: currency ($), percentage (%), or plain number. */
+  valueFormat?: LandingStatValueFormat;
 }
 
 export interface LandingHeroFloatingStat extends LandingStatItem {

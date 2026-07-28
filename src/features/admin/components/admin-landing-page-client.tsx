@@ -20,7 +20,9 @@ import type {
   LandingPageContent,
   LandingStatIcon,
   LandingStatItem,
+  LandingStatValueFormat,
 } from "@/domain/landing-page/types";
+import { inferFormatFromAutomaticKey } from "@/domain/landing-page/stat-format";
 
 const TABS = [
   { label: "Hero", href: "/admin/pages?tab=hero", tab: "hero" },
@@ -81,6 +83,12 @@ function Field({
   );
 }
 
+const VALUE_FORMAT_OPTIONS: { value: LandingStatValueFormat; label: string }[] = [
+  { value: "currency", label: "Currency ($)" },
+  { value: "percentage", label: "Percentage (%)" },
+  { value: "number", label: "Number" },
+];
+
 function StatEditor({
   stat,
   onChange,
@@ -90,6 +98,10 @@ function StatEditor({
   onChange: (next: LandingStatItem) => void;
   onRemove: () => void;
 }) {
+  const valueFormat =
+    stat.valueFormat ??
+    (stat.automaticKey ? inferFormatFromAutomaticKey(stat.automaticKey) : "number");
+
   return (
     <div className="grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-2">
       <Field label="Title">
@@ -117,20 +129,49 @@ function StatEditor({
           </SelectContent>
         </Select>
       </Field>
+      <Field label="Display Format">
+        <Select
+          value={valueFormat}
+          onValueChange={(v) =>
+            onChange({ ...stat, valueFormat: v as LandingStatValueFormat })
+          }
+        >
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {VALUE_FORMAT_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
       {stat.mode === "manual" ? (
         <Field label="Manual Value">
           <Input
             value={stat.manualValue ?? ""}
             onChange={(e) => onChange({ ...stat, manualValue: e.target.value })}
+            placeholder={
+              valueFormat === "currency"
+                ? "e.g. 50000"
+                : valueFormat === "percentage"
+                  ? "e.g. 12.5"
+                  : "e.g. 1200"
+            }
           />
         </Field>
       ) : (
         <Field label="Automatic Source">
           <Select
             value={stat.automaticKey ?? "total_investors"}
-            onValueChange={(v) =>
-              onChange({ ...stat, automaticKey: v as LandingAutomaticStatKey })
-            }
+            onValueChange={(v) => {
+              const key = v as LandingAutomaticStatKey;
+              onChange({
+                ...stat,
+                automaticKey: key,
+                valueFormat: stat.valueFormat ?? inferFormatFromAutomaticKey(key),
+              });
+            }}
           >
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -250,6 +291,7 @@ export function AdminLandingPageClient({
                         mode: "manual",
                         manualValue: "0",
                         icon: "TrendingUp",
+                        valueFormat: "number",
                       },
                     ],
                   })
@@ -291,6 +333,7 @@ export function AdminLandingPageClient({
                         mode: "manual",
                         manualValue: "0",
                         icon: "Users",
+                        valueFormat: "number",
                       },
                     ],
                   })
