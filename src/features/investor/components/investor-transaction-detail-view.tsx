@@ -7,7 +7,6 @@ import type { InvestorTransactionDetail } from "@/domain/transaction/types";
 import { TransactionCopyField } from "@/features/investor/components/transactions/transaction-copy-field";
 import { TransactionIcon } from "@/features/investor/components/transactions/transaction-icon";
 import { TransactionStatusPill } from "@/features/investor/components/transactions/transaction-status-pill";
-import { TransactionTimeline } from "@/features/investor/components/transactions/transaction-timeline";
 import { cn } from "@/lib/utils";
 
 export function InvestorTransactionDetailView({
@@ -20,7 +19,7 @@ export function InvestorTransactionDetailView({
     : "text-[var(--id-text)]";
 
   return (
-    <div className="mx-auto w-full min-w-0 max-w-[960px]">
+    <div className="mx-auto w-full min-w-0 max-w-[560px]">
       <Link
         href={ROUTES.transactions}
         className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-[var(--id-text-secondary)] transition-colors hover:text-[var(--id-accent-text)]"
@@ -51,43 +50,29 @@ export function InvestorTransactionDetailView({
           </div>
         </div>
 
-        <div className="grid gap-0 lg:grid-cols-[1fr_280px]">
-          <div className="border-b border-[var(--id-border)] px-5 py-6 sm:px-8 lg:border-b-0 lg:border-r">
-            <h2 className="text-sm font-semibold text-[var(--id-text)]">
-              Transaction Information
-            </h2>
-            <dl className="mt-5 divide-y divide-[var(--id-border)]">
-              {transaction.detailFields.map((field) => (
-                <div key={field.label} className="py-3.5 first:pt-0 last:pb-0">
-                  {field.copyable ? (
-                    <TransactionCopyField label={field.label} value={field.value} mono={field.mono} />
-                  ) : (
-                    <>
-                      <dt className="text-xs font-medium text-[var(--id-text-muted)]">
-                        {field.label}
-                      </dt>
-                      <dd
-                        className={cn(
-                          "mt-1 text-sm text-[var(--id-text)]",
-                          field.mono && "font-mono break-all"
-                        )}
-                      >
-                        {field.value}
-                      </dd>
-                    </>
-                  )}
-                </div>
-              ))}
-            </dl>
-          </div>
-
-          <aside className="px-5 py-6 sm:px-8">
-            <h2 className="text-sm font-semibold text-[var(--id-text)]">Progress</h2>
-            <div className="mt-5">
-              <TransactionTimeline steps={transaction.timeline} />
+        <dl className="divide-y divide-[var(--id-border)] px-5 py-2 sm:px-8">
+          {transaction.detailFields.map((field) => (
+            <div key={field.label} className="py-4">
+              {field.copyable ? (
+                <TransactionCopyField label={field.label} value={field.value} mono={field.mono} />
+              ) : (
+                <>
+                  <dt className="text-xs font-medium text-[var(--id-text-muted)]">
+                    {field.label}
+                  </dt>
+                  <dd
+                    className={cn(
+                      "mt-1 text-sm font-medium text-[var(--id-text)]",
+                      field.mono && "font-mono break-all"
+                    )}
+                  >
+                    {field.value}
+                  </dd>
+                </>
+              )}
             </div>
-          </aside>
-        </div>
+          ))}
+        </dl>
       </div>
     </div>
   );

@@ -360,8 +360,7 @@ export const transactionService = {
     const row = data as TransactionRow;
     const db = createAdminClient();
 
-    const [fundResult, portfolioResult, cycleResult, processorResult] =
-      await Promise.all([
+    const [fundResult, portfolioResult, cycleResult] = await Promise.all([
         db
           .from("funds")
           .select("name, pool_manager_id, pool_managers(display_name)")
@@ -381,13 +380,6 @@ export const transactionService = {
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
-        row.processed_by || row.approved_by
-          ? db
-              .from("profiles")
-              .select("full_name")
-              .eq("id", row.processed_by ?? row.approved_by ?? "")
-              .maybeSingle()
-          : Promise.resolve({ data: null }),
       ]);
 
     const fundRow = fundResult.data as {
@@ -417,14 +409,10 @@ export const transactionService = {
       ? `${cycleRow.name}${cycleRow.status ? ` (${cycleRow.status})` : ""}`
       : null;
 
-    const processor = processorResult.data as { full_name?: string } | null;
-
     return buildInvestorTransactionDetail(toPresentationInput(row, fundName), {
       poolManagerName,
       investorSharePct,
       investmentCycleLabel,
-      processedByName: processor?.full_name ?? null,
-      createdByName: "You",
     });
   },
 

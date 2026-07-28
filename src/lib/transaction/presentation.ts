@@ -275,8 +275,6 @@ export function buildTransactionDetailFields(
     poolManagerName?: string | null;
     investorSharePct?: number | null;
     investmentCycleLabel?: string | null;
-    processedByName?: string | null;
-    createdByName?: string | null;
   }
 ): TransactionDetailField[] {
   const category = resolveTransactionCategory(input);
@@ -313,30 +311,11 @@ export function buildTransactionDetailFields(
       )
     );
     fields.push(
-      { label: "Amount", value: formatCurrency(input.amount) },
       { label: "Currency", value: currency },
       { label: "Date", value: date },
       { label: "Time", value: time },
-      {
-        label: "Confirmation Status",
-        value: normalizeStatus(input.status),
-      }
+      { label: "Status", value: normalizeStatus(input.status) }
     );
-    push(
-      optionalField(
-        "Number of Confirmations",
-        readMetadataString(input.metadata ?? null, "confirmations")
-      )
-    );
-    push(
-      optionalField(
-        "Source",
-        readMetadataString(input.metadata ?? null, "source") ??
-          (input.paymentMethod === "crypto" ? "Crypto transfer" : "Bank transfer")
-      )
-    );
-    push(optionalField("Created By", extras?.createdByName ?? "You"));
-    push(optionalField("Remarks", input.notes));
     return fields;
   }
 
@@ -348,11 +327,6 @@ export function buildTransactionDetailFields(
         { copyable: true, mono: true }
       )
     );
-    fields.push({
-      label: "Destination Wallet",
-      value:
-        readMetadataString(input.metadata ?? null, "destination_wallet") ?? walletLabel,
-    });
     push(
       optionalField(
         "Network",
@@ -366,19 +340,11 @@ export function buildTransactionDetailFields(
       )
     );
     fields.push(
-      { label: "Amount Sent", value: formatCurrency(input.amount) },
-      {
-        label: "Amount Received",
-        value:
-          readMetadataString(input.metadata ?? null, "amount_received") ??
-          formatCurrency(input.amount),
-      },
       { label: "Currency", value: currency },
       { label: "Date", value: date },
       { label: "Time", value: time },
       { label: "Status", value: normalizeStatus(input.status) }
     );
-    push(optionalField("Processed By", extras?.processedByName));
     push(
       optionalField(
         "Reference Number",
@@ -388,18 +354,13 @@ export function buildTransactionDetailFields(
         { copyable: true, mono: true }
       )
     );
-    push(optionalField("Remarks", input.notes ?? input.adminNotes));
     return fields;
   }
 
   if (category === "pool_investment") {
     fields.push(
       { label: "Pool Name", value: input.fundName },
-      {
-        label: "Pool Manager",
-        value: extras?.poolManagerName ?? "—",
-      },
-      { label: "Investment Amount", value: formatCurrency(input.amount) }
+      { label: "Pool Manager", value: extras?.poolManagerName ?? "—" }
     );
     if (extras?.investorSharePct != null) {
       fields.push({
@@ -410,13 +371,7 @@ export function buildTransactionDetailFields(
     push(optionalField("Investment Cycle", extras?.investmentCycleLabel));
     fields.push(
       { label: "Investment Date", value: date },
-      {
-        label: "Settlement Status",
-        value:
-          readMetadataString(input.metadata ?? null, "settlement_status") ??
-          (input.status === "completed" ? "Settled" : normalizeStatus(input.status)),
-      },
-      { label: "Current Status", value: normalizeStatus(input.status) }
+      { label: "Status", value: normalizeStatus(input.status) }
     );
     return fields;
   }
@@ -426,9 +381,11 @@ export function buildTransactionDetailFields(
       { label: "Pool Name", value: input.fundName },
       {
         label: "Cycle",
-        value: extras?.investmentCycleLabel ?? readMetadataString(input.metadata ?? null, "cycle") ?? "—",
-      },
-      { label: "Profit Earned", value: formatCurrency(input.amount) }
+        value:
+          extras?.investmentCycleLabel ??
+          readMetadataString(input.metadata ?? null, "cycle") ??
+          "—",
+      }
     );
     if (extras?.investorSharePct != null) {
       fields.push({
@@ -436,14 +393,10 @@ export function buildTransactionDetailFields(
         value: `${extras.investorSharePct.toFixed(2)}%`,
       });
     }
-    fields.push(
-      {
-        label: "Settlement Date",
-        value: input.processedAt
-          ? formatDateTime(input.processedAt).date
-          : date,
-      }
-    );
+    fields.push({
+      label: "Settlement Date",
+      value: input.processedAt ? formatDateTime(input.processedAt).date : date,
+    });
     push(
       optionalField(
         "Reference Number",
@@ -457,14 +410,12 @@ export function buildTransactionDetailFields(
   }
 
   fields.push(
-    { label: "Amount", value: formatCurrency(input.amount) },
     { label: "Currency", value: currency },
     { label: "Date", value: date },
     { label: "Time", value: time },
     { label: "Status", value: normalizeStatus(input.status) }
   );
   push(optionalField("Pool", input.fundName));
-  push(optionalField("Remarks", input.notes));
   return fields;
 }
 
@@ -474,8 +425,6 @@ export function buildInvestorTransactionDetail(
     poolManagerName?: string | null;
     investorSharePct?: number | null;
     investmentCycleLabel?: string | null;
-    processedByName?: string | null;
-    createdByName?: string | null;
   }
 ): InvestorTransactionDetail {
   const presentation = buildTransactionPresentation(input);
