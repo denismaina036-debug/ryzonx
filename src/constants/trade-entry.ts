@@ -22,3 +22,12 @@ export const TRADE_ENTRY_DIRECTION_LABELS: Record<TradeEntryDirection, string> =
   long: "Long",
   short: "Short",
 };
+
+export const TRADE_ENTRY_RESULTS = ["profit", "loss", "breakeven"] as const;
+export type TradeEntryResult = (typeof TRADE_ENTRY_RESULTS)[number];
+
+export const TRADE_ENTRY_RESULT_LABELS: Record<TradeEntryResult, string> = {
+  profit: "Profit",
+  loss: "Loss",
+  breakeven: "Breakeven",
+};

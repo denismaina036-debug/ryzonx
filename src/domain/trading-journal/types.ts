@@ -1,5 +1,5 @@
 import type { TradeJournalStatus } from "@/constants/trading-journal";
-import type { TradeEntryDirection, TradeEntryStatus } from "@/constants/trade-entry";
+import type { TradeEntryDirection, TradeEntryResult, TradeEntryStatus } from "@/constants/trade-entry";
 import type { CycleProgressPhase, CycleProgressEventType } from "@/constants/cycle-progress";
 
 export interface TradeJournal {
@@ -25,6 +25,9 @@ export interface TradeEntry {
   exitPrice: number | null;
   quantity: number;
   status: TradeEntryStatus;
+  tradeResult: TradeEntryResult | null;
+  realizedPnl: number | null;
+  lossAppliedAt: string | null;
   notes: string | null;
   openedAt: string | null;
   closedAt: string | null;
@@ -125,5 +128,6 @@ export interface UpdateTradeEntryInput {
 
 export interface CloseTradeEntryInput {
   exitPrice: number;
+  tradeResult?: TradeEntryResult | null;
   notes?: string | null;
 }

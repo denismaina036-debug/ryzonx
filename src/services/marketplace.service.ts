@@ -7,6 +7,8 @@ import {
 import { buildProtectionIndicators } from "@/lib/governance/protection-indicators";
 import { resolvePoolManagerPublicLabel, resolvePublicManagerName, managerRowToIdentity } from "@/domain/pool-manager/public-profile";
 import { parseCoverImagePosition } from "@/domain/pools/cover-image-position";
+import { mergeAdminStatistics } from "@/lib/pool-manager/merge-admin-statistics";
+import type { PoolManagerAdminStatistics } from "@/domain/pool-manager/admin-statistics";
 import {
   aggregatePoolsByManager,
   filterManagers,
@@ -341,6 +343,7 @@ type ManagerRow = {
   display_review_count?: number;
   display_trade_count?: number;
   display_investor_count?: number;
+  admin_statistics?: PoolManagerAdminStatistics | Record<string, unknown> | null;
 };
 
 function managerPublicLabel(row: ManagerRow | null): string | null {
@@ -609,6 +612,25 @@ function enrichManagerCards(
     const yearsOn =
       (Date.now() - createdAt.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
 
+    const merged = mergeAdminStatistics(
+      {
+        ryvonxRating:
+          row.ryvonx_rating != null ? toNumber(row.ryvonx_rating) : card.ryvonxRating,
+        securityRating:
+          row.security_rating != null
+            ? String(row.security_rating)
+            : card.securityRating,
+        winRatePct: row.win_rate_pct != null ? toNumber(row.win_rate_pct) : null,
+        avgMonthlyReturnPct:
+          row.avg_monthly_return_pct != null
+            ? toNumber(row.avg_monthly_return_pct)
+            : card.avgMonthlyReturnPct,
+        maxDrawdownPct:
+          row.max_drawdown_pct != null ? toNumber(row.max_drawdown_pct) : card.maxDrawdownPct,
+      },
+      (row.admin_statistics as PoolManagerAdminStatistics | null) ?? null
+    );
+
     return {
       ...card,
       id: row.id,
@@ -619,19 +641,12 @@ function enrichManagerCards(
       bio: row.bio ?? card.bio,
       tradingStyle: row.trading_style ?? card.tradingStyle,
       isVerified: row.is_verified,
-      ryvonxRating:
-        row.ryvonx_rating != null ? toNumber(row.ryvonx_rating) : card.ryvonxRating,
+      ryvonxRating: merged.ryvonxRating ?? card.ryvonxRating,
       securityRating:
-        row.security_rating != null
-          ? String(row.security_rating)
-          : card.securityRating,
-      winRatePct: row.win_rate_pct != null ? toNumber(row.win_rate_pct) : null,
-      avgMonthlyReturnPct:
-        row.avg_monthly_return_pct != null
-          ? toNumber(row.avg_monthly_return_pct)
-          : card.avgMonthlyReturnPct,
-      maxDrawdownPct:
-        row.max_drawdown_pct != null ? toNumber(row.max_drawdown_pct) : card.maxDrawdownPct,
+        merged.securityRating != null ? String(merged.securityRating) : card.securityRating,
+      winRatePct: merged.winRatePct,
+      avgMonthlyReturnPct: merged.avgMonthlyReturnPct ?? card.avgMonthlyReturnPct,
+      maxDrawdownPct: merged.maxDrawdownPct ?? card.maxDrawdownPct,
       yearsOnRyvonX: Math.max(0, Math.round(yearsOn * 10) / 10),
     };
   });

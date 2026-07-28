@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AdminAdministrationShell } from "@/features/admin/components/admin-administration-shell";
 import { AdminManagerOversightClient } from "@/features/admin/components/admin-manager-oversight-client";
 import { adminManagerOversightService } from "@/services/admin-manager-oversight.service";
+import { poolManagerStatsService } from "@/services/pool-manager-stats.service";
 
 export default async function AdminManagerOversightPage({
   params,
@@ -19,12 +20,14 @@ export default async function AdminManagerOversightPage({
 
   if (!profile) notFound();
 
+  const statistics = await poolManagerStatsService.getStatistics(id);
+
   return (
     <AdminAdministrationShell
       title="Manager Oversight"
       description="Professional manager profile with strategies, cycles, governance history, and internal notes."
     >
-      <AdminManagerOversightClient profile={profile} />
+      <AdminManagerOversightClient profile={profile} statistics={statistics} />
     </AdminAdministrationShell>
   );
 }

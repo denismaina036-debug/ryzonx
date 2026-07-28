@@ -13,6 +13,8 @@ import {
 } from "@/domain/pool-manager/public-profile";
 import { notificationService } from "@/services/notification.service";
 import { parseCoverImagePosition } from "@/domain/pools/cover-image-position";
+import { mergeAdminStatistics } from "@/lib/pool-manager/merge-admin-statistics";
+import type { PoolManagerAdminStatistics } from "@/domain/pool-manager/admin-statistics";
 import type {
   PoolManagerDashboardStats,
   PoolManagerPublicProfile,
@@ -424,7 +426,7 @@ export const poolManagerDashboardService = {
     );
     const seedTradeCount = toNumber(row.display_trade_count as number);
 
-    return {
+    const liveProfile = {
       id: managerId,
       slug: identity.slug,
       userId: (row.user_id as string) ?? null,
@@ -469,6 +471,23 @@ export const poolManagerDashboardService = {
       publicReviewCount: resolvePublicDisplayCount(seedReviewCount, liveReviewCount),
       publicTradeCount: resolvePublicDisplayCount(seedTradeCount, liveTradeCount),
       achievements,
+    };
+
+    const adminStats = (row.admin_statistics as PoolManagerAdminStatistics | null) ?? null;
+    const merged = mergeAdminStatistics(liveProfile, adminStats);
+
+    return {
+      ...liveProfile,
+      ryvonxRating: merged.ryvonxRating ?? liveProfile.ryvonxRating,
+      securityRating: merged.securityRating ?? liveProfile.securityRating,
+      aggressivenessRating: merged.aggressivenessRating ?? liveProfile.aggressivenessRating,
+      winRatePct: merged.winRatePct ?? liveProfile.winRatePct,
+      avgMonthlyReturnPct: merged.avgMonthlyReturnPct ?? liveProfile.avgMonthlyReturnPct,
+      maxDrawdownPct: merged.maxDrawdownPct ?? liveProfile.maxDrawdownPct,
+      assetsUnderManagement: merged.assetsUnderManagement ?? liveProfile.assetsUnderManagement,
+      activeInvestors: merged.activeInvestors ?? liveProfile.activeInvestors,
+      publicReviewCount: merged.displayReviewCount ?? liveProfile.publicReviewCount,
+      publicTradeCount: merged.displayTradeCount ?? liveProfile.publicTradeCount,
     };
   },
 

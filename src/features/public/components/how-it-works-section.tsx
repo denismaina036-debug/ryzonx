@@ -1,54 +1,21 @@
-import {
-  UserPlus,
-  ArrowDownToLine,
-  Users,
-  LineChart,
-} from "lucide-react";
 import { SectionContainer, SectionHeader } from "@/components/layouts/section";
+import { landingPageService } from "@/services/landing-page.service";
+import { resolveLandingIcon } from "@/domain/landing-page/icons";
 
-const STEPS = [
-  {
-    step: 1,
-    icon: UserPlus,
-    title: "Create Account",
-    description:
-      "Sign up in minutes with email verification. No complex onboarding.",
-  },
-  {
-    step: 2,
-    icon: ArrowDownToLine,
-    title: "Deposit Funds",
-    description:
-      "Transfer your investment amount. Minimum deposit starts at $100.",
-  },
-  {
-    step: 3,
-    icon: Users,
-    title: "Join the Pool",
-    description:
-      "Once approved, you receive proportional ownership in the trading pool.",
-  },
-  {
-    step: 4,
-    icon: LineChart,
-    title: "Track & Withdraw",
-    description:
-      "Monitor performance in real-time and request withdrawals anytime.",
-  },
-] as const;
+export async function HowItWorksSection({ className }: { className?: string } = {}) {
+  const content = await landingPageService.getPublicContent();
 
-export function HowItWorksSection({ className }: { className?: string } = {}) {
   return (
     <SectionContainer className={className ?? "bg-surface-1"}>
       <SectionHeader
-        badge="How It Works"
-        title="Four Simple Steps"
-        description="From account creation to profit tracking — a straightforward investment process."
+        badge={content.copy.howItWorks.badge}
+        title={content.copy.howItWorks.title}
+        description={content.copy.howItWorks.description}
         align="center"
       />
       <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-        {STEPS.map((step) => {
-          const Icon = step.icon;
+        {content.howItWorksSteps.map((step) => {
+          const Icon = resolveLandingIcon(step.icon);
           return (
             <div
               key={step.step}
@@ -60,12 +27,8 @@ export function HowItWorksSection({ className }: { className?: string } = {}) {
               <span className="text-xs font-semibold uppercase tracking-wider text-royal-600">
                 Step {step.step}
               </span>
-              <h3 className="mt-2 text-lg font-semibold text-navy-950">
-                {step.title}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-navy-500">
-                {step.description}
-              </p>
+              <h3 className="mt-2 text-lg font-semibold text-navy-950">{step.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-navy-500">{step.description}</p>
             </div>
           );
         })}

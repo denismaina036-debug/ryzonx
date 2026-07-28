@@ -7,8 +7,13 @@ import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/ui/form-field";
 import { SectionContainer, SectionHeader } from "@/components/layouts/section";
 import { toast } from "sonner";
+import { useOptionalLandingContent } from "@/providers/landing-content-provider";
+import { DEFAULT_LANDING_PAGE_CONTENT } from "@/domain/landing-page/defaults";
 
 export function ContactSection({ className }: { className?: string } = {}) {
+  const landing = useOptionalLandingContent();
+  const copy = landing?.copy.contact ?? DEFAULT_LANDING_PAGE_CONTENT.copy.contact;
+  const contact = landing?.contact ?? DEFAULT_LANDING_PAGE_CONTENT.contact;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -22,47 +27,73 @@ export function ContactSection({ className }: { className?: string } = {}) {
     (e.target as HTMLFormElement).reset();
   }
 
+  const addressLines = contact.officeAddress.split("\n");
+
   return (
     <SectionContainer className={className ?? "bg-surface-1"}>
       <SectionHeader
-        badge="Contact"
-        title="Get in Touch"
-        description="Have questions about Ryvonx? We'd love to hear from you."
+        badge={copy.badge}
+        title={copy.title}
+        description={copy.description}
         align="center"
       />
       <div className="mx-auto grid max-w-4xl gap-12 lg:grid-cols-5">
         <div className="space-y-6 lg:col-span-2">
-          <div className="flex items-start gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-royal-50 text-royal-600">
-              <Mail className="h-4 w-4" />
+          {contact.generalEmail || contact.supportEmail ? (
+            <div className="flex items-start gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-royal-50 text-royal-600">
+                <Mail className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-navy-950">Email</p>
+                <p className="text-sm text-navy-500">
+                  {contact.supportEmail || contact.generalEmail}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-navy-950">Email</p>
-              <p className="text-sm text-navy-500">hello@ryvonx.com</p>
+          ) : null}
+          {contact.phone ? (
+            <div className="flex items-start gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-royal-50 text-royal-600">
+                <Phone className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-navy-950">Phone</p>
+                <p className="text-sm text-navy-500">{contact.phone}</p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-start gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-royal-50 text-royal-600">
-              <Phone className="h-4 w-4" />
+          ) : null}
+          {contact.officeAddress ? (
+            <div className="flex items-start gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-royal-50 text-royal-600">
+                <MapPin className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-navy-950">Office</p>
+                <p className="text-sm text-navy-500">
+                  {addressLines.map((line, index) => (
+                    <span key={`${line}-${index}`}>
+                      {line}
+                      {index < addressLines.length - 1 ? <br /> : null}
+                    </span>
+                  ))}
+                </p>
+                {contact.businessHours ? (
+                  <p className="mt-2 text-xs text-navy-400">{contact.businessHours}</p>
+                ) : null}
+                {contact.googleMapsUrl ? (
+                  <a
+                    href={contact.googleMapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-block text-xs font-medium text-royal-600 hover:text-royal-700"
+                  >
+                    View on Google Maps
+                  </a>
+                ) : null}
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-navy-950">Phone</p>
-              <p className="text-sm text-navy-500">+1 (555) 000-0000</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-royal-50 text-royal-600">
-              <MapPin className="h-4 w-4" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-navy-950">Office</p>
-              <p className="text-sm text-navy-500">
-                100 Financial District
-                <br />
-                New York, NY 10005
-              </p>
-            </div>
-          </div>
+          ) : null}
         </div>
 
         <form

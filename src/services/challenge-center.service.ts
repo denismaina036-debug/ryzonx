@@ -13,6 +13,7 @@ import {
   isChallengeCriteriaMet,
   resolveChallengeDisplayStatus,
 } from "@/services/challenge-statistics.service";
+import { poolManagerAdminService } from "@/services/pool-manager-application.service";
 import {
   CHALLENGE_DISPLAY_STATUS,
   type ChallengeCenterState,
@@ -573,13 +574,21 @@ export const challengeCenterService = {
       completed_at: new Date().toISOString(),
     } as never);
 
+    if (input.outcome === "passed" && row.application_id) {
+      try {
+        await poolManagerAdminService.activateAfterChallengePass(row.application_id);
+      } catch (err) {
+        console.error("[markChallengeOutcome] Auto PM activation failed:", err);
+      }
+    }
+
     await notificationService.sendToUser({
       userId: row.user_id,
       type: input.outcome === "passed" ? "pm_challenge_passed" : "pm_challenge_failed",
       title: input.outcome === "passed" ? "Challenge passed" : "Challenge not passed",
       message:
         input.outcome === "passed"
-          ? "Congratulations — you passed the trading challenge. Awaiting final Pool Manager approval."
+          ? "Congratulations — you passed the trading challenge. Your Pool Manager account is now active. You can access your dashboard and create pools immediately."
           : input.notes?.trim() ??
             "Your challenge was not passed at this time. Contact support for details.",
       metadata: { enrollment_id: input.enrollmentId },

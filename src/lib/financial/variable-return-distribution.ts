@@ -28,7 +28,10 @@ export function calculateVariableReturnDistribution(input: {
   const feeRate = input.platformServiceFeeRate ?? PLATFORM_SERVICE_FEE_RATE;
   const taxableGross = input.grossTradingProfit > 0 ? input.grossTradingProfit : 0;
   const platformServiceFee = roundMoney(taxableGross * feeRate);
-  const netDistributableProfit = roundMoney(taxableGross - platformServiceFee);
+  const netDistributableProfit =
+    input.grossTradingProfit > 0
+      ? roundMoney(taxableGross - platformServiceFee)
+      : roundMoney(input.grossTradingProfit);
 
   const investorSharePct = input.profitSharing.investorSharePct;
   const poolManagerSharePct = input.profitSharing.poolManagerSharePct;
@@ -103,7 +106,7 @@ export function calculateVariableReturnDistribution(input: {
   }
 
   return {
-    grossTradingProfit: taxableGross,
+    grossTradingProfit: roundMoney(input.grossTradingProfit),
     platformServiceFeePct: feeRate * 100,
     platformServiceFee,
     netDistributableProfit,

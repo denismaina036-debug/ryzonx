@@ -4,6 +4,8 @@ import { useState, useMemo } from "react";
 import { PerformanceChart } from "@/components/ui/chart";
 import { PeriodSelector } from "@/components/ui/period-selector";
 import { SectionContainer, SectionHeader } from "@/components/layouts/section";
+import { useOptionalLandingContent } from "@/providers/landing-content-provider";
+import { DEFAULT_LANDING_PAGE_CONTENT } from "@/domain/landing-page/defaults";
 import type { PerformanceSnapshot, PerformancePeriod } from "@/types";
 
 interface PerformanceSectionProps {
@@ -35,6 +37,8 @@ export function PerformanceSection({
   showHeader = true,
   className,
 }: PerformanceSectionProps) {
+  const landing = useOptionalLandingContent();
+  const copy = landing?.copy.performance ?? DEFAULT_LANDING_PAGE_CONTENT.copy.performance;
   const [period, setPeriod] = useState<PerformancePeriod>("monthly");
 
   const filtered = useMemo(
@@ -58,9 +62,9 @@ export function PerformanceSection({
     <SectionContainer className={className ?? "bg-surface-1"}>
       {showHeader && (
         <SectionHeader
-          badge="Performance"
-          title="Pool Performance History"
-          description="Track the fund's growth over time. All data is updated in real-time and fully transparent."
+          badge={copy.badge}
+          title={copy.title}
+          description={copy.description}
           align="center"
         />
       )}

@@ -13,6 +13,7 @@ import {
 import { SectionContainer, SectionHeader } from "@/components/layouts/section";
 import { ROUTES } from "@/constants/routes";
 import { fundService } from "@/services/fund.service";
+import { landingPageService } from "@/services/landing-page.service";
 import { formatPercentage } from "@/lib/utils";
 import type { Trade } from "@/types";
 
@@ -30,20 +31,23 @@ function TradeDirectionBadge({ direction }: { direction: Trade["direction"] }) {
 }
 
 export async function JournalPreviewSection() {
-  const trades = await fundService.getRecentTrades(undefined, 5);
+  const [trades, content] = await Promise.all([
+    fundService.getRecentTrades(undefined, 5),
+    landingPageService.getPublicContent(),
+  ]);
 
   return (
     <SectionContainer>
       <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <SectionHeader
-          badge="Trading Journal"
-          title="Latest Published Trades"
-          description="Every trade is verified and published for full transparency."
+          badge={content.copy.journal.badge}
+          title={content.copy.journal.title}
+          description={content.copy.journal.description}
           className="mb-0"
         />
         <Button asChild variant="outline">
           <Link href={ROUTES.journal}>
-            View Full Journal
+            {content.copy.journal.viewAllLabel}
             <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>
@@ -65,9 +69,7 @@ export async function JournalPreviewSection() {
           <TableBody>
             {trades.map((trade) => (
               <TableRow key={trade.id}>
-                <TableCell className="font-medium text-navy-950">
-                  {trade.symbol}
-                </TableCell>
+                <TableCell className="font-medium text-navy-950">{trade.symbol}</TableCell>
                 <TableCell>
                   <TradeDirectionBadge direction={trade.direction} />
                 </TableCell>
@@ -84,23 +86,15 @@ export async function JournalPreviewSection() {
                       : "font-mono text-sm font-medium text-red-600"
                   }
                 >
-                  {trade.pnlPercentage != null
-                    ? formatPercentage(trade.pnlPercentage)
-                    : "—"}
+                  {trade.pnlPercentage != null ? formatPercentage(trade.pnlPercentage) : "—"}
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    variant={
-                      trade.status === "closed" ? "default" : "secondary"
-                    }
-                  >
+                  <Badge variant={trade.status === "closed" ? "default" : "secondary"}>
                     {trade.status}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-sm text-navy-500">
-                  {trade.closedAt
-                    ? new Date(trade.closedAt).toLocaleDateString()
-                    : "—"}
+                  {trade.closedAt ? new Date(trade.closedAt).toLocaleDateString() : "—"}
                 </TableCell>
               </TableRow>
             ))}

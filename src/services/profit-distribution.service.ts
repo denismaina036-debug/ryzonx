@@ -290,7 +290,7 @@ export const profitDistributionService = {
             allocations: allocationInput,
           })
         : calculateVariableReturnDistribution({
-            grossTradingProfit: Math.max(0, grossTradingProfit),
+            grossTradingProfit,
             platformServiceFeeRate: platformFeeRate,
             profitSharing: {
               investorSharePct: poolConfig.investorSharePct,
@@ -299,6 +299,17 @@ export const profitDistributionService = {
             targetCapital: poolConfig.targetCapital || cycleCapital,
             allocations: allocationInput,
           });
+
+    // Per-trade losses are written down on close; avoid double-charging investors at settlement.
+    if (grossTradingProfit < 0) {
+      breakdown.poolManagerEarnings = 0;
+      breakdown.investorProfitPool = 0;
+      breakdown.investorDistributionTotal = 0;
+      breakdown.investorAllocations = breakdown.investorAllocations.map((alloc) => ({
+        ...alloc,
+        profitShare: 0,
+      }));
+    }
 
     const db = createAdminClient();
     const settlementPayload = {

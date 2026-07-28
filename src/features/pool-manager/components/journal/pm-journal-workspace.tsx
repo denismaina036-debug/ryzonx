@@ -7,6 +7,8 @@ import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
 import {
   TRADE_ENTRY_DIRECTION_LABELS,
   TRADE_ENTRY_DIRECTIONS,
+  TRADE_ENTRY_RESULT_LABELS,
+  TRADE_ENTRY_RESULTS,
   TRADE_ENTRY_STATUS_LABELS,
 } from "@/constants/trade-entry";
 import { CYCLE_PROGRESS_PHASE_LABELS } from "@/constants/cycle-progress";
@@ -44,7 +46,11 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
     null
   );
   const [form, setForm] = useState(emptyForm);
-  const [closeForm, setCloseForm] = useState<{ entryId: string; exitPrice: string } | null>(null);
+  const [closeForm, setCloseForm] = useState<{
+    entryId: string;
+    exitPrice: string;
+    tradeResult: (typeof TRADE_ENTRY_RESULTS)[number];
+  } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -252,7 +258,9 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
           entries={openEntries}
           empty="No open positions."
           writable={writable}
-          onClose={(entry) => setCloseForm({ entryId: entry.id, exitPrice: "" })}
+          onClose={(entry) =>
+            setCloseForm({ entryId: entry.id, exitPrice: "", tradeResult: "profit" })
+          }
         />
         <TradeList title="Closed Positions" entries={closedEntries} empty="No closed trades yet." />
       </div>
@@ -268,12 +276,35 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
               className="max-w-xs border-white/10 bg-navy-950"
             />
           </Field>
+          <Field label="Trade Result">
+            <select
+              value={closeForm.tradeResult}
+              onChange={(e) =>
+                setCloseForm((f) =>
+                  f
+                    ? {
+                        ...f,
+                        tradeResult: e.target.value as (typeof TRADE_ENTRY_RESULTS)[number],
+                      }
+                    : f
+                )
+              }
+              className="max-w-xs w-full rounded-md border border-white/10 bg-navy-950 px-3 py-2 text-sm text-white"
+            >
+              {TRADE_ENTRY_RESULTS.map((result) => (
+                <option key={result} value={result}>
+                  {TRADE_ENTRY_RESULT_LABELS[result]}
+                </option>
+              ))}
+            </select>
+          </Field>
           <div className="mt-4 flex gap-3">
             <Button
               onClick={() =>
                 run(async () => {
                   await closeTradeEntry(cycle.id, closeForm.entryId, {
                     exitPrice: Number(closeForm.exitPrice),
+                    tradeResult: closeForm.tradeResult,
                   });
                   setCloseForm(null);
                 }, "Trade closed")
@@ -386,6 +417,20 @@ function TradeList({
                 {entry.entryPrice}
                 {entry.exitPrice != null && ` → ${entry.exitPrice}`}
               </p>
+              {entry.tradeResult && (
+                <p
+                  className={`mt-1 text-xs font-medium ${
+                    entry.tradeResult === "profit"
+                      ? "text-emerald-400"
+                      : entry.tradeResult === "loss"
+                        ? "text-rose-400"
+                        : "text-navy-400"
+                  }`}
+                >
+                  {TRADE_ENTRY_RESULT_LABELS[entry.tradeResult]}
+                  {entry.realizedPnl != null && ` · ${entry.realizedPnl >= 0 ? "+" : ""}${entry.realizedPnl.toFixed(2)}`}
+                </p>
+              )}
               {writable && onOpen && entry.status === "draft" && (
                 <Button size="sm" variant="outline" className="mt-2 border-white/10" onClick={() => onOpen(entry)}>
                   Open Trade

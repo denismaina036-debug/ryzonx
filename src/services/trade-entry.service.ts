@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth/session";
 import { USER_ROLES } from "@/constants/roles";
-import type { TradeEntryDirection, TradeEntryStatus } from "@/constants/trade-entry";
+import type { TradeEntryDirection, TradeEntryResult, TradeEntryStatus } from "@/constants/trade-entry";
 import {
   TRADE_ENTRY_ENTITY_TYPE,
   TRADING_JOURNAL_AUDIT_ACTIONS,
@@ -13,6 +13,8 @@ import { cycleProgressService } from "@/services/cycle-progress.service";
 import { publishPlatformEvent, PLATFORM_EVENT_TYPES } from "@/lib/platform-events/publish";
 import { resolveCycleManagerUserId } from "@/lib/platform-events/resolve-recipients";
 import { generateTradeReference } from "@/lib/investment/utils";
+import { computeTradeRealizedPnl } from "@/lib/financial/profit-distribution-calculator";
+import { tradeLossAllocationService } from "@/services/trade-loss-allocation.service";
 import type {
   CloseTradeEntryInput,
   CreateTradeEntryInput,
@@ -33,6 +35,9 @@ type EntryRow = {
   exit_price: string | number | null;
   quantity: string | number;
   status: TradeEntryStatus;
+  trade_result: string | null;
+  realized_pnl: string | number | null;
+  loss_applied_at: string | null;
   notes: string | null;
   opened_at: string | null;
   closed_at: string | null;
@@ -61,6 +66,9 @@ function mapEntry(row: EntryRow): TradeEntry {
     exitPrice: row.exit_price != null ? toNumber(row.exit_price) : null,
     quantity: toNumber(row.quantity),
     status: row.status,
+    tradeResult: (row.trade_result as TradeEntryResult | null) ?? null,
+    realizedPnl: row.realized_pnl != null ? toNumber(row.realized_pnl) : null,
+    lossAppliedAt: row.loss_applied_at,
     notes: row.notes,
     openedAt: row.opened_at,
     closedAt: row.closed_at,
@@ -345,11 +353,20 @@ export const tradeEntryService = {
     if (input.exitPrice <= 0) throw new Error("Exit price must be positive.");
     await assertWritableCycle(existing.investmentCycleId);
 
+    const draftEntry = { ...existing, exitPrice: input.exitPrice, status: "closed" as const };
+    const realizedPnl = computeTradeRealizedPnl(draftEntry);
+    const tradeResult = tradeLossAllocationService.resolveTradeResult(
+      realizedPnl,
+      input.tradeResult
+    );
+
     const now = new Date().toISOString();
     const patch: Record<string, unknown> = {
       status: "closed",
       exit_price: input.exitPrice,
       closed_at: now,
+      trade_result: tradeResult,
+      realized_pnl: realizedPnl,
       updated_by: userId,
     };
     if (input.notes !== undefined) patch.notes = input.notes?.trim() ?? null;
@@ -370,8 +387,21 @@ export const tradeEntryService = {
       action: TRADING_JOURNAL_AUDIT_ACTIONS.TRADE_CLOSED,
       entityType: TRADE_ENTRY_ENTITY_TYPE,
       entityId: entry.id,
-      newValues: { exitPrice: input.exitPrice, tradeReference: entry.tradeReference },
+      newValues: {
+        exitPrice: input.exitPrice,
+        tradeReference: entry.tradeReference,
+        tradeResult,
+        realizedPnl,
+      },
     });
+
+    if (tradeResult === "loss" && realizedPnl < 0) {
+      await tradeLossAllocationService.applyLossToCycle({
+        tradeEntry: entry,
+        lossAmount: Math.abs(realizedPnl),
+        actorId: userId,
+      });
+    }
 
     await cycleProgressService.recordTradeClosed(entry, userId);
 

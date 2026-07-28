@@ -14,7 +14,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  SECURITY_RATING_LABELS,
   AGGRESSIVENESS_LABELS,
   POOL_HEALTH_LABELS,
   CAPACITY_STATUS_LABELS,
@@ -131,24 +130,11 @@ export function AdminMarketplacePanel({
       />
 
       <div className="grid gap-2 sm:grid-cols-2">
-        <Select
-          value={form.securityRating || "none"}
-          onValueChange={(v) =>
-            setForm({ ...form, securityRating: v === "none" ? "" : v })
-          }
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Security rating" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">—</SelectItem>
-            {Object.entries(SECURITY_RATING_LABELS).map(([k, label]) => (
-              <SelectItem key={k} value={k}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Input
+          placeholder="Pool Security (e.g. Very High, 98%, high)"
+          value={form.securityRating}
+          onChange={(e) => setForm({ ...form, securityRating: e.target.value })}
+        />
 
         <Select
           value={form.aggressivenessLevel || "none"}

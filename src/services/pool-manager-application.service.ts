@@ -1228,6 +1228,33 @@ export const poolManagerAdminService = {
     const admin = await requireRole(USER_ROLES.ADMINISTRATOR);
     const db = createAdminClient();
 
+    const { data: existingManager } = await db
+      .from("pool_managers")
+      .select("id, slug")
+      .eq("user_id", application.userId)
+      .eq("status", "approved")
+      .maybeSingle();
+
+    if (existingManager) {
+      const managerId = (existingManager as { id: string }).id;
+      await db
+        .from("pool_manager_applications")
+        .update({
+          status: PM_APPLICATION_STATUS.APPROVED,
+          pool_manager_id: managerId,
+          approved_at: new Date().toISOString(),
+          current_stage: PM_APPLICATION_STAGES.ACTIVATION,
+        } as never)
+        .eq("id", application.id);
+
+      await db
+        .from("profiles")
+        .update({ role: USER_ROLES.POOL_MANAGER } as never)
+        .eq("id", application.userId);
+
+      return;
+    }
+
     const { data: profile } = await db
       .from("profiles")
       .select("full_name, avatar_url")
@@ -1357,6 +1384,40 @@ export const poolManagerAdminService = {
         summary: `Pool Manager ${fullName} approved`,
       },
     });
+  },
+
+  /** Automatically activate Pool Manager when a trading challenge is passed. */
+  async activateAfterChallengePass(applicationId: string): Promise<void> {
+    await requireRole(USER_ROLES.ADMINISTRATOR);
+    const db = createAdminClient();
+
+    const { data, error } = await db
+      .from("pool_manager_applications")
+      .select("*")
+      .eq("id", applicationId)
+      .maybeSingle();
+
+    if (error || !data) {
+      throw new Error(error?.message ?? "Application not found.");
+    }
+
+    const row = data as ApplicationRow;
+    if (row.pool_manager_id) return;
+
+    const application = mapApplication(row);
+    const now = new Date().toISOString();
+
+    await db
+      .from("pool_manager_applications")
+      .update({
+        status: PM_APPLICATION_STATUS.APPROVED,
+        approved_at: now,
+        reviewed_at: now,
+        current_stage: PM_APPLICATION_STAGES.ACTIVATION,
+      } as never)
+      .eq("id", applicationId);
+
+    await this.activatePoolManager(application);
   },
 
   async notifyStatusChange(

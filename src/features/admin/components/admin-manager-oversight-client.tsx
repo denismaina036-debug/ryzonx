@@ -8,10 +8,18 @@ import { MANAGER_LEVEL_LABELS } from "@/constants/capital-allocation";
 import { formatCurrency } from "@/lib/utils";
 import type { ManagerOversightProfile } from "@/services/admin-manager-oversight.service";
 import { AdminInternalNotesPanel } from "./admin-internal-notes-panel";
+import { AdminManagerStatsPanel } from "./admin-manager-stats-panel";
 import { AdminMetricCard, AdminMetricGrid } from "./admin-page-header";
+import type { PoolManagerStatisticsView } from "@/services/pool-manager-stats.service";
 import { Award, Briefcase, Shield, TrendingUp, Users } from "lucide-react";
 
-export function AdminManagerOversightClient({ profile }: { profile: ManagerOversightProfile }) {
+export function AdminManagerOversightClient({
+  profile,
+  statistics,
+}: {
+  profile: ManagerOversightProfile;
+  statistics: PoolManagerStatisticsView;
+}) {
   const { development } = profile;
 
   return (
@@ -134,6 +142,8 @@ export function AdminManagerOversightClient({ profile }: { profile: ManagerOvers
           )}
         </section>
       </div>
+
+      <AdminManagerStatsPanel managerId={profile.managerId} initial={statistics} />
 
       <AdminInternalNotesPanel
         entityType="pool_manager"

@@ -247,7 +247,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         link: { label: "Testimonials", href: ROUTES.adminTestimonials, icon: MessageSquareQuote },
       },
       { type: "link", link: { label: "FAQ", href: ROUTES.adminFaq, icon: HelpCircle } },
-      { type: "link", link: { label: "Pages", href: ROUTES.adminPages, icon: FileText } },
+      { type: "link", link: { label: "Landing Page", href: ROUTES.adminPages, icon: FileText, matchPrefix: "/admin/pages" } },
       { type: "link", link: { label: "Reports", href: ROUTES.adminReports, icon: FileBarChart } },
     ],
   },

@@ -1,6 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/session";
+import { ROUTES } from "@/constants/routes";
+import { ADMIN_PM_STATS_AUDIT_ACTIONS } from "@/constants/pool-manager-stats";
 import { notificationService } from "@/services/notification.service";
+import { auditService } from "@/services/audit.service";
 import type { ReturnTier } from "@/features/investor/types/account";
 import type { AdminFund } from "@/features/admin/types";
 
@@ -426,8 +430,14 @@ export const poolAdminService = {
       displayRaisedCapital?: number;
     }
   ): Promise<AdminFund> {
-    await requireRole("administrator");
+    const admin = await requireRole("administrator");
     const db = createAdminClient();
+
+    const { data: beforeRow } = await db
+      .from("funds")
+      .select("security_rating, pool_manager_id, slug")
+      .eq("id", fundId)
+      .maybeSingle();
 
     const updates: Record<string, unknown> = {};
 
@@ -480,6 +490,33 @@ export const poolAdminService = {
       .single();
 
     if (error || !data) throw new Error(error?.message ?? "Failed to update marketplace settings.");
+
+    if (
+      input.securityRating !== undefined &&
+      input.securityRating !== (beforeRow as { security_rating?: string | null } | null)?.security_rating
+    ) {
+      await auditService.log({
+        actorId: admin.id,
+        action: ADMIN_PM_STATS_AUDIT_ACTIONS.POOL_SECURITY_UPDATED,
+        entityType: "fund",
+        entityId: fundId,
+        oldValues: {
+          securityRating:
+            (beforeRow as { security_rating?: string | null } | null)?.security_rating ?? null,
+        },
+        newValues: { securityRating: input.securityRating },
+      });
+    }
+
+    revalidatePath(ROUTES.marketplace);
+    revalidatePath(ROUTES.marketplaceStrategies);
+    revalidatePath(ROUTES.marketplaceCycles);
+    revalidatePath(ROUTES.dashboard);
+    revalidatePath(ROUTES.investments);
+    const fundSlug = (data as FundRow).slug;
+    if (fundSlug) {
+      revalidatePath(`${ROUTES.marketplace}/${fundSlug}`);
+    }
 
     // Keep marketplace star rating in sync with admin Overall / pool RyvonX rating.
     if (input.ryvonxRating !== undefined) {

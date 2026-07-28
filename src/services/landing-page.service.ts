@@ -1,0 +1,100 @@
+import { cache } from "react";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { requirePermission } from "@/lib/auth/authorization";
+import { auditService } from "@/services/audit.service";
+import { platformSettingsService } from "@/services/platform-settings.service";
+import { landingPageStatsService } from "@/services/landing-page-stats.service";
+import { DEFAULT_LANDING_PAGE_CONTENT } from "@/domain/landing-page/defaults";
+import { mergeLandingPageContent, parseLandingPageContent } from "@/domain/landing-page/merge";
+import type {
+  LandingHeroFloatingStat,
+  LandingPageContent,
+  LandingStatItem,
+} from "@/domain/landing-page/types";
+
+export interface ResolvedLandingStat extends LandingStatItem {
+  resolvedValue: string;
+  changeType?: "positive" | "negative" | "neutral";
+}
+
+async function resolveStats(stats: LandingStatItem[]): Promise<ResolvedLandingStat[]> {
+  return Promise.all(
+    stats.map(async (stat) => ({
+      ...stat,
+      resolvedValue: await landingPageStatsService.resolveStatValue({
+        mode: stat.mode,
+        manualValue: stat.manualValue,
+        automaticKey: stat.automaticKey,
+      }),
+    }))
+  );
+}
+
+async function resolveHeroStats(stats: LandingHeroFloatingStat[]): Promise<ResolvedLandingStat[]> {
+  return Promise.all(
+    stats.map(async (stat) => ({
+      ...stat,
+      resolvedValue: await landingPageStatsService.resolveStatValue({
+        mode: stat.mode,
+        manualValue: stat.manualValue,
+        automaticKey: stat.automaticKey,
+      }),
+      changeType: stat.changeType,
+    }))
+  );
+}
+
+export const landingPageService = {
+  getRawContent: cache(async (): Promise<LandingPageContent> => {
+    const raw = await platformSettingsService.get("landing_content");
+    return parseLandingPageContent(raw);
+  }),
+
+  getPublicContent: cache(async () => {
+    const content = await landingPageService.getRawContent();
+    const [heroStats, statistics] = await Promise.all([
+      resolveHeroStats(content.heroStats),
+      resolveStats(content.statistics),
+    ]);
+    return { ...content, heroStats, statistics };
+  }),
+
+  async getAdminContent(): Promise<LandingPageContent> {
+    await requirePermission("MANAGE_PLATFORM_CONFIG");
+    const raw = await platformSettingsService.get("landing_content");
+    return parseLandingPageContent(raw);
+  },
+
+  async saveContent(content: LandingPageContent, actorId: string): Promise<LandingPageContent> {
+    await requirePermission("MANAGE_PLATFORM_CONFIG");
+    const merged = mergeLandingPageContent(content);
+    const db = createAdminClient();
+    const { error } = await db.from("platform_settings").upsert(
+      {
+        key: "landing_content",
+        value: merged as never,
+        updated_by: actorId,
+      } as never,
+      { onConflict: "key" }
+    );
+    if (error) throw new Error(error.message);
+
+    await auditService.log({
+      actorId,
+      action: "landing_page_content_updated",
+      entityType: "platform_settings",
+      entityId: "landing_content",
+      newValues: { sections: merged.sections },
+    });
+
+    return merged;
+  },
+
+  getDefaults(): LandingPageContent {
+    return DEFAULT_LANDING_PAGE_CONTENT;
+  },
+};
+
+export type PublicLandingPageContent = Awaited<
+  ReturnType<typeof landingPageService.getPublicContent>
+>;

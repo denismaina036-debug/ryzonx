@@ -1,31 +1,30 @@
 import Link from "next/link";
-import {
-  TrendingUp,
-  Users,
-  BarChart3,
-  Target,
-  Activity,
-  ArrowRight,
-} from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { FadeIn } from "@/components/ui/motion";
-import { ROUTES } from "@/constants/routes";
-import { registerRoute, REGISTRATION_INTENTS } from "@/constants/registration";
-import { fundService } from "@/services/fund.service";
-import { RecentTransactionsTicker } from "@/features/public/components/recent-transactions-ticker";
-import { formatCurrency, formatPercentage, formatCompactNumber } from "@/lib/utils";
+import { landingPageService } from "@/services/landing-page.service";
+import { landingPageActivityService } from "@/services/landing-page-activity.service";
+import { resolveLandingIcon } from "@/domain/landing-page/icons";
+import { InvestmentActivityTicker } from "@/features/public/components/investment-activity-ticker";
 
 export async function HeroSection() {
-  const stats = await fundService.getStats();
+  const content = await landingPageService.getPublicContent();
+  const { hero, heroStats } = content;
+  const tickerItems = hero.showTrustTicker
+    ? await landingPageActivityService.listTicker(5)
+    : [];
 
   return (
     <section className="relative overflow-hidden pb-16 pt-8 md:pb-24 md:pt-12">
-      {/* Hero background image */}
       <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: "url('/images/hero-cover.png')" }}
+          style={{
+            backgroundImage: hero.backgroundImageUrl
+              ? `url('${hero.backgroundImageUrl}')`
+              : undefined,
+          }}
         />
         <div className="absolute inset-0 bg-white/85 backdrop-blur-[2px]" />
         <div className="absolute left-1/2 top-0 h-[600px] w-[800px] -translate-x-1/2 rounded-full bg-royal-100/30 blur-3xl" />
@@ -34,72 +33,76 @@ export async function HeroSection() {
 
       <div className="page-container">
         <FadeIn className="mx-auto max-w-3xl text-center">
-          <span className="mb-6 inline-block rounded-full border border-royal-200 bg-royal-50/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-royal-700 backdrop-blur-sm">
-            Transparent Pool Trading Fund
-          </span>
+          {hero.badge ? (
+            <span className="mb-6 inline-block rounded-full border border-royal-200 bg-royal-50/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-royal-700 backdrop-blur-sm">
+              {hero.badge}
+            </span>
+          ) : null}
           <h1 className="text-balance text-4xl font-semibold tracking-tight text-navy-950 md:text-5xl lg:text-6xl">
-            Where Great Traders Meet Smart Investors.
+            {hero.heading}
           </h1>
+          {hero.subheading ? (
+            <p className="mx-auto mt-4 max-w-2xl text-xl font-medium text-navy-700">
+              {hero.subheading}
+            </p>
+          ) : null}
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-navy-500 md:text-xl">
-            RyvonX is a trusted marketplace where skilled traders earn the opportunity to
-            manage investment pools, while investors discover and invest alongside verified
-            trading professionals.
+            {hero.description}
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Button asChild size="xl">
-              <Link href={registerRoute(REGISTRATION_INTENTS.JOIN_POOL)}>
-                Join Pool
+              <Link href={hero.primaryButtonLink}>
+                {hero.primaryButtonText}
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
             <Button asChild variant="outline" size="xl">
-              <Link href={registerRoute(REGISTRATION_INTENTS.CREATE_POOL)}>
-                Create Pool
-              </Link>
+              <Link href={hero.secondaryButtonLink}>{hero.secondaryButtonText}</Link>
             </Button>
           </div>
+          {hero.trustBanner ? (
+            <p className="mt-6 text-sm font-medium text-navy-600">{hero.trustBanner}</p>
+          ) : null}
         </FadeIn>
 
-        <div className="mt-12 flex justify-center md:mt-14">
-          <RecentTransactionsTicker />
-        </div>
+        {hero.illustrationImageUrl ? (
+          <div className="mt-10 flex justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={hero.illustrationImageUrl}
+              alt=""
+              className="max-h-64 w-auto rounded-2xl object-contain"
+            />
+          </div>
+        ) : null}
 
-        <div className="mt-16 md:mt-20">
-          <StatGrid columns={6}>
-            <StatCard
-              label="Total Pool Value"
-              value={formatCurrency(stats.totalPoolValue)}
-              icon={TrendingUp}
-            />
-            <StatCard
-              label="Active Investors"
-              value={String(stats.totalActiveInvestors)}
-              icon={Users}
-            />
-            <StatCard
-              label="Today's ROI"
-              value={formatPercentage(stats.dailyRoi)}
-              changeType={stats.dailyRoi >= 0 ? "positive" : "negative"}
-              icon={BarChart3}
-            />
-            <StatCard
-              label="Monthly ROI"
-              value={formatPercentage(stats.monthlyRoi)}
-              changeType={stats.monthlyRoi >= 0 ? "positive" : "negative"}
-              icon={Activity}
-            />
-            <StatCard
-              label="Win Rate"
-              value={`${stats.winRate}%`}
-              icon={Target}
-            />
-            <StatCard
-              label="Closed Trades"
-              value={formatCompactNumber(stats.totalClosedTrades)}
-              icon={BarChart3}
-            />
-          </StatGrid>
-        </div>
+        {hero.videoUrl ? (
+          <div className="mx-auto mt-10 max-w-3xl overflow-hidden rounded-2xl border border-border shadow-sm">
+            <video src={hero.videoUrl} controls className="w-full" />
+          </div>
+        ) : null}
+
+        {hero.showTrustTicker ? (
+          <div className="mt-12 flex justify-center md:mt-14">
+            <InvestmentActivityTicker items={tickerItems} />
+          </div>
+        ) : null}
+
+        {heroStats.length > 0 ? (
+          <div className="mt-16 md:mt-20">
+            <StatGrid columns={heroStats.length <= 4 ? (heroStats.length <= 3 ? 3 : 4) : 6}>
+              {heroStats.map((stat) => (
+                <StatCard
+                  key={stat.id}
+                  label={stat.title}
+                  value={stat.resolvedValue}
+                  icon={resolveLandingIcon(stat.icon)}
+                  changeType={stat.changeType}
+                />
+              ))}
+            </StatGrid>
+          </div>
+        ) : null}
       </div>
     </section>
   );
