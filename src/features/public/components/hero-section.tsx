@@ -16,7 +16,7 @@ export async function HeroSection() {
     : [];
 
   return (
-    <section className="relative overflow-hidden pb-10 pt-5 md:pb-24 md:pt-12">
+    <section className="relative w-full overflow-hidden pb-10 pt-5 md:pb-24 md:pt-12">
       <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
@@ -31,7 +31,7 @@ export async function HeroSection() {
         <div className="absolute right-0 top-1/3 h-[400px] w-[400px] rounded-full bg-gold-100/20 blur-3xl" />
       </div>
 
-      <div className="page-container px-4 sm:px-6 lg:px-8">
+      <div className="page-container w-full max-w-full px-4 sm:px-6 lg:px-8">
         <FadeIn className="mx-auto max-w-3xl text-center">
           {hero.badge ? (
             <span className="mb-4 inline-block rounded-full border border-royal-200 bg-royal-50/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-royal-700 backdrop-blur-sm md:mb-6">

@@ -18,11 +18,11 @@ export function SectionContainer({
   return (
     <section
       id={id}
-      className={cn(landingMobile ? "py-10 md:py-24" : "section-spacing", className)}
+      className={cn(landingMobile ? "py-10 md:py-24" : "section-spacing", "w-full min-w-0", className)}
     >
       <div
         className={cn(
-          "page-container",
+          "page-container w-full max-w-full",
           landingMobile && "px-4 sm:px-6 lg:px-8"
         )}
       >

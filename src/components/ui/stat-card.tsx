@@ -9,6 +9,8 @@ interface StatCardProps {
   changeType?: "positive" | "negative" | "neutral";
   icon?: LucideIcon;
   className?: string;
+  /** Tighter mobile carousel layout with scaled-down values. */
+  compact?: boolean;
 }
 
 export function StatCard({
@@ -18,22 +20,38 @@ export function StatCard({
   changeType = "neutral",
   icon: Icon,
   className,
+  compact = false,
 }: StatCardProps) {
   return (
     <div
       className={cn(
         "group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:border-royal-200 hover:shadow-md",
-        "p-4 md:p-6",
+        compact ? "p-3" : "p-4 md:p-6",
         className
       )}
     >
       {Icon && (
-        <div className="mb-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-royal-50 text-royal-600 transition-colors group-hover:bg-royal-100 md:mb-4 md:h-10 md:w-10">
-          <Icon className="h-4 w-4 md:h-5 md:w-5" />
+        <div
+          className={cn(
+            "flex shrink-0 items-center justify-center rounded-xl bg-royal-50 text-royal-600 transition-colors group-hover:bg-royal-100",
+            compact
+              ? "mb-1.5 h-7 w-7"
+              : "mb-2 h-8 w-8 md:mb-4 md:h-10 md:w-10"
+          )}
+        >
+          <Icon className={cn(compact ? "h-3.5 w-3.5" : "h-4 w-4 md:h-5 md:w-5")} />
         </div>
       )}
-      <p className="metric-label">{label}</p>
-      <p className="metric-value mt-1 md:mt-2">{value}</p>
+      <p className={cn("metric-label", compact && "text-[10px] leading-tight")}>{label}</p>
+      <p
+        className={cn(
+          compact
+            ? "mt-1 break-words font-mono text-base font-semibold leading-tight tracking-tight text-navy-950 tabular-nums"
+            : "metric-value mt-1 md:mt-2"
+        )}
+      >
+        {value}
+      </p>
       {change && (
         <p
           className={cn(

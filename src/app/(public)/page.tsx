@@ -36,59 +36,59 @@ export default async function HomePage() {
   const { sections } = content;
 
   return (
-    <div className="flex flex-col">
+    <div className="flex w-full min-w-0 flex-col overflow-x-hidden">
       {sections.hero ? (
-        <div className="order-1">
+        <div className="order-1 w-full min-w-0">
           <HeroSection />
         </div>
       ) : null}
       {sections.statistics ? (
-        <div className="order-2 md:order-5">
+        <div className="order-2 w-full min-w-0 md:order-5">
           <InvestorStatsSection />
         </div>
       ) : null}
       {sections.performance ? (
-        <div className="order-3 md:order-2">
+        <div className="order-3 w-full min-w-0 md:order-2">
           <PerformanceSection allData={mockPerformanceHistory} />
         </div>
       ) : null}
       {sections.journal ? (
-        <div className="order-4 md:order-3">
+        <div className="order-4 w-full min-w-0 md:order-3">
           <JournalPreviewSection />
         </div>
       ) : null}
       {sections.recentActivity ? (
-        <div className="order-5 md:order-4">
+        <div className="order-5 w-full min-w-0 md:order-4">
           <ActivitySections />
         </div>
       ) : null}
       {sections.howItWorks ? (
-        <div className="order-6">
+        <div className="order-6 w-full min-w-0">
           <HowItWorksSection />
         </div>
       ) : null}
       {sections.whyRyvonx ? (
-        <div className="order-7">
+        <div className="order-7 w-full min-w-0">
           <WhyRyvonxSection />
         </div>
       ) : null}
       {sections.testimonials ? (
-        <div className="order-8">
+        <div className="order-8 w-full min-w-0">
           <TestimonialsSection />
         </div>
       ) : null}
       {sections.faq ? (
-        <div className="order-9">
+        <div className="order-9 w-full min-w-0">
           <FaqPreviewSection />
         </div>
       ) : null}
       {sections.ctaBanner ? (
-        <div className="order-10">
+        <div className="order-10 w-full min-w-0">
           <LandingCtaBanner />
         </div>
       ) : null}
       {sections.contact ? (
-        <div className="order-11">
+        <div className="order-11 w-full min-w-0">
           <ContactSection />
         </div>
       ) : null}

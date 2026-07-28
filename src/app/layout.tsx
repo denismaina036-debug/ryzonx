@@ -25,7 +25,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-background font-sans antialiased">
+      <body className="min-h-screen overflow-x-hidden bg-background font-sans antialiased">
         <QueryProvider>
           <ToastProvider>{children}</ToastProvider>
         </QueryProvider>

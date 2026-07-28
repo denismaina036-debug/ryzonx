@@ -33,7 +33,7 @@ export function LandingStatisticsDisplay({
         {slides.map((slideStats, slideIndex) => (
           <div
             key={`slide-${slideIndex}`}
-            className="grid auto-rows-fr grid-cols-2 gap-3 px-0.5"
+            className="grid auto-rows-fr grid-cols-2 gap-2.5"
           >
             {slideStats.map((stat) => (
               <StatCard
@@ -42,7 +42,8 @@ export function LandingStatisticsDisplay({
                 value={stat.value}
                 icon={resolveLandingIcon(stat.icon)}
                 changeType={stat.changeType}
-                className="h-full min-h-[7.5rem]"
+                compact
+                className="h-full min-h-[6.75rem]"
               />
             ))}
           </div>

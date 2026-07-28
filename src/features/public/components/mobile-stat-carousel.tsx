@@ -25,7 +25,14 @@ export function MobileStatCarousel({ children, className }: MobileStatCarouselPr
     if (!el) return;
     el.addEventListener("scroll", updateActiveIndex, { passive: true });
     updateActiveIndex();
-    return () => el.removeEventListener("scroll", updateActiveIndex);
+
+    const observer = new ResizeObserver(updateActiveIndex);
+    observer.observe(el);
+
+    return () => {
+      el.removeEventListener("scroll", updateActiveIndex);
+      observer.disconnect();
+    };
   }, [updateActiveIndex]);
 
   function goToSlide(index: number) {
@@ -37,16 +44,16 @@ export function MobileStatCarousel({ children, className }: MobileStatCarouselPr
   if (slideCount === 0) return null;
 
   return (
-    <div className={className}>
+    <div className={cn("w-full max-w-full overflow-hidden", className)}>
       <div
         ref={scrollRef}
-        className="scrollbar-hide flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain"
+        className="scrollbar-hide flex w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain touch-pan-x"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         {children.map((slide, index) => (
           <div
             key={index}
-            className="w-full shrink-0 snap-center snap-always"
+            className="box-border w-full min-w-full max-w-full shrink-0 grow-0 basis-full snap-start"
             aria-roledescription="slide"
             aria-label={`Statistics page ${index + 1} of ${slideCount}`}
           >
