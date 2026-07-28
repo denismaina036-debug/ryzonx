@@ -10,7 +10,7 @@ export async function TestimonialsSection() {
   ]);
 
   return (
-    <SectionContainer className="bg-surface-1">
+    <SectionContainer className="bg-surface-1" landingMobile>
       <SectionHeader
         badge={content.copy.testimonials.badge}
         title={content.copy.testimonials.title}

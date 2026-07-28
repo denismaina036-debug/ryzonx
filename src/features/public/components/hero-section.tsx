@@ -16,7 +16,7 @@ export async function HeroSection() {
     : [];
 
   return (
-    <section className="relative overflow-hidden pb-16 pt-8 md:pb-24 md:pt-12">
+    <section className="relative overflow-hidden pb-10 pt-5 md:pb-24 md:pt-12">
       <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
@@ -31,10 +31,10 @@ export async function HeroSection() {
         <div className="absolute right-0 top-1/3 h-[400px] w-[400px] rounded-full bg-gold-100/20 blur-3xl" />
       </div>
 
-      <div className="page-container">
+      <div className="page-container px-4 sm:px-6 lg:px-8">
         <FadeIn className="mx-auto max-w-3xl text-center">
           {hero.badge ? (
-            <span className="mb-6 inline-block rounded-full border border-royal-200 bg-royal-50/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-royal-700 backdrop-blur-sm">
+            <span className="mb-4 inline-block rounded-full border border-royal-200 bg-royal-50/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-royal-700 backdrop-blur-sm md:mb-6">
               {hero.badge}
             </span>
           ) : null}
@@ -46,10 +46,10 @@ export async function HeroSection() {
               {hero.subheading}
             </p>
           ) : null}
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-navy-500 md:text-xl">
+          <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-navy-500 md:mt-6 md:text-xl">
             {hero.description}
           </p>
-          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row md:mt-10 md:gap-4">
             <Button asChild size="xl">
               <Link href={hero.primaryButtonLink}>
                 {hero.primaryButtonText}
@@ -83,13 +83,13 @@ export async function HeroSection() {
         ) : null}
 
         {hero.showTrustTicker ? (
-          <div className="mt-12 flex justify-center md:mt-14">
+          <div className="mt-8 flex justify-center md:mt-14">
             <InvestmentActivityTicker items={tickerItems} />
           </div>
         ) : null}
 
         {heroStats.length > 0 ? (
-          <div className="mt-16 md:mt-20">
+          <div className="mt-16 hidden md:block md:mt-20">
             <StatGrid columns={heroStats.length <= 4 ? (heroStats.length <= 3 ? 3 : 4) : 6}>
               {heroStats.map((stat) => (
                 <StatCard

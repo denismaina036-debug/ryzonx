@@ -6,7 +6,7 @@ export async function HowItWorksSection({ className }: { className?: string } = 
   const content = await landingPageService.getPublicContent();
 
   return (
-    <SectionContainer className={className ?? "bg-surface-1"}>
+    <SectionContainer className={className ?? "bg-surface-1"} landingMobile>
       <SectionHeader
         badge={content.copy.howItWorks.badge}
         title={content.copy.howItWorks.title}

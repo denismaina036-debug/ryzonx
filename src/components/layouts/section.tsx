@@ -5,16 +5,29 @@ interface SectionContainerProps {
   children: ReactNode;
   className?: string;
   id?: string;
+  /** Tighter vertical rhythm and horizontal padding on mobile (landing page). */
+  landingMobile?: boolean;
 }
 
 export function SectionContainer({
   children,
   className,
   id,
+  landingMobile = false,
 }: SectionContainerProps) {
   return (
-    <section id={id} className={cn("section-spacing", className)}>
-      <div className="page-container">{children}</div>
+    <section
+      id={id}
+      className={cn(landingMobile ? "py-10 md:py-24" : "section-spacing", className)}
+    >
+      <div
+        className={cn(
+          "page-container",
+          landingMobile && "px-4 sm:px-6 lg:px-8"
+        )}
+      >
+        {children}
+      </div>
     </section>
   );
 }
@@ -26,6 +39,7 @@ interface SectionHeaderProps {
   align?: "left" | "center";
   className?: string;
   actions?: ReactNode;
+  compactMobile?: boolean;
 }
 
 export function SectionHeader({
@@ -35,11 +49,12 @@ export function SectionHeader({
   align = "left",
   className,
   actions,
+  compactMobile = false,
 }: SectionHeaderProps) {
   return (
     <div
       className={cn(
-        "mb-12",
+        compactMobile ? "mb-8 md:mb-12" : "mb-12",
         align === "center" && !actions && "mx-auto max-w-2xl text-center",
         className
       )}

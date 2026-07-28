@@ -9,7 +9,7 @@ export async function LandingCtaBanner() {
   const cta = content.copy.ctaBanner;
 
   return (
-    <SectionContainer className="bg-navy-950">
+    <SectionContainer className="bg-navy-950" landingMobile>
       <div className="rounded-2xl border border-white/10 bg-white/5 px-6 py-10 text-center md:px-10">
         <SectionHeader
           badge={cta.badge}

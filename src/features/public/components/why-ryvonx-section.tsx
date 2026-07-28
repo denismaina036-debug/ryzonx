@@ -6,7 +6,7 @@ export async function WhyRyvonxSection() {
   const content = await landingPageService.getPublicContent();
 
   return (
-    <SectionContainer>
+    <SectionContainer landingMobile>
       <SectionHeader
         badge={content.copy.whyRyvonx.badge}
         title={content.copy.whyRyvonx.title}

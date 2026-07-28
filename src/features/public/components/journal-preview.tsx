@@ -37,7 +37,7 @@ export async function JournalPreviewSection() {
   ]);
 
   return (
-    <SectionContainer>
+    <SectionContainer landingMobile>
       <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <SectionHeader
           badge={content.copy.journal.badge}

@@ -36,20 +36,62 @@ export default async function HomePage() {
   const { sections } = content;
 
   return (
-    <>
-      {sections.hero ? <HeroSection /> : null}
-      {sections.performance ? (
-        <PerformanceSection allData={mockPerformanceHistory} />
+    <div className="flex flex-col">
+      {sections.hero ? (
+        <div className="order-1">
+          <HeroSection />
+        </div>
       ) : null}
-      {sections.journal ? <JournalPreviewSection /> : null}
-      {sections.recentActivity ? <ActivitySections /> : null}
-      {sections.statistics ? <InvestorStatsSection /> : null}
-      {sections.howItWorks ? <HowItWorksSection /> : null}
-      {sections.whyRyvonx ? <WhyRyvonxSection /> : null}
-      {sections.testimonials ? <TestimonialsSection /> : null}
-      {sections.faq ? <FaqPreviewSection /> : null}
-      {sections.ctaBanner ? <LandingCtaBanner /> : null}
-      {sections.contact ? <ContactSection /> : null}
-    </>
+      {sections.statistics ? (
+        <div className="order-2 md:order-5">
+          <InvestorStatsSection />
+        </div>
+      ) : null}
+      {sections.performance ? (
+        <div className="order-3 md:order-2">
+          <PerformanceSection allData={mockPerformanceHistory} />
+        </div>
+      ) : null}
+      {sections.journal ? (
+        <div className="order-4 md:order-3">
+          <JournalPreviewSection />
+        </div>
+      ) : null}
+      {sections.recentActivity ? (
+        <div className="order-5 md:order-4">
+          <ActivitySections />
+        </div>
+      ) : null}
+      {sections.howItWorks ? (
+        <div className="order-6">
+          <HowItWorksSection />
+        </div>
+      ) : null}
+      {sections.whyRyvonx ? (
+        <div className="order-7">
+          <WhyRyvonxSection />
+        </div>
+      ) : null}
+      {sections.testimonials ? (
+        <div className="order-8">
+          <TestimonialsSection />
+        </div>
+      ) : null}
+      {sections.faq ? (
+        <div className="order-9">
+          <FaqPreviewSection />
+        </div>
+      ) : null}
+      {sections.ctaBanner ? (
+        <div className="order-10">
+          <LandingCtaBanner />
+        </div>
+      ) : null}
+      {sections.contact ? (
+        <div className="order-11">
+          <ContactSection />
+        </div>
+      ) : null}
+    </div>
   );
 }

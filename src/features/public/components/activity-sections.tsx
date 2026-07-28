@@ -15,12 +15,13 @@ export async function ActivitySections() {
   ]);
 
   return (
-    <SectionContainer className="bg-surface-1">
+    <SectionContainer className="bg-surface-1" landingMobile>
       <SectionHeader
         badge={content.copy.recentActivity.badge}
         title={content.copy.recentActivity.title}
         description={content.copy.recentActivity.description}
         align="center"
+        compactMobile
       />
       <div className="grid gap-8 lg:grid-cols-2">
         <div>

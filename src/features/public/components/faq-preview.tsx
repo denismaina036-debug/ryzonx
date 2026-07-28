@@ -15,7 +15,7 @@ export async function FaqPreviewSection() {
   const preview = items.slice(0, 5);
 
   return (
-    <SectionContainer>
+    <SectionContainer landingMobile>
       <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <SectionHeader
           badge={content.copy.faq.badge}

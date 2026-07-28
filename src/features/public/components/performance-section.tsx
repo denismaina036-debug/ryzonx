@@ -59,17 +59,18 @@ export function PerformanceSection({
   const latestValue = chartData[chartData.length - 1]?.value ?? 0;
 
   return (
-    <SectionContainer className={className ?? "bg-surface-1"}>
+    <SectionContainer className={className ?? "bg-surface-1"} landingMobile>
       {showHeader && (
         <SectionHeader
           badge={copy.badge}
           title={copy.title}
           description={copy.description}
           align="center"
+          compactMobile
         />
       )}
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm md:p-8">
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-sm md:p-8">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between md:mb-6 md:gap-4">
           <div>
             <p className="text-sm font-medium text-navy-500">Pool Value</p>
             <p className="font-mono text-2xl font-semibold text-navy-950">
@@ -82,7 +83,12 @@ export function PerformanceSection({
           </div>
           <PeriodSelector value={period} onChange={setPeriod} />
         </div>
-        <PerformanceChart data={chartData} type="area" height={360} />
+        <div className="md:hidden">
+          <PerformanceChart data={chartData} type="area" height={300} />
+        </div>
+        <div className="hidden md:block">
+          <PerformanceChart data={chartData} type="area" height={360} />
+        </div>
       </div>
     </SectionContainer>
   );

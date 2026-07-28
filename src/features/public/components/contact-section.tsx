@@ -30,7 +30,7 @@ export function ContactSection({ className }: { className?: string } = {}) {
   const addressLines = contact.officeAddress.split("\n");
 
   return (
-    <SectionContainer className={className ?? "bg-surface-1"}>
+    <SectionContainer className={className ?? "bg-surface-1"} landingMobile>
       <SectionHeader
         badge={copy.badge}
         title={copy.title}

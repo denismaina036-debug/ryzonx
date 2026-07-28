@@ -181,6 +181,15 @@
     @apply py-16 md:py-24;
   }
 
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   .metric-value {
     @apply font-mono text-3xl font-semibold tracking-tight text-navy-950 tabular-nums;
   }

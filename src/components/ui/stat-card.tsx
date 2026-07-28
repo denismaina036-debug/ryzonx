@@ -22,17 +22,18 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "group relative overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-sm transition-all duration-300 hover:border-royal-200 hover:shadow-md",
+        "group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:border-royal-200 hover:shadow-md",
+        "p-4 md:p-6",
         className
       )}
     >
       {Icon && (
-        <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-royal-50 text-royal-600 transition-colors group-hover:bg-royal-100">
-          <Icon className="h-5 w-5" />
+        <div className="mb-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-royal-50 text-royal-600 transition-colors group-hover:bg-royal-100 md:mb-4 md:h-10 md:w-10">
+          <Icon className="h-4 w-4 md:h-5 md:w-5" />
         </div>
       )}
       <p className="metric-label">{label}</p>
-      <p className="metric-value mt-2">{value}</p>
+      <p className="metric-value mt-1 md:mt-2">{value}</p>
       {change && (
         <p
           className={cn(
@@ -64,7 +65,7 @@ export function StatGrid({ children, columns = 3, className }: StatGridProps) {
   };
 
   return (
-    <div className={cn("grid gap-4 md:gap-6", cols[columns], className)}>
+    <div className={cn("grid gap-3 md:gap-6", cols[columns], className)}>
       {children}
     </div>
   );
