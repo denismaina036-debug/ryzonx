@@ -41,7 +41,7 @@ export const INVESTMENT_CYCLE_MANAGER_TRANSITIONS: Partial<
 > = {
   draft: ["submitted"],
   submitted: ["draft"],
-  approved: ["funding"],
+  approved: ["funding", "trading"],
   funding: ["trading"],
   trading: ["distribution"],
   completed: ["archived"],
@@ -53,7 +53,7 @@ export const INVESTMENT_CYCLE_ADMIN_TRANSITIONS: Partial<
 > = {
   draft: ["submitted"],
   submitted: ["approved", "draft"],
-  approved: ["funding"],
+  approved: ["funding", "trading"],
   funding: ["trading", "approved"],
   trading: ["distribution"],
   distribution: ["completed"],
@@ -70,5 +70,8 @@ export const INVESTMENT_CYCLE_PUBLIC_STATUSES: InvestmentCycleStatus[] = [
   "archived",
 ];
 
-/** Statuses where new allocations may be recorded (model only — no deposit wiring). */
-export const INVESTMENT_CYCLE_ALLOCATABLE_STATUSES: InvestmentCycleStatus[] = ["funding"];
+/** Statuses where new allocations may be recorded. */
+export const INVESTMENT_CYCLE_ALLOCATABLE_STATUSES: InvestmentCycleStatus[] = [
+  "funding",
+  "trading",
+];

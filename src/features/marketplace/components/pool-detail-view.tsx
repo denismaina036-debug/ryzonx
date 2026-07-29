@@ -31,7 +31,7 @@ import type {
 } from "@/domain/marketplace/types";
 import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
 import { TRADE_ENTRY_DIRECTION_LABELS } from "@/constants/trade-entry";
-import { formatFundingPeriodCountdown } from "@/features/marketplace/utils/funding-countdown";
+import { formatInstrumentTicker } from "@/domain/reference-data/instrument-display";
 import { formatTradingDateTimeLabel } from "@/domain/pools/trading-session";
 import { formatFixedReturnRowLabel } from "@/domain/pools/fixed-return";
 import { MANAGED_POOL_RETURN_MODEL_LABELS } from "@/domain/pools/return-model";
@@ -152,13 +152,13 @@ export function PoolDetailView({
                 </Button>
               )}
             </div>
-            {formatFundingPeriodCountdown(pool) && (
+            {pool.expectedDurationLabel && pool.expectedDurationLabel !== "—" && (
               <div className="rounded-lg bg-[var(--id-surface-muted)] px-4 py-3">
                 <p className="text-[10px] uppercase tracking-wider text-[var(--id-text-faint)]">
-                  Starts In
+                  Payout Duration
                 </p>
                 <p className="mt-1 text-lg font-semibold text-[var(--id-text)]">
-                  {formatFundingPeriodCountdown(pool)}
+                  {pool.expectedDurationLabel}
                 </p>
               </div>
             )}
@@ -201,21 +201,15 @@ export function PoolDetailView({
           <Row label="Trading Session" value={pool.tradingSessionLabel ?? "—"} />
           <Row label="Trading Date & Time" value={formatTradingDateTimeLabel(pool.tradingTimeNy ?? undefined) ?? "—"} />
           <Row
-            label="Markets Traded"
-            value={
-              pool.marketsTradedCodes.length > 0
-                ? pool.marketsTradedCodes.join(", ")
-                : pool.marketTypeCode ?? "—"
-            }
-          />
-          <Row
-            label="Trading Instruments"
+            label="Traded Instrument"
             value={
               pool.tradingInstrumentCodes.length > 0
                 ? pool.tradingInstrumentCodes
-                    .map((code) => code.split(":").pop()?.replace(/_/g, " ") ?? code)
+                    .map((code) => formatInstrumentTicker(code))
                     .join(", ")
-                : pool.tradingInstrumentCode ?? pool.tradingPair ?? "—"
+                : formatInstrumentTicker(
+                    pool.tradingInstrumentCode ?? pool.tradingPair ?? null
+                  )
             }
           />
           <Row label="Return Model" value={MANAGED_POOL_RETURN_MODEL_LABELS[pool.returnModel]} />

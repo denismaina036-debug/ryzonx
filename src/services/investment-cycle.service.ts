@@ -152,7 +152,10 @@ function statusTimestampPatch(
       // Funding Start is fixed once set unless a PM explicitly edits it later.
       return existing?.fundingStartedAt ? {} : { funding_started_at: now };
     case "trading":
-      return existing?.tradingStartedAt ? {} : { trading_started_at: now };
+      return {
+        ...(existing?.tradingStartedAt ? {} : { trading_started_at: now }),
+        ...(existing?.fundingStartedAt ? {} : { funding_started_at: now }),
+      };
     case "distribution":
       return existing?.distributionStartedAt ? {} : { distribution_started_at: now };
     case "completed":

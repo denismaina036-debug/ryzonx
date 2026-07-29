@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   BadgeCheck,
@@ -22,7 +21,6 @@ import { poolCoverBannerStyle } from "@/domain/pools/cover-image-position";
 import { Button } from "@/components/ui/button";
 import type { MarketplacePoolCard } from "@/domain/marketplace/types";
 import {
-  formatCardFundingCountdown,
   formatRaisedCapitalPct,
   formatReturnStructureLabel,
   participantIndicatorCount,
@@ -34,25 +32,6 @@ interface MarketplacePoolCardProps {
   compact?: boolean;
 }
 
-function useFundingCountdown(pool: MarketplacePoolCard): string | null {
-  const [label, setLabel] = useState<string | null>(() =>
-    formatCardFundingCountdown(pool.fundingPeriodEndsAt, pool.activeCycle?.status)
-  );
-
-  useEffect(() => {
-    function tick() {
-      setLabel(
-        formatCardFundingCountdown(pool.fundingPeriodEndsAt, pool.activeCycle?.status)
-      );
-    }
-    tick();
-    const id = window.setInterval(tick, 60_000);
-    return () => window.clearInterval(id);
-  }, [pool.fundingPeriodEndsAt, pool.activeCycle?.status]);
-
-  return label;
-}
-
 export function MarketplacePoolCardView({ pool }: MarketplacePoolCardProps) {
   const bannerStyle = poolCoverBannerStyle({
     coverImageUrl: pool.coverImageUrl,
@@ -60,7 +39,6 @@ export function MarketplacePoolCardView({ pool }: MarketplacePoolCardProps) {
     coverImagePosition: pool.coverImagePosition,
   });
 
-  const countdown = useFundingCountdown(pool);
   const raisedPct = formatRaisedCapitalPct(pool.raisedCapital, pool.targetCapital);
   const progressPct = pool.targetCapital > 0
     ? Math.min(100, (pool.raisedCapital / pool.targetCapital) * 100)
@@ -212,12 +190,12 @@ export function MarketplacePoolCardView({ pool }: MarketplacePoolCardProps) {
               />
               <CycleStat
                 icon={Clock}
-                label="Funding Ends In"
-                value={countdown ?? "—"}
+                label="Payout Duration"
+                value={pool.expectedDurationLabel}
               />
               <CycleStat
                 icon={Crosshair}
-                label="Trading Asset"
+                label="Traded Instrument"
                 value={pool.tradingAssetTag ?? "—"}
               />
               <CycleStat
@@ -291,7 +269,7 @@ export function MarketplacePoolCardView({ pool }: MarketplacePoolCardProps) {
             </Link>
           </div>
           <div>
-            <p className="text-[10px] text-[var(--id-text-muted)]">Expected Duration</p>
+            <p className="text-[10px] text-[var(--id-text-muted)]">Payout Duration</p>
             <p className="mt-1 text-sm font-bold text-[var(--id-text)]">{pool.expectedDurationLabel}</p>
           </div>
           <div>

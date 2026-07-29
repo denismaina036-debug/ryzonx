@@ -29,6 +29,7 @@ import {
   parseCoverImagePosition,
   serializeCoverImagePosition,
 } from "@/domain/pools/cover-image-position";
+import { inferPayoutDurationPreset } from "@/domain/pools/payout-duration";
 import { normalizeMarketCodes } from "@/domain/reference-data/utils";
 import { resolvePoolManagerPublicLabel, managerRowToIdentity } from "@/domain/pool-manager/public-profile";
 
@@ -37,6 +38,21 @@ function parseAmount(value: string): number | undefined {
   if (!trimmed) return undefined;
   const n = Number(trimmed);
   return Number.isFinite(n) ? n : undefined;
+}
+
+function resolvePoolDurationDays(input: ManagedPoolFormInput): number | undefined {
+  switch (input.payoutDurationPreset) {
+    case "daily":
+      return 1;
+    case "weekly":
+      return 7;
+    case "monthly":
+      return 30;
+    case "every_session":
+    case "custom":
+    default:
+      return parseAmount(input.tradingDurationDays);
+  }
 }
 
 function parseMarkets(value: string): string[] {
@@ -114,7 +130,7 @@ function formToFundPatch(
   const maxInvestors = parseAmount(input.maxInvestors);
   const displayActiveInvestors = parseAmount(input.displayActiveInvestors);
   const displayRaisedCapital = parseAmount(input.displayRaisedCapital);
-  const durationDays = parseAmount(input.tradingDurationDays);
+  const durationDays = resolvePoolDurationDays(input);
   const targetReturn = parseAmount(input.targetReturnPct);
   const visibility = input.visibility;
   const returnModel = resolveReturnModel(input.returnModel);
@@ -127,7 +143,9 @@ function formToFundPatch(
   const tradingInstrumentCodes = (input.tradingInstrumentCodes ?? []).filter(Boolean);
   const marketCode = marketsTradedCodes[0] ?? input.marketTypeCode.trim();
   const instrumentCode = tradingInstrumentCodes[0] ?? input.tradingInstrumentCode.trim();
-  const marketsTraded = [...new Set([...tradingInstrumentCodes, ...marketsTradedCodes])];
+  const marketsTraded = marketsTradedCodes.length
+    ? marketsTradedCodes
+    : parseMarkets(input.markets);
 
   const managedConfig: ManagedPoolConfig = {
     ...config,
@@ -156,6 +174,7 @@ function formToFundPatch(
     closingDate: input.scheduleOpenEnded ? undefined : input.closingDate || undefined,
     scheduleOpenEnded: input.scheduleOpenEnded,
     durationUnit: input.durationUnit,
+    payoutDurationPreset: input.payoutDurationPreset,
     maxDrawdownPct: parseAmount(input.maxDrawdownPct),
     leverage: input.leverage.trim() || undefined,
     visibility,
@@ -281,6 +300,11 @@ export function poolToManagedForm(
     fundingPeriodDays: config.fundingPeriodDays != null ? String(config.fundingPeriodDays) : "",
     tradingDurationDays: pool.poolDurationDays != null ? String(pool.poolDurationDays) : "",
     durationUnit: config.durationUnit ?? "days",
+    payoutDurationPreset: inferPayoutDurationPreset({
+      payoutDurationPreset: config.payoutDurationPreset,
+      durationDays: pool.poolDurationDays,
+      durationUnit: config.durationUnit,
+    }),
     openingDate: config.openingDate ?? "",
     closingDate: config.closingDate ?? "",
     scheduleOpenEnded: config.scheduleOpenEnded ?? false,
@@ -368,7 +392,7 @@ async function syncActiveCycleFromPoolConfig(
 
   const openingDate = input.scheduleOpenEnded ? null : parseIsoOrNull(input.openingDate);
   const closingDate = input.scheduleOpenEnded ? null : parseIsoOrNull(input.closingDate);
-  const durationDays = parseAmount(input.tradingDurationDays);
+  const durationDays = resolvePoolDurationDays(input);
   const targetCapital = parseAmount(input.maxPoolSize);
   const minInvestment = parseAmount(input.minInvestment);
 

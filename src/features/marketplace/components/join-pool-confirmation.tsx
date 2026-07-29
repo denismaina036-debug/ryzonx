@@ -13,11 +13,9 @@ import {
   investorPageTitleClass,
 } from "@/features/investor/constants/ui";
 import {
-  formatTimeUntilTradingStart,
   resolveJoinPageAggressivenessLabel,
   resolveJoinPageSecurityLabel,
   resolvePoolMaximumCapital,
-  resolveTradingStartDate,
 } from "@/features/marketplace/utils/join-pool-presentation";
 import { formatCurrency, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -56,8 +54,10 @@ export function JoinPoolConfirmation({
     pool.riskSummary?.trim() ||
     null;
 
-  const timeUntilTrading = formatTimeUntilTradingStart(pool);
-  const tradingStartDate = resolveTradingStartDate(pool);
+  const payoutDurationLabel =
+    pool.expectedDurationLabel && pool.expectedDurationLabel !== "—"
+      ? pool.expectedDurationLabel
+      : null;
 
   const joinDisabled =
     loading || pool.capacityStatus === "full" || pool.capacityStatus === "closed";
@@ -164,25 +164,16 @@ export function JoinPoolConfirmation({
             </p>
           </div>
         </div>
-        {timeUntilTrading && (
+        {payoutDurationLabel && (
           <div className="flex items-start gap-2.5 rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] px-3.5 py-3 sm:px-4">
             <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--id-accent)]" aria-hidden />
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-[var(--id-text-muted)]">
-                Starts In
+                Payout Duration
               </p>
               <p className="mt-1 text-sm font-semibold text-[var(--id-text)] sm:text-base">
-                {timeUntilTrading}
+                {payoutDurationLabel}
               </p>
-              {tradingStartDate && (
-                <p className="mt-1 text-xs text-[var(--id-text-muted)]">
-                  Funding period ends{" "}
-                  {new Date(tradingStartDate).toLocaleString(undefined, {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
-                </p>
-              )}
             </div>
           </div>
         )}

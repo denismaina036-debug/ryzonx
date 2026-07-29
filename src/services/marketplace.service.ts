@@ -68,6 +68,7 @@ function readManagedPoolConfig(poolFaq: unknown) {
     fundingPeriodDays?: number;
     strategyName?: string;
     durationUnit?: string;
+    payoutDurationPreset?: string;
     tradingStyle?: string;
   };
 }
@@ -232,7 +233,6 @@ async function enrichPoolCards(
       tradingInstrumentCode:
         managed.tradingInstrumentCodes?.[0] ?? managed.tradingInstrumentCode ?? null,
       tradingPair: card.tradingPair,
-      marketsTraded: card.marketsTraded,
     });
     const returnModel = managed.returnModel === "fixed" ? "fixed" : "variable";
     const liveReviewCount = card.managerId
@@ -304,7 +304,8 @@ async function enrichPoolCards(
       riskLevelTag: formatRiskLevelTag(card.aggressivenessLevel),
       expectedDurationLabel: formatExpectedDurationLabel(
         row.pool_duration_days as number | null,
-        managed.durationUnit as string | undefined
+        managed.durationUnit as string | undefined,
+        managed.payoutDurationPreset as string | undefined
       ),
       poolLevelLabel: formatPoolLevelLabel(card.capacityStatus),
       poolVerified: card.governanceVerified,

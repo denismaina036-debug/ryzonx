@@ -1,40 +1,14 @@
 "use client";
 
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
-import type { LandingStatIcon, ResolvedLandingStat } from "@/domain/landing-page/types";
 import { resolveLandingIcon } from "@/domain/landing-page/icons";
 import {
   MobileStatCarousel,
   chunkStatSlides,
 } from "@/features/public/components/mobile-stat-carousel";
+import type { LandingStatDisplayItem } from "@/features/public/lib/landing-statistics-utils";
 
-export interface LandingStatDisplayItem {
-  id: string;
-  label: string;
-  value: string;
-  icon: LandingStatIcon;
-  changeType?: "positive" | "negative" | "neutral";
-}
-
-export function mapResolvedLandingStats(
-  statistics: ResolvedLandingStat[]
-): LandingStatDisplayItem[] {
-  return statistics.map((stat) => ({
-    id: stat.id,
-    label: stat.title,
-    value: stat.resolvedValue,
-    icon: stat.icon,
-    changeType:
-      stat.changeType ??
-      (stat.automaticKey === "average_roi" ? "positive" : undefined),
-  }));
-}
-
-export function landingStatGridColumns(count: number): 2 | 3 | 4 | 6 {
-  if (count <= 3) return 3;
-  if (count <= 4) return 4;
-  return 6;
-}
+export type { LandingStatDisplayItem };
 
 interface LandingStatisticsDisplayProps {
   stats: LandingStatDisplayItem[];

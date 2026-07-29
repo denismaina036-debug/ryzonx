@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/layouts/page-header";
 import { SectionContainer } from "@/components/layouts/section";
 import { PerformanceSection } from "@/features/public/components/performance-section";
+import { LandingStatisticsDisplay } from "@/features/public/components/landing-statistics-display";
 import {
-  LandingStatisticsDisplay,
   landingStatGridColumns,
   mapResolvedLandingStats,
-} from "@/features/public/components/landing-statistics-display";
+} from "@/features/public/lib/landing-statistics-utils";
 import { landingPageService } from "@/services/landing-page.service";
 import { mockPerformanceHistory } from "@/lib/mock-data";
 

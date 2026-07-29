@@ -18,7 +18,10 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: seo.title,
     description: seo.description,
-    keywords: seo.keywords.split(",").map((k) => k.trim()).filter(Boolean),
+    keywords: (typeof seo.keywords === "string" ? seo.keywords : "")
+      .split(",")
+      .map((k) => k.trim())
+      .filter(Boolean),
     openGraph: {
       title: seo.title,
       description: seo.description,

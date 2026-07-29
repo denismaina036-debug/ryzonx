@@ -33,7 +33,7 @@ import { TRADE_ENTRY_DIRECTION_LABELS } from "@/constants/trade-entry";
 
 const TRANSITION_LABELS: Record<string, string> = {
   funding: "Open Funding",
-  trading: "Begin Trading",
+  trading: "Start Trading",
   distribution: "Close Investment Cycle",
   archived: "Archive",
 };
@@ -146,6 +146,17 @@ export function PmCycleDetailClient({
             Submit for Review
           </Button>
         )}
+        {(cycle.status === "approved" || cycle.status === "funding") && (
+          <Button
+            disabled={loading}
+            className="bg-emerald-600 text-white hover:bg-emerald-500"
+            onClick={() =>
+              runAction(() => transitionCycle(cycle.id, "trading"), "Trading started")
+            }
+          >
+            Start Trading
+          </Button>
+        )}
         {editable && (
           <Button
             disabled={loading}
@@ -157,7 +168,7 @@ export function PmCycleDetailClient({
           </Button>
         )}
         {managerTransitions
-          .filter((t) => t !== "submitted" && t !== "draft")
+          .filter((t) => t !== "submitted" && t !== "draft" && t !== "trading")
           .map((status) => (
             <Button
               key={status}
@@ -193,13 +204,18 @@ export function PmCycleDetailClient({
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          {(cycle.status === "funding" || cycle.status === "approved") && (
+          {(cycle.status === "funding" || cycle.status === "trading" || cycle.status === "approved") && (
             <PmSectionCard title="Funding Progress">
               <PmFundingProgress
                 raised={cycle.raisedCapital}
                 target={cycle.targetCapital}
                 investorCount={cycle.investorCount}
               />
+              {cycle.status === "trading" && (
+                <p className="mt-3 text-xs text-navy-400">
+                  The cycle stays open — investors can keep joining while you trade.
+                </p>
+              )}
             </PmSectionCard>
           )}
 

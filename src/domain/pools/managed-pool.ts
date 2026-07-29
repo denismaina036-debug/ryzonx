@@ -27,6 +27,7 @@ import {
   DEFAULT_COVER_IMAGE_POSITION,
   type CoverImagePosition,
 } from "@/domain/pools/cover-image-position";
+import type { PayoutDurationPreset } from "@/domain/pools/payout-duration";
 
 
 
@@ -83,6 +84,10 @@ export const MANAGED_POOL_DURATION_UNITS = ["hours", "days", "weeks"] as const;
 
 
 export type ManagedPoolDurationUnit = (typeof MANAGED_POOL_DURATION_UNITS)[number];
+
+
+
+export type { PayoutDurationPreset } from "@/domain/pools/payout-duration";
 
 
 
@@ -180,6 +185,10 @@ export interface ManagedPoolConfig {
 
 
   durationUnit?: ManagedPoolDurationUnit;
+
+
+
+  payoutDurationPreset?: PayoutDurationPreset;
 
 
 
@@ -334,6 +343,10 @@ export interface ManagedPoolFormInput {
 
 
   durationUnit: ManagedPoolDurationUnit;
+
+
+
+  payoutDurationPreset: PayoutDurationPreset;
 
 
 
@@ -500,6 +513,10 @@ export function emptyManagedPoolForm(): ManagedPoolFormInput {
 
 
     durationUnit: "days",
+
+
+
+    payoutDurationPreset: "daily",
 
 
 

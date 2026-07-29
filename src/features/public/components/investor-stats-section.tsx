@@ -1,10 +1,10 @@
 import { SectionContainer, SectionHeader } from "@/components/layouts/section";
 import { landingPageService } from "@/services/landing-page.service";
+import { LandingStatisticsDisplay } from "@/features/public/components/landing-statistics-display";
 import {
-  LandingStatisticsDisplay,
   landingStatGridColumns,
   mapResolvedLandingStats,
-} from "@/features/public/components/landing-statistics-display";
+} from "@/features/public/lib/landing-statistics-utils";
 
 export async function InvestorStatsSection() {
   const content = await landingPageService.getPublicContent();

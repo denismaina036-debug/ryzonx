@@ -2,20 +2,8 @@ import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
 import { AGGRESSIVENESS_LABELS, CAPACITY_STATUS_LABELS } from "@/constants/marketplace";
 import { MANAGED_POOL_RETURN_MODEL_LABELS, type ManagedPoolReturnModel } from "@/domain/pools/return-model";
-import {
-  computeFundingCountdown,
-  formatFundingCountdownLabel,
-} from "@/features/marketplace/utils/funding-countdown";
-
-export function formatCardFundingCountdown(
-  fundingPeriodEndsAt: string | null,
-  cycleStatus: InvestmentCycleStatus | null | undefined
-): string | null {
-  if (cycleStatus !== "funding" && cycleStatus !== "approved") return null;
-  const parts = computeFundingCountdown(fundingPeriodEndsAt);
-  if (!parts) return null;
-  return formatFundingCountdownLabel(parts);
-}
+import { formatPayoutDurationLabel } from "@/domain/pools/payout-duration";
+import { formatInstrumentTicker } from "@/domain/reference-data/instrument-display";
 
 export function formatRaisedCapitalPct(raised: number, target: number): number {
   if (target <= 0) return 0;
@@ -35,15 +23,17 @@ export function formatReturnStructureLabel(
 
 export function formatExpectedDurationLabel(
   durationDays: number | null,
-  durationUnit: string | null | undefined
+  durationUnit: string | null | undefined,
+  payoutDurationPreset?: string | null
 ): string {
-  if (durationDays == null || durationDays <= 0) return "—";
-  const unit = durationUnit ?? "days";
-  const value = Math.round(durationDays);
-  if (unit === "weeks") return value === 1 ? "1 Week" : `${value} Weeks`;
-  if (unit === "hours") return value === 1 ? "1 Hour" : `${value} Hours`;
-  return value === 1 ? "1 Day" : `${value} Days`;
+  return formatPayoutDurationLabel({
+    payoutDurationPreset,
+    durationDays,
+    durationUnit,
+  });
 }
+
+export { formatPayoutDurationLabel };
 
 export function formatRiskLevelTag(aggressivenessLevel: string | null | undefined): string | null {
   if (!aggressivenessLevel) return null;
@@ -63,12 +53,19 @@ export function formatCycleStatusLabel(status: InvestmentCycleStatus | null | un
 export function resolveTradingAssetLabel(input: {
   tradingInstrumentCode?: string | null;
   tradingPair?: string | null;
-  marketsTraded?: string[];
 }): string {
-  if (input.tradingInstrumentCode?.trim()) return input.tradingInstrumentCode.trim();
-  if (input.tradingPair?.trim() && input.tradingPair !== "Multi-asset") return input.tradingPair.trim();
-  const market = input.marketsTraded?.[0];
-  return market?.trim() || "—";
+  const ticker = formatInstrumentTicker(
+    input.tradingInstrumentCode ?? input.tradingPair,
+    null
+  );
+  if (ticker !== "—") return ticker;
+
+  const pair = input.tradingPair?.trim();
+  if (pair && pair !== "Multi-asset") {
+    return formatInstrumentTicker(pair, pair);
+  }
+
+  return "—";
 }
 
 export function participantIndicatorCount(participantCount: number): number {

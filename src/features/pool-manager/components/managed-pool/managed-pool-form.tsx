@@ -19,6 +19,10 @@ import {
   type ManagedPoolFormInput,
 } from "@/domain/pools/managed-pool";
 import {
+  PAYOUT_DURATION_PRESET_LABELS,
+  PAYOUT_DURATION_PRESETS,
+} from "@/domain/pools/payout-duration";
+import {
   MANAGED_POOL_RETURN_MODEL_LABELS,
   MANAGED_POOL_RETURN_MODELS,
 } from "@/domain/pools/return-model";
@@ -346,19 +350,60 @@ export function ManagedPoolForm({
             </div>
           )}
           <div className="grid gap-6 sm:grid-cols-2">
-            <PmFormField label="Duration">
-              <Input type="number" min={1} value={values.tradingDurationDays} onChange={(e) => patch("tradingDurationDays", e.target.value)} disabled={!editable} className={pmInputClass} />
-            </PmFormField>
-            <PmFormField label="Duration Unit">
-              <Select value={values.durationUnit} onValueChange={(v) => patch("durationUnit", v as ManagedPoolFormInput["durationUnit"])} disabled={!editable}>
-                <SelectTrigger className={pmSelectTriggerClass}><SelectValue /></SelectTrigger>
+            <PmFormField label="Payout Duration">
+              <Select
+                value={values.payoutDurationPreset}
+                onValueChange={(v) =>
+                  patch("payoutDurationPreset", v as ManagedPoolFormInput["payoutDurationPreset"])
+                }
+                disabled={!editable}
+              >
+                <SelectTrigger className={pmSelectTriggerClass}>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent className={pmSelectContentClass}>
-                  {MANAGED_POOL_DURATION_UNITS.map((u) => (
-                    <SelectItem key={u} value={u} className={`${pmSelectItemClass} capitalize`}>{u}</SelectItem>
+                  {PAYOUT_DURATION_PRESETS.map((preset) => (
+                    <SelectItem key={preset} value={preset} className={pmSelectItemClass}>
+                      {PAYOUT_DURATION_PRESET_LABELS[preset]}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </PmFormField>
+            {values.payoutDurationPreset === "custom" ? (
+              <>
+                <PmFormField label="Custom Duration">
+                  <Input
+                    type="number"
+                    min={1}
+                    value={values.tradingDurationDays}
+                    onChange={(e) => patch("tradingDurationDays", e.target.value)}
+                    disabled={!editable}
+                    className={pmInputClass}
+                  />
+                </PmFormField>
+                <PmFormField label="Custom Unit">
+                  <Select
+                    value={values.durationUnit}
+                    onValueChange={(v) =>
+                      patch("durationUnit", v as ManagedPoolFormInput["durationUnit"])
+                    }
+                    disabled={!editable}
+                  >
+                    <SelectTrigger className={pmSelectTriggerClass}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className={pmSelectContentClass}>
+                      {MANAGED_POOL_DURATION_UNITS.map((u) => (
+                        <SelectItem key={u} value={u} className={`${pmSelectItemClass} capitalize`}>
+                          {u}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </PmFormField>
+              </>
+            ) : null}
           </div>
         </div>
       </PmSectionCard>
