@@ -25,6 +25,7 @@ import {
 import type { InvestmentAllocationStatus } from "@/constants/investment-allocation";
 import { mapRawTransactionToActivityItem, type RawTransactionRow } from "@/lib/transaction/map";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolvePublicDisplayCount } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 
 type TradeSnapshot = Pick<
   Tables<"trades">,
@@ -98,25 +99,28 @@ function mapPoolHealth(
   return null;
 }
 
-/** Total capital committed to a pool — prefer live investor totals over admin pool_value fields. */
-function resolvePoolInvestedCapital(input: {
-  portfolioInvestedTotal: number;
+/** Total capital raised in the pool — live totals with optional admin display seed. */
+function resolvePoolRaisedCapital(input: {
   cycleRaisedCapital?: number | null;
+  portfolioInvestedTotal: number;
   investorCapital?: number | null;
   currentCapital?: number | null;
+  displayRaisedCapital?: number | null;
   poolStatsValue?: number | null;
   fundPoolValue?: number | null;
 }): number {
-  if (input.portfolioInvestedTotal > 0) return input.portfolioInvestedTotal;
-  if (input.cycleRaisedCapital != null && input.cycleRaisedCapital > 0) {
-    return input.cycleRaisedCapital;
+  const liveRaised = Math.max(
+    input.cycleRaisedCapital ?? 0,
+    input.portfolioInvestedTotal,
+    toNumber(input.investorCapital),
+    toNumber(input.currentCapital)
+  );
+
+  const seedRaised = toNumber(input.displayRaisedCapital);
+  if (seedRaised > 0 || liveRaised > 0) {
+    return resolvePublicDisplayCount(seedRaised, liveRaised);
   }
-  if (input.investorCapital != null && input.investorCapital > 0) {
-    return toNumber(input.investorCapital);
-  }
-  if (input.currentCapital != null && input.currentCapital > 0) {
-    return toNumber(input.currentCapital);
-  }
+
   return toNumber(input.poolStatsValue) || toNumber(input.fundPoolValue);
 }
 
@@ -214,7 +218,7 @@ export const investorService = {
         ? supabase
             .from("funds")
             .select(
-              "id, name, pool_value, current_capital, investor_capital, pool_health, pool_manager_name, pool_manager_id, ryvonx_rating, current_roi, active_investors, pool_managers(username, slug, display_name, show_full_name, profile_photo_url, icon_url)"
+              "id, name, pool_value, current_capital, investor_capital, display_raised_capital, pool_health, pool_manager_name, pool_manager_id, ryvonx_rating, current_roi, active_investors, pool_managers(username, slug, display_name, show_full_name, profile_photo_url, icon_url)"
             )
             .eq("id", primaryFundId)
             .maybeSingle()
@@ -299,6 +303,7 @@ export const investorService = {
       pool_value: number;
       current_capital: number | null;
       investor_capital: number | null;
+      display_raised_capital: number | null;
       pool_health: string;
       pool_manager_name: string | null;
       pool_manager_id: string | null;
@@ -343,18 +348,21 @@ export const investorService = {
 
     const rankRows = (rankResult.data ?? []) as RankSnapshot[];
 
-    const poolBalance = resolvePoolInvestedCapital({
-      portfolioInvestedTotal: poolInvestedTotal,
+    const poolBalance = resolvePoolRaisedCapital({
       cycleRaisedCapital: activeCycle?.raisedCapital,
+      portfolioInvestedTotal: poolInvestedTotal,
       investorCapital: fund?.investor_capital,
       currentCapital: fund?.current_capital,
+      displayRaisedCapital: fund?.display_raised_capital,
       poolStatsValue: pool?.total_pool_value,
       fundPoolValue: fund?.pool_value,
     });
 
     let sharePct = 0;
     if (primaryFundId) {
-      if (activeCycle?.targetCapital && activeCycle.targetCapital > 0) {
+      if (poolBalance > 0 && myInvestment > 0) {
+        sharePct = (myInvestment / poolBalance) * 100;
+      } else if (activeCycle?.targetCapital && activeCycle.targetCapital > 0) {
         const { data: allocationRow } = await supabase
           .from("investment_allocations")
           .select("amount, status")
@@ -374,8 +382,6 @@ export const investorService = {
         const investmentBasis = confirmedAllocation ?? myInvestment;
         sharePct =
           computeInvestorOwnershipShare(investmentBasis, activeCycle.targetCapital) ?? 0;
-      } else if (poolBalance > 0 && myInvestment > 0) {
-        sharePct = (myInvestment / poolBalance) * 100;
       }
     } else if (poolBalance > 0 && myInvestment > 0) {
       sharePct = (myInvestment / poolBalance) * 100;

@@ -67,7 +67,7 @@ export function CurrentInvestmentCard({
         ) : (
           <>
             <div className="mt-5">
-              <p className={dashboardLabelClass}>Pool Value</p>
+              <p className={dashboardLabelClass}>Raised Capital</p>
               <p className="mt-1.5 font-mono text-xl font-semibold tabular-nums text-[var(--id-text)]">
                 {formatCurrency(performance.totalPoolBalance)}
               </p>
