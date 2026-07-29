@@ -104,7 +104,7 @@ export function LegalReacceptanceGate({ children }: { children: React.ReactNode 
       {children}
       <Dialog open={requiresAcceptance} onOpenChange={() => undefined}>
         <DialogContent
-          className="max-w-lg [&>button]:hidden"
+          className="flex max-h-[90vh] max-w-lg flex-col overflow-hidden [&>button.absolute]:hidden"
           onPointerDownOutside={(event) => event.preventDefault()}
           onEscapeKeyDown={(event) => event.preventDefault()}
         >
@@ -116,7 +116,7 @@ export function LegalReacceptanceGate({ children }: { children: React.ReactNode 
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto py-1">
             {pending.map((item) => (
               <label key={item.documentType} className="flex items-start gap-3 rounded-xl border border-border p-4">
                 <input
@@ -143,7 +143,8 @@ export function LegalReacceptanceGate({ children }: { children: React.ReactNode 
 
           <Button
             type="button"
-            className="w-full"
+            size="lg"
+            className="mt-4 w-full shrink-0"
             disabled={!allChecked}
             isLoading={submitting}
             onClick={handleAccept}
