@@ -17,7 +17,7 @@ import {
 import { ROUTES } from "@/constants/routes";
 import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
 import { formatCurrency, cn } from "@/lib/utils";
-import { poolCoverBannerStyle } from "@/domain/pools/cover-image-position";
+import { PoolCoverBanner } from "@/features/marketplace/components/pool-cover-banner";
 import { Button } from "@/components/ui/button";
 import type { MarketplacePoolCard } from "@/domain/marketplace/types";
 import {
@@ -33,12 +33,6 @@ interface MarketplacePoolCardProps {
 }
 
 export function MarketplacePoolCardView({ pool }: MarketplacePoolCardProps) {
-  const bannerStyle = poolCoverBannerStyle({
-    coverImageUrl: pool.coverImageUrl,
-    cardBackgroundColor: pool.cardBackgroundColor,
-    coverImagePosition: pool.coverImagePosition,
-  });
-
   const raisedPct = formatRaisedCapitalPct(pool.raisedCapital, pool.targetCapital);
   const progressPct = pool.targetCapital > 0
     ? Math.min(100, (pool.raisedCapital / pool.targetCapital) * 100)
@@ -64,7 +58,12 @@ export function MarketplacePoolCardView({ pool }: MarketplacePoolCardProps) {
       )}
     >
       {/* Cover — image only; pool name shown once in title below */}
-      <div className="relative h-[96px] bg-cover bg-center sm:h-[100px]" style={bannerStyle}>
+      <PoolCoverBanner
+        coverImageUrl={pool.coverImageUrl}
+        cardBackgroundColor={pool.cardBackgroundColor}
+        coverImagePosition={pool.coverImagePosition}
+        className="h-[96px] bg-cover bg-center sm:h-[100px]"
+      >
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-3">
           {pool.coverSubtitle ? (
@@ -79,7 +78,7 @@ export function MarketplacePoolCardView({ pool }: MarketplacePoolCardProps) {
             Active Pool
           </div>
         </div>
-      </div>
+      </PoolCoverBanner>
 
       <div className="flex flex-1 flex-col p-4 sm:p-5">
         {/* Title */}

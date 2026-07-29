@@ -9,7 +9,9 @@ import {
   type PoolImageMimeType,
 } from "@/constants/storage";
 import { normalizeCoverImageUrl } from "@/lib/pools/cover-image-url";
-import { revalidatePoolMarketplaceSurfaces } from "@/lib/pools/revalidate-pool-surfaces";
+import { persistPoolCoverImage } from "@/lib/pools/persist-pool-cover-image";
+import { poolManagerDashboardService } from "@/services/pool-manager-dashboard.service";
+import { DEFAULT_COVER_IMAGE_POSITION } from "@/domain/pools/cover-image-position";
 
 function extensionForMime(mime: string): string {
   switch (mime) {
@@ -55,7 +57,7 @@ async function uploadToPoolBucket(
     .upload(objectPath, buffer, {
       upsert: true,
       contentType: file.type,
-      cacheControl: "3600",
+      cacheControl: "60",
     });
 
   if (uploadError) {
@@ -67,6 +69,22 @@ async function uploadToPoolBucket(
     .getPublicUrl(objectPath);
 
   return normalizeCoverImageUrl(publicUrlData.publicUrl) ?? publicUrlData.publicUrl;
+}
+
+async function assertPoolManagerOwnsPool(poolId: string): Promise<void> {
+  const managerId = await poolManagerDashboardService.getManagerId();
+  const db = createAdminClient();
+  const { data: fund, error } = await db
+    .from("funds")
+    .select("pool_manager_id")
+    .eq("id", poolId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!fund) throw new Error("Pool not found.");
+  if ((fund as { pool_manager_id: string | null }).pool_manager_id !== managerId) {
+    throw new Error("Not your pool.");
+  }
 }
 
 export const poolImageService = {
@@ -85,7 +103,18 @@ export const poolImageService = {
     const ext = extensionForMime(file.type);
     const poolSegment = sanitizePoolSegment(poolId);
     const objectPath = `${user.id}/${poolSegment}/cover.${ext}`;
-    const imageUrl = await uploadToPoolBucket(file, objectPath);
+    const uploadedUrl = await uploadToPoolBucket(file, objectPath);
+
+    let imageUrl = uploadedUrl;
+    if (poolId) {
+      await assertPoolManagerOwnsPool(poolId);
+      imageUrl =
+        (await persistPoolCoverImage({
+          poolId,
+          coverImageUrl: uploadedUrl,
+          coverImagePosition: DEFAULT_COVER_IMAGE_POSITION,
+        })) ?? uploadedUrl;
+    }
 
     return { imageUrl, objectPath };
   },
@@ -96,21 +125,25 @@ export const poolImageService = {
   ): Promise<{ imageUrl: string; objectPath: string }> {
     await requireRole(USER_ROLES.ADMINISTRATOR);
 
-    const db = createAdminClient();
-    const { data: fund } = await db.from("funds").select("slug").eq("id", poolId).maybeSingle();
-    if (!fund) throw new Error("Pool not found.");
-
     const ext = extensionForMime(file.type);
     const objectPath = `admin/${sanitizePoolSegment(poolId)}/cover.${ext}`;
-    const imageUrl = await uploadToPoolBucket(file, objectPath);
-
-    await db
-      .from("funds")
-      .update({ cover_image_url: imageUrl } as never)
-      .eq("id", poolId);
-
-    revalidatePoolMarketplaceSurfaces((fund as { slug?: string }).slug ?? null);
+    const uploadedUrl = await uploadToPoolBucket(file, objectPath);
+    const imageUrl =
+      (await persistPoolCoverImage({
+        poolId,
+        coverImageUrl: uploadedUrl,
+        coverImagePosition: DEFAULT_COVER_IMAGE_POSITION,
+      })) ?? uploadedUrl;
 
     return { imageUrl, objectPath };
+  },
+
+  async clearPoolCoverAsAdmin(poolId: string): Promise<void> {
+    await requireRole(USER_ROLES.ADMINISTRATOR);
+    await persistPoolCoverImage({
+      poolId,
+      coverImageUrl: null,
+      coverImagePosition: DEFAULT_COVER_IMAGE_POSITION,
+    });
   },
 };

@@ -12,7 +12,7 @@ import {
 import { PROTECTION_INDICATOR_LABELS } from "@/constants/governance";
 import { PerformanceChart } from "@/components/ui/chart";
 import { formatCurrency, formatPercentage } from "@/lib/utils";
-import { poolCoverBannerStyle } from "@/domain/pools/cover-image-position";
+import { PoolCoverBanner } from "@/features/marketplace/components/pool-cover-banner";
 import { Button } from "@/components/ui/button";
 import { MarketplacePoolCardView } from "@/features/marketplace/components/marketplace-pool-card";
 import {
@@ -72,20 +72,18 @@ export function PoolDetailView({
 
       {/* Hero */}
       <section className="overflow-hidden rounded-2xl border border-[var(--id-border)] bg-[var(--id-surface)]">
-        <div
-          className="relative h-48 bg-cover sm:h-64"
-          style={poolCoverBannerStyle({
-            coverImageUrl: pool.coverImageUrl,
-            cardBackgroundColor: pool.cardBackgroundColor,
-            coverImagePosition: pool.coverImagePosition,
-          })}
+        <PoolCoverBanner
+          coverImageUrl={pool.coverImageUrl}
+          cardBackgroundColor={pool.cardBackgroundColor}
+          coverImagePosition={pool.coverImagePosition}
+          className="relative h-48 sm:h-64"
         >
           <div className="absolute inset-0 bg-gradient-to-t from-navy-950/90 to-transparent" />
           <div className="absolute bottom-6 left-6 right-6">
             <h1 className="text-2xl font-bold text-white sm:text-4xl">{pool.name}</h1>
             {pool.tagline && <p className="mt-1 text-white/80">{pool.tagline}</p>}
           </div>
-        </div>
+        </PoolCoverBanner>
         <div className="flex flex-wrap items-center justify-between gap-4 p-6">
           <div className="flex items-center gap-3">
             {pool.managerPhotoUrl && (

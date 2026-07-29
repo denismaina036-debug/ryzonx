@@ -77,7 +77,7 @@ export function PoolImageUpload({
       setPreviewUrl(body.imageUrl as string);
       onUploaded(body.imageUrl as string);
       onCoverImagePositionChange?.({ ...DEFAULT_COVER_IMAGE_POSITION });
-      toast.success("Pool image uploaded");
+      toast.success(poolId ? "Cover image saved to marketplace" : "Pool image uploaded");
     } catch (err) {
       setPreviewUrl(imageUrl);
       toast.error(err instanceof Error ? err.message : "Upload failed");

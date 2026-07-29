@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { poolCoverBannerStyle } from "@/domain/pools/cover-image-position";
+import { PoolCoverBanner } from "@/features/marketplace/components/pool-cover-banner";
 import { PoolImageUpload } from "@/features/pool-manager/components/managed-pool/pool-image-upload";
 import type { AdminFund } from "@/features/admin/types";
 import {
@@ -55,18 +55,6 @@ export function AdminMarketplacePanel({
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    setForm(initial);
-  }, [initial]);
-
-  function applySavedFund(fund: AdminFund) {
-    setForm((current) => ({
-      ...current,
-      coverImageUrl: fund.coverImageUrl ?? "",
-      logoUrl: fund.logoUrl ?? "",
-    }));
-  }
-
   async function save() {
     setSaving(true);
     try {
@@ -88,7 +76,7 @@ export function AdminMarketplacePanel({
             : null,
           riskSummary: form.riskSummary,
           adminComments: form.adminComments,
-          coverImageUrl: form.coverImageUrl || null,
+          coverImageUrl: form.coverImageUrl.trim() || null,
           logoUrl: form.logoUrl || null,
           lifecycleStatus: form.lifecycleStatus,
           maxAum: form.maxAum ? Number(form.maxAum) : null,
@@ -103,13 +91,33 @@ export function AdminMarketplacePanel({
       });
       const body = (await res.json()) as AdminFund & { error?: string };
       if (!res.ok) throw new Error(body.error ?? "Save failed");
-      applySavedFund(body);
+
+      setForm((current) => ({
+        ...current,
+        coverImageUrl: body.coverImageUrl ?? "",
+        logoUrl: body.logoUrl ?? "",
+      }));
       toast.success("Marketplace settings saved");
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function clearCoverImage() {
+    try {
+      const res = await fetch(`/api/admin/pools/${fundId}/cover-image`, {
+        method: "DELETE",
+      });
+      const body = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(body.error ?? "Could not remove cover image");
+      setForm((current) => ({ ...current, coverImageUrl: "" }));
+      toast.success("Cover image removed");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not remove cover image");
     }
   }
 
@@ -261,34 +269,36 @@ export function AdminMarketplacePanel({
         <div>
           <p className="text-sm font-medium text-navy-900">Pool cover image</p>
           <p className="mt-1 text-xs text-navy-500">
-            Upload a cover image or paste a public URL. Changes appear on marketplace cards after
-            save.
+            Upload or paste a public image URL. Uploads save immediately to the marketplace.
           </p>
         </div>
 
-        <div
-          className="relative h-28 overflow-hidden rounded-lg border border-border/60 bg-navy-950"
-          style={poolCoverBannerStyle({ coverImageUrl: form.coverImageUrl || null })}
+        <PoolCoverBanner
+          coverImageUrl={form.coverImageUrl || null}
+          className="h-28 rounded-lg border border-border/60"
         >
           {!form.coverImageUrl && (
             <div className="absolute inset-0 flex items-center justify-center text-xs text-white/70">
               No cover image yet
             </div>
           )}
-        </div>
+        </PoolCoverBanner>
 
         <PoolImageUpload
           imageUrl={form.coverImageUrl}
           uploadEndpoint={`/api/admin/pools/${fundId}/cover-image`}
           onUploaded={(url) => {
             setForm((current) => ({ ...current, coverImageUrl: url }));
-            toast.success("Cover image updated on marketplace");
+            toast.success("Cover image saved to marketplace");
+            router.refresh();
           }}
-          onClear={() => setForm((current) => ({ ...current, coverImageUrl: "" }))}
+          onClear={() => {
+            void clearCoverImage();
+          }}
         />
 
         <Input
-          placeholder="Cover image URL (optional override)"
+          placeholder="Cover image URL"
           value={form.coverImageUrl}
           onChange={(e) => setForm({ ...form, coverImageUrl: e.target.value })}
         />

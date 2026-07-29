@@ -21,3 +21,17 @@ export async function POST(
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    await poolImageService.clearPoolCoverAsAdmin(id);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Remove failed.";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
+}

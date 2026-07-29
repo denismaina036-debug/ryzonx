@@ -213,6 +213,7 @@ export function AdminPoolsManager({
             currentCapital={editingFund.currentCapital}
           />
           <AdminMarketplacePanel
+            key={`${editingFund.id}:${editingFund.coverImageUrl ?? ""}`}
             fundId={editingFund.id}
             initial={fundToMarketplaceFields(editingFund)}
           />

@@ -465,7 +465,9 @@ export const poolAdminService = {
     if (input.riskSummary != null) updates.risk_summary = input.riskSummary.trim() || null;
     if (input.adminComments != null) updates.admin_comments = input.adminComments.trim() || null;
     if (input.coverImageUrl !== undefined) {
-      updates.cover_image_url = normalizeCoverImageUrl(input.coverImageUrl);
+      updates.cover_image_url = input.coverImageUrl?.trim()
+        ? normalizeCoverImageUrl(input.coverImageUrl)
+        : null;
     }
     if (input.logoUrl !== undefined) updates.logo_url = input.logoUrl;
     if (input.maxAum !== undefined) updates.max_aum = input.maxAum;

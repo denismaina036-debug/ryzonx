@@ -3,6 +3,8 @@ import { PoolDetailView } from "@/features/marketplace/components/pool-detail-vi
 import { InvestorPageContent } from "@/components/layouts/investor-page-content";
 import { marketplacePresentationService } from "@/services/marketplace-presentation.service";
 
+export const dynamic = "force-dynamic";
+
 export default async function MarketplacePoolPage({
   params,
 }: {
