@@ -29,15 +29,6 @@ export function WalletHeroCard({ investment }: WalletHeroCardProps) {
   const primaryPool = investment.participations[0];
   const availableBalance = investment.balance;
 
-  function formatTermDate(date: string | null) {
-    if (!date) return "—";
-    return new Date(date).toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-  }
-
   function investmentDurationDays() {
     if (!primaryPool?.investmentStartDate) return "—";
     const start = new Date(primaryPool.investmentStartDate);
@@ -88,8 +79,8 @@ export function WalletHeroCard({ investment }: WalletHeroCardProps) {
           />
           <WalletMeta label="Investment Duration" value={investmentDurationDays()} />
           <WalletMeta
-            label="Matures On"
-            value={formatTermDate(primaryPool?.termEndDate ?? null)}
+            label="Payout Duration"
+            value={primaryPool?.payoutDurationLabel ?? "—"}
           />
         </div>
 

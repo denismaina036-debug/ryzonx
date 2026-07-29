@@ -10,6 +10,7 @@ export interface WalletPoolParticipation {
   termEndDate: string | null;
   termEnded: boolean;
   poolDurationDays: number | null;
+  payoutDurationLabel: string;
 }
 
 export interface InvestorInvestmentSummary {

@@ -221,6 +221,7 @@ export function getMockInvestorDashboardData(
           termEndDate: "2025-07-01",
           termEnded: true,
           poolDurationDays: 90,
+          payoutDurationLabel: "90 Days",
         },
         {
           fundId: "00000000-0000-4000-a000-000000000002",
@@ -234,6 +235,7 @@ export function getMockInvestorDashboardData(
           termEndDate: "2025-08-15",
           termEnded: false,
           poolDurationDays: 90,
+          payoutDurationLabel: "90 Days",
         },
       ],
     },

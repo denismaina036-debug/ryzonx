@@ -96,7 +96,7 @@ export function CurrentInvestmentCard({
               />
             </div>
 
-            {(primary?.investmentStartDate || primary?.termEndDate) && (
+            {(primary?.investmentStartDate || primary?.payoutDurationLabel) && (
               <div className="mt-5 grid grid-cols-2 gap-4 border-t border-[var(--id-border)] pt-5">
                 <div>
                   <p className={dashboardLabelClass}>Invested Since</p>
@@ -111,14 +111,10 @@ export function CurrentInvestmentCard({
                   </p>
                 </div>
                 <div>
-                  <p className={dashboardLabelClass}>Matures On</p>
+                  <p className={dashboardLabelClass}>Payout Duration</p>
                   <p className="mt-1.5 text-sm font-medium text-[var(--id-text)]">
-                    {primary?.termEndDate
-                      ? new Date(primary.termEndDate).toLocaleDateString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })
+                    {primary?.payoutDurationLabel && primary.payoutDurationLabel !== "—"
+                      ? primary.payoutDurationLabel
                       : "—"}
                   </p>
                 </div>

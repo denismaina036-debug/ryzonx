@@ -67,12 +67,8 @@ export default async function MyInvestmentsPage() {
                             year: "numeric",
                           })}`
                         : "Investment active"}
-                      {pool.termEndDate
-                        ? ` · Matures ${new Date(pool.termEndDate).toLocaleDateString("en-GB", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}`
+                      {pool.payoutDurationLabel && pool.payoutDurationLabel !== "—"
+                        ? ` · Payout ${pool.payoutDurationLabel}`
                         : ""}
                     </p>
                   </div>

@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_FUND_ID } from "@/constants/funds";
 import { requireAuth } from "@/lib/auth/session";
+import type { ManagedPoolConfig } from "@/domain/pools/managed-pool";
+import { formatExpectedDurationLabel } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 import { projectedReturnPct } from "@/features/investor/types/pool-participation";
 import type { ReturnTier } from "@/features/investor/types/account";
 import { walletProjectionService } from "@/services/wallet-projection.service";
@@ -12,6 +14,12 @@ import type {
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
   return typeof value === "number" ? value : Number(value);
+}
+
+function readManagedConfig(poolFaq: unknown): ManagedPoolConfig {
+  if (!poolFaq || typeof poolFaq !== "object" || Array.isArray(poolFaq)) return {};
+  const faq = poolFaq as { managedPool?: ManagedPoolConfig };
+  return faq.managedPool ?? {};
 }
 
 function computeTermEnd(
@@ -93,7 +101,7 @@ export const walletService = {
     const [fundsResult, statsResult] = await Promise.all([
       db
         .from("funds")
-        .select("id, name, return_tiers, pool_duration_days")
+        .select("id, name, return_tiers, pool_duration_days, pool_faq")
         .in("id", fundIds),
       db.from("pool_stats").select("fund_id, win_rate").in("fund_id", fundIds),
     ]);
@@ -105,6 +113,7 @@ export const walletService = {
           name: string;
           return_tiers: ReturnTier[] | null;
           pool_duration_days: number | null;
+          pool_faq: unknown;
         }>
       ).map((f) => [f.id, f])
     );
@@ -125,6 +134,12 @@ export const walletService = {
       poolProfit += profit;
 
       const tiers = Array.isArray(fund?.return_tiers) ? fund.return_tiers : [];
+      const managed = readManagedConfig(fund?.pool_faq);
+      const payoutDurationLabel = formatExpectedDurationLabel(
+        fund?.pool_duration_days ?? null,
+        managed.durationUnit,
+        managed.payoutDurationPreset
+      );
       const { termEndDate, termEnded } = computeTermEnd(
         row.investment_start_date,
         row.investment_maturity_date,
@@ -143,6 +158,7 @@ export const walletService = {
         termEndDate,
         termEnded,
         poolDurationDays: fund?.pool_duration_days ?? null,
+        payoutDurationLabel,
       };
     });
 
