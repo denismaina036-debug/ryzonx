@@ -44,6 +44,13 @@ const TAB_ICONS = {
   opportunities: Archive,
 } as const;
 
+const MARKETPLACE_SELECT_TRIGGER =
+  "border-[var(--id-border)] bg-[var(--id-surface)] text-[var(--id-text)] [&_svg]:text-[var(--id-text-muted)]";
+const MARKETPLACE_SELECT_CONTENT =
+  "border-[var(--id-border)] bg-[var(--id-surface)] text-[var(--id-text)]";
+const MARKETPLACE_SELECT_ITEM =
+  "text-[var(--id-text-secondary)] focus:bg-[var(--id-surface-muted)]";
+
 interface MarketplaceBrowseProps {
   managers: MarketplaceManagerCard[];
   pools: MarketplacePoolCard[];
@@ -238,7 +245,7 @@ export function MarketplaceBrowse({
                 placeholder={searchPlaceholder}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="h-10 border-[var(--id-border)] bg-[var(--id-surface)] pl-10"
+                className="h-10 border-[var(--id-border)] bg-[var(--id-surface)] pl-10 text-[var(--id-text)] placeholder:text-[var(--id-text-faint)]"
               />
             </div>
             <Button
@@ -259,12 +266,14 @@ export function MarketplaceBrowse({
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <Select value={sort} onValueChange={setSort}>
-              <SelectTrigger className="h-9 w-full border-[var(--id-border)] sm:w-44">
+              <SelectTrigger
+                className={cn("h-9 w-full sm:w-44", MARKETPLACE_SELECT_TRIGGER)}
+              >
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className={MARKETPLACE_SELECT_CONTENT}>
                 {sortOptions.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
+                  <SelectItem key={o.value} value={o.value} className={MARKETPLACE_SELECT_ITEM}>
                     {o.label}
                   </SelectItem>
                 ))}
@@ -405,7 +414,10 @@ function FilterPills({
   setFundingStatus: (v: string) => void;
   stacked?: boolean;
 }) {
-  const triggerClass = stacked ? "w-full" : "h-9 w-auto min-w-[8rem]";
+  const triggerClass = cn(
+    stacked ? "w-full" : "h-9 w-auto min-w-[8rem]",
+    MARKETPLACE_SELECT_TRIGGER
+  );
 
   return (
     <div className={stacked ? "space-y-3" : "flex flex-wrap gap-2"}>
@@ -414,10 +426,12 @@ function FilterPills({
           <SelectTrigger className={triggerClass}>
             <SelectValue placeholder="Category" />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All categories</SelectItem>
+          <SelectContent className={MARKETPLACE_SELECT_CONTENT}>
+            <SelectItem value="all" className={MARKETPLACE_SELECT_ITEM}>
+              All categories
+            </SelectItem>
             {MARKETPLACE_CATEGORIES.map((c) => (
-              <SelectItem key={c} value={c}>
+              <SelectItem key={c} value={c} className={MARKETPLACE_SELECT_ITEM}>
                 {MARKETPLACE_CATEGORY_LABELS[c] ?? c}
               </SelectItem>
             ))}
@@ -434,10 +448,12 @@ function FilterPills({
             <SelectTrigger className={triggerClass}>
               <SelectValue placeholder="Security" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All security</SelectItem>
+            <SelectContent className={MARKETPLACE_SELECT_CONTENT}>
+              <SelectItem value="all" className={MARKETPLACE_SELECT_ITEM}>
+                All security
+              </SelectItem>
               {Object.entries(SECURITY_RATING_LABELS).map(([k, label]) => (
-                <SelectItem key={k} value={k}>
+                <SelectItem key={k} value={k} className={MARKETPLACE_SELECT_ITEM}>
                   {label}
                 </SelectItem>
               ))}
@@ -451,10 +467,12 @@ function FilterPills({
             <SelectTrigger className={triggerClass}>
               <SelectValue placeholder="Risk level" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All levels</SelectItem>
+            <SelectContent className={MARKETPLACE_SELECT_CONTENT}>
+              <SelectItem value="all" className={MARKETPLACE_SELECT_ITEM}>
+                All levels
+              </SelectItem>
               {Object.entries(AGGRESSIVENESS_LABELS).map(([k, label]) => (
-                <SelectItem key={k} value={k}>
+                <SelectItem key={k} value={k} className={MARKETPLACE_SELECT_ITEM}>
                   {label}
                 </SelectItem>
               ))}
@@ -471,10 +489,12 @@ function FilterPills({
           <SelectTrigger className={triggerClass}>
             <SelectValue placeholder="Capacity" />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All capacity</SelectItem>
+          <SelectContent className={MARKETPLACE_SELECT_CONTENT}>
+            <SelectItem value="all" className={MARKETPLACE_SELECT_ITEM}>
+              All capacity
+            </SelectItem>
             {Object.entries(CAPACITY_STATUS_LABELS).map(([k, label]) => (
-              <SelectItem key={k} value={k}>
+              <SelectItem key={k} value={k} className={MARKETPLACE_SELECT_ITEM}>
                 {label}
               </SelectItem>
             ))}
@@ -487,10 +507,12 @@ function FilterPills({
           <SelectTrigger className={triggerClass}>
             <SelectValue placeholder="Risk profile" />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All risk profiles</SelectItem>
+          <SelectContent className={MARKETPLACE_SELECT_CONTENT}>
+            <SelectItem value="all" className={MARKETPLACE_SELECT_ITEM}>
+              All risk profiles
+            </SelectItem>
             {STRATEGY_RISK_PROFILES.map((r) => (
-              <SelectItem key={r} value={r} className="capitalize">
+              <SelectItem key={r} value={r} className={cn("capitalize", MARKETPLACE_SELECT_ITEM)}>
                 {r.replace(/_/g, " ")}
               </SelectItem>
             ))}
@@ -503,10 +525,16 @@ function FilterPills({
           <SelectTrigger className={triggerClass}>
             <SelectValue placeholder="Funding status" />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="funding">Actively funding</SelectItem>
-            <SelectItem value="open">Open for commitment</SelectItem>
+          <SelectContent className={MARKETPLACE_SELECT_CONTENT}>
+            <SelectItem value="all" className={MARKETPLACE_SELECT_ITEM}>
+              All statuses
+            </SelectItem>
+            <SelectItem value="funding" className={MARKETPLACE_SELECT_ITEM}>
+              Actively funding
+            </SelectItem>
+            <SelectItem value="open" className={MARKETPLACE_SELECT_ITEM}>
+              Open for commitment
+            </SelectItem>
           </SelectContent>
         </Select>
       )}

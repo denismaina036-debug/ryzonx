@@ -81,8 +81,8 @@ export function MarketplacePoolCardView({ pool }: MarketplacePoolCardProps) {
       whileHover={{ y: -4 }}
       transition={{ type: "spring", stiffness: 400, damping: 28 }}
       className={cn(
-        "group flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm",
-        "transition-shadow duration-300 hover:shadow-xl hover:shadow-black/5"
+        "group flex flex-col overflow-hidden rounded-2xl border border-[var(--id-border)] bg-[var(--id-surface)] shadow-sm",
+        "transition-shadow duration-300 hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-black/20"
       )}
     >
       {/* Cover — image only; pool name shown once in title below */}
@@ -184,7 +184,7 @@ export function MarketplacePoolCardView({ pool }: MarketplacePoolCardProps) {
         </div>
 
         {/* Active Cycle */}
-        <div className="mt-4 rounded-xl border border-border/70 bg-[var(--id-surface-muted)]/60 p-3.5 sm:p-4">
+        <div className="mt-4 rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)]/60 p-3.5 sm:p-4">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--id-text-muted)]">
               Active Cycle
@@ -242,7 +242,7 @@ export function MarketplacePoolCardView({ pool }: MarketplacePoolCardProps) {
                 }
                 extra={
                   pool.targetCapital > 0 ? (
-                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-border/80">
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--id-border)]">
                       <div
                         className="h-full rounded-full bg-[var(--id-accent)]"
                         style={{ width: `${progressPct}%` }}
@@ -279,7 +279,7 @@ export function MarketplacePoolCardView({ pool }: MarketplacePoolCardProps) {
         </div>
 
         {/* Return row */}
-        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-border/60 pt-4 text-center">
+        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-[var(--id-border)] pt-4 text-center">
           <div>
             <p className="text-[10px] text-[var(--id-text-muted)]">Return Structure</p>
             <p className="mt-1 text-sm font-bold text-[var(--id-text)]">{returnLabel}</p>
@@ -296,7 +296,7 @@ export function MarketplacePoolCardView({ pool }: MarketplacePoolCardProps) {
           </div>
           <div>
             <p className="text-[10px] text-[var(--id-text-muted)]">Level</p>
-            <p className="mt-1 text-sm font-bold text-emerald-600">{pool.poolLevelLabel}</p>
+            <p className="mt-1 text-sm font-bold text-[var(--id-success)]">{pool.poolLevelLabel}</p>
           </div>
         </div>
 
@@ -337,8 +337,8 @@ function TagPill({
     <span
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium",
-        variant === "asset" && "bg-indigo-50 text-indigo-700",
-        variant === "risk" && "bg-emerald-50 text-emerald-700",
+        variant === "asset" && "bg-[var(--id-accent-soft)] text-[var(--id-accent-text)]",
+        variant === "risk" && "bg-[var(--id-success-soft)] text-[var(--id-success)]",
         variant === "default" && "bg-[var(--id-surface-muted)] text-[var(--id-text-muted)]"
       )}
     >

@@ -2,23 +2,16 @@ import { SectionContainer, SectionHeader } from "@/components/layouts/section";
 import { landingPageService } from "@/services/landing-page.service";
 import {
   LandingStatisticsDisplay,
-  type LandingStatDisplayItem,
+  landingStatGridColumns,
+  mapResolvedLandingStats,
 } from "@/features/public/components/landing-statistics-display";
 
 export async function InvestorStatsSection() {
   const content = await landingPageService.getPublicContent();
   const { copy, statistics } = content;
 
-  const stats: LandingStatDisplayItem[] = statistics.map((stat) => ({
-    id: stat.id,
-    label: stat.title,
-    value: stat.resolvedValue,
-    icon: stat.icon,
-    changeType: stat.automaticKey === "average_roi" ? "positive" : undefined,
-  }));
-
-  const columns =
-    statistics.length <= 4 ? (statistics.length <= 3 ? 3 : 4) : 6;
+  const stats = mapResolvedLandingStats(statistics);
+  const columns = landingStatGridColumns(statistics.length);
 
   return (
     <SectionContainer landingMobile>
@@ -29,7 +22,7 @@ export async function InvestorStatsSection() {
         align="center"
         compactMobile
       />
-      <LandingStatisticsDisplay stats={stats} columns={columns as 2 | 3 | 4 | 6} />
+      <LandingStatisticsDisplay stats={stats} columns={columns} />
     </SectionContainer>
   );
 }

@@ -237,7 +237,7 @@ export function ManagerProfileView({
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-2 border-b border-border pb-3">
+      <div className="flex flex-wrap gap-2 border-b border-[var(--id-border)] pb-3">
         {PROFILE_TABS.map((tab) => (
           <button
             key={tab.id}
@@ -426,10 +426,10 @@ export function ManagerProfileView({
           {journalEntries.length === 0 ? (
             <p className="text-sm text-[var(--id-text-muted)]">No published journal entries yet.</p>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-border">
+            <div className="overflow-x-auto rounded-xl border border-[var(--id-border)]">
               <table className="w-full min-w-[640px] text-sm">
                 <thead>
-                  <tr className="border-b border-border bg-[var(--id-surface-muted)] text-left text-xs uppercase tracking-wide text-[var(--id-text-muted)]">
+                  <tr className="border-b border-[var(--id-border)] bg-[var(--id-surface-muted)] text-left text-xs uppercase tracking-wide text-[var(--id-text-muted)]">
                     <th className="px-4 py-3">Date</th>
                     <th className="px-4 py-3">Asset</th>
                     <th className="px-4 py-3">Direction</th>
@@ -439,7 +439,7 @@ export function ManagerProfileView({
                 </thead>
                 <tbody>
                   {journalEntries.map((entry) => (
-                    <tr key={entry.id} className="border-b border-border last:border-0">
+                    <tr key={entry.id} className="border-b border-[var(--id-border)] last:border-0">
                       <td className="px-4 py-3 text-[var(--id-text-secondary)]">
                         {entry.date
                           ? new Date(entry.date).toLocaleDateString("en-GB")

@@ -71,7 +71,7 @@ export function PoolDetailView({
       />
 
       {/* Hero */}
-      <section className="overflow-hidden rounded-2xl border border-border bg-card">
+      <section className="overflow-hidden rounded-2xl border border-[var(--id-border)] bg-[var(--id-surface)]">
         <div
           className="relative h-48 bg-cover sm:h-64"
           style={poolCoverBannerStyle({
@@ -123,7 +123,7 @@ export function PoolDetailView({
         </div>
       </section>
 
-      <section className="rounded-xl border border-border bg-card p-5">
+      <section className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
         <h2 className="text-sm font-semibold text-[var(--id-text)]">Current Investment Cycle</h2>
         {pool.activeCycle ? (
           <div className="mt-3 space-y-3">
@@ -163,7 +163,7 @@ export function PoolDetailView({
               </div>
             )}
             {pool.activeCycle.status === "trading" && (
-              <div className="rounded-lg border border-border px-4 py-3">
+              <div className="rounded-lg border border-[var(--id-border)] px-4 py-3">
                 <p className="text-sm font-semibold text-[var(--id-text)]">Running Active Trades</p>
                 {pool.activeOpenTrades.length > 0 ? (
                   <>
@@ -195,7 +195,7 @@ export function PoolDetailView({
         )}
       </section>
 
-      <section className="rounded-xl border border-border bg-card p-5">
+      <section className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
         <h2 className="text-sm font-semibold text-[var(--id-text)]">Trading Details</h2>
         <dl className="mt-3 grid gap-3 sm:grid-cols-2 text-sm">
           <Row label="Trading Session" value={pool.tradingSessionLabel ?? "—"} />
@@ -223,13 +223,13 @@ export function PoolDetailView({
       </section>
 
       {pool.returnModel === "fixed" && pool.fixedReturnRows.length > 0 && (
-        <section id="return-structure" className="rounded-xl border border-border bg-card p-5">
+        <section id="return-structure" className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
           <h2 className="text-sm font-semibold text-[var(--id-text)]">Fixed Return Schedule</h2>
           <div className="mt-3 space-y-2">
             {pool.fixedReturnRows.map((row, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between rounded-lg border border-border px-4 py-2 text-sm"
+                className="flex items-center justify-between rounded-lg border border-[var(--id-border)] px-4 py-2 text-sm"
               >
                 <span className="text-[var(--id-text-secondary)]">
                   {formatCurrency(row.investmentAmount)}
@@ -244,13 +244,13 @@ export function PoolDetailView({
       )}
 
       {pool.returnModel === "variable" && pool.returnTiers.length > 0 && (
-        <section id="return-structure" className="rounded-xl border border-border bg-card p-5">
+        <section id="return-structure" className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
           <h2 className="text-sm font-semibold text-[var(--id-text)]">Variable Return Tiers</h2>
           <div className="mt-3 space-y-2">
             {pool.returnTiers.map((tier, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between rounded-lg border border-border px-4 py-2 text-sm"
+                className="flex items-center justify-between rounded-lg border border-[var(--id-border)] px-4 py-2 text-sm"
               >
                 <span className="text-[var(--id-text-secondary)]">
                   {formatCurrency(tier.minAmount)}
@@ -262,7 +262,7 @@ export function PoolDetailView({
               </div>
             ))}
           </div>
-          <dl className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-2 text-sm">
+          <dl className="mt-4 grid gap-3 border-t border-[var(--id-border)] pt-4 sm:grid-cols-2 text-sm">
             <Row label="Investor Share" value={`${Math.round(pool.investorSharePct)}%`} />
             <Row label="Pool Manager Share" value={`${Math.round(pool.poolManagerSharePct)}%`} />
           </dl>
@@ -270,11 +270,11 @@ export function PoolDetailView({
       )}
 
       {pool.poolHealth === "suspended" && pool.suspensionReason && (
-        <section className="rounded-xl border border-rose-200 bg-rose-50 p-5">
-          <h2 className="font-semibold text-rose-900">Suspended by RyvonX</h2>
-          <p className="mt-2 text-sm text-rose-800">{pool.suspensionReason}</p>
+        <section className="rounded-xl border border-red-500/30 bg-red-500/10 p-5">
+          <h2 className="font-semibold text-[var(--id-danger)]">Suspended by RyvonX</h2>
+          <p className="mt-2 text-sm text-[var(--id-text-secondary)]">{pool.suspensionReason}</p>
           {pool.suspendedAt && (
-            <p className="mt-1 text-xs text-rose-600">
+            <p className="mt-1 text-xs text-[var(--id-text-muted)]">
               {new Date(pool.suspendedAt).toLocaleDateString()}
             </p>
           )}
@@ -297,7 +297,7 @@ export function PoolDetailView({
         </section>
       )}
 
-      <section className="rounded-xl border border-border bg-card p-5">
+      <section className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
         <h2 className="text-sm font-semibold text-[var(--id-text)]">Capital Transparency</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <CapitalStat label="Investor Capital" value={formatCurrency(pool.investorCapital)} sub={`${pool.investorPct}% of pool capital`} />
@@ -371,7 +371,7 @@ export function PoolDetailView({
                   </thead>
                   <tbody>
                     {journal.map((t) => (
-                      <tr key={t.id} className="border-b border-border/50">
+                      <tr key={t.id} className="border-b border-[var(--id-border)]/50">
                         <td className="py-2.5 font-medium">{t.asset}</td>
                         <td className="py-2.5 capitalize">{t.direction}</td>
                         <td className="py-2.5">
@@ -473,7 +473,7 @@ export function PoolDetailView({
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-border bg-card p-6">
+    <section className="rounded-2xl border border-[var(--id-border)] bg-[var(--id-surface)] p-6">
       <h2 className="mb-4 text-lg font-semibold text-[var(--id-text)]">{title}</h2>
       {children}
     </section>
@@ -482,7 +482,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4 text-center">
+    <div className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-4 text-center">
       <p className="text-xs text-[var(--id-text-faint)]">{label}</p>
       <p className="mt-1 text-xl font-bold text-[var(--id-text)]">{value}</p>
     </div>
