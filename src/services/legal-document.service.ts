@@ -1,13 +1,16 @@
 import { cache } from "react";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createPublicClient } from "@/lib/supabase/public";
 import { requirePermission } from "@/lib/auth/authorization";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
   DEFAULT_LEGAL_SEO,
   getDefaultSections,
+  getFallbackPublishedDocument,
   isLegalDocumentType,
   LEGAL_DOCUMENT_LABELS,
+  resolveDocumentTypeFromSlug,
 } from "@/domain/legal-documents/defaults";
 import {
   LEGAL_DOCUMENT_STATUSES,
@@ -111,19 +114,74 @@ async function getDocumentRow(documentType: LegalDocumentType): Promise<LegalDoc
   return (data as LegalDocumentRow | null) ?? null;
 }
 
+async function getPublicDocumentRow(documentType: LegalDocumentType): Promise<LegalDocumentRow | null> {
+  try {
+    const db = createPublicClient();
+    const { data, error } = await db
+      .from("legal_documents")
+      .select("*")
+      .eq("document_type", documentType)
+      .eq("status", LEGAL_DOCUMENT_STATUSES.PUBLISHED)
+      .maybeSingle();
+    if (error) {
+      console.error("[legal-document] public document read failed:", error.message);
+      return null;
+    }
+    return (data as LegalDocumentRow | null) ?? null;
+  } catch (error) {
+    console.error("[legal-document] public document read failed:", error);
+    return null;
+  }
+}
+
+async function getPublicDocumentRowBySlug(slug: string): Promise<LegalDocumentRow | null> {
+  try {
+    const db = createPublicClient();
+    const { data, error } = await db
+      .from("legal_documents")
+      .select("*")
+      .eq("slug", slug)
+      .eq("status", LEGAL_DOCUMENT_STATUSES.PUBLISHED)
+      .maybeSingle();
+    if (error) {
+      console.error("[legal-document] public slug read failed:", error.message);
+      return null;
+    }
+    return (data as LegalDocumentRow | null) ?? null;
+  } catch (error) {
+    console.error("[legal-document] public slug read failed:", error);
+    return null;
+  }
+}
+
 async function getPublishedVersionRow(
   documentId: string,
-  versionNumber: number
+  versionNumber: number,
+  usePublicClient = false
 ): Promise<LegalDocumentVersionRow | null> {
-  const db = createAdminClient();
-  const { data, error } = await db
-    .from("legal_document_versions")
-    .select("*")
-    .eq("document_id", documentId)
-    .eq("version_number", versionNumber)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return (data as LegalDocumentVersionRow | null) ?? null;
+  try {
+    const db = usePublicClient ? createPublicClient() : createAdminClient();
+    const { data, error } = await db
+      .from("legal_document_versions")
+      .select("*")
+      .eq("document_id", documentId)
+      .eq("version_number", versionNumber)
+      .maybeSingle();
+    if (error) {
+      if (usePublicClient) {
+        console.error("[legal-document] public version read failed:", error.message);
+        return null;
+      }
+      throw new Error(error.message);
+    }
+    return (data as LegalDocumentVersionRow | null) ?? null;
+  } catch (error) {
+    if (usePublicClient) {
+      console.error("[legal-document] public version read failed:", error);
+      return null;
+    }
+    throw error;
+  }
 }
 
 function mapPublishedDocument(
@@ -150,51 +208,75 @@ function mapPublishedDocument(
 
 export const legalDocumentService = {
   getPublicLinks: cache(async (): Promise<LegalDocumentLink[]> => {
-    const db = createAdminClient();
-    const { data, error } = await db
-      .from("legal_documents")
-      .select("document_type, slug, status, published_version_number")
-      .eq("status", LEGAL_DOCUMENT_STATUSES.PUBLISHED)
-      .not("published_version_number", "is", null);
-    if (error) throw new Error(error.message);
+    try {
+      const db = createPublicClient();
+      const { data, error } = await db
+        .from("legal_documents")
+        .select("document_type, slug, status, published_version_number")
+        .eq("status", LEGAL_DOCUMENT_STATUSES.PUBLISHED)
+        .not("published_version_number", "is", null);
+      if (error) {
+        console.error("[legal-document] public links read failed:", error.message);
+        return [];
+      }
 
-    return ((data ?? []) as Array<{
-      document_type: LegalDocumentType;
-      slug: string;
-    }>).map((row) => ({
-      documentType: row.document_type,
-      label: LEGAL_DOCUMENT_LABELS[row.document_type],
-      href: `/${row.slug}`,
-    }));
+      const links = ((data ?? []) as Array<{
+        document_type: LegalDocumentType;
+        slug: string;
+      }>).map((row) => ({
+        documentType: row.document_type,
+        label: LEGAL_DOCUMENT_LABELS[row.document_type],
+        href: `/${row.slug}`,
+      }));
+
+      return links.length > 0 ? links : [];
+    } catch (error) {
+      console.error("[legal-document] public links read failed:", error);
+      return [];
+    }
   }),
 
   getPublishedBySlug: cache(async (slug: string): Promise<PublishedLegalDocument | null> => {
-    const db = createAdminClient();
-    const { data: doc, error } = await db
-      .from("legal_documents")
-      .select("*")
-      .eq("slug", slug)
-      .eq("status", LEGAL_DOCUMENT_STATUSES.PUBLISHED)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    const row = doc as LegalDocumentRow | null;
-    if (!row?.published_version_number) return null;
+    try {
+      const row = await getPublicDocumentRowBySlug(slug);
+      if (!row?.published_version_number) {
+        const documentType = resolveDocumentTypeFromSlug(slug);
+        return documentType ? getFallbackPublishedDocument(documentType) : null;
+      }
 
-    const version = await getPublishedVersionRow(row.id, row.published_version_number);
-    if (!version) return null;
-    return mapPublishedDocument(row, version);
+      const version = await getPublishedVersionRow(row.id, row.published_version_number, true);
+      if (!version) {
+        const documentType = resolveDocumentTypeFromSlug(slug);
+        return documentType ? getFallbackPublishedDocument(documentType) : null;
+      }
+
+      return mapPublishedDocument(row, version);
+    } catch (error) {
+      console.error("[legal-document] getPublishedBySlug failed:", error);
+      const documentType = resolveDocumentTypeFromSlug(slug);
+      return documentType ? getFallbackPublishedDocument(documentType) : null;
+    }
   }),
 
   getPublishedByType: cache(async (
     documentType: LegalDocumentType
-  ): Promise<PublishedLegalDocument | null> => {
-    const row = await getDocumentRow(documentType);
-    if (!row || row.status !== LEGAL_DOCUMENT_STATUSES.PUBLISHED || !row.published_version_number) {
-      return null;
+  ): Promise<PublishedLegalDocument> => {
+    try {
+      const row = await getPublicDocumentRow(documentType);
+      if (!row?.published_version_number) {
+        return getFallbackPublishedDocument(documentType);
+      }
+
+      const version = await getPublishedVersionRow(row.id, row.published_version_number, true);
+      if (!version) {
+        return getFallbackPublishedDocument(documentType);
+      }
+
+      return mapPublishedDocument(row, version);
+    } catch (error) {
+      console.error("[legal-document] getPublishedByType failed:", error);
+      return getFallbackPublishedDocument(documentType);
     }
-    const version = await getPublishedVersionRow(row.id, row.published_version_number);
-    if (!version) return null;
-    return mapPublishedDocument(row, version);
   }),
 
   async listAdminDocuments(): Promise<AdminLegalDocumentListItem[]> {

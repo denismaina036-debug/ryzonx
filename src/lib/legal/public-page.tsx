@@ -4,6 +4,8 @@ import { LegalDocumentView } from "@/features/public/components/legal-document-v
 import { legalDocumentService } from "@/services/legal-document.service";
 import type { LegalDocumentType, PublishedLegalDocument } from "@/domain/legal-documents/types";
 
+export const dynamic = "force-dynamic";
+
 export async function getPublishedLegalDocumentBySlug(
   slug: string
 ): Promise<PublishedLegalDocument | null> {
@@ -12,7 +14,7 @@ export async function getPublishedLegalDocumentBySlug(
 
 export async function getPublishedLegalDocumentByType(
   documentType: LegalDocumentType
-): Promise<PublishedLegalDocument | null> {
+): Promise<PublishedLegalDocument> {
   return legalDocumentService.getPublishedByType(documentType);
 }
 
@@ -29,34 +31,42 @@ export function buildLegalDocumentMetadata(document: PublishedLegalDocument): Me
   };
 }
 
-export async function renderPublishedLegalSlugPage(slug: string) {
-  const document = await getPublishedLegalDocumentBySlug(slug);
-  if (!document) notFound();
-  return <LegalDocumentView document={document} />;
+export async function buildLegalSlugMetadata(slug: string): Promise<Metadata> {
+  try {
+    const document = await getPublishedLegalDocumentBySlug(slug);
+    if (!document) return { title: "Legal Document" };
+    return buildLegalDocumentMetadata(document);
+  } catch (error) {
+    console.error("[legal-page] buildLegalSlugMetadata failed:", error);
+    return { title: "Legal Document" };
+  }
 }
 
-export async function renderPublishedLegalTypePage(
+export async function buildLegalTypeMetadata(
+  documentType: LegalDocumentType
+): Promise<Metadata> {
+  try {
+    const document = await getPublishedLegalDocumentByType(documentType);
+    return buildLegalDocumentMetadata(document);
+  } catch (error) {
+    console.error("[legal-page] buildLegalTypeMetadata failed:", error);
+    return { title: "Legal Document" };
+  }
+}
+
+export async function renderLegalTypePage(
   documentType: LegalDocumentType,
   legacySlug: string
 ) {
   const document = await getPublishedLegalDocumentByType(documentType);
-  if (!document) notFound();
   if (document.seo.slug !== legacySlug) {
     redirect(`/${document.seo.slug}`);
   }
   return <LegalDocumentView document={document} />;
 }
 
-export async function buildLegalSlugMetadata(slug: string): Promise<Metadata> {
+export async function renderLegalSlugPage(slug: string) {
   const document = await getPublishedLegalDocumentBySlug(slug);
-  if (!document) return { title: "Legal Document" };
-  return buildLegalDocumentMetadata(document);
-}
-
-export async function buildLegalTypeMetadata(
-  documentType: LegalDocumentType
-): Promise<Metadata> {
-  const document = await getPublishedLegalDocumentByType(documentType);
-  if (!document) return { title: "Legal Document" };
-  return buildLegalDocumentMetadata(document);
+  if (!document) notFound();
+  return <LegalDocumentView document={document} />;
 }

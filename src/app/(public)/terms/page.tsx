@@ -1,21 +1,11 @@
 import type { Metadata } from "next";
 import { LEGAL_DOCUMENT_TYPES } from "@/domain/legal-documents/types";
-import {
-  buildLegalTypeMetadata,
-  getPublishedLegalDocumentByType,
-} from "@/lib/legal/public-page";
-import { LegalDocumentView } from "@/features/public/components/legal-document-view";
-import { notFound, redirect } from "next/navigation";
+import { buildLegalTypeMetadata, renderLegalTypePage } from "@/lib/legal/public-page";
 
 export async function generateMetadata(): Promise<Metadata> {
   return buildLegalTypeMetadata(LEGAL_DOCUMENT_TYPES.TERMS_OF_SERVICE);
 }
 
 export default async function TermsPage() {
-  const document = await getPublishedLegalDocumentByType(
-    LEGAL_DOCUMENT_TYPES.TERMS_OF_SERVICE
-  );
-  if (!document) notFound();
-  if (document.seo.slug !== "terms") redirect(`/${document.seo.slug}`);
-  return <LegalDocumentView document={document} />;
+  return renderLegalTypePage(LEGAL_DOCUMENT_TYPES.TERMS_OF_SERVICE, "terms");
 }

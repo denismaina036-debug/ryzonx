@@ -1,4 +1,4 @@
-import type { LegalDocumentType, LegalSection } from "@/domain/legal-documents/types";
+import type { LegalDocumentType, LegalSection, PublishedLegalDocument } from "@/domain/legal-documents/types";
 import { LEGAL_DOCUMENT_TYPES } from "@/domain/legal-documents/types";
 
 function section(id: string, title: string, sortOrder: number): LegalSection {
@@ -102,4 +102,30 @@ export function isLegalDocumentType(value: string): value is LegalDocumentType {
     value === LEGAL_DOCUMENT_TYPES.TERMS_OF_SERVICE ||
     value === LEGAL_DOCUMENT_TYPES.PRIVACY_POLICY
   );
+}
+
+export function getFallbackPublishedDocument(
+  documentType: LegalDocumentType
+): PublishedLegalDocument {
+  const seo = DEFAULT_LEGAL_SEO[documentType];
+  return {
+    documentType,
+    documentId: "fallback",
+    versionId: "fallback",
+    versionNumber: 1,
+    label: LEGAL_DOCUMENT_LABELS[documentType],
+    seo: { ...seo },
+    sections: getDefaultSections(documentType),
+    publishedAt: new Date().toISOString(),
+  };
+}
+
+export function resolveDocumentTypeFromSlug(slug: string): LegalDocumentType | null {
+  if (slug === DEFAULT_LEGAL_SEO[LEGAL_DOCUMENT_TYPES.TERMS_OF_SERVICE].slug) {
+    return LEGAL_DOCUMENT_TYPES.TERMS_OF_SERVICE;
+  }
+  if (slug === DEFAULT_LEGAL_SEO[LEGAL_DOCUMENT_TYPES.PRIVACY_POLICY].slug) {
+    return LEGAL_DOCUMENT_TYPES.PRIVACY_POLICY;
+  }
+  return null;
 }
