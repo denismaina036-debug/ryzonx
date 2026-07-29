@@ -96,28 +96,12 @@ export function CurrentInvestmentCard({
               />
             </div>
 
-            {(primary?.investmentStartDate || primary?.payoutDurationLabel) && (
-              <div className="mt-5 grid grid-cols-2 gap-4 border-t border-[var(--id-border)] pt-5">
-                <div>
-                  <p className={dashboardLabelClass}>Invested Since</p>
-                  <p className="mt-1.5 text-sm font-medium text-[var(--id-text)]">
-                    {primary?.investmentStartDate
-                      ? new Date(primary.investmentStartDate).toLocaleDateString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })
-                      : "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className={dashboardLabelClass}>Payout Duration</p>
-                  <p className="mt-1.5 text-sm font-medium text-[var(--id-text)]">
-                    {primary?.payoutDurationLabel && primary.payoutDurationLabel !== "—"
-                      ? primary.payoutDurationLabel
-                      : "—"}
-                  </p>
-                </div>
+            {primary?.payoutDurationLabel && primary.payoutDurationLabel !== "—" && (
+              <div className="mt-5 border-t border-[var(--id-border)] pt-5">
+                <p className={dashboardLabelClass}>Payout Duration</p>
+                <p className="mt-1.5 text-sm font-medium text-[var(--id-text)]">
+                  {primary.payoutDurationLabel}
+                </p>
               </div>
             )}
 

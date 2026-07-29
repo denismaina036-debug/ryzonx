@@ -60,16 +60,9 @@ export default async function MyInvestmentsPage() {
                   <div>
                     <p className="font-semibold text-[var(--id-text)]">{pool.poolName}</p>
                     <p className="mt-1 text-xs text-[var(--id-text-muted)]">
-                      {pool.investmentStartDate
-                        ? `Invested ${new Date(pool.investmentStartDate).toLocaleDateString("en-GB", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}`
-                        : "Investment active"}
                       {pool.payoutDurationLabel && pool.payoutDurationLabel !== "—"
-                        ? ` · Payout ${pool.payoutDurationLabel}`
-                        : ""}
+                        ? pool.payoutDurationLabel
+                        : "Investment active"}
                     </p>
                   </div>
                   <div className="flex gap-6 text-left sm:text-right">

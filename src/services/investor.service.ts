@@ -98,6 +98,28 @@ function mapPoolHealth(
   return null;
 }
 
+/** Total capital committed to a pool — prefer live investor totals over admin pool_value fields. */
+function resolvePoolInvestedCapital(input: {
+  portfolioInvestedTotal: number;
+  cycleRaisedCapital?: number | null;
+  investorCapital?: number | null;
+  currentCapital?: number | null;
+  poolStatsValue?: number | null;
+  fundPoolValue?: number | null;
+}): number {
+  if (input.portfolioInvestedTotal > 0) return input.portfolioInvestedTotal;
+  if (input.cycleRaisedCapital != null && input.cycleRaisedCapital > 0) {
+    return input.cycleRaisedCapital;
+  }
+  if (input.investorCapital != null && input.investorCapital > 0) {
+    return toNumber(input.investorCapital);
+  }
+  if (input.currentCapital != null && input.currentCapital > 0) {
+    return toNumber(input.currentCapital);
+  }
+  return toNumber(input.poolStatsValue) || toNumber(input.fundPoolValue);
+}
+
 function emptyPoolPerformance(): InvestorPoolPerformance {
   return {
     totalPoolBalance: 0,
@@ -185,12 +207,14 @@ export const investorService = {
       enrollmentResult,
       notificationsResult,
       rankResult,
+      activeCycle,
+      poolInvestedTotal,
     ] = await Promise.all([
       primaryFundId
         ? supabase
             .from("funds")
             .select(
-              "id, name, pool_value, pool_health, pool_manager_name, pool_manager_id, ryvonx_rating, current_roi, active_investors, pool_managers(username, slug, display_name, show_full_name, profile_photo_url, icon_url)"
+              "id, name, pool_value, current_capital, investor_capital, pool_health, pool_manager_name, pool_manager_id, ryvonx_rating, current_roi, active_investors, pool_managers(username, slug, display_name, show_full_name, profile_photo_url, icon_url)"
             )
             .eq("id", primaryFundId)
             .maybeSingle()
@@ -250,12 +274,31 @@ export const investorService = {
             .eq("fund_id", primaryFundId)
             .order("total_invested", { ascending: false })
         : Promise.resolve({ data: [], error: null }),
+      primaryFundId
+        ? investmentCycleService.getActiveForFund(primaryFundId)
+        : Promise.resolve(null),
+      primaryFundId
+        ? (async () => {
+            const admin = createAdminClient();
+            const { data } = await admin
+              .from("investor_portfolios")
+              .select("total_invested")
+              .eq("fund_id", primaryFundId)
+              .gt("total_invested", 0);
+            return ((data ?? []) as Array<{ total_invested: number | string }>).reduce(
+              (sum, row) => sum + toNumber(row.total_invested),
+              0
+            );
+          })()
+        : Promise.resolve(0),
     ]);
 
     const fund = fundResult.data as {
       id: string;
       name: string;
       pool_value: number;
+      current_capital: number | null;
+      investor_capital: number | null;
       pool_health: string;
       pool_manager_name: string | null;
       pool_manager_id: string | null;
@@ -298,12 +341,19 @@ export const investorService = {
       win_rate: number;
     } | null;
 
-    const poolBalance =
-      toNumber(pool?.total_pool_value) || toNumber(fund?.pool_value);
+    const rankRows = (rankResult.data ?? []) as RankSnapshot[];
+
+    const poolBalance = resolvePoolInvestedCapital({
+      portfolioInvestedTotal: poolInvestedTotal,
+      cycleRaisedCapital: activeCycle?.raisedCapital,
+      investorCapital: fund?.investor_capital,
+      currentCapital: fund?.current_capital,
+      poolStatsValue: pool?.total_pool_value,
+      fundPoolValue: fund?.pool_value,
+    });
 
     let sharePct = 0;
     if (primaryFundId) {
-      const activeCycle = await investmentCycleService.getActiveForFund(primaryFundId);
       if (activeCycle?.targetCapital && activeCycle.targetCapital > 0) {
         const { data: allocationRow } = await supabase
           .from("investment_allocations")
@@ -337,7 +387,6 @@ export const investorService = {
     const dailyProfit =
       myInvestment > 0 ? (myInvestment * dailyRoi) / 100 : 0;
 
-    const rankRows = (rankResult.data ?? []) as RankSnapshot[];
     const rankIndex = rankRows.findIndex((r) => r.user_id === user.id);
     const investorRank = rankIndex >= 0 ? rankIndex + 1 : 0;
     const rankPercentile =
