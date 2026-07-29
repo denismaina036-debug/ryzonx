@@ -17,6 +17,7 @@ interface PoolImageUploadProps {
   imageUrl: string;
   coverImagePosition?: CoverImagePosition;
   poolId?: string;
+  uploadEndpoint?: string;
   disabled?: boolean;
   onUploaded: (imageUrl: string) => void;
   onCoverImagePositionChange?: (position: CoverImagePosition) => void;
@@ -27,6 +28,7 @@ export function PoolImageUpload({
   imageUrl,
   coverImagePosition = DEFAULT_COVER_IMAGE_POSITION,
   poolId,
+  uploadEndpoint = "/api/pool-manager/pools/image",
   disabled,
   onUploaded,
   onCoverImagePositionChange,
@@ -65,7 +67,7 @@ export function PoolImageUpload({
       formData.append("image", file);
       if (poolId) formData.append("poolId", poolId);
 
-      const res = await fetch("/api/pool-manager/pools/image", {
+      const res = await fetch(uploadEndpoint, {
         method: "POST",
         body: formData,
       });

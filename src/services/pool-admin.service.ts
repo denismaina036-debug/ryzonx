@@ -2,6 +2,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/session";
 import { ROUTES } from "@/constants/routes";
+import { normalizeCoverImageUrl } from "@/lib/pools/cover-image-url";
+import { revalidatePoolMarketplaceSurfaces } from "@/lib/pools/revalidate-pool-surfaces";
 import { ADMIN_PM_STATS_AUDIT_ACTIONS } from "@/constants/pool-manager-stats";
 import { notificationService } from "@/services/notification.service";
 import { auditService } from "@/services/audit.service";
@@ -462,7 +464,9 @@ export const poolAdminService = {
     }
     if (input.riskSummary != null) updates.risk_summary = input.riskSummary.trim() || null;
     if (input.adminComments != null) updates.admin_comments = input.adminComments.trim() || null;
-    if (input.coverImageUrl !== undefined) updates.cover_image_url = input.coverImageUrl;
+    if (input.coverImageUrl !== undefined) {
+      updates.cover_image_url = normalizeCoverImageUrl(input.coverImageUrl);
+    }
     if (input.logoUrl !== undefined) updates.logo_url = input.logoUrl;
     if (input.maxAum !== undefined) updates.max_aum = input.maxAum;
     if (input.maxInvestorsCap !== undefined) updates.max_investors_cap = input.maxInvestorsCap;
@@ -508,15 +512,8 @@ export const poolAdminService = {
       });
     }
 
-    revalidatePath(ROUTES.marketplace);
-    revalidatePath(ROUTES.marketplaceStrategies);
-    revalidatePath(ROUTES.marketplaceCycles);
-    revalidatePath(ROUTES.dashboard);
-    revalidatePath(ROUTES.investments);
     const fundSlug = (data as FundRow).slug;
-    if (fundSlug) {
-      revalidatePath(`${ROUTES.marketplace}/${fundSlug}`);
-    }
+    revalidatePoolMarketplaceSurfaces(fundSlug);
 
     // Keep marketplace star rating in sync with admin Overall / pool RyvonX rating.
     if (input.ryvonxRating !== undefined) {

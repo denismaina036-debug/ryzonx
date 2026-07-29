@@ -13,6 +13,8 @@ import {
 } from "@/domain/pool-manager/public-profile";
 import { notificationService } from "@/services/notification.service";
 import { parseCoverImagePosition } from "@/domain/pools/cover-image-position";
+import { normalizeCoverImageUrl } from "@/lib/pools/cover-image-url";
+import { revalidatePoolMarketplaceSurfaces } from "@/lib/pools/revalidate-pool-surfaces";
 import { mergeAdminStatistics } from "@/lib/pool-manager/merge-admin-statistics";
 import {
   computeLiveYearsOnRyvonX,
@@ -232,12 +234,12 @@ export const poolManagerDashboardService = {
 
     const { data: pool } = await db
       .from("funds")
-      .select("lifecycle_status, pool_manager_id")
+      .select("lifecycle_status, pool_manager_id, slug")
       .eq("id", poolId)
       .single();
 
     if (!pool) throw new Error("Pool not found.");
-    const row = pool as { lifecycle_status: string; pool_manager_id: string | null };
+    const row = pool as { lifecycle_status: string; pool_manager_id: string | null; slug: string };
     if (row.pool_manager_id !== managerId) throw new Error("Not your pool.");
     if (row.lifecycle_status !== "draft") {
       throw new Error("Only draft pools can be edited.");
@@ -251,13 +253,19 @@ export const poolManagerDashboardService = {
     }
     if (input.minInvestment != null) updates.min_investment = input.minInvestment;
     if (input.maxInvestment != null) updates.max_investment = input.maxInvestment;
-    if (input.coverImageUrl != null) updates.cover_image_url = input.coverImageUrl;
+    if (input.coverImageUrl != null) {
+      updates.cover_image_url = input.coverImageUrl.trim()
+        ? normalizeCoverImageUrl(input.coverImageUrl)
+        : null;
+    }
     if (input.cardBackgroundColor != null) {
       updates.card_background_color = input.cardBackgroundColor;
     }
 
     const { error } = await db.from("funds").update(updates as never).eq("id", poolId);
     if (error) throw new Error(error.message);
+
+    revalidatePoolMarketplaceSurfaces(row.slug);
   },
 
   async submitPoolForReview(poolId: string): Promise<void> {

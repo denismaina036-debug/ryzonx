@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth/session";
 import { USER_ROLES } from "@/constants/roles";
 import {
@@ -7,6 +8,8 @@ import {
   POOL_IMAGE_MIME_TYPES,
   type PoolImageMimeType,
 } from "@/constants/storage";
+import { normalizeCoverImageUrl } from "@/lib/pools/cover-image-url";
+import { revalidatePoolMarketplaceSurfaces } from "@/lib/pools/revalidate-pool-surfaces";
 
 function extensionForMime(mime: string): string {
   switch (mime) {
@@ -33,6 +36,39 @@ function sanitizePoolSegment(poolId?: string): string {
   return poolId.replace(/[^a-zA-Z0-9-_]/g, "");
 }
 
+async function uploadToPoolBucket(
+  file: File,
+  objectPath: string
+): Promise<string> {
+  if (!isAllowedMime(file.type)) {
+    throw new Error("Please upload a JPEG, PNG, WebP, or GIF image.");
+  }
+
+  if (file.size > POOL_IMAGE_MAX_BYTES) {
+    throw new Error("Pool image must be 5 MB or smaller.");
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const admin = createAdminClient();
+  const { error: uploadError } = await admin.storage
+    .from(POOL_IMAGE_BUCKET)
+    .upload(objectPath, buffer, {
+      upsert: true,
+      contentType: file.type,
+      cacheControl: "3600",
+    });
+
+  if (uploadError) {
+    throw new Error(uploadError.message);
+  }
+
+  const { data: publicUrlData } = admin.storage
+    .from(POOL_IMAGE_BUCKET)
+    .getPublicUrl(objectPath);
+
+  return normalizeCoverImageUrl(publicUrlData.publicUrl) ?? publicUrlData.publicUrl;
+}
+
 export const poolImageService = {
   async uploadPoolImage(
     file: File,
@@ -46,36 +82,34 @@ export const poolImageService = {
 
     if (!user) throw new Error("Not authenticated.");
 
-    if (!isAllowedMime(file.type)) {
-      throw new Error("Please upload a JPEG, PNG, WebP, or GIF image.");
-    }
-
-    if (file.size > POOL_IMAGE_MAX_BYTES) {
-      throw new Error("Pool image must be 5 MB or smaller.");
-    }
-
     const ext = extensionForMime(file.type);
     const poolSegment = sanitizePoolSegment(poolId);
     const objectPath = `${user.id}/${poolSegment}/cover.${ext}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const imageUrl = await uploadToPoolBucket(file, objectPath);
 
-    const { error: uploadError } = await supabase.storage
-      .from(POOL_IMAGE_BUCKET)
-      .upload(objectPath, buffer, {
-        upsert: true,
-        contentType: file.type,
-        cacheControl: "3600",
-      });
+    return { imageUrl, objectPath };
+  },
 
-    if (uploadError) {
-      throw new Error(uploadError.message);
-    }
+  async uploadPoolCoverAsAdmin(
+    file: File,
+    poolId: string
+  ): Promise<{ imageUrl: string; objectPath: string }> {
+    await requireRole(USER_ROLES.ADMINISTRATOR);
 
-    const { data: publicUrlData } = supabase.storage
-      .from(POOL_IMAGE_BUCKET)
-      .getPublicUrl(objectPath);
+    const db = createAdminClient();
+    const { data: fund } = await db.from("funds").select("slug").eq("id", poolId).maybeSingle();
+    if (!fund) throw new Error("Pool not found.");
 
-    const imageUrl = `${publicUrlData.publicUrl}?v=${Date.now()}`;
+    const ext = extensionForMime(file.type);
+    const objectPath = `admin/${sanitizePoolSegment(poolId)}/cover.${ext}`;
+    const imageUrl = await uploadToPoolBucket(file, objectPath);
+
+    await db
+      .from("funds")
+      .update({ cover_image_url: imageUrl } as never)
+      .eq("id", poolId);
+
+    revalidatePoolMarketplaceSurfaces((fund as { slug?: string }).slug ?? null);
 
     return { imageUrl, objectPath };
   },

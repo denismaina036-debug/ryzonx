@@ -2,6 +2,8 @@ import { MarketplaceBrowse } from "@/features/marketplace/components/marketplace
 import { InvestorPageContent } from "@/components/layouts/investor-page-content";
 import { marketplacePresentationService } from "@/services/marketplace-presentation.service";
 
+export const dynamic = "force-dynamic";
+
 export default async function MarketplacePage() {
   const { pools, managers, featuredManagerSections, strategies, cycles } =
     await marketplacePresentationService.getLandingPageData();

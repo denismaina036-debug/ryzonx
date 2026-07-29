@@ -29,6 +29,8 @@ import {
   parseCoverImagePosition,
   serializeCoverImagePosition,
 } from "@/domain/pools/cover-image-position";
+import { normalizeCoverImageUrl } from "@/lib/pools/cover-image-url";
+import { revalidatePoolMarketplaceSurfaces } from "@/lib/pools/revalidate-pool-surfaces";
 import { inferPayoutDurationPreset } from "@/domain/pools/payout-duration";
 import { normalizeMarketCodes } from "@/domain/reference-data/utils";
 import { resolvePoolManagerPublicLabel, managerRowToIdentity } from "@/domain/pool-manager/public-profile";
@@ -189,7 +191,9 @@ function formToFundPatch(
         .join("\n\n") ||
       input.poolDescription.trim() ||
       null,
-    cover_image_url: input.poolImageUrl?.trim() || null,
+    cover_image_url: input.poolImageUrl?.trim()
+      ? normalizeCoverImageUrl(input.poolImageUrl)
+      : null,
     cover_image_position: serializeCoverImagePosition(
       input.coverImagePosition ?? DEFAULT_COVER_IMAGE_POSITION
     ),
@@ -555,7 +559,7 @@ export const managedPoolService = {
 
     const { data: existing } = await db
       .from("funds")
-      .select("lifecycle_status, pool_manager_id, pool_faq")
+      .select("lifecycle_status, pool_manager_id, pool_faq, slug")
       .eq("id", poolId)
       .single();
 
@@ -564,6 +568,7 @@ export const managedPoolService = {
       lifecycle_status: string;
       pool_manager_id: string | null;
       pool_faq: unknown;
+      slug: string;
     };
     if (row.pool_manager_id !== managerId) throw new Error("Not your pool.");
 
@@ -592,6 +597,7 @@ export const managedPoolService = {
     }
 
     await syncActiveCycleFromPoolConfig(poolId, normalized, nextConfig);
+    revalidatePoolMarketplaceSurfaces(row.slug);
   },
 
   /** Apply an admin-approved pool revision (internal — called by entityRevisionService). */
@@ -612,6 +618,9 @@ export const managedPoolService = {
     const patch = formToFundPatch(normalized, config, (existing as { pool_faq: unknown }).pool_faq);
     const { error } = await db.from("funds").update(patch as never).eq("id", poolId);
     if (error) throw new Error(error.message);
+
+    const { data: fundRow } = await db.from("funds").select("slug").eq("id", poolId).maybeSingle();
+    revalidatePoolMarketplaceSurfaces((fundRow as { slug?: string } | null)?.slug ?? null);
   },
 
   async submitForReview(poolId: string): Promise<void> {
@@ -744,6 +753,8 @@ export const managedPoolService = {
         hide_from_marketplace: false,
       } as never)
       .eq("id", poolId);
+
+    revalidatePoolMarketplaceSurfaces((fund.slug as string | undefined) ?? null);
   },
 
   async listCycles(poolId: string) {

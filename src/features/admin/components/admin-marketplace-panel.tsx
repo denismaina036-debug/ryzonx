@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { poolCoverBannerStyle } from "@/domain/pools/cover-image-position";
+import { PoolImageUpload } from "@/features/pool-manager/components/managed-pool/pool-image-upload";
+import type { AdminFund } from "@/features/admin/types";
 import {
   Select,
   SelectContent,
@@ -52,6 +55,18 @@ export function AdminMarketplacePanel({
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    setForm(initial);
+  }, [initial]);
+
+  function applySavedFund(fund: AdminFund) {
+    setForm((current) => ({
+      ...current,
+      coverImageUrl: fund.coverImageUrl ?? "",
+      logoUrl: fund.logoUrl ?? "",
+    }));
+  }
+
   async function save() {
     setSaving(true);
     try {
@@ -86,8 +101,9 @@ export function AdminMarketplacePanel({
             : 0,
         }),
       });
-      const body = await res.json();
+      const body = (await res.json()) as AdminFund & { error?: string };
       if (!res.ok) throw new Error(body.error ?? "Save failed");
+      applySavedFund(body);
       toast.success("Marketplace settings saved");
       router.refresh();
     } catch (err) {
@@ -240,11 +256,44 @@ export function AdminMarketplacePanel({
         value={form.maxAum}
         onChange={(e) => setForm({ ...form, maxAum: e.target.value })}
       />
-      <Input
-        placeholder="Cover image URL"
-        value={form.coverImageUrl}
-        onChange={(e) => setForm({ ...form, coverImageUrl: e.target.value })}
-      />
+
+      <div className="space-y-3 rounded-lg border border-border/70 p-4">
+        <div>
+          <p className="text-sm font-medium text-navy-900">Pool cover image</p>
+          <p className="mt-1 text-xs text-navy-500">
+            Upload a cover image or paste a public URL. Changes appear on marketplace cards after
+            save.
+          </p>
+        </div>
+
+        <div
+          className="relative h-28 overflow-hidden rounded-lg border border-border/60 bg-navy-950"
+          style={poolCoverBannerStyle({ coverImageUrl: form.coverImageUrl || null })}
+        >
+          {!form.coverImageUrl && (
+            <div className="absolute inset-0 flex items-center justify-center text-xs text-white/70">
+              No cover image yet
+            </div>
+          )}
+        </div>
+
+        <PoolImageUpload
+          imageUrl={form.coverImageUrl}
+          uploadEndpoint={`/api/admin/pools/${fundId}/cover-image`}
+          onUploaded={(url) => {
+            setForm((current) => ({ ...current, coverImageUrl: url }));
+            toast.success("Cover image updated on marketplace");
+          }}
+          onClear={() => setForm((current) => ({ ...current, coverImageUrl: "" }))}
+        />
+
+        <Input
+          placeholder="Cover image URL (optional override)"
+          value={form.coverImageUrl}
+          onChange={(e) => setForm({ ...form, coverImageUrl: e.target.value })}
+        />
+      </div>
+
       <Input
         placeholder="Logo URL"
         value={form.logoUrl}

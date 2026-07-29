@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { coverImageUrlForCss } from "@/lib/pools/cover-image-url";
 
 export interface CoverImagePosition {
   /** Horizontal focal point (0 = left, 100 = right). */
@@ -59,11 +60,13 @@ export function poolCoverBannerStyle(input: {
   cardBackgroundColor?: string | null;
   coverImagePosition?: CoverImagePosition | null;
 }): CSSProperties {
-  if (input.coverImageUrl) {
+  const cssUrl = coverImageUrlForCss(input.coverImageUrl);
+  if (cssUrl) {
     return {
-      backgroundImage: `url(${input.coverImageUrl})`,
+      backgroundImage: cssUrl,
       backgroundSize: "cover",
       backgroundPosition: coverImagePositionCss(input.coverImagePosition),
+      backgroundRepeat: "no-repeat",
     };
   }
 
