@@ -12,6 +12,7 @@ import { normalizeCoverImageUrl } from "@/lib/pools/cover-image-url";
 import { persistPoolCoverImage } from "@/lib/pools/persist-pool-cover-image";
 import { poolManagerDashboardService } from "@/services/pool-manager-dashboard.service";
 import { DEFAULT_COVER_IMAGE_POSITION } from "@/domain/pools/cover-image-position";
+import type { CoverImagePosition } from "@/domain/pools/cover-image-position";
 
 function extensionForMime(mime: string): string {
   switch (mime) {
@@ -90,7 +91,8 @@ async function assertPoolManagerOwnsPool(poolId: string): Promise<void> {
 export const poolImageService = {
   async uploadPoolImage(
     file: File,
-    poolId?: string
+    poolId?: string,
+    coverImagePosition: CoverImagePosition = DEFAULT_COVER_IMAGE_POSITION
   ): Promise<{ imageUrl: string; objectPath: string }> {
     await requireRole(USER_ROLES.POOL_MANAGER);
     const supabase = await createClient();
@@ -112,7 +114,7 @@ export const poolImageService = {
         (await persistPoolCoverImage({
           poolId,
           coverImageUrl: uploadedUrl,
-          coverImagePosition: DEFAULT_COVER_IMAGE_POSITION,
+          coverImagePosition,
         })) ?? uploadedUrl;
     }
 
@@ -140,6 +142,16 @@ export const poolImageService = {
 
   async clearPoolCoverAsAdmin(poolId: string): Promise<void> {
     await requireRole(USER_ROLES.ADMINISTRATOR);
+    await persistPoolCoverImage({
+      poolId,
+      coverImageUrl: null,
+      coverImagePosition: DEFAULT_COVER_IMAGE_POSITION,
+    });
+  },
+
+  async clearPoolCoverForManager(poolId: string): Promise<void> {
+    await requireRole(USER_ROLES.POOL_MANAGER);
+    await assertPoolManagerOwnsPool(poolId);
     await persistPoolCoverImage({
       poolId,
       coverImageUrl: null,

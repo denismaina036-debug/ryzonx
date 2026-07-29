@@ -26,7 +26,7 @@ export async function persistPoolCoverImage(input: {
     ? normalizeCoverImageUrl(input.coverImageUrl)
     : null;
 
-  const { error: updateError } = await db
+  const { data, error: updateError } = await db
     .from("funds")
     .update({
       cover_image_url: normalized,
@@ -34,10 +34,13 @@ export async function persistPoolCoverImage(input: {
         input.coverImagePosition ?? DEFAULT_COVER_IMAGE_POSITION
       ),
     } as never)
-    .eq("id", input.poolId);
+    .eq("id", input.poolId)
+    .select("id, cover_image_url, slug")
+    .single();
 
   if (updateError) throw new Error(updateError.message);
+  if (!data) throw new Error("Pool cover update failed — pool not found.");
 
-  revalidatePoolMarketplaceSurfaces((fund as { slug?: string | null }).slug ?? null);
-  return normalized;
+  revalidatePoolMarketplaceSurfaces((data as { slug?: string | null }).slug ?? null);
+  return (data as { cover_image_url: string | null }).cover_image_url ?? normalized;
 }

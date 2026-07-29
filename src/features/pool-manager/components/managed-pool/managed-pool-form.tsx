@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -130,7 +131,23 @@ export function ManagedPoolForm({
               disabled={!editable}
               onUploaded={(url) => patch("poolImageUrl", url)}
               onCoverImagePositionChange={(position) => patch("coverImagePosition", position)}
-              onClear={() => patch("poolImageUrl", "")}
+              onClear={() => {
+                void (async () => {
+                  if (poolId) {
+                    const res = await fetch(
+                      `/api/pool-manager/pools/${poolId}/cover-image`,
+                      { method: "DELETE" }
+                    );
+                    const body = (await res.json()) as { error?: string };
+                    if (!res.ok) {
+                      toast.error(body.error ?? "Could not remove cover image");
+                      return;
+                    }
+                  }
+                  patch("poolImageUrl", "");
+                  toast.success("Cover image removed");
+                })();
+              }}
             />
           </PmFormField>
         </div>

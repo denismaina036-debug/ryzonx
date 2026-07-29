@@ -66,6 +66,7 @@ export function PoolImageUpload({
       const formData = new FormData();
       formData.append("image", file);
       if (poolId) formData.append("poolId", poolId);
+      formData.append("coverImagePosition", JSON.stringify(coverImagePosition));
 
       const res = await fetch(uploadEndpoint, {
         method: "POST",
@@ -76,7 +77,6 @@ export function PoolImageUpload({
 
       setPreviewUrl(body.imageUrl as string);
       onUploaded(body.imageUrl as string);
-      onCoverImagePositionChange?.({ ...DEFAULT_COVER_IMAGE_POSITION });
       toast.success(poolId ? "Cover image saved to marketplace" : "Pool image uploaded");
     } catch (err) {
       setPreviewUrl(imageUrl);

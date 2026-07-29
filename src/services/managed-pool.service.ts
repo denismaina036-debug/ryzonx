@@ -182,7 +182,7 @@ function formToFundPatch(
     visibility,
   };
 
-  return {
+  const patch: Record<string, unknown> = {
     name: input.poolName.trim(),
     description: input.poolDescription.trim() || null,
     pool_description:
@@ -191,9 +191,6 @@ function formToFundPatch(
         .join("\n\n") ||
       input.poolDescription.trim() ||
       null,
-    cover_image_url: input.poolImageUrl?.trim()
-      ? normalizeCoverImageUrl(input.poolImageUrl)
-      : null,
     cover_image_position: serializeCoverImagePosition(
       input.coverImagePosition ?? DEFAULT_COVER_IMAGE_POSITION
     ),
@@ -222,6 +219,12 @@ function formToFundPatch(
     hide_from_marketplace: visibility === "private",
     pool_faq: buildPoolFaq(existingFaq, managedConfig),
   };
+
+  if (input.poolImageUrl?.trim()) {
+    patch.cover_image_url = normalizeCoverImageUrl(input.poolImageUrl);
+  }
+
+  return patch;
 }
 
 export function poolToManagedForm(
@@ -587,6 +590,11 @@ export const managedPoolService = {
 
     const config = readManagedConfig(row.pool_faq);
     const patch = formToFundPatch(normalized, config, row.pool_faq);
+    if (normalized.poolImageUrl?.trim()) {
+      patch.cover_image_url = normalizeCoverImageUrl(normalized.poolImageUrl);
+    } else {
+      delete patch.cover_image_url;
+    }
 
     const { error } = await db.from("funds").update(patch as never).eq("id", poolId);
     if (error) throw new Error(error.message);
@@ -616,6 +624,11 @@ export const managedPoolService = {
 
     const config = readManagedConfig((existing as { pool_faq: unknown }).pool_faq);
     const patch = formToFundPatch(normalized, config, (existing as { pool_faq: unknown }).pool_faq);
+    if (normalized.poolImageUrl?.trim()) {
+      patch.cover_image_url = normalizeCoverImageUrl(normalized.poolImageUrl);
+    } else {
+      delete patch.cover_image_url;
+    }
     const { error } = await db.from("funds").update(patch as never).eq("id", poolId);
     if (error) throw new Error(error.message);
 
