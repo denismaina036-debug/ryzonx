@@ -8,12 +8,20 @@ import {
   POOL_MANAGER_STATS_ENTITY,
 } from "@/constants/pool-manager-stats";
 import {
+  POOL_MANAGER_EDITABLE_STAT_FIELDS,
   POOL_MANAGER_JSON_STAT_FIELDS,
   POOL_MANAGER_STAT_COLUMN_MAP,
   POOL_MANAGER_STAT_FIELD_LABELS,
   type PoolManagerAdminStatistics,
   type PoolManagerStatField,
 } from "@/domain/pool-manager/admin-statistics";
+import { mergeAdminStatistics } from "@/lib/pool-manager/merge-admin-statistics";
+import {
+  computeLiveYearsOnRyvonX,
+  resolvePublicCapital,
+  resolveYearsOnRyvonX,
+} from "@/lib/pool-manager/public-statistics";
+import { resolvePublicDisplayCount } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 import { auditService } from "@/services/audit.service";
 
 type ManagerRow = Record<string, unknown>;
@@ -27,7 +35,55 @@ function toNumber(value: unknown): number | null {
 function readJsonStats(row: ManagerRow): PoolManagerAdminStatistics {
   const raw = row.admin_statistics;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
-  return raw as PoolManagerAdminStatistics;
+  const stats = raw as PoolManagerAdminStatistics;
+  const normalized: PoolManagerAdminStatistics = { ...stats };
+  if (normalized.yearsOnRyvonX == null && normalized.experienceYears != null) {
+    normalized.yearsOnRyvonX = normalized.experienceYears;
+  }
+  if (
+    normalized.displayInvestorCount == null &&
+    normalized.activeInvestors != null
+  ) {
+    normalized.displayInvestorCount = normalized.activeInvestors;
+  }
+  return normalized;
+}
+
+function normalizeEditableStatistics(
+  row: ManagerRow,
+  adminOverrides: PoolManagerAdminStatistics
+): PoolManagerAdminStatistics {
+  return {
+    winRatePct: toNumber(row.win_rate_pct),
+    avgMonthlyReturnPct: toNumber(row.avg_monthly_return_pct),
+    maxDrawdownPct: toNumber(row.max_drawdown_pct),
+    ryvonxRating: toNumber(row.ryvonx_rating),
+    securityRating: toNumber(row.security_rating),
+    aggressivenessRating: toNumber(row.aggressiveness_rating),
+    displayReviewCount: toNumber(row.display_review_count),
+    displayTradeCount: toNumber(row.display_trade_count),
+    displayInvestorCount: toNumber(row.display_investor_count),
+    ...adminOverrides,
+    yearsOnRyvonX:
+      adminOverrides.yearsOnRyvonX ??
+      adminOverrides.experienceYears ??
+      null,
+  };
+}
+
+function statFieldLabel(field: PoolManagerStatField): string {
+  if (field in POOL_MANAGER_STAT_FIELD_LABELS) {
+    return POOL_MANAGER_STAT_FIELD_LABELS[
+      field as keyof typeof POOL_MANAGER_STAT_FIELD_LABELS
+    ];
+  }
+  return field;
+}
+
+function isEditableStatField(field: string): field is PoolManagerStatField {
+  return POOL_MANAGER_EDITABLE_STAT_FIELDS.includes(
+    field as (typeof POOL_MANAGER_EDITABLE_STAT_FIELDS)[number]
+  );
 }
 
 function revalidateManagerSurfaces(slug: string | null): void {
@@ -41,14 +97,135 @@ function revalidateManagerSurfaces(slug: string | null): void {
   }
 }
 
+export interface PoolManagerLiveMetrics {
+  winRatePct: number | null;
+  avgMonthlyReturnPct: number | null;
+  maxDrawdownPct: number | null;
+  ryvonxRating: number | null;
+  securityRating: number | null;
+  aggressivenessRating: number | null;
+  assetsUnderManagement: number;
+  activeInvestors: number;
+  publicReviewCount: number;
+  publicTradeCount: number;
+  yearsOnRyvonX: number;
+  poolsManaged: number;
+}
+
 export interface PoolManagerStatisticsView {
   managerId: string;
   displayName: string;
   slug: string | null;
-  /** Current effective values (columns + JSON overrides). */
+  /** Admin-editable baseline values (columns + JSON). */
   statistics: PoolManagerAdminStatistics;
   /** Raw admin_statistics JSONB only. */
   adminOverrides: PoolManagerAdminStatistics;
+  /** Values computed from live platform activity (read-only reference). */
+  liveMetrics: PoolManagerLiveMetrics;
+  /** Values currently shown on the public profile. */
+  publishedMetrics: PoolManagerLiveMetrics;
+}
+
+async function loadLiveMetrics(managerId: string, row: ManagerRow): Promise<PoolManagerLiveMetrics> {
+  const db = createAdminClient();
+  const [poolsRes, reviewCountRes, tradeMetricsRes] = await Promise.all([
+    db
+      .from("funds")
+      .select("active_investors, display_active_investors, assets_under_management")
+      .eq("pool_manager_id", managerId)
+      .in("lifecycle_status", ["live", "approved"]),
+    db
+      .from("pool_manager_reviews")
+      .select("id", { count: "exact", head: true })
+      .eq("pool_manager_id", managerId),
+    db
+      .from("trade_snapshots")
+      .select("total_trades")
+      .eq("pool_manager_id", managerId)
+      .order("snapshot_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const poolRows = (poolsRes.data ?? []) as Array<{
+    active_investors: number;
+    display_active_investors: number;
+    assets_under_management: number;
+  }>;
+
+  const liveInvestors = poolRows.reduce((s, p) => s + (toNumber(p.active_investors) ?? 0), 0);
+  const liveReviewCount = reviewCountRes.count ?? 0;
+  const liveTradeCount = toNumber(
+    (tradeMetricsRes.data as { total_trades?: number } | null)?.total_trades
+  );
+  const liveAum = poolRows.reduce(
+    (s, p) => s + (toNumber(p.assets_under_management) ?? 0),
+    0
+  );
+  const liveYears = computeLiveYearsOnRyvonX(String(row.created_at ?? new Date().toISOString()));
+
+  return {
+    winRatePct: null,
+    avgMonthlyReturnPct: null,
+    maxDrawdownPct: null,
+    ryvonxRating: null,
+    securityRating: null,
+    aggressivenessRating: null,
+    assetsUnderManagement: liveAum,
+    activeInvestors: liveInvestors,
+    publicReviewCount: liveReviewCount,
+    publicTradeCount: liveTradeCount ?? 0,
+    yearsOnRyvonX: liveYears,
+    poolsManaged: poolRows.length,
+  };
+}
+
+function computePublishedMetrics(
+  live: PoolManagerLiveMetrics,
+  statistics: PoolManagerAdminStatistics,
+  adminOverrides: PoolManagerAdminStatistics
+): PoolManagerLiveMetrics {
+  const merged = mergeAdminStatistics(
+    {
+      winRatePct: null,
+      avgMonthlyReturnPct: null,
+      maxDrawdownPct: null,
+      ryvonxRating: null,
+      securityRating: null,
+      aggressivenessRating: null,
+    },
+    adminOverrides
+  );
+
+  const investorSeed = Math.max(
+    statistics.displayInvestorCount ?? 0,
+    0
+  );
+  const reviewSeed = statistics.displayReviewCount ?? 0;
+  const tradeSeed = statistics.displayTradeCount ?? 0;
+
+  return {
+    winRatePct: merged.winRatePct ?? statistics.winRatePct ?? null,
+    avgMonthlyReturnPct:
+      merged.avgMonthlyReturnPct ?? statistics.avgMonthlyReturnPct ?? null,
+    maxDrawdownPct: merged.maxDrawdownPct ?? statistics.maxDrawdownPct ?? null,
+    ryvonxRating: merged.ryvonxRating ?? statistics.ryvonxRating ?? null,
+    securityRating: merged.securityRating ?? statistics.securityRating ?? null,
+    aggressivenessRating:
+      merged.aggressivenessRating ?? statistics.aggressivenessRating ?? null,
+    assetsUnderManagement: resolvePublicCapital(
+      live.assetsUnderManagement,
+      adminOverrides
+    ),
+    activeInvestors: resolvePublicDisplayCount(investorSeed, live.activeInvestors),
+    publicReviewCount: resolvePublicDisplayCount(
+      reviewSeed,
+      live.publicReviewCount
+    ),
+    publicTradeCount: resolvePublicDisplayCount(tradeSeed, live.publicTradeCount),
+    yearsOnRyvonX: resolveYearsOnRyvonX(live.yearsOnRyvonX, adminOverrides),
+    poolsManaged: live.poolsManaged,
+  };
 }
 
 export const poolManagerStatsService = {
@@ -67,19 +244,13 @@ export const poolManagerStatsService = {
 
     const row = data as ManagerRow;
     const adminOverrides = readJsonStats(row);
-
-    const statistics: PoolManagerAdminStatistics = {
-      winRatePct: toNumber(row.win_rate_pct),
-      avgMonthlyReturnPct: toNumber(row.avg_monthly_return_pct),
-      maxDrawdownPct: toNumber(row.max_drawdown_pct),
-      ryvonxRating: toNumber(row.ryvonx_rating),
-      securityRating: toNumber(row.security_rating),
-      aggressivenessRating: toNumber(row.aggressiveness_rating),
-      displayReviewCount: toNumber(row.display_review_count),
-      displayTradeCount: toNumber(row.display_trade_count),
-      displayInvestorCount: toNumber(row.display_investor_count),
-      ...adminOverrides,
-    };
+    const statistics = normalizeEditableStatistics(row, adminOverrides);
+    const liveMetrics = await loadLiveMetrics(managerId, row);
+    const publishedMetrics = computePublishedMetrics(
+      liveMetrics,
+      statistics,
+      adminOverrides
+    );
 
     return {
       managerId,
@@ -87,6 +258,8 @@ export const poolManagerStatsService = {
       slug: (row.slug as string | null) ?? null,
       statistics,
       adminOverrides,
+      liveMetrics,
+      publishedMetrics,
     };
   },
 
@@ -113,11 +286,13 @@ export const poolManagerStatsService = {
 
     const columnUpdates: Record<string, unknown> = {};
     const jsonPatch: PoolManagerAdminStatistics = { ...previousOverrides };
+    delete jsonPatch.experienceYears;
+    delete jsonPatch.activeInvestors;
 
     for (const [field, value] of Object.entries(input.patch) as Array<
       [PoolManagerStatField, unknown]
     >) {
-      if (!(field in POOL_MANAGER_STAT_FIELD_LABELS)) continue;
+      if (!isEditableStatField(field)) continue;
 
       const column = POOL_MANAGER_STAT_COLUMN_MAP[field];
       if (column) {
@@ -143,6 +318,7 @@ export const poolManagerStatsService = {
     for (const [field, newValue] of Object.entries(input.patch) as Array<
       [PoolManagerStatField, unknown]
     >) {
+      if (!isEditableStatField(field)) continue;
       const oldValue = previousStats.statistics[field];
       const normalizedNew = newValue === "" ? null : newValue;
       if (oldValue === normalizedNew) continue;
@@ -154,12 +330,12 @@ export const poolManagerStatsService = {
         entityId: input.managerId,
         oldValues: {
           field,
-          label: POOL_MANAGER_STAT_FIELD_LABELS[field],
+          label: statFieldLabel(field),
           value: oldValue ?? null,
         },
         newValues: {
           field,
-          label: POOL_MANAGER_STAT_FIELD_LABELS[field],
+          label: statFieldLabel(field),
           value: normalizedNew ?? null,
           reason: input.reason?.trim() || null,
         },
@@ -182,7 +358,7 @@ export const poolManagerStatsService = {
     const before = await this.getStatistics(input.managerId);
     const resetFields = input.fields?.length
       ? input.fields
-      : (Object.keys(POOL_MANAGER_STAT_FIELD_LABELS) as PoolManagerStatField[]);
+      : [...POOL_MANAGER_EDITABLE_STAT_FIELDS];
 
     const columnUpdates: Record<string, unknown> = {};
     const jsonPatch = { ...before.adminOverrides };
@@ -191,11 +367,13 @@ export const poolManagerStatsService = {
       const column = POOL_MANAGER_STAT_COLUMN_MAP[field];
       if (column) {
         columnUpdates[column] = null;
-      } else {
+      } else if (POOL_MANAGER_JSON_STAT_FIELDS.includes(field)) {
         delete jsonPatch[field];
       }
     }
 
+    delete jsonPatch.experienceYears;
+    delete jsonPatch.activeInvestors;
     columnUpdates.admin_statistics = jsonPatch;
 
     const { error } = await db

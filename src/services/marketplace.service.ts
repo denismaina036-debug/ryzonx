@@ -9,6 +9,7 @@ import { resolvePoolManagerPublicLabel, resolvePublicManagerName, managerRowToId
 import { parseCoverImagePosition } from "@/domain/pools/cover-image-position";
 import { mergeAdminStatistics } from "@/lib/pool-manager/merge-admin-statistics";
 import type { PoolManagerAdminStatistics } from "@/domain/pool-manager/admin-statistics";
+import { resolveYearsOnRyvonX } from "@/lib/pool-manager/public-statistics";
 import {
   aggregatePoolsByManager,
   filterManagers,
@@ -355,8 +356,27 @@ function managerPublicLabel(row: ManagerRow | null): string | null {
 function mapManagerSummary(row: ManagerRow | null): PoolManagerPublicSummary | null {
   if (!row) return null;
   const createdAt = new Date(row.created_at);
-  const yearsOn =
-    (Date.now() - createdAt.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+  const liveYears = Math.max(
+    0,
+    Math.round(
+      ((Date.now() - createdAt.getTime()) / (365.25 * 24 * 60 * 60 * 1000)) * 10
+    ) / 10
+  );
+  const adminStats = (row.admin_statistics as PoolManagerAdminStatistics | null) ?? null;
+  const merged = mergeAdminStatistics(
+    {
+      ryvonxRating: row.ryvonx_rating != null ? toNumber(row.ryvonx_rating) : null,
+      securityRating: row.security_rating != null ? toNumber(row.security_rating) : null,
+      aggressivenessRating:
+        row.aggressiveness_rating != null ? toNumber(row.aggressiveness_rating) : null,
+      winRatePct: row.win_rate_pct != null ? toNumber(row.win_rate_pct) : null,
+      avgMonthlyReturnPct:
+        row.avg_monthly_return_pct != null ? toNumber(row.avg_monthly_return_pct) : null,
+      maxDrawdownPct: row.max_drawdown_pct != null ? toNumber(row.max_drawdown_pct) : null,
+    },
+    adminStats
+  );
+
   return {
     id: row.id,
     slug: row.slug,
@@ -369,15 +389,13 @@ function mapManagerSummary(row: ManagerRow | null): PoolManagerPublicSummary | n
     tradingStyle: row.trading_style,
     tradingSince: row.trading_since,
     isVerified: row.is_verified,
-    ryvonxRating: row.ryvonx_rating != null ? toNumber(row.ryvonx_rating) : null,
-    securityRating: row.security_rating != null ? toNumber(row.security_rating) : null,
-    aggressivenessRating:
-      row.aggressiveness_rating != null ? toNumber(row.aggressiveness_rating) : null,
-    winRatePct: row.win_rate_pct != null ? toNumber(row.win_rate_pct) : null,
-    avgMonthlyReturnPct:
-      row.avg_monthly_return_pct != null ? toNumber(row.avg_monthly_return_pct) : null,
-    maxDrawdownPct: row.max_drawdown_pct != null ? toNumber(row.max_drawdown_pct) : null,
-    yearsOnRyvonX: Math.max(0, Math.round(yearsOn * 10) / 10),
+    ryvonxRating: merged.ryvonxRating ?? null,
+    securityRating: merged.securityRating ?? null,
+    aggressivenessRating: merged.aggressivenessRating ?? null,
+    winRatePct: merged.winRatePct ?? null,
+    avgMonthlyReturnPct: merged.avgMonthlyReturnPct ?? null,
+    maxDrawdownPct: merged.maxDrawdownPct ?? null,
+    yearsOnRyvonX: resolveYearsOnRyvonX(liveYears, adminStats),
     managerLevel: null,
     achievements: [],
   };
@@ -610,8 +628,13 @@ function enrichManagerCards(
     if (!row) return card;
 
     const createdAt = new Date(row.created_at);
-    const yearsOn =
-      (Date.now() - createdAt.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+    const adminStats = (row.admin_statistics as PoolManagerAdminStatistics | null) ?? null;
+    const liveYears = Math.max(
+      0,
+      Math.round(
+        ((Date.now() - createdAt.getTime()) / (365.25 * 24 * 60 * 60 * 1000)) * 10
+      ) / 10
+    );
 
     const merged = mergeAdminStatistics(
       {
@@ -629,7 +652,7 @@ function enrichManagerCards(
         maxDrawdownPct:
           row.max_drawdown_pct != null ? toNumber(row.max_drawdown_pct) : card.maxDrawdownPct,
       },
-      (row.admin_statistics as PoolManagerAdminStatistics | null) ?? null
+      adminStats
     );
 
     return {
@@ -648,7 +671,7 @@ function enrichManagerCards(
       winRatePct: merged.winRatePct,
       avgMonthlyReturnPct: merged.avgMonthlyReturnPct ?? card.avgMonthlyReturnPct,
       maxDrawdownPct: merged.maxDrawdownPct ?? card.maxDrawdownPct,
-      yearsOnRyvonX: Math.max(0, Math.round(yearsOn * 10) / 10),
+      yearsOnRyvonX: resolveYearsOnRyvonX(liveYears, adminStats),
     };
   });
 }

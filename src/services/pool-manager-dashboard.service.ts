@@ -14,6 +14,11 @@ import {
 import { notificationService } from "@/services/notification.service";
 import { parseCoverImagePosition } from "@/domain/pools/cover-image-position";
 import { mergeAdminStatistics } from "@/lib/pool-manager/merge-admin-statistics";
+import {
+  computeLiveYearsOnRyvonX,
+  resolvePublicCapital,
+  resolveYearsOnRyvonX,
+} from "@/lib/pool-manager/public-statistics";
 import type { PoolManagerAdminStatistics } from "@/domain/pool-manager/admin-statistics";
 import type {
   PoolManagerDashboardStats,
@@ -403,8 +408,7 @@ export const poolManagerDashboardService = {
     }));
 
     const createdAt = new Date(row.created_at as string);
-    const yearsOn =
-      (Date.now() - createdAt.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+    const liveYears = computeLiveYearsOnRyvonX(createdAt);
 
     const identity = buildPoolManagerPublicIdentity({
       username: row.username as string | null,
@@ -425,6 +429,28 @@ export const poolManagerDashboardService = {
       (tradeMetricsRes.data as { total_trades?: number } | null)?.total_trades
     );
     const seedTradeCount = toNumber(row.display_trade_count as number);
+    const liveAum = poolRows.reduce(
+      (s, p) => s + toNumber(p.assets_under_management),
+      0
+    );
+
+    const adminStatsRaw = (row.admin_statistics as PoolManagerAdminStatistics | null) ?? null;
+    const adminStats: PoolManagerAdminStatistics | null = adminStatsRaw
+      ? {
+          ...adminStatsRaw,
+          yearsOnRyvonX:
+            adminStatsRaw.yearsOnRyvonX ?? adminStatsRaw.experienceYears ?? null,
+          displayInvestorCount:
+            adminStatsRaw.displayInvestorCount ??
+            adminStatsRaw.activeInvestors ??
+            null,
+        }
+      : null;
+
+    const investorSeed = Math.max(
+      seedInvestors,
+      adminStats?.displayInvestorCount ?? 0
+    );
 
     const liveProfile = {
       id: managerId,
@@ -459,13 +485,10 @@ export const poolManagerDashboardService = {
           : null,
       maxDrawdownPct:
         row.max_drawdown_pct != null ? toNumber(row.max_drawdown_pct as number) : null,
-      assetsUnderManagement: poolRows.reduce(
-        (s, p) => s + toNumber(p.assets_under_management),
-        0
-      ),
-      activeInvestors: resolvePublicDisplayCount(seedInvestors, liveInvestors),
+      assetsUnderManagement: liveAum,
+      activeInvestors: resolvePublicDisplayCount(investorSeed, liveInvestors),
       poolsManaged: poolRows.length,
-      yearsOnRyvonX: Math.max(0, Math.round(yearsOn * 10) / 10),
+      yearsOnRyvonX: liveYears,
       approvedAt: (row.approved_at as string) ?? null,
       managerLevel: (row.manager_level as string | null) ?? null,
       publicReviewCount: resolvePublicDisplayCount(seedReviewCount, liveReviewCount),
@@ -473,7 +496,6 @@ export const poolManagerDashboardService = {
       achievements,
     };
 
-    const adminStats = (row.admin_statistics as PoolManagerAdminStatistics | null) ?? null;
     const merged = mergeAdminStatistics(liveProfile, adminStats);
 
     return {
@@ -484,9 +506,11 @@ export const poolManagerDashboardService = {
       winRatePct: merged.winRatePct ?? liveProfile.winRatePct,
       avgMonthlyReturnPct: merged.avgMonthlyReturnPct ?? liveProfile.avgMonthlyReturnPct,
       maxDrawdownPct: merged.maxDrawdownPct ?? liveProfile.maxDrawdownPct,
-      assetsUnderManagement: merged.assetsUnderManagement ?? liveProfile.assetsUnderManagement,
-      activeInvestors: merged.activeInvestors ?? liveProfile.activeInvestors,
-      publicReviewCount: merged.displayReviewCount ?? liveProfile.publicReviewCount,
+      assetsUnderManagement: resolvePublicCapital(liveAum, adminStats),
+      activeInvestors: resolvePublicDisplayCount(investorSeed, liveInvestors),
+      yearsOnRyvonX: resolveYearsOnRyvonX(liveYears, adminStats),
+      publicReviewCount:
+        merged.displayReviewCount ?? liveProfile.publicReviewCount,
       publicTradeCount: merged.displayTradeCount ?? liveProfile.publicTradeCount,
     };
   },

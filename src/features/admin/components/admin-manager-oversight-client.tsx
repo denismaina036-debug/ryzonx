@@ -52,6 +52,8 @@ export function AdminManagerOversightClient({
         <AdminMetricCard label="Achievements" value={String(development.achievements.length)} icon={Award} />
       </AdminMetricGrid>
 
+      <AdminManagerStatsPanel managerId={profile.managerId} initial={statistics} />
+
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-xl border border-border bg-card p-5">
           <h3 className="font-semibold text-navy-900">Strategies</h3>
@@ -142,8 +144,6 @@ export function AdminManagerOversightClient({
           )}
         </section>
       </div>
-
-      <AdminManagerStatsPanel managerId={profile.managerId} initial={statistics} />
 
       <AdminInternalNotesPanel
         entityType="pool_manager"
