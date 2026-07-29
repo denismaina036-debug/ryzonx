@@ -13,6 +13,7 @@ import {
   type AdminNavDepartment,
   type AdminNavLink,
 } from "@/features/admin/constants/nav";
+import { LegalReacceptanceGate } from "@/features/auth/components/legal-reacceptance-gate";
 import { useAuthActions } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
@@ -378,17 +379,19 @@ export function AdminLayoutShell({
   pendingApplications,
 }: AdminLayoutShellProps) {
   return (
-    <div className="flex min-h-screen bg-surface-1">
-      <AdminSidebar
-        userName={userName}
-        pendingDeposits={pendingDeposits}
-        pendingWithdrawals={pendingWithdrawals}
-        pendingApplications={pendingApplications}
-      />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <main className="flex-1 p-4 pt-16 lg:p-8 lg:pt-8">{children}</main>
+    <LegalReacceptanceGate>
+      <div className="flex min-h-screen bg-surface-1">
+        <AdminSidebar
+          userName={userName}
+          pendingDeposits={pendingDeposits}
+          pendingWithdrawals={pendingWithdrawals}
+          pendingApplications={pendingApplications}
+        />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <main className="flex-1 p-4 pt-16 lg:p-8 lg:pt-8">{children}</main>
+        </div>
       </div>
-    </div>
+    </LegalReacceptanceGate>
   );
 }
 

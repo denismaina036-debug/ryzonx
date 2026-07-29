@@ -2303,6 +2303,129 @@ export type Database = {
           },
         ]
       }
+      legal_document_acceptances: {
+        Row: {
+          accepted_at: string
+          document_id: string
+          id: string
+          user_id: string
+          version_id: string
+          version_number: number
+        }
+        Insert: {
+          accepted_at?: string
+          document_id: string
+          id?: string
+          user_id: string
+          version_id: string
+          version_number: number
+        }
+        Update: {
+          accepted_at?: string
+          document_id?: string
+          id?: string
+          user_id?: string
+          version_id?: string
+          version_number?: number
+        }
+        Relationships: []
+      }
+      legal_document_versions: {
+        Row: {
+          change_notes: string | null
+          created_at: string
+          document_id: string
+          id: string
+          meta_description: string
+          meta_keywords: string
+          og_image_url: string
+          page_title: string
+          published_at: string
+          published_by: string | null
+          sections: Json
+          slug: string
+          version_number: number
+        }
+        Insert: {
+          change_notes?: string | null
+          created_at?: string
+          document_id: string
+          id?: string
+          meta_description?: string
+          meta_keywords?: string
+          og_image_url?: string
+          page_title: string
+          published_at?: string
+          published_by?: string | null
+          sections: Json
+          slug: string
+          version_number: number
+        }
+        Update: {
+          change_notes?: string | null
+          created_at?: string
+          document_id?: string
+          id?: string
+          meta_description?: string
+          meta_keywords?: string
+          og_image_url?: string
+          page_title?: string
+          published_at?: string
+          published_by?: string | null
+          sections?: Json
+          slug?: string
+          version_number?: number
+        }
+        Relationships: []
+      }
+      legal_documents: {
+        Row: {
+          created_at: string
+          document_type: Database["public"]["Enums"]["legal_document_type"]
+          draft_sections: Json
+          id: string
+          meta_description: string
+          meta_keywords: string
+          og_image_url: string
+          page_title: string
+          published_version_number: number | null
+          slug: string
+          status: Database["public"]["Enums"]["legal_document_status"]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_type: Database["public"]["Enums"]["legal_document_type"]
+          draft_sections?: Json
+          id?: string
+          meta_description?: string
+          meta_keywords?: string
+          og_image_url?: string
+          page_title: string
+          published_version_number?: number | null
+          slug: string
+          status?: Database["public"]["Enums"]["legal_document_status"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_type?: Database["public"]["Enums"]["legal_document_type"]
+          draft_sections?: Json
+          id?: string
+          meta_description?: string
+          meta_keywords?: string
+          og_image_url?: string
+          page_title?: string
+          published_version_number?: number | null
+          slug?: string
+          status?: Database["public"]["Enums"]["legal_document_status"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       notification_history: {
         Row: {
           body: string
@@ -3822,6 +3945,8 @@ export type Database = {
         | "allocation_release"
         | "distribution"
         | "adjustment"
+      legal_document_status: "draft" | "published" | "archived"
+      legal_document_type: "terms_of_service" | "privacy_policy"
         | "reversal"
         | "transfer"
         | "profit_settlement"

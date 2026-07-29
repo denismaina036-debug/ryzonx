@@ -1,8 +1,21 @@
-export default function PrivacyPage() {
-  return (
-    <div className="page-container py-16">
-      <h1 className="text-3xl font-semibold text-navy-950">Privacy Policy</h1>
-      <p className="mt-4 text-navy-500">Privacy policy content coming soon.</p>
-    </div>
+import type { Metadata } from "next";
+import { notFound, redirect } from "next/navigation";
+import { LEGAL_DOCUMENT_TYPES } from "@/domain/legal-documents/types";
+import {
+  buildLegalTypeMetadata,
+  getPublishedLegalDocumentByType,
+} from "@/lib/legal/public-page";
+import { LegalDocumentView } from "@/features/public/components/legal-document-view";
+
+export async function generateMetadata(): Promise<Metadata> {
+  return buildLegalTypeMetadata(LEGAL_DOCUMENT_TYPES.PRIVACY_POLICY);
+}
+
+export default async function PrivacyPage() {
+  const document = await getPublishedLegalDocumentByType(
+    LEGAL_DOCUMENT_TYPES.PRIVACY_POLICY
   );
+  if (!document) notFound();
+  if (document.seo.slug !== "privacy") redirect(`/${document.seo.slug}`);
+  return <LegalDocumentView document={document} />;
 }

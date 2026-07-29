@@ -88,6 +88,7 @@ export function useAuthActions() {
       }
 
       metadata.registration_intent = data.registrationIntent;
+      metadata.accepted_legal_at_signup = "true";
 
       if (data.country?.trim()) {
         metadata.country = data.country.trim();
@@ -121,6 +122,12 @@ export function useAuthActions() {
       }
 
       if (authData.session) {
+        try {
+          await fetch("/api/legal/register-acceptance", { method: "POST" });
+        } catch {
+          // Acceptance can be completed after login if this request fails.
+        }
+
         toast.success("Welcome to Ryvonx!", {
           description: "Your investor account is ready.",
         });

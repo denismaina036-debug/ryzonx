@@ -108,6 +108,7 @@ export const ROUTES = {
   adminTestimonials: "/admin/testimonials",
   adminFaq: "/admin/faq",
   adminPages: "/admin/pages",
+  adminLegal: "/admin/legal",
   adminReports: "/admin/reports",
   adminSettings: "/admin/settings",
   adminAuditLogs: "/admin/audit-logs",
@@ -177,6 +178,10 @@ export function adminPoolManagersApplicationsPath(status: PoolManagerApplication
 
 export function adminChallengeReviewPath(enrollmentId: string) {
   return `/admin/pool-managers/challenge-review/${enrollmentId}`;
+}
+
+export function adminLegalDocument(documentType: string) {
+  return `/admin/legal/${documentType}`;
 }
 
 export const PUBLIC_ROUTES: RoutePath[] = [

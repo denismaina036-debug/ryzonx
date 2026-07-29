@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ensureInvestorBootstrap } from "@/lib/auth/ensure-investor-bootstrap";
 import { getEffectiveUserRole, isSafeRedirectPath } from "@/lib/auth/redirect";
 import { canAccessRoute, getPostAuthRedirect } from "@/lib/auth/utils";
+import { legalDocumentService } from "@/services/legal-document.service";
 import { USER_ROLES, type UserRole } from "@/constants/roles";
 
 /**
@@ -23,6 +24,14 @@ export async function GET(request: Request) {
         await ensureInvestorBootstrap(data.user);
       } catch {
         // Profile bootstrap can be retried on first dashboard load
+      }
+
+      if (data.user.user_metadata?.accepted_legal_at_signup === "true") {
+        try {
+          await legalDocumentService.recordCurrentPublishedAcceptances(data.user.id);
+        } catch {
+          // User can complete acceptance through the post-login gate.
+        }
       }
 
       let profileRole: UserRole | null = null;

@@ -307,6 +307,7 @@ export interface RegisterFormData {
   country?: string;
   registrationIntent: import("@/constants/registration").RegistrationIntent;
   acceptTerms: boolean;
+  acceptPrivacy: boolean;
 }
 
 export interface DepositRequestFormData {

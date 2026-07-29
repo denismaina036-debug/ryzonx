@@ -58,7 +58,10 @@ export const registerSchema = z
     confirmPassword: z.string().min(1, "Please confirm your password"),
     country: z.string().optional(),
     acceptTerms: z.literal(true, {
-      errorMap: () => ({ message: "You must accept the terms and conditions" }),
+      errorMap: () => ({ message: "You must accept the Terms of Service" }),
+    }),
+    acceptPrivacy: z.literal(true, {
+      errorMap: () => ({ message: "You must acknowledge the Privacy Policy" }),
     }),
   })
   .refine((data) => data.password === data.confirmPassword, {

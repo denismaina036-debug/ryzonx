@@ -13,6 +13,7 @@ import { ReferenceCountryPicker } from "@/components/reference-data/reference-co
 import { createRegisterSchema, type RegisterSchemaWithIntent } from "@/lib/validations/auth";
 import { useAuthActions } from "@/hooks/use-auth";
 import { ROUTES } from "@/constants/routes";
+import { useFooterLegalLinks } from "@/providers/legal-links-provider";
 import {
   REGISTRATION_INTENTS,
   isRegistrationIntent,
@@ -29,6 +30,9 @@ export function RegisterForm() {
   const isCreatePool = intent === REGISTRATION_INTENTS.CREATE_POOL;
   const schema = useMemo(() => createRegisterSchema(intent), [intent]);
   const { signUp } = useAuthActions();
+  const legalLinks = useFooterLegalLinks();
+  const termsLink = legalLinks.find((link) => link.label.includes("Terms"))?.href ?? "/terms";
+  const privacyLink = legalLinks.find((link) => link.label.includes("Privacy"))?.href ?? "/privacy";
 
   const {
     register,
@@ -58,6 +62,7 @@ export function RegisterForm() {
       country: data.country,
       registrationIntent: intent,
       acceptTerms: data.acceptTerms,
+      acceptPrivacy: data.acceptPrivacy,
     });
   }
 
@@ -211,13 +216,27 @@ export function RegisterForm() {
             />
             <span className="text-sm text-navy-600">
               I agree to the{" "}
-              <Link href="/terms" className="text-royal-600 hover:underline">
+              <Link href={termsLink} className="text-royal-600 hover:underline" target="_blank">
                 Terms of Service
-              </Link>{" "}
-              and{" "}
-              <Link href="/privacy" className="text-royal-600 hover:underline">
+              </Link>
+              .
+            </span>
+          </label>
+        </FormField>
+
+        <FormField error={errors.acceptPrivacy?.message}>
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 rounded border-input"
+              {...register("acceptPrivacy")}
+            />
+            <span className="text-sm text-navy-600">
+              I acknowledge the{" "}
+              <Link href={privacyLink} className="text-royal-600 hover:underline" target="_blank">
                 Privacy Policy
               </Link>
+              .
             </span>
           </label>
         </FormField>

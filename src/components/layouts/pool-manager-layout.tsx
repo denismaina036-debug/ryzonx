@@ -16,6 +16,7 @@ import { PoolManagerMobileFab } from "@/features/pool-manager/components/pool-ma
 import { InvestorThemeToggle } from "@/features/investor/components/investor-theme-toggle";
 import { InvestorThemeProvider } from "@/providers/investor-theme-provider";
 import { WorkspaceRouteMemorySync } from "@/components/workspace/workspace-route-memory-sync";
+import { LegalReacceptanceGate } from "@/features/auth/components/legal-reacceptance-gate";
 import { WorkspaceSwitchLink } from "@/components/workspace/workspace-switch-link";
 import { WorkspaceMobileSwitcher } from "@/components/workspace/workspace-mobile-switcher";
 import type { PoolManagerQuickActionContext } from "@/services/pool-manager-workspace.service";
@@ -48,6 +49,7 @@ export function PoolManagerLayoutShell({
 
   return (
     <InvestorThemeProvider>
+      <LegalReacceptanceGate>
       <div className="pool-manager-workspace flex min-h-screen overflow-x-hidden bg-[var(--id-bg)]">
         <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-[var(--pm-sidebar-border)] bg-[var(--id-sidebar)] lg:flex xl:w-[17rem]">
           <div className="border-b border-[var(--pm-sidebar-border)] px-5 py-5">
@@ -196,6 +198,7 @@ export function PoolManagerLayoutShell({
         <PoolManagerMobileBottomNav />
         <PoolManagerMobileFab context={quickActionContext} />
       </div>
+      </LegalReacceptanceGate>
     </InvestorThemeProvider>
   );
 }

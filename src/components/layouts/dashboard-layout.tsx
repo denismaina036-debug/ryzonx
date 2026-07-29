@@ -17,6 +17,7 @@ import { SidebarChallengeCenter } from "@/features/investor/components/sidebar-c
 import { SidebarPoolManagerWorkspace } from "@/features/investor/components/sidebar-pool-manager-workspace";
 import { InvestorThemeProvider } from "@/providers/investor-theme-provider";
 import { WorkspaceRouteMemorySync } from "@/components/workspace/workspace-route-memory-sync";
+import { LegalReacceptanceGate } from "@/features/auth/components/legal-reacceptance-gate";
 import { useAuthActions } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
@@ -44,7 +45,8 @@ export function DashboardLayoutShell({
 }: DashboardLayoutShellProps) {
   return (
     <InvestorThemeProvider>
-      <div className="investor-dashboard flex min-h-screen bg-[var(--id-bg)]">
+      <LegalReacceptanceGate>
+        <div className="investor-dashboard flex min-h-screen bg-[var(--id-bg)]">
         <DashboardSidebar
           userName={userName}
           userRole={userRole}
@@ -63,6 +65,7 @@ export function DashboardLayoutShell({
         <InvestorMobileFab hasActivePool={hasActivePool} />
         <WorkspaceRouteMemorySync />
       </div>
+      </LegalReacceptanceGate>
     </InvestorThemeProvider>
   );
 }

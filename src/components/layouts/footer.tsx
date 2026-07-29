@@ -10,6 +10,7 @@ import {
   Youtube,
 } from "lucide-react";
 import { useOptionalLandingContent } from "@/providers/landing-content-provider";
+import { useFooterLegalLinks } from "@/providers/legal-links-provider";
 import { DEFAULT_LANDING_PAGE_CONTENT } from "@/domain/landing-page/defaults";
 
 function DiscordIcon({ className }: { className?: string }) {
@@ -33,6 +34,7 @@ export function Footer() {
   const footer = landing?.footer ?? DEFAULT_LANDING_PAGE_CONTENT.footer;
   const contact = landing?.contact ?? DEFAULT_LANDING_PAGE_CONTENT.contact;
   const social = landing?.social ?? DEFAULT_LANDING_PAGE_CONTENT.social;
+  const legalLinks = useFooterLegalLinks();
 
   const socialLinks = [
     { key: "facebook", href: social.facebook, icon: Facebook, label: "Facebook" },
@@ -108,7 +110,7 @@ export function Footer() {
               Legal
             </h4>
             <ul className="mt-4 space-y-3">
-              {footer.legalLinks.map((link) => (
+              {legalLinks.map((link) => (
                 <li key={`${link.href}-${link.label}`}>
                   <Link
                     href={link.href}
