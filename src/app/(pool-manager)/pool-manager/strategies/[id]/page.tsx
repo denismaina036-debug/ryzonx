@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { strategyService } from "@/services/strategy.service";
-import { investmentCycleService } from "@/services/investment-cycle.service";
 import { PmStrategyDetailClient } from "@/features/pool-manager/components/workspace/pm-strategy-detail-client";
 
 export default async function PoolManagerStrategyDetailPage({
@@ -17,7 +16,5 @@ export default async function PoolManagerStrategyDetailPage({
     notFound();
   }
 
-  const cycles = await investmentCycleService.listByStrategy(id);
-
-  return <PmStrategyDetailClient initialStrategy={strategy} initialCycles={cycles} />;
+  return <PmStrategyDetailClient initialStrategy={strategy} />;
 }

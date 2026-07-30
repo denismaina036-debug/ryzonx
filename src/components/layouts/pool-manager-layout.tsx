@@ -72,7 +72,12 @@ export function PoolManagerLayoutShell({
 
           <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
             {POOL_MANAGER_NAV_ITEMS.map((item) => {
+              const isPoolsHome =
+                item.href === ROUTES.poolManager &&
+                (pathname === ROUTES.poolManager ||
+                  pathname.startsWith(`${ROUTES.poolManagerPools}/`));
               const isActive =
+                isPoolsHome ||
                 pathname === item.href ||
                 (item.href !== ROUTES.poolManager && pathname.startsWith(item.href));
               const Icon = item.icon;

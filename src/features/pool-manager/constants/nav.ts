@@ -1,14 +1,11 @@
 import {
 
-  LayoutDashboard,
-
   Landmark,
 
   BookOpen,
 
-  LineChart,
-  Layers,
   Wallet,
+  Layers,
 
   UserCircle,
 
@@ -34,25 +31,14 @@ export interface PoolManagerNavItem {
 
 
 
-/** Primary workspace navigation — Pool-centric */
-
+/** Primary workspace navigation — strategy → pool → cycle flow */
 export const POOL_MANAGER_NAV_ITEMS: PoolManagerNavItem[] = [
-
-  { label: "Dashboard", href: ROUTES.poolManager, icon: LayoutDashboard },
-
-  { label: "My Pools", href: ROUTES.poolManagerPools, icon: Landmark },
+  { label: "My Pools", href: ROUTES.poolManager, icon: Landmark },
   { label: "Strategies", href: ROUTES.poolManagerStrategies, icon: Layers },
-
   { label: "Journal", href: ROUTES.poolManagerJournal, icon: BookOpen },
-
-  { label: "Performance", href: ROUTES.poolManagerPerformance, icon: LineChart },
-
   { label: "Finance", href: ROUTES.poolManagerFinance, icon: Wallet },
-
   { label: "Profile", href: ROUTES.poolManagerProfile, icon: UserCircle },
-
   { label: "Settings", href: ROUTES.poolManagerSettings, icon: Settings },
-
 ];
 
 

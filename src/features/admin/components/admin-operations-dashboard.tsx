@@ -4,74 +4,34 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowDownToLine,
-  ArrowUpFromLine,
   Briefcase,
-  CheckCircle,
   Clock,
-  Eye,
   FileText,
-  RefreshCw,
-  Shield,
-  TrendingUp,
-  Users,
 } from "lucide-react";
 import { ROUTES, adminFinanceDepositsPath } from "@/constants/routes";
 import { AdminMetricCard, AdminMetricGrid } from "@/features/admin/components";
 import { AdminQuickActions } from "@/features/admin/components/quick-actions";
 import type { AdminOperationsDashboard } from "@/services/admin-operations.service";
-import { formatCurrency } from "@/lib/utils";
-import { STRATEGY_STATUS_LABELS } from "@/constants/strategy";
-import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
 
 export function AdminOperationsDashboardView({ data }: { data: AdminOperationsDashboard }) {
-  const { fundingSummary, governance } = data;
-  const fundingPct =
-    fundingSummary.totalTarget > 0
-      ? Math.round((fundingSummary.totalRaised / fundingSummary.totalTarget) * 1000) / 10
-      : null;
+  const { governance, fundingSummary } = data;
 
   return (
     <div className="space-y-8">
-      <AdminMetricGrid columns={6}>
-        <AdminMetricCard
-          label="Open Reviews"
-          value={String(data.openReviews)}
-          icon={Eye}
-          changeType={data.openReviews > 0 ? "negative" : "positive"}
-          change={data.openReviews > 0 ? "Requires attention" : "Queue clear"}
-        />
+      <AdminMetricGrid columns={3}>
         <AdminMetricCard
           label="Strategies Pending"
           value={String(data.submittedStrategies.length)}
           icon={FileText}
-          changeType={data.submittedStrategies.length > 0 ? "neutral" : "positive"}
+          changeType={data.submittedStrategies.length > 0 ? "negative" : "positive"}
+          change={data.submittedStrategies.length > 0 ? "Needs review" : "Clear"}
         />
         <AdminMetricCard
-          label="Cycles Pending"
-          value={String(data.submittedCycles.length)}
-          icon={RefreshCw}
-          changeType={data.submittedCycles.length > 0 ? "neutral" : "positive"}
-        />
-        <AdminMetricCard label="Active Managers" value={String(data.activeManagers)} icon={Users} />
-        <AdminMetricCard label="Active Investors" value={String(data.activeInvestors)} icon={Users} />
-        <AdminMetricCard
-          label="Active Cycles"
-          value={String(data.activeCycles.length)}
-          icon={TrendingUp}
-        />
-      </AdminMetricGrid>
-
-      <AdminMetricGrid columns={6}>
-        <AdminMetricCard
-          label="Funding Raised"
-          value={formatCurrency(fundingSummary.totalRaised)}
+          label="Pools Pending"
+          value={String(data.lifecycleBottlenecks.find((b) => b.label.includes("Pool"))?.count ?? data.openReviews)}
           icon={Briefcase}
-          change={
-            fundingPct != null
-              ? `${fundingPct}% of ${formatCurrency(fundingSummary.totalTarget)} target`
-              : `${fundingSummary.cyclesInFunding} cycles open`
-          }
           changeType="neutral"
+          change="Awaiting approval"
         />
         <AdminMetricCard
           label="Pending Deposits"
@@ -79,53 +39,35 @@ export function AdminOperationsDashboardView({ data }: { data: AdminOperationsDa
           icon={ArrowDownToLine}
           changeType={data.pendingDeposits > 0 ? "negative" : "positive"}
         />
-        <AdminMetricCard
-          label="Pending Withdrawals"
-          value={String(data.pendingWithdrawals)}
-          icon={ArrowUpFromLine}
-          changeType={data.pendingWithdrawals > 0 ? "negative" : "positive"}
-        />
-        <AdminMetricCard
-          label="Governance Violations"
-          value={String(governance?.metrics.openViolations ?? 0)}
-          icon={AlertTriangle}
-          changeType={(governance?.metrics.openViolations ?? 0) > 0 ? "negative" : "positive"}
-        />
-        <AdminMetricCard
-          label="Pools Under Review"
-          value={String(governance?.metrics.poolsUnderReview ?? 0)}
-          icon={Shield}
-        />
-        <AdminMetricCard
-          label="Healthy Pools"
-          value={String(governance?.metrics.healthyPools ?? 0)}
-          icon={CheckCircle}
-          changeType="positive"
-        />
       </AdminMetricGrid>
+
+      <AdminQuickActions />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <ReviewQueue
-          title="Strategy Review Queue"
+          title="Strategies — Approve or Reject"
           empty="No strategies awaiting review."
           href={ROUTES.adminStrategies}
-          items={data.submittedStrategies.slice(0, 6).map((s) => ({
+          items={data.submittedStrategies.slice(0, 8).map((s) => ({
             id: s.id,
             name: s.name,
-            status: STRATEGY_STATUS_LABELS[s.status],
-            href: `${ROUTES.adminStrategies}/${s.id}`,
+            status: s.status === "submitted" || s.status === "under_review" ? "Pending" : "Approved",
+            href: ROUTES.adminStrategies,
           }))}
         />
         <ReviewQueue
-          title="Investment Cycle Review Queue"
-          empty="No cycles awaiting approval."
-          href={ROUTES.adminInvestmentCycles}
-          items={data.submittedCycles.slice(0, 6).map((c) => ({
-            id: c.id,
-            name: c.name,
-            status: INVESTMENT_CYCLE_STATUS_LABELS[c.status],
-            href: `${ROUTES.adminInvestmentCycles}/${c.id}`,
-          }))}
+          title="Pools — Approve or Reject"
+          empty="No pools awaiting review."
+          href={ROUTES.adminFunds}
+          items={data.lifecycleBottlenecks
+            .filter((b) => b.label.toLowerCase().includes("pool"))
+            .slice(0, 8)
+            .map((b) => ({
+              id: b.label,
+              name: b.label,
+              status: `${b.count} pending`,
+              href: b.href,
+            }))}
         />
       </div>
 
@@ -266,7 +208,6 @@ export function AdminOperationsDashboardView({ data }: { data: AdminOperationsDa
         </div>
       )}
 
-      <AdminQuickActions />
     </div>
   );
 }

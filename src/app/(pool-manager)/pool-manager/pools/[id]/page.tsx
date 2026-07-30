@@ -20,7 +20,7 @@ export default async function PoolManagerPoolDetailPage({
 
   const { id } = await params;
   try {
-    const [{ pool, config, marketsTraded, profitSharing, targetInvestors, aggressivenessLevel, displayActiveInvestors, displayRaisedCapital }, strategies, cycles, roiData, investmentLevels] = await Promise.all([
+    const [{ pool, config, marketsTraded, targetInvestors, aggressivenessLevel, displayActiveInvestors, displayRaisedCapital }, strategies, cycles, roiData, investmentLevels] = await Promise.all([
       managedPoolService.getForManager(id),
       strategyService.listApprovedForPoolCreation(),
       investmentCycleService.listByFundForManager(id).catch(() => []),
@@ -38,7 +38,7 @@ export default async function PoolManagerPoolDetailPage({
           pool,
           config,
           marketsTraded,
-          profitSharing,
+          undefined,
           targetInvestors,
           aggressivenessLevel,
           { displayActiveInvestors, displayRaisedCapital },

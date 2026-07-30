@@ -1,22 +1,5 @@
-import type { ReturnTier } from "@/features/investor/types/account";
 import type { PlatformInvestmentLevel, PoolRoiMultiplier } from "@/domain/roi/types";
 import { resolveInvestmentLevel, resolveMultiplier } from "@/domain/roi/calculator";
-
-function toNumber(value: string | number | null | undefined): number {
-  if (value == null) return 0;
-  return typeof value === "number" ? value : Number(value);
-}
-
-/** @deprecated Use resolveRoiMultiplier instead. */
-export function projectedReturnPct(amount: number, tiers: ReturnTier[]): number | null {
-  if (!tiers.length) return null;
-  const match = tiers.find((t) => {
-    const min = toNumber(t.minAmount);
-    const max = t.maxAmount != null ? toNumber(t.maxAmount) : Infinity;
-    return amount >= min && amount <= max;
-  });
-  return match ? toNumber(match.returnPct) : null;
-}
 
 /** ROI v2 — returns projected multiplier for an investment amount. */
 export function resolveRoiMultiplier(
@@ -49,7 +32,6 @@ export interface ParticipatablePool {
   profitTargetPct: number;
   targetInvestors: number;
   currentRoi: number;
-  returnTiers: ReturnTier[];
   isInviteOnly: boolean;
   isInvited: boolean;
   cardBackgroundColor: string | null;

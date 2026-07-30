@@ -4,7 +4,9 @@ export interface WalletPoolParticipation {
   amountInvested: number;
   currentValue: number;
   poolProfit: number;
+  /** Display percentage derived from ROI multiplier (e.g. 2.0× → 100%). */
   projectedReturnPct: number | null;
+  projectedRoiMultiplier: number | null;
   poolWinRate: number;
   investmentStartDate: string | null;
   termEndDate: string | null;

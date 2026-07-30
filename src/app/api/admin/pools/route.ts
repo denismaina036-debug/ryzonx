@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { poolAdminService } from "@/services/pool-admin.service";
-import type { ReturnTier } from "@/features/investor/types/account";
 
 export async function GET() {
   try {
@@ -26,7 +25,6 @@ export async function POST(request: Request) {
       targetCapital: number;
       profitTargetPct: number;
       targetInvestors: number;
-      returnTiers: ReturnTier[];
       isInviteOnly?: boolean;
       status?: string;
       cardBackgroundColor?: string | null;

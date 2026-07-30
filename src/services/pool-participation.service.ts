@@ -8,14 +8,13 @@ import { isPoolJoinBlocked } from "@/lib/governance/protection-indicators";
 import { investmentCycleService } from "@/services/investment-cycle.service";
 import { investmentAllocationService } from "@/services/investment-allocation.service";
 import { attachTransactionReference } from "@/lib/transaction/insert";
-import type { ReturnTier } from "@/features/investor/types/account";
+import { auditService } from "@/services/audit.service";
 import type {
   ParticipatablePool,
   PoolParticipationPageData,
 } from "@/features/investor/types/pool-participation";
 
 export type { ParticipatablePool, PoolParticipationPageData };
-export { projectedReturnPct } from "@/features/investor/types/pool-participation";
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
@@ -46,7 +45,6 @@ type FundRow = {
   profit_target_pct: number | null;
   target_investors: number | null;
   current_roi: number;
-  return_tiers: ReturnTier[] | null;
   is_invite_only: boolean;
   status: string;
   card_background_color: string | null;
@@ -211,7 +209,6 @@ export const poolParticipationService = {
         profitTargetPct: toNumber(f.profit_target_pct),
         targetInvestors: f.target_investors ?? 0,
         currentRoi: toNumber(f.current_roi),
-        returnTiers: Array.isArray(f.return_tiers) ? f.return_tiers : [],
         isInviteOnly: f.is_invite_only,
         isInvited: invites.has(f.id),
         cardBackgroundColor: f.card_background_color ?? null,
@@ -871,5 +868,146 @@ export const poolParticipationService = {
     });
 
     return { reinvested: applied, poolName };
+  },
+
+  /**
+   * Return all investor capital from a pool to funding wallets (pool deletion / closure).
+   */
+  async liquidatePoolForDeletion(
+    poolId: string,
+    actorUserId: string
+  ): Promise<{ returnedTotal: number; investorCount: number }> {
+    if (poolId === DEFAULT_FUND_ID) {
+      throw new Error("The default funding pool cannot be liquidated.");
+    }
+
+    const db = createAdminClient();
+    const { data: fundRow, error: fundError } = await db
+      .from("funds")
+      .select("id, name, current_capital, active_investors, investor_capital")
+      .eq("id", poolId)
+      .maybeSingle();
+
+    if (fundError || !fundRow) throw new Error("Pool not found.");
+    const fund = fundRow as {
+      id: string;
+      name: string;
+      current_capital: number;
+      active_investors: number;
+      investor_capital: number;
+    };
+
+    const { data: portfolios, error: portfolioError } = await db
+      .from("investor_portfolios")
+      .select("user_id, total_invested, current_value")
+      .eq("fund_id", poolId)
+      .gt("total_invested", 0);
+
+    if (portfolioError) throw new Error(portfolioError.message);
+
+    let returnedTotal = 0;
+    const rows = (portfolios ?? []) as Array<{
+      user_id: string;
+      total_invested: number;
+      current_value: number;
+    }>;
+
+    const activeCycle = await investmentCycleService.getActiveForFund(poolId);
+
+    for (const row of rows) {
+      const returnAmount = toNumber(row.current_value);
+      if (returnAmount <= 0) continue;
+
+      const walletPortfolio = await ensureWalletPortfolio(db, row.user_id);
+      const walletBalance = toNumber(walletPortfolio.available_balance);
+
+      assertDb(
+        await db
+          .from("investor_portfolios")
+          .update({ available_balance: walletBalance + returnAmount } as never)
+          .eq("user_id", row.user_id)
+          .eq("fund_id", DEFAULT_FUND_ID)
+          .select("user_id")
+          .single(),
+        "Could not return funds to wallet."
+      );
+
+      assertDb(
+        await db
+          .from("investor_portfolios")
+          .update({
+            total_invested: 0,
+            current_value: 0,
+            total_deposits: 0,
+            unrealized_pnl: 0,
+            realized_pnl: 0,
+            ownership_percentage: 0,
+            investment_start_date: null,
+            investment_maturity_date: null,
+            investment_duration_days: null,
+          } as never)
+          .eq("user_id", row.user_id)
+          .eq("fund_id", poolId)
+          .select("user_id")
+          .single(),
+        "Could not clear pool allocation."
+      );
+
+      if (activeCycle) {
+        await investmentAllocationService.cancelMarketplaceParticipation({
+          cycleId: activeCycle.id,
+          investorId: row.user_id,
+        });
+      }
+
+      const exitNotes = `Pool closed — ${fund.name} capital returned to Funding Wallet`;
+      const { data: exitTx, error: exitTxError } = await db
+        .from("transactions")
+        .insert({
+          user_id: row.user_id,
+          fund_id: poolId,
+          type: "adjustment",
+          amount: returnAmount,
+          status: "completed",
+          payment_method: "pool_exit",
+          notes: exitNotes,
+        } as never)
+        .select("id")
+        .single();
+
+      if (exitTxError || !exitTx) {
+        throw new Error(exitTxError?.message ?? "Failed to record pool exit.");
+      }
+
+      await attachTransactionReference(db, (exitTx as { id: string }).id, {
+        type: "adjustment",
+        payment_method: "pool_exit",
+        notes: exitNotes,
+      });
+
+      returnedTotal += returnAmount;
+    }
+
+    await db
+      .from("funds")
+      .update({
+        current_capital: 0,
+        investor_capital: 0,
+        active_investors: 0,
+        is_marketplace_listed: false,
+        lifecycle_status: "archived",
+        status: "archived",
+      } as never)
+      .eq("id", poolId);
+
+    await auditService.log({
+      actorId: actorUserId,
+      action: "pool_liquidated",
+      entityType: "fund",
+      entityId: poolId,
+      newValues: { returnedTotal, investorCount: rows.length, poolName: fund.name },
+    });
+
+    return { returnedTotal, investorCount: rows.length };
   },
 };

@@ -99,7 +99,6 @@ export interface AdminFund {
   targetCapital: number;
   profitTargetPct: number;
   targetInvestors: number;
-  returnTiers: Array<{ minAmount: number; maxAmount: number | null; returnPct: number }>;
   isInviteOnly: boolean;
   currentCapital: number;
   cardBackgroundColor: string | null;

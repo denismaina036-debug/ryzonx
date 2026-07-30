@@ -11,6 +11,8 @@
     "typecheck": "npm run check:types && tsc --noEmit",
     "check:types": "node scripts/check-database-types.mjs",
     "verify": "npm run check:types && npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:link": "supabase link",
     "db:push": "supabase db push --yes",
     "db:types": "powershell -ExecutionPolicy Bypass -File ./scripts/safe-gen-types.ps1",
@@ -72,6 +74,7 @@
     "eslint-config-next": "^15.3.3",
     "supabase": "^2.109.1",
     "tailwindcss": "^4.1.10",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.7"
   }
 }

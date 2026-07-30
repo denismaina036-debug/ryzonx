@@ -155,6 +155,92 @@ export function AdminPoolsManager({
     }
   }
 
+  async function rejectPool(poolId: string) {
+    const note = window.prompt("Optional rejection note for the pool manager:") ?? undefined;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/managed-pools/${poolId}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviewNote: note }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Reject failed");
+      toast.success("Pool rejected");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Reject failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (reviewOnly) {
+    const pending = funds.filter((f) =>
+      ["submitted", "under_review"].includes(f.lifecycleStatus)
+    );
+    const recent = funds
+      .filter((f) => !["submitted", "under_review"].includes(f.lifecycleStatus))
+      .slice(0, 10);
+
+    return (
+      <div className="space-y-4">
+        <div className="overflow-hidden rounded-xl border bg-white">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-navy-50/50 text-left text-xs uppercase tracking-wide text-navy-500">
+                <th className="px-4 py-3 font-medium">Pool</th>
+                <th className="px-4 py-3 font-medium">Manager</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...pending, ...recent].map((f) => {
+                const isPending = f.lifecycleStatus === "submitted" || f.lifecycleStatus === "under_review";
+                return (
+                  <tr key={f.id} className="border-b last:border-0">
+                    <td className="px-4 py-3 font-medium text-navy-900">{f.name}</td>
+                    <td className="px-4 py-3 text-navy-600">{f.poolManagerName ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={
+                          isPending
+                            ? "inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900"
+                            : f.lifecycleStatus === "live"
+                              ? "inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-900"
+                              : "inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700"
+                        }
+                      >
+                        {isPending ? "Pending" : f.lifecycleStatus === "live" ? "Live" : f.lifecycleStatus.replace(/_/g, " ")}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-2">
+                        {isPending ? (
+                          <>
+                            <Button size="sm" disabled={saving} onClick={() => void approvePool(f.id)}>
+                              Approve
+                            </Button>
+                            <Button size="sm" variant="outline" disabled={saving} onClick={() => void rejectPool(f.id)}>
+                              Reject
+                            </Button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-navy-400">Reviewed</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {!reviewOnly && (
@@ -277,9 +363,7 @@ export function AdminPoolsManager({
               <TableCell>{f.tradingPair}</TableCell>
               <TableCell className="font-mono text-sm">{formatCurrency(f.targetCapital)}</TableCell>
               <TableCell className="font-mono text-sm">{formatCurrency(f.currentCapital)}</TableCell>
-              <TableCell className="text-xs text-navy-600">
-                {f.returnTiers.length} tier{f.returnTiers.length === 1 ? "" : "s"}
-              </TableCell>
+              <TableCell className="text-xs text-muted-foreground">ROI v2</TableCell>
               <TableCell>
                 {f.activeInvestors} / {f.targetInvestors}
               </TableCell>

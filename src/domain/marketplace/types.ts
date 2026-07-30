@@ -1,5 +1,3 @@
-import type { ReturnTier } from "@/features/investor/types/account";
-import type { FixedReturnRow } from "@/domain/pools/fixed-return";
 import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 import type { CoverImagePosition } from "@/domain/pools/cover-image-position";
 import type {
@@ -72,9 +70,6 @@ export interface MarketplacePoolCard {
   fundingProgressPct?: number | null;
   cycleParticipantCount: number;
   maxParticipants: number | null;
-  investorSharePct: number;
-  poolManagerSharePct: number;
-  returnModel: "fixed" | "variable";
   /** ROI v2 configuration */
   returnDurationPreset: ReturnDurationPreset;
   returnDurationValue: number;
@@ -109,8 +104,6 @@ export interface MarketplacePoolDetail extends MarketplacePoolCard {
   maxInvestorsCap: number | null;
   profitTargetPct: number;
   maxInvestment: number | null;
-  returnTiers: ReturnTier[];
-  fixedReturnRows: FixedReturnRow[];
   isInviteOnly: boolean;
   suspensionReason: string | null;
   suspendedAt: string | null;

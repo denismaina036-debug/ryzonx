@@ -18,11 +18,6 @@
 
 
 
-import type { ReturnTier } from "@/features/investor/types/account";
-import type { ManagedPoolReturnModel } from "@/domain/pools/return-model";
-import type { FixedReturnRow } from "@/domain/pools/fixed-return";
-import { DEFAULT_FIXED_RETURN_ROWS } from "@/domain/pools/fixed-return";
-import { DEFAULT_VARIABLE_RETURN_TIERS } from "@/domain/pools/variable-return";
 import {
   DEFAULT_COVER_IMAGE_POSITION,
   type CoverImagePosition,
@@ -100,8 +95,6 @@ export type { PayoutDurationPreset } from "@/domain/pools/payout-duration";
 
 
 
-export const DEFAULT_MANAGED_POOL_RETURN_TIERS: ReturnTier[] = [...DEFAULT_VARIABLE_RETURN_TIERS];
-
 
 
 
@@ -137,11 +130,6 @@ export interface ManagedPoolConfig {
 
 
   tradingHours?: string;
-
-  returnModel?: ManagedPoolReturnModel;
-
-  /** Fixed Return schedule — only used when returnModel is "fixed". */
-  fixedReturnRows?: FixedReturnRow[];
 
   tradingSessionKey?: string;
 
@@ -285,14 +273,6 @@ export interface ManagedPoolFormInput {
 
   tradingHours: string;
 
-  returnModel: ManagedPoolReturnModel;
-
-  /** Fixed Return amount mapping — independent from returnTiers. */
-  fixedReturnRows: FixedReturnRow[];
-
-  /** Variable Return tiers — independent from fixedReturnRows. */
-  returnTiers: ReturnTier[];
-
   tradingSessionKey: string;
 
   tradingSessionCustom: string;
@@ -389,16 +369,6 @@ export interface ManagedPoolFormInput {
 
   leverage: string;
 
-
-
-  investorSharePct: string;
-
-
-
-  poolManagerSharePct: string;
-
-
-
   visibility: ManagedPoolVisibility;
 
 
@@ -464,12 +434,6 @@ export function emptyManagedPoolForm(): ManagedPoolFormInput {
 
 
     tradingHours: "",
-
-    returnModel: "variable",
-
-    fixedReturnRows: [...DEFAULT_FIXED_RETURN_ROWS],
-
-    returnTiers: [...DEFAULT_MANAGED_POOL_RETURN_TIERS],
 
     tradingSessionKey: "",
 
@@ -561,16 +525,6 @@ export function emptyManagedPoolForm(): ManagedPoolFormInput {
 
 
     leverage: "",
-
-
-
-    investorSharePct: "80",
-
-
-
-    poolManagerSharePct: "20",
-
-
 
     visibility: "public",
 

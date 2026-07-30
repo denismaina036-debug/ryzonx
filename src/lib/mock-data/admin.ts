@@ -75,11 +75,6 @@ export const mockAdminFunds: AdminFund[] = [
     targetCapital: 1000000,
     profitTargetPct: 15,
     targetInvestors: 100,
-    returnTiers: [
-      { minAmount: 100, maxAmount: 999, returnPct: 8 },
-      { minAmount: 1000, maxAmount: 4999, returnPct: 12 },
-      { minAmount: 5000, maxAmount: null, returnPct: 18 },
-    ],
     isInviteOnly: false,
     currentCapital: 2847500,
     cardBackgroundColor: "#0f1623",

@@ -31,6 +31,7 @@ import {
   validateCycleCapacityFields,
 } from "@/domain/investment/cycle-validation";
 import { investmentCycleMetricsService } from "@/services/investment-cycle-metrics.service";
+import { poolRoiService } from "@/services/pool-roi.service";
 
 type CycleRow = {
   id: string;
@@ -276,7 +277,12 @@ async function insertCycleFromPoolFund(
 
   const cycleNumber = (lastCycle?.cycle_number ?? 0) + 1;
   const poolVersion = (fund.pool_config_version as number | undefined) ?? 1;
-  const snapshot = buildPoolConfigSnapshot(fund, strategyId, poolVersion);
+  const poolFundId = fund.id as string;
+  const roiMultipliers = (await poolRoiService.getCompleteMultipliers(poolFundId)).map((m) => ({
+    investmentLevelId: m.investmentLevelId,
+    multiplier: m.multiplier,
+  }));
+  const snapshot = buildPoolConfigSnapshot(fund, strategyId, poolVersion, roiMultipliers);
 
   const poolName = (fund.name as string) ?? "Pool";
   const cycleName = input.name?.trim() || `${poolName} — Cycle ${cycleNumber}`;

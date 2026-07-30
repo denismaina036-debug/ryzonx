@@ -3,7 +3,6 @@
  * The canonical Pool record lives in the `funds` table (fund_id === pool_id).
  */
 
-import type { ReturnTier } from "@/features/investor/types/account";
 import type { CoverImagePosition } from "@/domain/pools/cover-image-position";
 
 export type PoolId = string;
@@ -34,7 +33,6 @@ export interface Pool {
   currentCapital: number;
   profitTargetPct: number;
   targetInvestors: number;
-  returnTiers: ReturnTier[];
   isInviteOnly: boolean;
   cardBackgroundColor: string | null;
   coverImageUrl?: string | null;

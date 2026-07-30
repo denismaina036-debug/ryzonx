@@ -1,9 +1,6 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { ReturnTier } from "@/features/investor/types/account";
 
 export interface PoolFormFields {
   name: string;
@@ -21,7 +18,6 @@ export interface PoolFormFields {
   poolManagerName: string;
   poolManagerIconUrl: string;
   additionalCapital: string;
-  returnTiers: ReturnTier[];
 }
 
 export const EMPTY_POOL_FORM: PoolFormFields = {
@@ -40,11 +36,6 @@ export const EMPTY_POOL_FORM: PoolFormFields = {
   poolManagerName: "",
   poolManagerIconUrl: "",
   additionalCapital: "",
-  returnTiers: [
-    { minAmount: 100, maxAmount: 999, returnPct: 8 },
-    { minAmount: 1000, maxAmount: 4999, returnPct: 12 },
-    { minAmount: 5000, maxAmount: null, returnPct: 18 },
-  ],
 };
 
 interface PoolFormEditorProps {
@@ -62,29 +53,6 @@ export function AdminPoolFormEditor({
 }: PoolFormEditorProps) {
   function update<K extends keyof PoolFormFields>(key: K, value: PoolFormFields[K]) {
     onChange({ ...form, [key]: value });
-  }
-
-  function updateTier(index: number, patch: Partial<ReturnTier>) {
-    const tiers = form.returnTiers.map((tier, i) =>
-      i === index ? { ...tier, ...patch } : tier
-    );
-    update("returnTiers", tiers);
-  }
-
-  function addTier() {
-    const last = form.returnTiers[form.returnTiers.length - 1];
-    const nextMin = last ? (last.maxAmount ?? last.minAmount) + 1 : 100;
-    update("returnTiers", [
-      ...form.returnTiers,
-      { minAmount: nextMin, maxAmount: null, returnPct: 10 },
-    ]);
-  }
-
-  function removeTier(index: number) {
-    update(
-      "returnTiers",
-      form.returnTiers.filter((_, i) => i !== index)
-    );
   }
 
   return (
@@ -143,63 +111,17 @@ export function AdminPoolFormEditor({
         onChange={(e) => update("targetInvestors", e.target.value)}
       />
 
-      <div className="sm:col-span-2 rounded-lg border bg-surface-1/40 p-3">
-        <div className="mb-2 flex items-center justify-between">
-          <p className="text-sm font-medium text-navy-900">Returns by amount</p>
-          <Button type="button" size="sm" variant="outline" onClick={addTier}>
-            <Plus className="h-3.5 w-3.5" />
-            Add tier
-          </Button>
-        </div>
-        <div className="space-y-2">
-          {form.returnTiers.map((tier, index) => (
-            <div key={index} className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
-              <Input
-                type="number"
-                placeholder="Min $"
-                value={tier.minAmount}
-                onChange={(e) =>
-                  updateTier(index, { minAmount: Number(e.target.value) || 0 })
-                }
-              />
-              <Input
-                type="number"
-                placeholder="Max $ (empty = no cap)"
-                value={tier.maxAmount ?? ""}
-                onChange={(e) =>
-                  updateTier(index, {
-                    maxAmount: e.target.value ? Number(e.target.value) : null,
-                  })
-                }
-              />
-              <Input
-                type="number"
-                placeholder="Return %"
-                value={tier.returnPct}
-                onChange={(e) =>
-                  updateTier(index, { returnPct: Number(e.target.value) || 0 })
-                }
-              />
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={form.returnTiers.length <= 1}
-                onClick={() => removeTier(index)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
+      <div className="sm:col-span-2 rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
+        ROI targets are configured by Pool Managers using platform investment levels and ROI
+        multipliers. Use Investment Levels in admin settings to manage global tiers.
       </div>
 
       {showAdditionalCapital && (
         <div className="sm:col-span-2 rounded-lg border border-dashed p-3">
-          <p className="text-sm font-medium text-navy-900">Raised capital</p>
-          <p className="mt-0.5 text-xs text-navy-500">
-            Current raised: ${(currentCapital ?? 0).toLocaleString()}. Add seed capital
-            without changing investor participation logic.
+          <p className="text-sm font-medium">Raised capital</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Current raised: ${(currentCapital ?? 0).toLocaleString()}. Add seed capital without
+            changing investor participation logic.
           </p>
           <Input
             className="mt-2"
@@ -214,7 +136,7 @@ export function AdminPoolFormEditor({
       )}
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-navy-700">Card background</label>
+        <label className="mb-1 block text-xs font-medium">Card background</label>
         <div className="flex gap-2">
           <input
             type="color"
@@ -231,7 +153,7 @@ export function AdminPoolFormEditor({
       </div>
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-navy-700">Pool manager</label>
+        <label className="mb-1 block text-xs font-medium">Pool manager</label>
         <Input
           placeholder="Manager name"
           value={form.poolManagerName}
@@ -270,7 +192,6 @@ export function poolFormToPayload(form: PoolFormFields, includeAdditionalCapital
     targetCapital: Number(form.targetCapital),
     profitTargetPct: Number(form.profitTargetPct),
     targetInvestors: Number(form.targetInvestors),
-    returnTiers: form.returnTiers,
     isInviteOnly: form.isInviteOnly,
     cardBackgroundColor: form.cardBackgroundColor || null,
     poolManagerName: form.poolManagerName || null,
@@ -298,7 +219,6 @@ export function adminFundToForm(fund: {
   targetCapital: number;
   profitTargetPct: number;
   targetInvestors: number;
-  returnTiers: ReturnTier[];
   isInviteOnly: boolean;
   cardBackgroundColor: string | null;
   poolManagerName: string | null;
@@ -320,9 +240,5 @@ export function adminFundToForm(fund: {
     poolManagerName: fund.poolManagerName ?? "",
     poolManagerIconUrl: fund.poolManagerIconUrl ?? "",
     additionalCapital: "",
-    returnTiers:
-      fund.returnTiers.length > 0
-        ? fund.returnTiers
-        : EMPTY_POOL_FORM.returnTiers,
   };
 }

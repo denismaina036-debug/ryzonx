@@ -228,7 +228,6 @@ function buildResult(input: {
         ? roundMoney((investorProfitPool / input.netDistributableProfit) * 100)
         : 100,
     investorDistributionTotal: investorProfitPool,
-    returnStructureAllocations: [],
     investorAllocations: input.investorAllocations,
     poolManagerSurplus: input.poolManagerSurplus,
     allocationUpdates: input.allocationUpdates,

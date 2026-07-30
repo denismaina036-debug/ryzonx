@@ -28,6 +28,33 @@ function mapMultiplier(row: MultiplierRow, level?: PlatformInvestmentLevel): Poo
 }
 
 export const poolRoiService = {
+  async getMultipliersForFunds(fundIds: string[]): Promise<Map<string, PoolRoiMultiplier[]>> {
+    if (fundIds.length === 0) return new Map();
+
+    const db = createAdminClient();
+    const levels = await platformInvestmentLevelService.listActive();
+    const levelMap = new Map(levels.map((l) => [l.id, l]));
+
+    const { data, error } = await db
+      .from("pool_roi_multipliers")
+      .select("*")
+      .in("fund_id", fundIds);
+    if (error) throw new Error(error.message);
+
+    const result = new Map<string, PoolRoiMultiplier[]>();
+    for (const fundId of fundIds) {
+      result.set(fundId, []);
+    }
+
+    for (const row of (data ?? []) as MultiplierRow[]) {
+      const list = result.get(row.fund_id) ?? [];
+      list.push(mapMultiplier(row, levelMap.get(row.investment_level_id)));
+      result.set(row.fund_id, list);
+    }
+
+    return result;
+  },
+
   async getMultipliersForFund(fundId: string): Promise<PoolRoiMultiplier[]> {
     const db = createAdminClient();
     const levels = await platformInvestmentLevelService.listActive();

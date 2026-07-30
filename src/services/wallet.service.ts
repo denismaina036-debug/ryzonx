@@ -3,9 +3,13 @@ import { DEFAULT_FUND_ID } from "@/constants/funds";
 import { requireAuth } from "@/lib/auth/session";
 import type { ManagedPoolConfig } from "@/domain/pools/managed-pool";
 import { formatExpectedDurationLabel } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
-import { projectedReturnPct } from "@/features/investor/types/pool-participation";
-import type { ReturnTier } from "@/features/investor/types/account";
+import {
+  multiplierToDisplayPct,
+  resolveRoiMultiplier,
+} from "@/features/investor/types/pool-participation";
 import { walletProjectionService } from "@/services/wallet-projection.service";
+import { platformInvestmentLevelService } from "@/services/platform-investment-level.service";
+import { poolRoiService } from "@/services/pool-roi.service";
 import type {
   InvestorInvestmentSummary,
   WalletPoolParticipation,
@@ -98,12 +102,14 @@ export const walletService = {
 
     const fundIds = participationRows.map((r) => r.fund_id);
 
-    const [fundsResult, statsResult] = await Promise.all([
+    const [fundsResult, statsResult, investmentLevels, multipliersByFund] = await Promise.all([
       db
         .from("funds")
-        .select("id, name, return_tiers, pool_duration_days, pool_faq")
+        .select("id, name, pool_duration_days, pool_faq, return_duration_preset, return_duration_value, return_duration_unit")
         .in("id", fundIds),
       db.from("pool_stats").select("fund_id, win_rate").in("fund_id", fundIds),
+      platformInvestmentLevelService.listActive(),
+      poolRoiService.getMultipliersForFunds(fundIds),
     ]);
 
     const fundMap = new Map(
@@ -111,7 +117,6 @@ export const walletService = {
         (fundsResult.data ?? []) as Array<{
           id: string;
           name: string;
-          return_tiers: ReturnTier[] | null;
           pool_duration_days: number | null;
           pool_faq: unknown;
         }>
@@ -133,8 +138,9 @@ export const walletService = {
       const profit = unrealized + realized;
       poolProfit += profit;
 
-      const tiers = Array.isArray(fund?.return_tiers) ? fund.return_tiers : [];
       const managed = readManagedConfig(fund?.pool_faq);
+      const poolMultipliers = multipliersByFund.get(row.fund_id) ?? [];
+      const roiMultiplier = resolveRoiMultiplier(invested, investmentLevels, poolMultipliers);
       const payoutDurationLabel = formatExpectedDurationLabel(
         fund?.pool_duration_days ?? null,
         managed.durationUnit,
@@ -152,7 +158,8 @@ export const walletService = {
         amountInvested: invested,
         currentValue: toNumber(row.current_value),
         poolProfit: profit,
-        projectedReturnPct: projectedReturnPct(invested, tiers),
+        projectedReturnPct: multiplierToDisplayPct(roiMultiplier),
+        projectedRoiMultiplier: roiMultiplier,
         poolWinRate: winRateMap.get(row.fund_id) ?? 0,
         investmentStartDate: row.investment_start_date,
         termEndDate,

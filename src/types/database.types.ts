@@ -946,7 +946,6 @@ export type Database = {
           pool_manager_name: string | null
           pool_value: number
           profit_target_pct: number | null
-          return_tiers: Json
           risk_summary: string | null
           ryvonx_rating: number | null
           security_rating: string | null
@@ -1024,7 +1023,6 @@ export type Database = {
           pool_manager_name?: string | null
           pool_value?: number
           profit_target_pct?: number | null
-          return_tiers?: Json
           slug: string
           status?: string
           submitted_at?: string | null
@@ -1068,7 +1066,6 @@ export type Database = {
           pool_manager_name?: string | null
           pool_value?: number
           profit_target_pct?: number | null
-          return_tiers?: Json
           slug?: string
           status?: string
           target_capital?: number | null

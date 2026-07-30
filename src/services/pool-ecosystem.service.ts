@@ -11,7 +11,6 @@ import {
   DEFAULT_FUND_SLUG,
 } from "@/constants/funds";
 import { resolvePoolId, isValidPoolId } from "@/lib/pool/resolve-pool-id";
-import type { ReturnTier } from "@/features/investor/types/account";
 import type {
   Pool,
   PoolInvestment,
@@ -41,7 +40,6 @@ type FundRow = {
   current_capital: number | null;
   profit_target_pct: number | null;
   target_investors: number | null;
-  return_tiers: ReturnTier[] | null;
   is_invite_only: boolean;
   card_background_color: string | null;
   pool_manager_id: string | null;
@@ -96,7 +94,6 @@ function mapPool(row: FundRow): Pool {
     currentCapital: toNumber(row.current_capital),
     profitTargetPct: toNumber(row.profit_target_pct),
     targetInvestors: row.target_investors ?? 0,
-    returnTiers: Array.isArray(row.return_tiers) ? row.return_tiers : [],
     isInviteOnly: row.is_invite_only,
     cardBackgroundColor: row.card_background_color,
     poolManagerId: row.pool_manager_id,

@@ -1,13 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/session";
-import { ROUTES } from "@/constants/routes";
 import { normalizeCoverImageUrl } from "@/lib/pools/cover-image-url";
 import { revalidatePoolMarketplaceSurfaces } from "@/lib/pools/revalidate-pool-surfaces";
 import { ADMIN_PM_STATS_AUDIT_ACTIONS } from "@/constants/pool-manager-stats";
 import { notificationService } from "@/services/notification.service";
 import { auditService } from "@/services/audit.service";
-import type { ReturnTier } from "@/features/investor/types/account";
+import { poolRoiService } from "@/services/pool-roi.service";
+import { platformInvestmentLevelService } from "@/services/platform-investment-level.service";
 import type { AdminFund } from "@/features/admin/types";
 
 function toNumber(value: string | number | null | undefined): number {
@@ -41,7 +40,6 @@ type FundRow = {
   target_capital: number | null;
   profit_target_pct: number | null;
   target_investors: number | null;
-  return_tiers: ReturnTier[] | null;
   is_invite_only: boolean;
   current_capital: number | null;
   card_background_color: string | null;
@@ -91,7 +89,6 @@ function mapFund(row: FundRow, canDelete = false): AdminFund {
     targetCapital: toNumber(row.target_capital),
     profitTargetPct: toNumber(row.profit_target_pct),
     targetInvestors: row.target_investors ?? 0,
-    returnTiers: Array.isArray(row.return_tiers) ? row.return_tiers : [],
     isInviteOnly: row.is_invite_only,
     currentCapital: toNumber(row.current_capital),
     cardBackgroundColor: row.card_background_color ?? null,
@@ -168,7 +165,6 @@ export const poolAdminService = {
     targetCapital: number;
     profitTargetPct: number;
     targetInvestors: number;
-    returnTiers: ReturnTier[];
     isInviteOnly?: boolean;
     status?: string;
     cardBackgroundColor?: string | null;
@@ -194,7 +190,6 @@ export const poolAdminService = {
         target_capital: input.targetCapital,
         profit_target_pct: input.profitTargetPct,
         target_investors: input.targetInvestors,
-        return_tiers: input.returnTiers,
         is_invite_only: input.isInviteOnly ?? false,
         status: input.status ?? "active",
         is_default: false,
@@ -207,6 +202,17 @@ export const poolAdminService = {
 
     if (error || !data) throw new Error(error?.message ?? "Failed to create pool.");
     const fund = mapFund(data as FundRow, false);
+
+    const levels = await platformInvestmentLevelService.listActive();
+    if (levels.length > 0) {
+      await poolRoiService.upsertMultipliers(
+        fund.id,
+        levels.map((level, index) => ({
+          investmentLevelId: level.id,
+          multiplier: index === 0 ? 2.0 : index === 1 ? 2.3 : 2.5,
+        }))
+      );
+    }
 
     const { data: investors } = await db
       .from("profiles")
@@ -239,7 +245,6 @@ export const poolAdminService = {
       targetCapital: number;
       profitTargetPct: number;
       targetInvestors: number;
-      returnTiers: ReturnTier[];
       isInviteOnly: boolean;
       status: string;
       cardBackgroundColor?: string | null;
@@ -270,7 +275,6 @@ export const poolAdminService = {
     if (input.targetCapital != null) updates.target_capital = input.targetCapital;
     if (input.profitTargetPct != null) updates.profit_target_pct = input.profitTargetPct;
     if (input.targetInvestors != null) updates.target_investors = input.targetInvestors;
-    if (input.returnTiers != null) updates.return_tiers = input.returnTiers;
     if (input.isInviteOnly != null) updates.is_invite_only = input.isInviteOnly;
     if (input.status != null) updates.status = input.status;
     if (input.cardBackgroundColor !== undefined) {

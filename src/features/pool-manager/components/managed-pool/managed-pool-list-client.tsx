@@ -3,22 +3,53 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { BookOpen, Layers, Play, Trash2, Users } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
-import { MANAGED_POOL_STATUS_LABELS } from "@/domain/pools/managed-pool";
 import type { Pool } from "@/domain/pools/types";
+import type { InvestmentCycle } from "@/domain/investment/types";
+import type { Strategy } from "@/domain/investment/types";
 import { Button } from "@/components/ui/button";
-import { formatCurrency } from "@/lib/utils";
-import { pmLinkClass, pmPrimaryButtonClass, pmSecondaryButtonClass } from "@/features/pool-manager/constants/ui";
+import {
+  pmLinkClass,
+  pmPrimaryButtonClass,
+  pmSecondaryButtonClass,
+} from "@/features/pool-manager/constants/ui";
 import { PmPageHeader, PmFormMessage } from "@/features/pool-manager/components/workspace/pm-page-header";
+import { PmFundingProgress } from "@/features/pool-manager/components/workspace/pm-funding-progress";
+import { PmStatusBadge } from "@/features/pool-manager/components/workspace/pm-status-badge";
+import { transitionCycle } from "@/features/pool-manager/components/workspace/pm-api";
+import {
+  canOpenJournal,
+  canStartTrading,
+  resolveActivePoolCycle,
+} from "@/features/pool-manager/utils/pool-cycle-presentation";
+import {
+  poolBadgeStatus,
+  simplifyCycleStatus,
+  simplifyPoolLifecycleStatus,
+} from "@/features/pool-manager/utils/pm-status-presentation";
 
-export function ManagedPoolListClient({ initialPools }: { initialPools: Pool[] }) {
+export interface ManagedPoolListItem {
+  pool: Pool;
+  cycles: InvestmentCycle[];
+}
+
+interface ManagedPoolListClientProps {
+  items: ManagedPoolListItem[];
+  strategies: Strategy[];
+}
+
+export function ManagedPoolListClient({ items, strategies }: ManagedPoolListClientProps) {
   const router = useRouter();
-  const [pools] = useState(initialPools);
-  const [loading, setLoading] = useState(false);
+  const [loadingPoolId, setLoadingPoolId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const hasApprovedStrategy = strategies.some((s) =>
+    ["approved", "available", "operating", "paused"].includes(s.status)
+  );
+
   async function submitPool(poolId: string) {
-    setLoading(true);
+    setLoadingPoolId(poolId);
     setError(null);
     try {
       const res = await fetch(`/api/pool-manager/managed-pools/${poolId}/submit`, {
@@ -30,7 +61,40 @@ export function ManagedPoolListClient({ initialPools }: { initialPools: Pool[] }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Submit failed");
     } finally {
-      setLoading(false);
+      setLoadingPoolId(null);
+    }
+  }
+
+  async function deletePool(poolId: string, poolName: string) {
+    const confirmed = window.confirm(
+      `Delete "${poolName}"? All invested funds will be returned to investors' funding wallets.`
+    );
+    if (!confirmed) return;
+
+    setLoadingPoolId(poolId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/pool-manager/managed-pools/${poolId}`, { method: "DELETE" });
+      const data = (await res.json()) as { error?: string; returnedTotal?: number; investorCount?: number };
+      if (!res.ok) throw new Error(data.error ?? "Delete failed");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setLoadingPoolId(null);
+    }
+  }
+
+  async function startTrading(poolId: string, cycleId: string) {
+    setLoadingPoolId(poolId);
+    setError(null);
+    try {
+      await transitionCycle(cycleId, "trading");
+      router.push(`${ROUTES.poolManagerInvestmentCycles}/${cycleId}/journal`);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start trading");
+      setLoadingPoolId(null);
     }
   }
 
@@ -38,63 +102,245 @@ export function ManagedPoolListClient({ initialPools }: { initialPools: Pool[] }
     <div className="space-y-8">
       <PmPageHeader
         hero
-        eyebrow="Pool Management"
+        eyebrow="Pool Manager"
         title="My Pools"
-        description="Create and manage your investment pools. Each pool includes your strategy, funding rules, and schedule."
+        description="Create a strategy, launch a pool, and manage investment cycles from one place."
         actions={
-          <Button asChild className={pmPrimaryButtonClass}>
-            <Link href={`${ROUTES.poolManagerPools}/new`}>Create New Pool</Link>
-          </Button>
+          hasApprovedStrategy ? (
+            <Button asChild className={pmPrimaryButtonClass}>
+              <Link href={`${ROUTES.poolManagerPools}/new`}>Create Pool</Link>
+            </Button>
+          ) : (
+            <Button asChild className={pmPrimaryButtonClass}>
+              <Link href={`${ROUTES.poolManagerStrategies}/new`}>Create Strategy</Link>
+            </Button>
+          )
         }
       />
+
       <PmFormMessage message={error} variant="error" />
 
-      <div className="space-y-4">
-        {pools.length === 0 ? (
-          <p className="text-sm text-[var(--id-text-muted)]">
-            No pools yet. Click Create New Pool to get started.
-          </p>
-        ) : (
-          pools.map((pool) => {
+      {items.length === 0 ? (
+        <EmptyWorkspace hasStrategies={strategies.length > 0} hasApprovedStrategy={hasApprovedStrategy} />
+      ) : (
+        <div className="space-y-4">
+          {items.map(({ pool, cycles }) => {
             const lifecycle = pool.lifecycleStatus ?? "draft";
-            const label = MANAGED_POOL_STATUS_LABELS[lifecycle] ?? lifecycle;
+            const label = simplifyPoolLifecycleStatus(lifecycle);
+            const activeCycle = resolveActivePoolCycle(cycles);
+            const isLoading = loadingPoolId === pool.id;
+
             return (
-              <div
+              <article
                 key={pool.id}
-                className="rounded-2xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] p-5 shadow-[var(--id-shadow)]"
+                className="rounded-2xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5 shadow-sm sm:p-6"
               >
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <Link href={`${ROUTES.poolManagerPools}/${pool.id}`} className="text-lg font-semibold text-[var(--id-text)] hover:text-[var(--pm-accent-text)]">
-                      {pool.name}
-                    </Link>
-                    <p className="mt-1 text-sm text-[var(--id-text-secondary)]">{pool.description || "—"}</p>
-                    <div className="mt-3 flex flex-wrap gap-3 text-xs text-[var(--id-text-muted)]">
-                      <span className="rounded-full bg-[var(--id-surface-hover)] px-2.5 py-1 capitalize">{label}</span>
-                      <span>Min {formatCurrency(pool.minInvestment)}</span>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0 flex-1 space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`${ROUTES.poolManagerPools}/${pool.id}`}
+                        className="text-lg font-semibold text-[var(--id-text)] hover:text-[var(--pm-accent-text)]"
+                      >
+                        {pool.name}
+                      </Link>
+                      <PmStatusBadge label={label} status={poolBadgeStatus(lifecycle)} />
+                      {activeCycle && (
+                        <PmStatusBadge
+                          label={simplifyCycleStatus(activeCycle.status)}
+                          status={activeCycle.status}
+                        />
+                      )}
                     </div>
+
+                    {activeCycle ? (
+                      <div className="space-y-3">
+                        <PmFundingProgress
+                          compact
+                          raised={activeCycle.raisedCapital ?? 0}
+                          target={
+                            activeCycle.targetCapital != null && activeCycle.targetCapital > 0
+                              ? activeCycle.targetCapital
+                              : pool.targetCapital > 0
+                                ? pool.targetCapital
+                                : null
+                          }
+                          investorCount={activeCycle.investorCount ?? 0}
+                          className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] p-3.5 sm:p-4"
+                        />
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <MetricPill
+                            icon={Users}
+                            label="Investors"
+                            value={String(activeCycle.investorCount ?? 0)}
+                          />
+                          <MetricPill
+                            icon={Layers}
+                            label="Cycle"
+                            value={`#${activeCycle.cycleNumber}${activeCycle.name ? ` · ${activeCycle.name}` : ""}`}
+                          />
+                        </div>
+                      </div>
+                    ) : lifecycle === "draft" ? (
+                      <p className="text-sm text-[var(--id-text-muted)]">
+                        Submit your pool for RyvonX review. Cycle 1 is created when approved.
+                      </p>
+                    ) : (
+                      <p className="text-sm text-[var(--id-text-muted)]">
+                        No active cycle yet. Open the pool to manage cycles.
+                      </p>
+                    )}
                   </div>
-                  <div className="flex flex-wrap gap-2">
+
+                  <div className="flex shrink-0 flex-wrap gap-2">
                     {lifecycle === "draft" && (
                       <>
                         <Button size="sm" variant="outline" className={pmSecondaryButtonClass} asChild>
-                          <Link href={`${ROUTES.poolManagerPools}/${pool.id}`}>Edit</Link>
+                          <Link href={`${ROUTES.poolManagerPools}/${pool.id}`}>Edit Pool</Link>
                         </Button>
-                        <Button size="sm" disabled={loading} className={pmPrimaryButtonClass} onClick={() => void submitPool(pool.id)}>
-                          Submit Pool
+                        <Button
+                          size="sm"
+                          disabled={isLoading}
+                          className={pmPrimaryButtonClass}
+                          onClick={() => void submitPool(pool.id)}
+                        >
+                          Submit for Review
                         </Button>
                       </>
                     )}
-                    {lifecycle === "live" && (
-                      <Link href={`${ROUTES.marketplace}/${pool.slug}`} className={pmLinkClass}>
-                        View in Marketplace
+
+                    {lifecycle === "live" && activeCycle && canStartTrading(activeCycle) && (
+                      <Button
+                        size="sm"
+                        disabled={isLoading}
+                        className={pmPrimaryButtonClass}
+                        onClick={() => void startTrading(pool.id, activeCycle.id)}
+                      >
+                        <Play className="mr-1.5 h-3.5 w-3.5" />
+                        Start Trading
+                      </Button>
+                    )}
+
+                    {lifecycle === "live" && activeCycle && canOpenJournal(activeCycle) && (
+                      <Button size="sm" className={pmPrimaryButtonClass} asChild>
+                        <Link href={`${ROUTES.poolManagerInvestmentCycles}/${activeCycle.id}/journal`}>
+                          <BookOpen className="mr-1.5 h-3.5 w-3.5" />
+                          Open Journal
+                        </Link>
+                      </Button>
+                    )}
+
+                    <Button size="sm" variant="outline" className={pmSecondaryButtonClass} asChild>
+                      <Link href={`${ROUTES.poolManagerPools}/${pool.id}`}>Manage Pool</Link>
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className={pmSecondaryButtonClass}
+                      disabled={isLoading}
+                      onClick={() => void deletePool(pool.id, pool.name)}
+                    >
+                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                      Delete
+                    </Button>
+
+                    {lifecycle === "live" && pool.slug && (
+                      <Link
+                        href={`${ROUTES.marketplace}/${pool.slug}`}
+                        className={`inline-flex items-center px-3 py-2 text-sm ${pmLinkClass}`}
+                      >
+                        Marketplace
                       </Link>
                     )}
                   </div>
                 </div>
-              </div>
+              </article>
             );
-          })
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MetricPill({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Users;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] px-3 py-2.5">
+      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--id-text-faint)]">
+        <Icon className="h-3 w-3" aria-hidden />
+        {label}
+      </div>
+      <p className="mt-1 text-sm font-semibold tabular-nums text-[var(--id-text)]">{value}</p>
+    </div>
+  );
+}
+
+function EmptyWorkspace({
+  hasStrategies,
+  hasApprovedStrategy,
+}: {
+  hasStrategies: boolean;
+  hasApprovedStrategy: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-dashed border-[var(--id-border)] bg-[var(--id-surface-muted)] p-8 text-center sm:p-10">
+      <p className="text-base font-semibold text-[var(--id-text)]">Get started in two steps</p>
+      <p className="mx-auto mt-2 max-w-md text-sm text-[var(--id-text-muted)]">
+        Record your trading strategy first, then create a pool that uses it. Your first cycle
+        opens automatically when the pool is approved.
+      </p>
+      <ol className="mx-auto mt-6 max-w-sm space-y-3 text-left text-sm">
+        <li className="flex gap-3 rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] px-4 py-3">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--pm-accent-soft)] text-xs font-bold text-[var(--pm-accent-text)]">
+            1
+          </span>
+          <div>
+            <p className="font-medium text-[var(--id-text)]">Create a strategy</p>
+            <p className="text-xs text-[var(--id-text-muted)]">
+              {hasStrategies
+                ? "View or submit your strategies for approval."
+                : "Define how you trade — reviewed by RyvonX."}
+            </p>
+          </div>
+        </li>
+        <li className="flex gap-3 rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] px-4 py-3">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--pm-accent-soft)] text-xs font-bold text-[var(--pm-accent-text)]">
+            2
+          </span>
+          <div>
+            <p className="font-medium text-[var(--id-text)]">Create a pool</p>
+            <p className="text-xs text-[var(--id-text-muted)]">
+              {hasApprovedStrategy
+                ? "Attach your approved strategy and submit for review."
+                : "Available once a strategy is approved."}
+            </p>
+          </div>
+        </li>
+      </ol>
+      <div className="mt-6 flex flex-wrap justify-center gap-3">
+        {!hasStrategies && (
+          <Button asChild className={pmPrimaryButtonClass}>
+            <Link href={`${ROUTES.poolManagerStrategies}/new`}>Create Strategy</Link>
+          </Button>
+        )}
+        {hasStrategies && !hasApprovedStrategy && (
+          <Button asChild variant="outline" className={pmSecondaryButtonClass}>
+            <Link href={ROUTES.poolManagerStrategies}>View Strategies</Link>
+          </Button>
+        )}
+        {hasApprovedStrategy && (
+          <Button asChild className={pmPrimaryButtonClass}>
+            <Link href={`${ROUTES.poolManagerPools}/new`}>Create Pool</Link>
+          </Button>
         )}
       </div>
     </div>

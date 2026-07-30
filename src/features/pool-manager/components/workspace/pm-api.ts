@@ -49,6 +49,14 @@ export async function updateStrategy(
   return data.strategy;
 }
 
+export async function deleteStrategy(id: string): Promise<void> {
+  const res = await fetch(`/api/pool-manager/strategies/${id}`, { method: "DELETE" });
+  if (!res.ok) {
+    const data = (await res.json()) as { error?: string };
+    throw new Error(data.error ?? "Delete failed");
+  }
+}
+
 export async function submitStrategy(id: string): Promise<Strategy> {
   const data = await parseJson<{ strategy: Strategy }>(
     await fetch(`/api/pool-manager/strategies/${id}/submit`, { method: "POST" })

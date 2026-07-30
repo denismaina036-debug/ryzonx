@@ -148,7 +148,6 @@ export const poolManagerDashboardService = {
       currentCapital: toNumber(row.current_capital as number | null),
       profitTargetPct: toNumber(row.profit_target_pct as number | null),
       targetInvestors: toNumber(row.target_investors as number | null),
-      returnTiers: (row.return_tiers as Pool["returnTiers"]) ?? [],
       isInviteOnly: Boolean(row.is_invite_only),
       cardBackgroundColor: (row.card_background_color as string) ?? null,
       coverImageUrl: (row.cover_image_url as string) ?? null,

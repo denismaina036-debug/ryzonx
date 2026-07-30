@@ -3,33 +3,26 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
-import {
-  STRATEGY_MANAGER_TRANSITIONS,
-  STRATEGY_STATUS_LABELS,
-} from "@/constants/strategy";
-import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
-import { isStrategyEditable } from "@/lib/investment/strategy-lifecycle";
 import { Button } from "@/components/ui/button";
-import type { InvestmentCycle, Strategy } from "@/domain/investment/types";
+import type { Strategy } from "@/domain/investment/types";
 import { PmPageHeader, PmSectionCard, PmFormMessage } from "./pm-page-header";
 import { PmStatusBadge } from "./pm-status-badge";
-import { PmStrategyLifecycleTimeline } from "./pm-lifecycle-timeline";
 import {
   PmStrategyForm,
   formValuesToPayload,
   strategyToFormValues,
   type StrategyFormValues,
 } from "./pm-strategy-form";
-import { submitStrategy, transitionStrategy, updateStrategy } from "./pm-api";
+import { deleteStrategy, submitStrategy, updateStrategy } from "./pm-api";
+import { pmPrimaryButtonClass, pmSecondaryButtonClass } from "@/features/pool-manager/constants/ui";
+import {
+  simplifyStrategyStatus,
+  strategyBadgeStatus,
+} from "@/features/pool-manager/utils/pm-status-presentation";
 
-export function PmStrategyDetailClient({
-  initialStrategy,
-  initialCycles,
-}: {
-  initialStrategy: Strategy;
-  initialCycles: InvestmentCycle[];
-}) {
+export function PmStrategyDetailClient({ initialStrategy }: { initialStrategy: Strategy }) {
   const router = useRouter();
   const [strategy, setStrategy] = useState(initialStrategy);
   const [values, setValues] = useState<StrategyFormValues>(strategyToFormValues(strategy));
@@ -38,17 +31,17 @@ export function PmStrategyDetailClient({
     null
   );
 
-  const editable = isStrategyEditable(strategy.status);
-  const managerTransitions = STRATEGY_MANAGER_TRANSITIONS[strategy.status] ?? [];
+  const editable = strategy.status !== "archived";
+  const requiresAdminApproval = ["approved", "available", "operating", "paused"].includes(
+    strategy.status
+  );
 
   const runAction = useCallback(
-    async (action: () => Promise<Strategy>, success: string) => {
+    async (action: () => Promise<void>, success: string) => {
       setLoading(true);
       setMessage(null);
       try {
-        const next = await action();
-        setStrategy(next);
-        setValues(strategyToFormValues(next));
+        await action();
         setMessage({ text: success, variant: "success" });
         router.refresh();
       } catch (err) {
@@ -64,34 +57,75 @@ export function PmStrategyDetailClient({
   );
 
   async function handleSave() {
-    await runAction(
-      () => updateStrategy(strategy.id, formValuesToPayload(values)),
-      "Strategy saved"
-    );
+    setLoading(true);
+    setMessage(null);
+    try {
+      const next = await updateStrategy(strategy.id, formValuesToPayload(values));
+      setStrategy(next);
+      setValues(strategyToFormValues(next));
+      setMessage({
+        text: requiresAdminApproval
+          ? "Changes submitted for RyvonX approval."
+          : "Strategy saved.",
+        variant: "success",
+      });
+      router.refresh();
+    } catch (err) {
+      setMessage({
+        text: err instanceof Error ? err.message : "Save failed",
+        variant: "error",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    const confirmed = window.confirm(`Delete "${strategy.name}"?`);
+    if (!confirmed) return;
+    setLoading(true);
+    setMessage(null);
+    try {
+      await deleteStrategy(strategy.id);
+      router.push(ROUTES.poolManagerStrategies);
+      router.refresh();
+    } catch (err) {
+      setMessage({
+        text: err instanceof Error ? err.message : "Delete failed",
+        variant: "error",
+      });
+      setLoading(false);
+    }
   }
 
   return (
     <div className="space-y-8">
       <PmPageHeader
-        eyebrow="Strategy"
+        eyebrow="My Strategy"
         title={strategy.name}
-        description={strategy.description ?? "Professional investment methodology"}
+        description="View and update your trading methodology."
         actions={
-          <PmStatusBadge label={STRATEGY_STATUS_LABELS[strategy.status]} status={strategy.status} />
+          <PmStatusBadge
+            label={simplifyStrategyStatus(strategy.status)}
+            status={strategyBadgeStatus(strategy.status)}
+          />
         }
       />
 
-      <PmFormMessage
-        message={message?.text ?? null}
-        variant={message?.variant ?? "info"}
-      />
+      <PmFormMessage message={message?.text ?? null} variant={message?.variant ?? "info"} />
 
       <div className="flex flex-wrap gap-2">
         {strategy.status === "draft" && (
           <Button
             disabled={loading}
-            className="bg-amber-500 text-black hover:bg-amber-400"
-            onClick={() => runAction(() => submitStrategy(strategy.id), "Submitted for review")}
+            className={pmPrimaryButtonClass}
+            onClick={() =>
+              runAction(async () => {
+                const next = await submitStrategy(strategy.id);
+                setStrategy(next);
+                setValues(strategyToFormValues(next));
+              }, "Submitted for review")
+            }
           >
             Submit for Review
           </Button>
@@ -100,114 +134,43 @@ export function PmStrategyDetailClient({
           <Button
             disabled={loading}
             variant="outline"
-            className="border-white/10 text-white"
-            onClick={handleSave}
+            className={pmSecondaryButtonClass}
+            onClick={() => void handleSave()}
           >
-            Save Draft
+            Save Changes
           </Button>
         )}
-        {managerTransitions
-          .filter((t) => t !== "submitted" && t !== "draft")
-          .map((status) => (
-            <Button
-              key={status}
-              disabled={loading}
-              variant="outline"
-              className="border-white/10 text-white capitalize"
-              onClick={() =>
-                runAction(
-                  () => transitionStrategy(strategy.id, status),
-                  `Status updated to ${STRATEGY_STATUS_LABELS[status]}`
-                )
-              }
-            >
-              {status === "archived" ? "Archive" : STRATEGY_STATUS_LABELS[status]}
-            </Button>
-          ))}
-        <Button variant="ghost" className="text-navy-400" asChild>
-          <Link href={ROUTES.poolManagerStrategies}>← Strategies</Link>
+        {editable && (
+          <Button
+            disabled={loading}
+            variant="outline"
+            className={pmSecondaryButtonClass}
+            onClick={() => void handleDelete()}
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+            Delete
+          </Button>
+        )}
+        <Button variant="ghost" className="text-[var(--id-text-muted)]" asChild>
+          <Link href={ROUTES.poolManagerStrategies}>← Back to strategies</Link>
         </Button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <PmSectionCard title="Overview">
-            <PmStrategyForm
-              strategyId={strategy.id}
-              values={values}
-              onChange={setValues}
-              editable={editable}
-              onAutosaved={setStrategy}
-            />
-          </PmSectionCard>
+      {requiresAdminApproval && (
+        <p className="text-sm text-[var(--id-text-muted)]">
+          Approved strategies require RyvonX approval before changes go live.
+        </p>
+      )}
 
-          <PmSectionCard title="Current Cycles" description={`${initialCycles.length} cycle(s) under this strategy`}>
-            {initialCycles.length === 0 ? (
-              <p className="text-sm text-navy-500">No investment cycles yet.</p>
-            ) : (
-              <ul className="divide-y divide-white/[0.04]">
-                {initialCycles.map((c) => (
-                  <li key={c.id} className="flex items-center justify-between py-3">
-                    <Link
-                      href={`${ROUTES.poolManagerInvestmentCycles}/${c.id}`}
-                      className="text-sm font-medium text-white hover:text-amber-200"
-                    >
-                      {c.name}
-                    </Link>
-                    <PmStatusBadge
-                      label={INVESTMENT_CYCLE_STATUS_LABELS[c.status]}
-                      status={c.status}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </PmSectionCard>
-        </div>
-
-        <aside className="space-y-6">
-          <PmSectionCard title="Lifecycle">
-            <PmStrategyLifecycleTimeline currentStatus={strategy.status} />
-          </PmSectionCard>
-
-          <PmSectionCard title="Submission Status">
-            <dl className="space-y-3 text-sm">
-              <Row label="Status" value={STRATEGY_STATUS_LABELS[strategy.status]} />
-              <Row
-                label="Submitted"
-                value={
-                  strategy.submittedAt
-                    ? new Date(strategy.submittedAt).toLocaleString("en-GB")
-                    : "—"
-                }
-              />
-              <Row
-                label="Approved"
-                value={
-                  strategy.approvedAt
-                    ? new Date(strategy.approvedAt).toLocaleString("en-GB")
-                    : "—"
-                }
-              />
-            </dl>
-          </PmSectionCard>
-
-          <PmSectionCard title="Review Timeline">
-            <p className="text-sm text-navy-500">
-              Administrative review notes will appear here once RyvonX completes strategy review.
-            </p>
-          </PmSectionCard>
-        </aside>
-      </div>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between gap-4">
-      <dt className="text-navy-500">{label}</dt>
-      <dd className="text-right text-navy-200">{value}</dd>
+      <PmSectionCard title="Strategy Details">
+        <PmStrategyForm
+          strategyId={strategy.id}
+          values={values}
+          onChange={setValues}
+          editable={editable}
+          onAutosaved={setStrategy}
+        />
+      </PmSectionCard>
     </div>
   );
 }

@@ -33,3 +33,16 @@ export async function PATCH(
     return errorResponse(error, "Update failed");
   }
 }
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const result = await managedPoolService.deleteForManager(id);
+    return NextResponse.json(result);
+  } catch (error) {
+    return errorResponse(error, "Delete failed");
+  }
+}

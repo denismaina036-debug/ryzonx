@@ -1,5 +1,10 @@
-import type { ReturnTier } from "@/features/investor/types/account";
 import type { ManagedPoolConfig, ManagedPoolVisibility } from "@/domain/pools/managed-pool";
+import type { ReturnDurationPreset, ReturnDurationUnit } from "@/domain/roi/types";
+
+export interface PoolConfigSnapshotRoiMultiplier {
+  investmentLevelId: string;
+  multiplier: number;
+}
 
 export interface PoolConfigSnapshot {
   version: number;
@@ -20,7 +25,10 @@ export interface PoolConfigSnapshot {
     maxInvestorsCap: number | null;
     poolDurationDays: number | null;
     profitTargetPct: number | null;
-    returnTiers: ReturnTier[];
+    returnDurationPreset: ReturnDurationPreset | null;
+    returnDurationValue: number | null;
+    returnDurationUnit: ReturnDurationUnit | null;
+    roiMultipliers: PoolConfigSnapshotRoiMultiplier[];
     aggressivenessLevel: string | null;
     riskSummary: string | null;
     visibility: ManagedPoolVisibility | string;
@@ -45,13 +53,10 @@ function toNumber(value: string | number | null | undefined): number {
 export function buildPoolConfigSnapshot(
   row: Record<string, unknown>,
   strategyId: string,
-  version: number
+  version: number,
+  roiMultipliers: PoolConfigSnapshotRoiMultiplier[] = []
 ): PoolConfigSnapshot {
   const managedPool = readManagedConfig(row.pool_faq);
-  const returnTiersRaw = row.return_tiers;
-  const returnTiers = Array.isArray(returnTiersRaw)
-    ? (returnTiersRaw as ReturnTier[])
-    : [];
 
   const visibility =
     managedPool.visibility ??
@@ -82,7 +87,10 @@ export function buildPoolConfigSnapshot(
       poolDurationDays: (row.pool_duration_days as number | null) ?? null,
       profitTargetPct:
         row.profit_target_pct != null ? toNumber(row.profit_target_pct as number) : null,
-      returnTiers,
+      returnDurationPreset: (row.return_duration_preset as ReturnDurationPreset | null) ?? null,
+      returnDurationValue: (row.return_duration_value as number | null) ?? null,
+      returnDurationUnit: (row.return_duration_unit as ReturnDurationUnit | null) ?? null,
+      roiMultipliers,
       aggressivenessLevel: (row.aggressiveness_level as string | null) ?? null,
       riskSummary: (row.risk_summary as string | null) ?? null,
       visibility,

@@ -28,15 +28,12 @@ import type {
   MarketplacePoolDetail,
   PoolManagerPublicSummary,
 } from "@/domain/marketplace/types";
-import type { ReturnTier } from "@/features/investor/types/account";
-import { normalizeFixedReturnRows, type FixedReturnRow } from "@/domain/pools/fixed-return";
 import { normalizeMarketCodes } from "@/domain/reference-data/utils";
 import { tradeEntryService } from "@/services/trade-entry.service";
 import { tradingSessionLabel } from "@/domain/pools/trading-session";
 import { INVESTMENT_CYCLE_ALLOCATABLE_STATUSES } from "@/constants/investment-cycle";
 import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 import {
-  formatExpectedDurationLabel,
   formatPoolLevelLabel,
   formatRiskLevelTag,
   resolveTradingAssetLabel,
@@ -66,8 +63,6 @@ function toNumber(value: string | number | null | undefined): number {
 function readManagedPoolConfig(poolFaq: unknown) {
   if (!poolFaq || typeof poolFaq !== "object" || Array.isArray(poolFaq)) return {};
   return ((poolFaq as { managedPool?: Record<string, unknown> }).managedPool ?? {}) as {
-    returnModel?: string;
-    fixedReturnRows?: FixedReturnRow[];
     tradingSessionKey?: string;
     tradingSessionCustom?: string;
     tradingTimeNy?: string;
@@ -273,7 +268,6 @@ async function enrichPoolCards(
         managed.tradingInstrumentCodes?.[0] ?? managed.tradingInstrumentCode ?? null,
       tradingPair: card.tradingPair,
     });
-    const returnModel = managed.returnModel === "fixed" ? "fixed" : "variable";
     const liveReviewCount = card.managerId
       ? liveReviewCounts.get(card.managerId) ?? 0
       : 0;
@@ -329,9 +323,6 @@ async function enrichPoolCards(
       fundingProgressPct,
       cycleParticipantCount,
       maxParticipants,
-      investorSharePct: toNumber(row.investor_share_pct as number | null) || 80,
-      poolManagerSharePct: toNumber(row.pool_manager_share_pct as number | null) || 20,
-      returnModel,
       coverSubtitle:
         managed.strategyName?.trim() ||
         card.tagline?.trim() ||
@@ -558,9 +549,6 @@ function mapToCard(
     targetCapital: 0,
     cycleParticipantCount: 0,
     maxParticipants: null,
-    investorSharePct: toNumber(row.investor_share_pct as number | null) || 80,
-    poolManagerSharePct: toNumber(row.pool_manager_share_pct as number | null) || 20,
-    returnModel: "variable",
     returnDurationPreset: "daily" as ReturnDurationPreset,
     returnDurationValue: 1,
     returnDurationUnit: "days" as ReturnDurationUnit,
@@ -857,22 +845,7 @@ export const marketplaceService = {
     const faq = Array.isArray(faqRaw)
       ? (faqRaw as Array<{ question: string; answer: string }>)
       : [];
-    const returnTiers = Array.isArray(row.return_tiers)
-      ? (row.return_tiers as ReturnTier[])
-      : [];
     const managedConfig = readManagedPoolConfig(row.pool_faq);
-    const returnModel = managedConfig.returnModel === "fixed" ? "fixed" : "variable";
-    const fixedReturnRows =
-      returnModel === "fixed"
-        ? managedConfig.fixedReturnRows?.length
-          ? normalizeFixedReturnRows(managedConfig.fixedReturnRows)
-          : normalizeFixedReturnRows(
-              returnTiers.map((tier) => ({
-                investmentAmount: tier.minAmount,
-                fixedReturnAmount: tier.minAmount * (1 + tier.returnPct / 100),
-              }))
-            )
-        : [];
     const [activeOpenTrades, cycleRealizedProfit] = await Promise.all([
       enrichedCard.activeCycle?.status === "trading" && enrichedCard.activeCycle.id
         ? tradeEntryService.listOpenTradesPublic(enrichedCard.activeCycle.id)
@@ -911,8 +884,6 @@ export const marketplaceService = {
             : null,
       profitTargetPct: toNumber(row.profit_target_pct as number),
       maxInvestment: row.max_investment != null ? toNumber(row.max_investment as number) : null,
-      returnTiers: returnModel === "variable" ? returnTiers : [],
-      fixedReturnRows,
       isInviteOnly: Boolean(row.is_invite_only),
       suspensionReason: (row.suspension_reason as string | null) ?? null,
       suspendedAt: (row.suspended_at as string | null) ?? null,

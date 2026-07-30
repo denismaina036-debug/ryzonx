@@ -429,4 +429,43 @@ export const strategyService = {
     if (!data) return null;
     return mapStrategy(data as StrategyRow);
   },
+
+  async deleteForManager(id: string): Promise<void> {
+    const { userId, managerId } = await requireManagerId();
+    const existing = await this.getById(id);
+    if (!existing) throw new Error("Strategy not found.");
+    if (existing.poolManagerId !== managerId) throw new Error("Insufficient permissions");
+    if (existing.status === "archived") throw new Error("Strategy is already archived.");
+
+    const db = createAdminClient();
+    const { data: linkedPools } = await db
+      .from("funds")
+      .select("id, lifecycle_status, pool_faq")
+      .eq("pool_manager_id", managerId);
+
+    const hasLivePool = ((linkedPools ?? []) as Array<{ pool_faq: unknown; lifecycle_status: string }>).some(
+      (row) => {
+        const faq = row.pool_faq as { strategyId?: string } | null;
+        return faq?.strategyId === id && ["live", "approved", "submitted", "under_review"].includes(row.lifecycle_status);
+      }
+    );
+    if (hasLivePool) {
+      throw new Error("Cannot delete a strategy linked to an active or pending pool.");
+    }
+
+    if (existing.status === "draft") {
+      const { error } = await db.from("strategies").delete().eq("id", id);
+      if (error) throw new Error(error.message);
+    } else {
+      await this.transition(id, "archived", "manager");
+    }
+
+    await auditService.log({
+      actorId: userId,
+      action: "strategy_deleted",
+      entityType: "strategy",
+      entityId: id,
+      oldValues: { status: existing.status, name: existing.name },
+    });
+  },
 };

@@ -1,32 +1,56 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
-import { STRATEGY_STATUS_LABELS } from "@/constants/strategy";
 import { Button } from "@/components/ui/button";
 import type { Strategy } from "@/domain/investment/types";
 import { PmPageHeader, PmSectionCard } from "./pm-page-header";
 import { PmStatusBadge } from "./pm-status-badge";
-import { Plus } from "lucide-react";
+import { pmPrimaryButtonClass, pmSecondaryButtonClass } from "@/features/pool-manager/constants/ui";
+import {
+  simplifyStrategyStatus,
+  strategyBadgeStatus,
+} from "@/features/pool-manager/utils/pm-status-presentation";
+import { deleteStrategy } from "./pm-api";
 
 export function PmStrategiesClient({ initialStrategies }: { initialStrategies: Strategy[] }) {
-  const draft = initialStrategies.filter((s) => s.status === "draft");
-  const submitted = initialStrategies.filter(
-    (s) => s.status === "submitted" || s.status === "under_review"
-  );
-  const active = initialStrategies.filter((s) =>
-    ["approved", "available", "operating", "paused"].includes(s.status)
-  );
-  const archived = initialStrategies.filter((s) => s.status === "archived");
+  const router = useRouter();
+  const [strategies, setStrategies] = useState(initialStrategies);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const visible = strategies.filter((s) => s.status !== "archived");
+
+  async function handleDelete(strategy: Strategy) {
+    const confirmed = window.confirm(
+      `Delete "${strategy.name}"? This cannot be undone for draft strategies; others will be archived.`
+    );
+    if (!confirmed) return;
+
+    setLoadingId(strategy.id);
+    setError(null);
+    try {
+      await deleteStrategy(strategy.id);
+      setStrategies((prev) => prev.filter((s) => s.id !== strategy.id));
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete strategy");
+    } finally {
+      setLoadingId(null);
+    }
+  }
 
   return (
     <div className="space-y-8">
       <PmPageHeader
-        eyebrow="Strategy Management"
-        title="Strategies"
-        description="Define permanent investment methodologies. Strategies are reviewed by RyvonX before going live."
+        eyebrow="Step 1 — Strategy"
+        title="My Strategies"
+        description="Create and manage your trading strategies. Once approved, use one when creating a pool."
         actions={
-          <Button asChild className="bg-amber-500 text-black hover:bg-amber-400">
+          <Button asChild className={pmPrimaryButtonClass}>
             <Link href={`${ROUTES.poolManagerStrategies}/new`}>
               <Plus className="mr-2 h-4 w-4" />
               New Strategy
@@ -35,47 +59,70 @@ export function PmStrategiesClient({ initialStrategies }: { initialStrategies: S
         }
       />
 
-      <StrategyGroup title="Draft" items={draft} empty="No draft strategies." />
-      <StrategyGroup title="Submitted / Under Review" items={submitted} empty="Nothing pending review." />
-      <StrategyGroup title="Active" items={active} empty="No active strategies yet." />
-      <StrategyGroup title="Archived" items={archived} empty="No archived strategies." />
-    </div>
-  );
-}
-
-function StrategyGroup({
-  title,
-  items,
-  empty,
-}: {
-  title: string;
-  items: Strategy[];
-  empty: string;
-}) {
-  return (
-    <PmSectionCard title={title}>
-      {items.length === 0 ? (
-        <p className="text-sm text-navy-500">{empty}</p>
-      ) : (
-        <ul className="divide-y divide-white/[0.04]">
-          {items.map((s) => (
-            <li key={s.id} className="flex items-center justify-between gap-4 py-4">
-              <div className="min-w-0">
-                <Link
-                  href={`${ROUTES.poolManagerStrategies}/${s.id}`}
-                  className="font-medium text-white hover:text-amber-200"
-                >
-                  {s.name}
-                </Link>
-                {s.investmentStyle && (
-                  <p className="mt-0.5 text-xs text-navy-500">{s.investmentStyle}</p>
-                )}
-              </div>
-              <PmStatusBadge label={STRATEGY_STATUS_LABELS[s.status]} status={s.status} />
-            </li>
-          ))}
-        </ul>
+      {error && (
+        <p className="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-[var(--id-danger)]">{error}</p>
       )}
-    </PmSectionCard>
+
+      <PmSectionCard title="My Strategies" description={`${visible.length} recorded strateg${visible.length === 1 ? "y" : "ies"}`}>
+        {visible.length === 0 ? (
+          <div className="py-6 text-center">
+            <p className="text-sm text-[var(--id-text-muted)]">
+              No strategies yet. Create your first strategy to begin.
+            </p>
+            <Button asChild className={`mt-4 ${pmPrimaryButtonClass}`}>
+              <Link href={`${ROUTES.poolManagerStrategies}/new`}>Create Strategy</Link>
+            </Button>
+          </div>
+        ) : (
+          <ul className="divide-y divide-[var(--id-border)]">
+            {visible.map((strategy) => {
+              const simplified = simplifyStrategyStatus(strategy.status);
+              const badgeStatus = strategyBadgeStatus(strategy.status);
+              const isLoading = loadingId === strategy.id;
+
+              return (
+                <li
+                  key={strategy.id}
+                  className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <Link
+                      href={`${ROUTES.poolManagerStrategies}/${strategy.id}`}
+                      className="font-semibold text-[var(--id-text)] hover:text-[var(--pm-accent-text)]"
+                    >
+                      {strategy.name}
+                    </Link>
+                    {strategy.investmentStyle && (
+                      <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">
+                        {strategy.investmentStyle}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <PmStatusBadge label={simplified} status={badgeStatus} />
+                    <Button size="sm" variant="outline" className={pmSecondaryButtonClass} asChild>
+                      <Link href={`${ROUTES.poolManagerStrategies}/${strategy.id}`}>
+                        <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                        Edit
+                      </Link>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className={pmSecondaryButtonClass}
+                      disabled={isLoading}
+                      onClick={() => void handleDelete(strategy)}
+                    >
+                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                      Delete
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </PmSectionCard>
+    </div>
   );
 }

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BookOpen,
   Landmark,
-  LayoutDashboard,
+  Layers,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
@@ -22,16 +22,16 @@ interface MobileNavItem {
 /** Mirrors investor mobile nav layout — center gap reserved for FAB. */
 const LEFT_ITEMS: MobileNavItem[] = [
   {
-    label: "Dashboard",
+    label: "Pools",
     href: ROUTES.poolManager,
-    icon: LayoutDashboard,
-    matchPrefixes: [ROUTES.poolManager],
+    icon: Landmark,
+    matchPrefixes: [ROUTES.poolManager, ROUTES.poolManagerPools],
   },
   {
-    label: "Pools",
-    href: ROUTES.poolManagerPools,
-    icon: Landmark,
-    matchPrefixes: [ROUTES.poolManagerPools],
+    label: "Strategies",
+    href: ROUTES.poolManagerStrategies,
+    icon: Layers,
+    matchPrefixes: [ROUTES.poolManagerStrategies],
   },
 ];
 
@@ -54,12 +54,9 @@ export function PoolManagerMobileBottomNav() {
   const pathname = usePathname();
 
   function isActive(item: MobileNavItem) {
-    if (item.href === ROUTES.poolManager) {
-      return pathname === ROUTES.poolManager;
-    }
     if (pathname === item.href) return true;
     return (item.matchPrefixes ?? [item.href]).some((prefix) =>
-      pathname.startsWith(prefix)
+      pathname === prefix || (prefix !== ROUTES.poolManager && pathname.startsWith(`${prefix}/`))
     );
   }
 
