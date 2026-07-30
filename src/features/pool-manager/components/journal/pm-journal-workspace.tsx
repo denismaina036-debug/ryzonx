@@ -5,32 +5,19 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ImagePlus, TrendingDown, TrendingUp } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
-import {
-  TRADE_ENTRY_DIRECTION_LABELS,
-  TRADE_ENTRY_DIRECTIONS,
-  TRADE_ENTRY_RESULT_LABELS,
-} from "@/constants/trade-entry";
+import { TRADE_ENTRY_RESULT_LABELS } from "@/constants/trade-entry";
 import { resolveSimplifiedCyclePhase } from "@/constants/cycle-progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { InvestmentCycle } from "@/domain/investment/types";
 import type { TradeEntry } from "@/domain/trading-journal/types";
-import { formatCurrency } from "@/lib/utils";
+import type { TradeEntryResult } from "@/constants/trade-entry";
+import { cn, formatCurrency } from "@/lib/utils";
 import {
   pmInputClass,
   pmPrimaryButtonClass,
   pmSecondaryButtonClass,
-  pmSelectContentClass,
-  pmSelectItemClass,
-  pmSelectTriggerClass,
   pmTextareaClass,
 } from "@/features/pool-manager/constants/ui";
 import { PmFormField } from "@/features/pool-manager/components/workspace/pm-form-field";
@@ -43,12 +30,12 @@ import {
   type JournalWorkspaceData,
 } from "./pm-journal-api";
 
+type OutcomeChoice = "profit" | "loss";
+
 const emptyForm = {
   instrument: "",
-  direction: "long" as const,
-  entryPrice: "",
-  exitPrice: "",
-  quantity: "",
+  amountUsd: "",
+  outcome: "profit" as OutcomeChoice,
   notes: "",
 };
 
@@ -78,6 +65,7 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
 
   const writable = cycle.status === "trading" || cycle.status === "distribution";
   const simplifiedPhase = resolveSimplifiedCyclePhase({ cycleStatus: cycle.status });
+  const isWin = form.outcome === "profit";
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -129,38 +117,31 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
     setSubmitting(true);
     setMessage(null);
     try {
-      const entryPrice = Number(form.entryPrice);
-      const exitPrice = Number(form.exitPrice);
-      const quantity = Number(form.quantity);
+      const amountUsd = Number(form.amountUsd);
       if (!form.instrument.trim()) throw new Error("Instrument is required.");
-      if (!Number.isFinite(entryPrice) || entryPrice <= 0) {
-        throw new Error("Entry price must be positive.");
-      }
-      if (!Number.isFinite(exitPrice) || exitPrice <= 0) {
-        throw new Error("Exit price must be positive.");
-      }
-      if (!Number.isFinite(quantity) || quantity <= 0) {
-        throw new Error("Quantity must be positive.");
+      if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
+        throw new Error("Enter a positive dollar amount.");
       }
 
       const screenshotUrl = screenshotFile ? await uploadScreenshot(screenshotFile) : undefined;
-      const inferredResult =
-        exitPrice === entryPrice ? "breakeven" : exitPrice > entryPrice ? "profit" : "loss";
 
       await createTradeEntry(cycle.id, {
         instrument: form.instrument.trim(),
-        direction: form.direction,
-        entryPrice,
-        exitPrice,
-        quantity,
+        amountUsd,
+        tradeResult: form.outcome,
         notes: form.notes.trim() || null,
-        tradeResult: inferredResult,
         screenshotUrl,
       });
 
       setForm(emptyForm);
       setScreenshotFile(null);
-      setMessage({ text: "Trade recorded. Investors can now see it in the journal.", variant: "success" });
+      setMessage({
+        text:
+          form.outcome === "profit"
+            ? `Win recorded — ${formatCurrency(amountUsd)} profit distributed to investors.`
+            : `Loss recorded — ${formatCurrency(amountUsd)} applied to cycle balance.`,
+        variant: "success",
+      });
       await load();
     } catch (err) {
       setMessage({
@@ -177,7 +158,7 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
       <PmPageHeader
         eyebrow="Trading Journal"
         title={cycle.name}
-        description="Record completed trades with a screenshot. Each trade updates the cycle P/L for investors."
+        description="Record each completed trade as a win or loss in dollars. Both outcomes update investor balances automatically."
         actions={
           <Link href={`${ROUTES.poolManagerInvestmentCycles}/${cycle.id}`} className={pmSecondaryButtonClass}>
             ← Cycle
@@ -192,13 +173,39 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
         <p className="mt-3 text-sm text-[var(--id-text-muted)]">
           {simplifiedPhase === "funding"
             ? "Funding is open. Start trading from the cycle page when you are ready to record trades."
-            : "Trading is active. Add each completed trade below — profit and loss are calculated automatically."}
+            : "Trading is active. Select Win or Loss, enter the dollar amount, and attach a screenshot."}
         </p>
       </PmSectionCard>
 
       {writable && data?.journal && (
-        <PmSectionCard title="Add Trade">
-          <form onSubmit={handleRecordTrade} className="space-y-5">
+        <PmSectionCard title="Record Trade">
+          <form
+            onSubmit={handleRecordTrade}
+            className={cn(
+              "space-y-6 rounded-xl border-2 p-5 transition-colors",
+              isWin
+                ? "border-emerald-500/40 bg-emerald-500/5 dark:border-emerald-400/30 dark:bg-emerald-500/10"
+                : "border-rose-500/40 bg-rose-500/5 dark:border-rose-400/30 dark:bg-rose-500/10"
+            )}
+          >
+            <div>
+              <p className="mb-3 text-sm font-medium text-[var(--id-text-secondary)]">Outcome</p>
+              <div className="grid grid-cols-2 gap-3">
+                <OutcomeButton
+                  type="profit"
+                  selected={form.outcome === "profit"}
+                  disabled={submitting}
+                  onSelect={() => setForm((prev) => ({ ...prev, outcome: "profit" }))}
+                />
+                <OutcomeButton
+                  type="loss"
+                  selected={form.outcome === "loss"}
+                  disabled={submitting}
+                  onSelect={() => setForm((prev) => ({ ...prev, outcome: "loss" }))}
+                />
+              </div>
+            </div>
+
             <div className="grid gap-5 sm:grid-cols-2">
               <PmFormField label="Instrument" required>
                 <Input
@@ -209,78 +216,47 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
                   disabled={submitting}
                 />
               </PmFormField>
-              <PmFormField label="Direction" required>
-                <Select
-                  value={form.direction}
-                  onValueChange={(value) =>
-                    setForm((prev) => ({ ...prev, direction: value as typeof form.direction }))
-                  }
-                  disabled={submitting}
-                >
-                  <SelectTrigger className={pmSelectTriggerClass}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className={pmSelectContentClass}>
-                    {TRADE_ENTRY_DIRECTIONS.map((direction) => (
-                      <SelectItem key={direction} value={direction} className={pmSelectItemClass}>
-                        {TRADE_ENTRY_DIRECTION_LABELS[direction]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </PmFormField>
-              <PmFormField label="Entry Price" required>
-                <Input
-                  type="number"
-                  step="any"
-                  value={form.entryPrice}
-                  onChange={(e) => setForm((prev) => ({ ...prev, entryPrice: e.target.value }))}
-                  className={pmInputClass}
-                  disabled={submitting}
-                />
-              </PmFormField>
-              <PmFormField label="Exit Price" required>
-                <Input
-                  type="number"
-                  step="any"
-                  value={form.exitPrice}
-                  onChange={(e) => setForm((prev) => ({ ...prev, exitPrice: e.target.value }))}
-                  className={pmInputClass}
-                  disabled={submitting}
-                />
-              </PmFormField>
-              <PmFormField label="Quantity" required>
-                <Input
-                  type="number"
-                  step="any"
-                  value={form.quantity}
-                  onChange={(e) => setForm((prev) => ({ ...prev, quantity: e.target.value }))}
-                  className={pmInputClass}
-                  disabled={submitting}
-                />
-              </PmFormField>
-              <PmFormField label="Trade Screenshot" hint="Visible to investors on the marketplace.">
-                <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--id-border-strong)] bg-[var(--id-surface-muted)] px-4 py-6 text-center transition-colors hover:border-[var(--pm-accent)]">
-                  <ImagePlus className="h-5 w-5 text-[var(--id-text-muted)]" />
-                  <span className="text-sm text-[var(--id-text-secondary)]">
-                    {screenshotFile ? screenshotFile.name : "Upload chart screenshot"}
+              <PmFormField label="Amount (USD)" required hint="Profit or loss in dollars.">
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--id-text-muted)]">
+                    $
                   </span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    className="hidden"
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={form.amountUsd}
+                    onChange={(e) => setForm((prev) => ({ ...prev, amountUsd: e.target.value }))}
+                    className={cn(pmInputClass, "pl-7")}
                     disabled={submitting}
-                    onChange={(e) => setScreenshotFile(e.target.files?.[0] ?? null)}
+                    placeholder="0.00"
                   />
-                </label>
-                {screenshotPreview ? (
-                  <div className="relative mt-3 overflow-hidden rounded-xl border border-[var(--id-border)]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={screenshotPreview} alt="Screenshot preview" className="max-h-48 w-full object-cover" />
-                  </div>
-                ) : null}
+                </div>
               </PmFormField>
             </div>
+
+            <PmFormField label="Trade Screenshot" hint="Visible to investors on the marketplace.">
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--id-border-strong)] bg-[var(--id-surface-muted)] px-4 py-6 text-center transition-colors hover:border-[var(--pm-accent)]">
+                <ImagePlus className="h-5 w-5 text-[var(--id-text-muted)]" />
+                <span className="text-sm text-[var(--id-text-secondary)]">
+                  {screenshotFile ? screenshotFile.name : "Upload chart screenshot"}
+                </span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  disabled={submitting}
+                  onChange={(e) => setScreenshotFile(e.target.files?.[0] ?? null)}
+                />
+              </label>
+              {screenshotPreview ? (
+                <div className="relative mt-3 overflow-hidden rounded-xl border border-[var(--id-border)]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={screenshotPreview} alt="Screenshot preview" className="max-h-48 w-full object-cover" />
+                </div>
+              ) : null}
+            </PmFormField>
+
             <PmFormField label="Notes">
               <Textarea
                 value={form.notes}
@@ -291,8 +267,18 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
                 placeholder="Optional context for administrators"
               />
             </PmFormField>
-            <Button type="submit" disabled={submitting || loading} className={pmPrimaryButtonClass}>
-              {submitting ? "Recording…" : "Record Trade"}
+
+            <Button
+              type="submit"
+              disabled={submitting || loading}
+              className={cn(
+                pmPrimaryButtonClass,
+                isWin
+                  ? "bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                  : "bg-rose-600 hover:bg-rose-700 dark:bg-rose-600 dark:hover:bg-rose-500"
+              )}
+            >
+              {submitting ? "Recording…" : isWin ? "Record Win" : "Record Loss"}
             </Button>
           </form>
         </PmSectionCard>
@@ -322,28 +308,85 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
   );
 }
 
-function TradeCard({ entry }: { entry: TradeEntry }) {
-  const isProfit = (entry.realizedPnl ?? 0) >= 0;
+function OutcomeButton({
+  type,
+  selected,
+  disabled,
+  onSelect,
+}: {
+  type: OutcomeChoice;
+  selected: boolean;
+  disabled: boolean;
+  onSelect: () => void;
+}) {
+  const isWin = type === "profit";
   return (
-    <li className="overflow-hidden rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)]">
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onSelect}
+      className={cn(
+        "flex items-center justify-center gap-2 rounded-xl border-2 px-4 py-4 text-base font-semibold transition-all",
+        isWin
+          ? selected
+            ? "border-emerald-500 bg-emerald-500 text-white shadow-sm dark:border-emerald-400 dark:bg-emerald-600"
+            : "border-emerald-500/30 bg-[var(--id-surface)] text-emerald-700 hover:border-emerald-500/60 dark:text-emerald-400"
+          : selected
+            ? "border-rose-500 bg-rose-500 text-white shadow-sm dark:border-rose-400 dark:bg-rose-600"
+            : "border-rose-500/30 bg-[var(--id-surface)] text-rose-700 hover:border-rose-500/60 dark:text-rose-400"
+      )}
+    >
+      {isWin ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
+      {isWin ? "Win" : "Loss"}
+    </button>
+  );
+}
+
+function TradeCard({ entry }: { entry: TradeEntry }) {
+  const isWin = entry.tradeResult === "profit" || (entry.realizedPnl ?? 0) > 0;
+  const isLoss = entry.tradeResult === "loss" || (entry.realizedPnl ?? 0) < 0;
+  const pnl = entry.realizedPnl ?? 0;
+
+  return (
+    <li
+      className={cn(
+        "overflow-hidden rounded-xl border-2",
+        isWin
+          ? "border-emerald-500/50 bg-emerald-500/5 dark:border-emerald-400/40 dark:bg-emerald-500/10"
+          : isLoss
+            ? "border-rose-500/50 bg-rose-500/5 dark:border-rose-400/40 dark:bg-rose-500/10"
+            : "border-[var(--id-border)] bg-[var(--id-surface-muted)]"
+      )}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3 p-4">
         <div>
           <p className="font-semibold text-[var(--id-text)]">{entry.instrument}</p>
-          <p className="mt-1 text-xs text-[var(--id-text-muted)]">
-            {TRADE_ENTRY_DIRECTION_LABELS[entry.direction]} · {entry.quantity} @ {entry.entryPrice}
-            {entry.exitPrice != null ? ` → ${entry.exitPrice}` : ""}
-          </p>
           {entry.tradeResult && (
             <p
-              className={`mt-2 inline-flex items-center gap-1 text-sm font-medium ${
-                isProfit ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
-              }`}
+              className={cn(
+                "mt-2 inline-flex items-center gap-1.5 text-sm font-semibold",
+                isWin
+                  ? "text-emerald-700 dark:text-emerald-400"
+                  : isLoss
+                    ? "text-rose-700 dark:text-rose-400"
+                    : "text-[var(--id-text-muted)]"
+              )}
             >
-              {isProfit ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-              {TRADE_ENTRY_RESULT_LABELS[entry.tradeResult]}
-              {entry.realizedPnl != null &&
-                ` · ${entry.realizedPnl >= 0 ? "+" : ""}${formatCurrency(entry.realizedPnl)}`}
+              {isWin ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+              {TRADE_ENTRY_RESULT_LABELS[entry.tradeResult as TradeEntryResult]}
+              {entry.realizedPnl != null && (
+                <span className="ml-1">
+                  {pnl >= 0 ? "+" : ""}
+                  {formatCurrency(Math.abs(pnl))}
+                </span>
+              )}
             </p>
+          )}
+          {entry.profitAppliedAt && (
+            <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">Profit distributed</p>
+          )}
+          {entry.lossAppliedAt && (
+            <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">Loss applied to balance</p>
           )}
         </div>
         {entry.closedAt && (

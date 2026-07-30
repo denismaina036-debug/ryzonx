@@ -28,6 +28,7 @@ export interface TradeEntry {
   tradeResult: TradeEntryResult | null;
   realizedPnl: number | null;
   lossAppliedAt: string | null;
+  profitAppliedAt: string | null;
   screenshotUrl: string | null;
   investorVisible: boolean;
   notes: string | null;
@@ -131,10 +132,12 @@ export interface InvestorCycleOperationsView {
 export interface CreateTradeEntryInput {
   instrument: string;
   market?: string | null;
-  direction: TradeEntryDirection;
-  entryPrice: number;
-  quantity: number;
+  direction?: TradeEntryDirection;
+  entryPrice?: number;
+  quantity?: number;
   notes?: string | null;
+  /** Dollar P/L amount (positive). Used with tradeResult for one-step journal entries. */
+  amountUsd?: number;
   /** When set, records a completed trade in one step (entry + exit + P/L). */
   exitPrice?: number;
   tradeResult?: TradeEntryResult | null;
@@ -152,6 +155,8 @@ export interface UpdateTradeEntryInput {
 
 export interface CloseTradeEntryInput {
   exitPrice: number;
+  /** When set, bypasses price×quantity P/L calculation (dollar journal entries). */
+  realizedPnlUsd?: number;
   tradeResult?: TradeEntryResult | null;
   notes?: string | null;
   screenshotUrl?: string | null;

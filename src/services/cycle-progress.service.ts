@@ -74,6 +74,7 @@ function mapEntryRow(row: EntryRow): TradeEntry {
     tradeResult: null,
     realizedPnl: null,
     lossAppliedAt: null,
+    profitAppliedAt: null,
     screenshotUrl: row.screenshot_url ?? null,
     investorVisible: row.investor_visible ?? true,
     notes: row.notes,

@@ -34,6 +34,7 @@ function mapEntry(row: EntryRow): TradeEntry {
     tradeResult: null,
     realizedPnl: null,
     lossAppliedAt: null,
+    profitAppliedAt: null,
     screenshotUrl: null,
     investorVisible: true,
     notes: null,

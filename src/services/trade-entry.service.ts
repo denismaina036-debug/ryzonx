@@ -15,6 +15,7 @@ import { resolveCycleManagerUserId } from "@/lib/platform-events/resolve-recipie
 import { generateTradeReference } from "@/lib/investment/utils";
 import { computeTradeRealizedPnl } from "@/lib/financial/profit-distribution-calculator";
 import { tradeLossAllocationService } from "@/services/trade-loss-allocation.service";
+import { tradeProfitAllocationService } from "@/services/trade-profit-allocation.service";
 import type {
   CloseTradeEntryInput,
   CreateTradeEntryInput,
@@ -39,6 +40,7 @@ type EntryRow = {
   trade_result: string | null;
   realized_pnl: string | number | null;
   loss_applied_at: string | null;
+  profit_applied_at: string | null;
   screenshot_url: string | null;
   investor_visible: boolean | null;
   notes: string | null;
@@ -72,6 +74,7 @@ function mapEntry(row: EntryRow): TradeEntry {
     tradeResult: (row.trade_result as TradeEntryResult | null) ?? null,
     realizedPnl: row.realized_pnl != null ? toNumber(row.realized_pnl) : null,
     lossAppliedAt: row.loss_applied_at,
+    profitAppliedAt: row.profit_applied_at,
     screenshotUrl: row.screenshot_url ?? null,
     investorVisible: row.investor_visible ?? true,
     notes: row.notes,
@@ -164,27 +167,16 @@ export const tradeEntryService = {
 
     const { data, error } = await db
       .from("trade_entries")
-      .select("entry_price, exit_price, quantity, direction, status")
+      .select("realized_pnl, status")
       .eq("investment_cycle_id", cycleId)
       .eq("status", "closed");
 
     if (error) throw new Error(error.message);
 
-    return ((data ?? []) as Array<{
-      entry_price: string | number;
-      exit_price: string | number | null;
-      quantity: string | number;
-      direction: string;
-      status: string;
-    }>).reduce((sum, row) => {
-      if (row.exit_price == null) return sum;
-      const entryPrice = toNumber(row.entry_price);
-      const exitPrice = toNumber(row.exit_price);
-      const quantity = toNumber(row.quantity);
-      const delta = exitPrice - entryPrice;
-      const signed = row.direction === "long" ? delta : -delta;
-      return sum + signed * quantity;
-    }, 0);
+    return ((data ?? []) as Array<{ realized_pnl: string | number | null; status: string }>).reduce(
+      (sum, row) => sum + toNumber(row.realized_pnl),
+      0
+    );
   },
 
   /** Public open trades for marketplace display during trading status. */
@@ -257,8 +249,42 @@ export const tradeEntryService = {
     cycleId: string,
     input: CreateTradeEntryInput
   ): Promise<TradeEntry> {
+    if (input.amountUsd != null && input.tradeResult) {
+      const amount = Math.abs(input.amountUsd);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error("Dollar amount must be positive.");
+      }
+      if (input.tradeResult !== "profit" && input.tradeResult !== "loss") {
+        throw new Error("Select Win or Loss.");
+      }
+
+      const signedPnl = input.tradeResult === "loss" ? -amount : amount;
+      const draft = await this.createDraft(cycleId, {
+        instrument: input.instrument,
+        direction: input.direction ?? "long",
+        entryPrice: 1,
+        quantity: 1,
+        notes: input.notes,
+        market: input.market,
+      });
+      const opened = await this.openTrade(draft.id);
+      return this.closeTrade(opened.id, {
+        exitPrice: 1,
+        tradeResult: input.tradeResult,
+        realizedPnlUsd: signedPnl,
+        notes: input.notes,
+        screenshotUrl: input.screenshotUrl,
+      });
+    }
+
     if (input.exitPrice == null || input.exitPrice <= 0) {
       throw new Error("Exit price is required to record a completed trade.");
+    }
+    if (input.entryPrice == null || input.entryPrice <= 0) {
+      throw new Error("Entry price must be positive.");
+    }
+    if (input.quantity == null || input.quantity <= 0) {
+      throw new Error("Quantity must be positive.");
     }
 
     const draft = await this.createDraft(cycleId, input);
@@ -277,8 +303,10 @@ export const tradeEntryService = {
     const journal = await tradingJournalService.getOrCreateForCycle(cycleId);
 
     if (!input.instrument?.trim()) throw new Error("Instrument is required.");
-    if (input.entryPrice <= 0) throw new Error("Entry price must be positive.");
-    if (input.quantity <= 0) throw new Error("Quantity must be positive.");
+    const entryPrice = input.entryPrice ?? 1;
+    const quantity = input.quantity ?? 1;
+    if (entryPrice <= 0) throw new Error("Entry price must be positive.");
+    if (quantity <= 0) throw new Error("Quantity must be positive.");
 
     const db = createAdminClient();
     const { data, error } = await db
@@ -290,9 +318,9 @@ export const tradeEntryService = {
         trade_reference: generateTradeReference(),
         instrument: input.instrument.trim(),
         market: input.market?.trim() ?? null,
-        direction: input.direction,
-        entry_price: input.entryPrice,
-        quantity: input.quantity,
+        direction: input.direction ?? "long",
+        entry_price: entryPrice,
+        quantity,
         status: "draft",
         notes: input.notes?.trim() ?? null,
         created_by: userId,
@@ -443,11 +471,16 @@ export const tradeEntryService = {
     if (existing.status !== "open" && existing.status !== "partially_closed") {
       throw new Error("Only open trades can be closed.");
     }
-    if (input.exitPrice <= 0) throw new Error("Exit price must be positive.");
+    if (input.realizedPnlUsd == null && input.exitPrice <= 0) {
+      throw new Error("Exit price must be positive.");
+    }
     await assertWritableCycle(existing.investmentCycleId);
 
     const draftEntry = { ...existing, exitPrice: input.exitPrice, status: "closed" as const };
-    const realizedPnl = computeTradeRealizedPnl(draftEntry);
+    const realizedPnl =
+      input.realizedPnlUsd != null
+        ? input.realizedPnlUsd
+        : computeTradeRealizedPnl(draftEntry);
     const tradeResult = tradeLossAllocationService.resolveTradeResult(
       realizedPnl,
       input.tradeResult
@@ -495,6 +528,14 @@ export const tradeEntryService = {
       await tradeLossAllocationService.applyLossToCycle({
         tradeEntry: entry,
         lossAmount: Math.abs(realizedPnl),
+        actorId: userId,
+      });
+    }
+
+    if (tradeResult === "profit" && realizedPnl > 0) {
+      await tradeProfitAllocationService.applyProfitToCycle({
+        tradeEntry: entry,
+        profitAmount: realizedPnl,
         actorId: userId,
       });
     }

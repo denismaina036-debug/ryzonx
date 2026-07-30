@@ -3370,14 +3370,20 @@ export type Database = {
           id: string
           instrument: string
           investment_cycle_id: string
+          investor_visible: boolean | null
           journal_id: string
+          loss_applied_at: string | null
           market: string | null
           notes: string | null
           opened_at: string | null
           pool_manager_id: string
+          profit_applied_at: string | null
           quantity: number
+          realized_pnl: number | null
+          screenshot_url: string | null
           status: Database["public"]["Enums"]["trade_entry_status"]
           trade_reference: string
+          trade_result: Database["public"]["Enums"]["trade_entry_result"] | null
           updated_at: string
           updated_by: string | null
         }
@@ -3391,14 +3397,20 @@ export type Database = {
           id?: string
           instrument: string
           investment_cycle_id: string
+          investor_visible?: boolean | null
           journal_id: string
+          loss_applied_at?: string | null
           market?: string | null
           notes?: string | null
           opened_at?: string | null
           pool_manager_id: string
+          profit_applied_at?: string | null
           quantity: number
+          realized_pnl?: number | null
+          screenshot_url?: string | null
           status?: Database["public"]["Enums"]["trade_entry_status"]
           trade_reference: string
+          trade_result?: Database["public"]["Enums"]["trade_entry_result"] | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -3412,14 +3424,20 @@ export type Database = {
           id?: string
           instrument?: string
           investment_cycle_id?: string
+          investor_visible?: boolean | null
           journal_id?: string
+          loss_applied_at?: string | null
           market?: string | null
           notes?: string | null
           opened_at?: string | null
           pool_manager_id?: string
+          profit_applied_at?: string | null
           quantity?: number
+          realized_pnl?: number | null
+          screenshot_url?: string | null
           status?: Database["public"]["Enums"]["trade_entry_status"]
           trade_reference?: string
+          trade_result?: Database["public"]["Enums"]["trade_entry_result"] | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -4000,6 +4018,7 @@ export type Database = {
         | "distribution_pending"
         | "completed"
       trade_entry_direction: "long" | "short"
+      trade_entry_result: "profit" | "loss" | "breakeven"
       trade_entry_status:
         | "draft"
         | "open"
