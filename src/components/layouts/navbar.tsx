@@ -61,7 +61,7 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
           <Link href={ROUTES.home} className="relative z-50 flex items-center gap-2.5">
             <Image
               src="/images/logo.png"
-              alt={`${APP_NAME} logo`}
+              alt="RyvonX logo — investment pool marketplace"
               width={36}
               height={36}
               className="h-9 w-9 object-contain"

@@ -4,13 +4,18 @@ import { PageHeader } from "@/components/layouts/page-header";
 import { SectionContainer } from "@/components/layouts/section";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { ActivityFeed } from "@/components/ui/activity-feed";
+import { ROUTES } from "@/constants/routes";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 import { fundService } from "@/services/fund.service";
 import { formatCurrency, formatPercentage } from "@/lib/utils";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Investors",
-  description: "Transparent, anonymized fund-wide investor statistics for Ryvonx Main Pool.",
-};
+  description:
+    "Transparent, anonymized fund-wide investor statistics and activity on RyvonX.",
+  path: ROUTES.investors,
+  keywords: ["investor statistics", "fund transparency", "RyvonX investors"],
+});
 
 export default async function InvestorsPage() {
   const [stats, deposits, withdrawals, investors] = await Promise.all([

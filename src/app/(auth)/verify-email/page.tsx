@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import { ROUTES } from "@/constants/routes";
+import { buildNoIndexMetadata } from "@/lib/seo/metadata";
+
+export const metadata: Metadata = buildNoIndexMetadata({
+  title: "Verify Email",
+  description: "Verify your email address to activate your RyvonX account.",
+  path: ROUTES.verifyEmail,
+});
 
 export default function VerifyEmailPage() {
   return (

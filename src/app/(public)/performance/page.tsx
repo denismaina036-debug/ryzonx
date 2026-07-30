@@ -7,13 +7,18 @@ import {
   landingStatGridColumns,
   mapResolvedLandingStats,
 } from "@/features/public/lib/landing-statistics-utils";
+import { ROUTES } from "@/constants/routes";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 import { landingPageService } from "@/services/landing-page.service";
 import { mockPerformanceHistory } from "@/lib/mock-data";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Performance",
-  description: "View Ryvonx's historical performance, ROI metrics, and fund statistics.",
-};
+  description:
+    "View RyvonX historical performance, ROI metrics, and fund statistics with full transparency.",
+  path: ROUTES.performance,
+  keywords: ["fund performance", "ROI", "trading performance", "RyvonX"],
+});
 
 export default async function PerformancePage() {
   const content = await landingPageService.getPublicContent();

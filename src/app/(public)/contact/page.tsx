@@ -2,11 +2,15 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/layouts/page-header";
 import { SectionContainer } from "@/components/layouts/section";
 import { ContactSection } from "@/features/public/components/contact-section";
+import { ROUTES } from "@/constants/routes";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Contact",
-  description: "Get in touch with the Ryvonx team.",
-};
+  description: "Get in touch with the RyvonX team for support, partnerships, and investor inquiries.",
+  path: ROUTES.contact,
+  keywords: ["contact RyvonX", "investor support", "RyvonX help"],
+});
 
 export default function ContactPage() {
   return (

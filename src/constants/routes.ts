@@ -1,7 +1,7 @@
-export const APP_NAME = "Ryvonx" as const;
+export const APP_NAME = "RyvonX" as const;
 
 export const APP_DESCRIPTION =
-  "A transparent pool trading fund management platform. Invest in a professionally managed trading pool with full visibility into performance." as const;
+  "RyvonX is a trusted marketplace where skilled traders manage investment pools while investors discover and invest alongside verified pool managers." as const;
 
 export const ROUTES = {
   // Public

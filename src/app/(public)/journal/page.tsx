@@ -2,11 +2,16 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/layouts/page-header";
 import { SectionContainer } from "@/components/layouts/section";
 import { JournalTable } from "@/features/public/components/journal-table";
+import { ROUTES } from "@/constants/routes";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Trading Journal",
-  description: "Browse every published trade in the Ryvonx Main Pool with full transparency.",
-};
+  description:
+    "Browse every published trade on RyvonX with full transparency into trading activity and results.",
+  path: ROUTES.journal,
+  keywords: ["trading journal", "trade history", "transparent trading", "RyvonX"],
+});
 
 export default function JournalPage() {
   return (

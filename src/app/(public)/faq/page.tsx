@@ -2,12 +2,17 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/layouts/page-header";
 import { SectionContainer } from "@/components/layouts/section";
 import { Accordion } from "@/components/ui/accordion";
+import { ROUTES } from "@/constants/routes";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 import { fundService } from "@/services/fund.service";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "FAQ",
-  description: "Frequently asked questions about investing with Ryvonx.",
-};
+  description:
+    "Frequently asked questions about investing with RyvonX, pool trading, withdrawals, and fund transparency.",
+  path: ROUTES.faq,
+  keywords: ["RyvonX FAQ", "investment questions", "pool trading FAQ"],
+});
 
 export default async function FaqPage() {
   const items = await fundService.getFaqItems();

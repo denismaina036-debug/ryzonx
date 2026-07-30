@@ -1,6 +1,15 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
+import { ROUTES } from "@/constants/routes";
+import { buildNoIndexMetadata } from "@/lib/seo/metadata";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { AuthQueryToast } from "@/features/auth/components/auth-query-toast";
+
+export const metadata: Metadata = buildNoIndexMetadata({
+  title: "Sign In",
+  description: "Sign in to your RyvonX account to manage investments and pool activity.",
+  path: ROUTES.login,
+});
 
 function LoginFormFallback() {
   return (

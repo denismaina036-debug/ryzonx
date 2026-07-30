@@ -1,21 +1,18 @@
 import type { Metadata } from "next";
 import { QueryProvider } from "@/providers/query-provider";
 import { ToastProvider } from "@/providers/toast-provider";
-import { APP_NAME, APP_DESCRIPTION } from "@/constants/routes";
-import { resolveMetadataBaseUrl } from "@/lib/app-url";
-import { CANONICAL_SITE_URL } from "@/constants/site";
+import { BRAND_DESCRIPTION, BRAND_NAME } from "@/constants/brand";
+import { ROOT_SITE_METADATA } from "@/lib/seo/metadata";
+import { SiteJsonLd } from "@/components/seo/site-json-ld";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
+  ...ROOT_SITE_METADATA,
   title: {
-    default: APP_NAME,
-    template: `%s | ${APP_NAME}`,
+    default: BRAND_NAME,
+    template: `%s | ${BRAND_NAME}`,
   },
-  description: APP_DESCRIPTION,
-  metadataBase: new URL(resolveMetadataBaseUrl()),
-  alternates: {
-    canonical: CANONICAL_SITE_URL,
-  },
+  description: BRAND_DESCRIPTION,
 };
 
 export default function RootLayout({
@@ -26,6 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen overflow-x-hidden bg-background font-sans antialiased">
+        <SiteJsonLd />
         <QueryProvider>
           <ToastProvider>{children}</ToastProvider>
         </QueryProvider>

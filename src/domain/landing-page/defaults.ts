@@ -199,8 +199,8 @@ export const DEFAULT_LANDING_PAGE_CONTENT: LandingPageContent = {
     description:
       "RyvonX is a trusted marketplace where skilled traders manage investment pools and investors discover verified trading professionals.",
     keywords: "pool trading, investment pools, forex, trading fund, RyvonX",
-    openGraphImageUrl: "",
-    socialPreviewImageUrl: "",
+    openGraphImageUrl: "/images/og-image.png",
+    socialPreviewImageUrl: "/images/og-image.png",
     faviconUrl: "/favicon.ico",
   },
 };

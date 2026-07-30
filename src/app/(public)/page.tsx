@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { BRAND_NAME } from "@/constants/brand";
+import { ROUTES } from "@/constants/routes";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 import { HeroSection } from "@/features/public/components/hero-section";
 import { PerformanceSection } from "@/features/public/components/performance-section";
 import { JournalPreviewSection } from "@/features/public/components/journal-preview";
@@ -15,20 +18,19 @@ import { landingPageService } from "@/services/landing-page.service";
 export async function generateMetadata(): Promise<Metadata> {
   const content = await landingPageService.getPublicContent();
   const { seo } = content;
-  return {
-    title: seo.title,
+  const keywords = (typeof seo.keywords === "string" ? seo.keywords : "")
+    .split(",")
+    .map((k) => k.trim())
+    .filter(Boolean);
+
+  return buildPageMetadata({
+    title: seo.title || BRAND_NAME,
     description: seo.description,
-    keywords: (typeof seo.keywords === "string" ? seo.keywords : "")
-      .split(",")
-      .map((k) => k.trim())
-      .filter(Boolean),
-    openGraph: {
-      title: seo.title,
-      description: seo.description,
-      images: seo.openGraphImageUrl ? [{ url: seo.openGraphImageUrl }] : undefined,
-    },
-    icons: seo.faviconUrl ? { icon: seo.faviconUrl } : undefined,
-  };
+    path: ROUTES.home,
+    keywords: keywords.length ? keywords : undefined,
+    image: seo.openGraphImageUrl || seo.socialPreviewImageUrl || undefined,
+    absoluteTitle: true,
+  });
 }
 
 export default async function HomePage() {

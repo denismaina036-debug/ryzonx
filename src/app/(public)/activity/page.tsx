@@ -4,14 +4,17 @@ import { PageHeader } from "@/components/layouts/page-header";
 import { SectionContainer } from "@/components/layouts/section";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants/routes";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 import { PlatformActivityFeed } from "@/features/public/components/platform-activity-feed";
 import { publicActivityService } from "@/services/public-activity.service";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Platform Activity",
   description:
     "Live RyvonX platform activity — deposits, withdrawals, pool investments, and marketplace milestones.",
-};
+  path: ROUTES.activity,
+  keywords: ["platform activity", "investment activity", "RyvonX live feed"],
+});
 
 export default async function ActivityPage() {
   const items = await publicActivityService.listRecent(40);

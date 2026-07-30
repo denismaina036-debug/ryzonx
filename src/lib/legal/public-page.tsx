@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { LegalDocumentView } from "@/features/public/components/legal-document-view";
 import { legalDocumentService } from "@/services/legal-document.service";
 import type { LegalDocumentType, PublishedLegalDocument } from "@/domain/legal-documents/types";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 
 export const dynamic = "force-dynamic";
 
@@ -19,16 +20,20 @@ export async function getPublishedLegalDocumentByType(
 }
 
 export function buildLegalDocumentMetadata(document: PublishedLegalDocument): Metadata {
-  return {
+  const keywords = document.seo.metaKeywords
+    ? document.seo.metaKeywords
+        .split(",")
+        .map((k) => k.trim())
+        .filter(Boolean)
+    : undefined;
+
+  return buildPageMetadata({
     title: document.seo.pageTitle,
     description: document.seo.metaDescription,
-    keywords: document.seo.metaKeywords,
-    openGraph: {
-      title: document.seo.pageTitle,
-      description: document.seo.metaDescription,
-      images: document.seo.ogImageUrl ? [document.seo.ogImageUrl] : undefined,
-    },
-  };
+    path: `/${document.seo.slug}`,
+    keywords,
+    image: document.seo.ogImageUrl || undefined,
+  });
 }
 
 export async function buildLegalSlugMetadata(slug: string): Promise<Metadata> {
