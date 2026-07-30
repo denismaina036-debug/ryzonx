@@ -129,10 +129,11 @@ export interface AdminIntelligenceDashboard {
 export interface InvestorRatingView {
   overallRating: number | null;
   overallScore: number;
+  securityRating: number | null;
+  consistencyScore: number | null;
   performanceGrade: string | null;
   riskGrade: string | null;
   confidenceScore: number | null;
   trend: RatingTrend;
   breakdown: Array<{ label: string; score: number; explanation: string }>;
-  comparedTo: string;
 }

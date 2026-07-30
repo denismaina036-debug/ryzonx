@@ -37,9 +37,9 @@ export const POOL_MANAGER_STAT_FIELD_LABELS: Record<
   winRatePct: "Win Rate (%)",
   avgMonthlyReturnPct: "Average Monthly Return (%)",
   maxDrawdownPct: "Max Drawdown (%)",
-  ryvonxRating: "Overall Rating (0–5)",
-  securityRating: "Security Rating (0–100)",
-  aggressivenessRating: "Aggressiveness Rating (0–100)",
+  ryvonxRating: "RyvonX Rating (0–5)",
+  securityRating: "Security Rating (0–5)",
+  aggressivenessRating: "Aggressiveness Rating (deprecated)",
   assetsUnderManagement: "Capital / AUM (baseline $)",
   totalCapitalManaged: "Total Capital Managed ($)",
   displayInvestorCount: "Active Investors (baseline count)",
@@ -70,6 +70,11 @@ export const POOL_MANAGER_STAT_FIELD_HINTS: Partial<
     "Baseline trade count. Live verified trades above this value display automatically.",
   yearsOnRyvonX:
     "Baseline tenure on RyvonX. Actual platform years above this value display automatically.",
+  maxDrawdownPct:
+    "Enter as a positive number (e.g. 8 for 8%). Shown publicly as a negative percentage.",
+  securityRating: "Manager security score from 0 to 5 stars.",
+  consistencyScore:
+    "Consistency score (0–100) shown in Performance Intelligence on the public profile.",
 };
 
 export interface PoolManagerStatSection {
@@ -90,16 +95,9 @@ export const POOL_MANAGER_STAT_SECTIONS: PoolManagerStatSection[] = [
   {
     id: "ratings",
     title: "Ratings",
-    description: "Overall, security, and aggressiveness scores.",
-    fields: [
-      "ryvonxRating",
-      "securityRating",
-      "aggressivenessRating",
-      "safetyRating",
-      "performanceRating",
-      "consistencyScore",
-      "riskRating",
-    ],
+    description:
+      "RyvonX overall rating, security (0–5), and consistency for Performance Intelligence.",
+    fields: ["ryvonxRating", "securityRating", "consistencyScore"],
   },
   {
     id: "capital",

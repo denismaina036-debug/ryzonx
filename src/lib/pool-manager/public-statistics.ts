@@ -36,3 +36,10 @@ export function resolvePublicCapital(
   if (seed == null || !Number.isFinite(seed)) return liveCapital;
   return resolvePublicDisplayCount(seed, liveCapital);
 }
+
+/** Drawdown is always shown as a negative percentage on public surfaces. */
+export function formatDrawdownPct(value: number | null | undefined, decimals = 2): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  const magnitude = Math.abs(value);
+  return `-${magnitude.toFixed(decimals)}%`;
+}

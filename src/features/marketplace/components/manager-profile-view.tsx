@@ -24,6 +24,7 @@ import {
   marketplaceHomeCrumb,
 } from "@/features/marketplace/components/marketplace-breadcrumb";
 import { formatCurrency, formatPercentage, cn } from "@/lib/utils";
+import { formatDrawdownPct } from "@/lib/pool-manager/public-statistics";
 import type {
   MarketplaceJournalEntry,
   MarketplacePoolCard,
@@ -33,6 +34,7 @@ import { InvestorRatingPanel } from "@/features/performance-intelligence/compone
 import type { InvestorRatingView } from "@/domain/performance-intelligence/types";
 import { MarketplaceStrategyCard } from "@/features/marketplace/components/investment-marketplace-cards";
 import type { PoolManagerPublicProfile } from "@/domain/pool-manager/types";
+import type { PoolManagerReviewSummary } from "@/services/pool-manager-review.service";
 import { PM_SOCIAL_PLATFORMS } from "@/domain/pool-manager/public-profile";
 
 const PROFILE_TABS = [
@@ -54,6 +56,7 @@ interface ManagerProfileViewProps {
   strategies: InvestorStrategyCard[];
   cycles: InvestorCycleCard[];
   investorRating?: InvestorRatingView | null;
+  reviewSummary?: PoolManagerReviewSummary | null;
 }
 
 export function ManagerProfileView({
@@ -63,6 +66,7 @@ export function ManagerProfileView({
   strategies,
   cycles: _cycles,
   investorRating,
+  reviewSummary,
 }: ManagerProfileViewProps) {
   const [activeTab, setActiveTab] = useState<ProfileTab>("overview");
 
@@ -81,7 +85,7 @@ export function ManagerProfileView({
     {
       label: "Max Drawdown",
       value:
-        profile.maxDrawdownPct != null ? formatPercentage(profile.maxDrawdownPct) : "—",
+        profile.maxDrawdownPct != null ? formatDrawdownPct(profile.maxDrawdownPct) : "—",
     },
     { label: "Verified Trades", value: String(profile.publicTradeCount) },
     { label: "Reviews", value: String(profile.publicReviewCount) },
@@ -90,11 +94,10 @@ export function ManagerProfileView({
     { label: "Opportunities", value: String(profile.poolsManaged) },
   ];
 
-  const ratings = [
-    { label: "RyvonX Rating", value: profile.ryvonxRating, max: 5 },
-    { label: "Security", value: profile.securityRating, max: 5 },
-    { label: "Aggressiveness", value: profile.aggressivenessRating, max: 5 },
-  ].filter((r) => r.value != null);
+  const positiveReviews =
+    (reviewSummary?.distribution[4] ?? 0) + (reviewSummary?.distribution[5] ?? 0);
+  const negativeReviews =
+    (reviewSummary?.distribution[1] ?? 0) + (reviewSummary?.distribution[2] ?? 0);
 
   const governanceIndicators = [
     ...new Set(managedPools.flatMap((p) => p.protectionIndicators)),
@@ -302,9 +305,8 @@ export function ManagerProfileView({
 
             <Section title="Historical Performance">
               <p className="text-sm text-[var(--id-text-muted)]">
-                Cycle-linked performance analytics and verified track records will appear here when
-                the Trading Engine phase delivers live trading data. Current ratings are display-only
-                placeholders.
+                Verified cycle and trade history will appear here as live trading data is recorded
+                on the platform.
               </p>
             </Section>
           </div>
@@ -343,25 +345,20 @@ export function ManagerProfileView({
 
       {activeTab === "ratings" && (
         <div className="space-y-6">
-          {investorRating && <InvestorRatingPanel rating={investorRating} />}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {ratings.map((r) => (
-            <div
-              key={r.label}
-              className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5"
-            >
-              <p className="text-sm text-[var(--id-text-muted)]">{r.label}</p>
+          {investorRating ? (
+            <InvestorRatingPanel rating={investorRating} />
+          ) : profile.ryvonxRating != null ? (
+            <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
+              <p className="text-sm text-[var(--id-text-muted)]">Manager Rating</p>
               <p className="mt-2 inline-flex items-center gap-1 text-2xl font-semibold text-[var(--id-text)]">
                 <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
-                {r.value!.toFixed(1)}
-                <span className="text-sm font-normal text-[var(--id-text-faint)]">/ {r.max}</span>
+                {profile.ryvonxRating.toFixed(1)}
+                <span className="text-sm font-normal text-[var(--id-text-faint)]">/ 5</span>
               </p>
-            </div>
-          ))}
-          {ratings.length === 0 && !investorRating && (
+            </section>
+          ) : (
             <p className="text-sm text-[var(--id-text-muted)]">No ratings available yet.</p>
           )}
-          </div>
         </div>
       )}
 
@@ -465,10 +462,86 @@ export function ManagerProfileView({
       )}
 
       {activeTab === "reviews" && (
-        <div className="rounded-[var(--id-radius)] border border-dashed border-[var(--id-border)] p-8 text-center text-sm text-[var(--id-text-muted)]">
-          Investor reviews and testimonials for this manager will be available in a future release.
+        <div className="space-y-6">
+          {reviewSummary && reviewSummary.totalReviews > 0 ? (
+            <>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <ReviewStatCard
+                  label="Average Rating"
+                  value={
+                    reviewSummary.averageRating > 0
+                      ? `${reviewSummary.averageRating.toFixed(1)} / 5`
+                      : "—"
+                  }
+                />
+                <ReviewStatCard
+                  label="Positive Reviews"
+                  value={String(positiveReviews)}
+                  hint="4–5 stars"
+                />
+                <ReviewStatCard
+                  label="Negative Reviews"
+                  value={String(negativeReviews)}
+                  hint="1–2 stars"
+                />
+              </div>
+
+              <Section title="Recent Reviews">
+                <ul className="space-y-4">
+                  {reviewSummary.recentReviews.map((review) => (
+                    <li
+                      key={review.id}
+                      className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] px-4 py-3"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-[var(--id-text)]">
+                          {review.investorName}
+                        </p>
+                        <p className="inline-flex items-center gap-1 text-sm text-[var(--id-text-secondary)]">
+                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                          {review.rating} / 5
+                        </p>
+                      </div>
+                      <p className="mt-2 text-sm leading-relaxed text-[var(--id-text-secondary)]">
+                        {review.message}
+                      </p>
+                      <p className="mt-2 text-xs text-[var(--id-text-muted)]">
+                        {new Date(review.createdAt).toLocaleDateString("en-GB", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </Section>
+            </>
+          ) : (
+            <div className="rounded-[var(--id-radius)] border border-dashed border-[var(--id-border)] p-8 text-center text-sm text-[var(--id-text-muted)]">
+              No published investor reviews yet.
+            </div>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+function ReviewStatCard({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
+  return (
+    <div className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] px-4 py-4 text-center shadow-[var(--id-shadow)]">
+      <p className="text-[10px] uppercase tracking-wider text-[var(--id-text-muted)]">{label}</p>
+      <p className="mt-1.5 text-lg font-semibold tabular-nums text-[var(--id-text)]">{value}</p>
+      {hint && <p className="mt-1 text-xs text-[var(--id-text-muted)]">{hint}</p>}
     </div>
   );
 }

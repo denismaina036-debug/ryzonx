@@ -3,6 +3,7 @@ import { InvestorPageContent } from "@/components/layouts/investor-page-content"
 import { ManagerProfileView } from "@/features/marketplace/components/manager-profile-view";
 import { marketplacePresentationService } from "@/services/marketplace-presentation.service";
 import { managerRatingService } from "@/services/manager-rating.service";
+import { poolManagerReviewService } from "@/services/pool-manager-review.service";
 
 export default async function ManagerPublicProfilePage({
   params,
@@ -13,7 +14,10 @@ export default async function ManagerPublicProfilePage({
   const data = await marketplacePresentationService.getManagerProfilePageData(slug);
   if (!data) notFound();
 
-  const investorRating = await managerRatingService.getInvestorView(data.profile.id);
+  const [investorRating, reviewSummary] = await Promise.all([
+    managerRatingService.getInvestorView(data.profile.id),
+    poolManagerReviewService.getSummary(data.profile.id),
+  ]);
 
   return (
     <InvestorPageContent wide>
@@ -24,6 +28,7 @@ export default async function ManagerPublicProfilePage({
         strategies={data.strategies}
         cycles={data.cycles}
         investorRating={investorRating}
+        reviewSummary={reviewSummary}
       />
     </InvestorPageContent>
   );

@@ -10,6 +10,7 @@ import {
   computeCategoryScores,
   computeWeightedRating,
 } from "@/lib/performance-intelligence/scoring";
+import type { PoolManagerAdminStatistics } from "@/domain/pool-manager/admin-statistics";
 import type {
   AdminIntelligenceDashboard,
   ManagerRatingResult,
@@ -74,19 +75,49 @@ export const managerRatingService = {
 
   async getInvestorView(managerId: string): Promise<InvestorRatingView | null> {
     const db = createAdminClient();
-    const { data: manager } = await db
+    const { data: managerRaw } = await db
       .from("pool_managers")
-      .select("id, status")
+      .select("id, status, ryvonx_rating, security_rating, admin_statistics")
       .eq("id", managerId)
       .maybeSingle();
-    if (!manager || (manager as { status: string }).status !== "approved") return null;
+
+    const manager = managerRaw as {
+      id: string;
+      status: string;
+      ryvonx_rating: number | null;
+      security_rating: number | null;
+      admin_statistics: PoolManagerAdminStatistics | null;
+    } | null;
+
+    if (!manager || manager.status !== "approved") return null;
+
+    const row = manager;
 
     const result = await this.getOrCompute(managerId);
     const { snapshot } = result;
 
+    const adminStats = row.admin_statistics ?? {};
+    const consistencyFromBreakdown = result.breakdown.find(
+      (item) => item.category === "consistency" || item.label === "Consistency"
+    )?.score;
+
+    const ryvonxRating =
+      row.ryvonx_rating != null
+        ? Number(row.ryvonx_rating)
+        : adminStats.ryvonxRating ?? snapshot.overallRating;
+
+    const securityRating =
+      adminStats.securityRating ??
+      (row.security_rating != null ? Number(row.security_rating) : null);
+
     return {
-      overallRating: snapshot.overallRating,
+      overallRating: ryvonxRating,
       overallScore: snapshot.overallScore,
+      securityRating,
+      consistencyScore:
+        adminStats.consistencyScore ??
+        snapshot.consistencyScore ??
+        (consistencyFromBreakdown != null ? Math.round(consistencyFromBreakdown) : null),
       performanceGrade: snapshot.performanceGrade,
       riskGrade: snapshot.riskGrade,
       confidenceScore: snapshot.confidenceScore,
@@ -96,7 +127,6 @@ export const managerRatingService = {
         score: Math.round(b.score),
         explanation: b.explanation,
       })),
-      comparedTo: "Platform average (benchmark placeholder)",
     };
   },
 

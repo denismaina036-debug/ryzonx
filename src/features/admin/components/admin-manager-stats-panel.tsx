@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ROUTES } from "@/constants/routes";
 import { formatCurrency } from "@/lib/utils";
+import { formatDrawdownPct } from "@/lib/pool-manager/public-statistics";
 import {
   POOL_MANAGER_EDITABLE_STAT_FIELDS,
   POOL_MANAGER_STAT_FIELD_HINTS,
@@ -45,6 +46,9 @@ function formatMetricValue(
   }
   if (field === "yearsOnRyvonX") {
     return `${value} yrs`;
+  }
+  if (field === "maxDrawdownPct") {
+    return formatDrawdownPct(Number(value));
   }
   return String(value);
 }

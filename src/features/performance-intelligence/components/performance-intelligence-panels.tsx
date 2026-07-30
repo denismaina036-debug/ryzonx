@@ -200,32 +200,44 @@ export function InvestorRatingPanel({
 }: {
   rating: {
     overallRating: number | null;
-    overallScore: number;
-    performanceGrade: string | null;
-    riskGrade: string | null;
-    confidenceScore: number | null;
+    securityRating: number | null;
+    consistencyScore: number | null;
     trend: "up" | "down" | "stable";
     breakdown: Array<{ label: string; score: number; explanation: string }>;
-    comparedTo: string;
   };
 }) {
+  const consistencyFromBreakdown = rating.breakdown.find((item) => item.label === "Consistency");
+
   return (
     <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
       <h2 className="font-semibold text-[var(--id-text)]">Performance Intelligence</h2>
       <p className="mt-1 text-sm text-[var(--id-text-muted)]">
-        Explainable ratings from verified platform activity — not investor payouts or proprietary formulas.
+        Ratings from verified platform activity and admin-published RyvonX scores.
       </p>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <InvestorStat label="Manager Rating" value={rating.overallRating != null ? `${rating.overallRating.toFixed(1)} ★` : "—"} />
-        <InvestorStat label="Performance" value={rating.performanceGrade ?? "—"} />
-        <InvestorStat label="Risk Indicator" value={rating.riskGrade ?? "—"} />
-        <InvestorStat label="Confidence" value={rating.confidenceScore != null ? `${Math.round(rating.confidenceScore)}%` : "—"} />
+      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+        <InvestorStat
+          label="Manager Rating"
+          value={rating.overallRating != null ? `${rating.overallRating.toFixed(1)} / 5` : "—"}
+        />
+        <InvestorStat
+          label="Security"
+          value={rating.securityRating != null ? `${rating.securityRating.toFixed(1)} / 5` : "—"}
+        />
+        <InvestorStat
+          label="Consistency"
+          value={
+            rating.consistencyScore != null
+              ? `${Math.round(rating.consistencyScore)} / 100`
+              : consistencyFromBreakdown
+                ? `${consistencyFromBreakdown.score} / 100`
+                : "—"
+          }
+        />
       </div>
 
-      <div className="mt-4 flex items-center gap-4 text-sm text-[var(--id-text-muted)]">
+      <div className="mt-4">
         <TrendIndicator trend={rating.trend} />
-        <span>{rating.comparedTo}</span>
       </div>
 
       <div className="mt-6">
