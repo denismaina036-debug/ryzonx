@@ -16,6 +16,8 @@ export async function POST(request: Request) {
     middleName?: string;
     lastName?: string;
     phone?: string;
+    country?: string;
+    registrationIntent?: string;
   };
 
   try {
@@ -53,6 +55,17 @@ export async function POST(request: Request) {
   const middleName = body.middleName?.trim();
   if (middleName) {
     metadata.middle_name = middleName;
+  }
+
+  const country = body.country?.trim();
+  if (country) {
+    metadata.country = country;
+  }
+
+  const registrationIntent = body.registrationIntent?.trim();
+  if (registrationIntent) {
+    metadata.registration_intent = registrationIntent;
+    metadata.accepted_legal_at_signup = "true";
   }
 
   try {

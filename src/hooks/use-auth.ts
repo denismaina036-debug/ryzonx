@@ -4,12 +4,11 @@ import { useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { getAuthCallbackUrl, getResetPasswordUrl } from "@/lib/app-url";
+import { getResetPasswordUrl } from "@/lib/app-url";
 import { ROUTES } from "@/constants/routes";
 import { USER_ROLES } from "@/constants/roles";
 import { getPostAuthRedirect, canAccessRoute } from "@/lib/auth/utils";
 import { getEffectiveUserRole, isSafeRedirectPath } from "@/lib/auth/redirect";
-import { formatFullName, normalizePhone } from "@/lib/auth/register";
 import { getAuthErrorMessage } from "@/lib/auth/errors";
 import type { UserRole } from "@/constants/roles";
 import type { LoginFormData, RegisterFormData } from "@/types";
@@ -68,80 +67,54 @@ export function useAuthActions() {
 
   const signUp = useCallback(
     async (data: RegisterFormData) => {
-      const fullName = formatFullName({
-        firstName: data.firstName,
-        middleName: data.middleName,
-        lastName: data.lastName,
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: data.email.trim(),
+          password: data.password,
+          firstName: data.firstName.trim(),
+          middleName: data.middleName?.trim() || undefined,
+          lastName: data.lastName.trim(),
+          phone: data.phone,
+          country: data.country?.trim() || undefined,
+          registrationIntent: data.registrationIntent,
+        }),
       });
-      const phone = normalizePhone(data.phone);
-      const middleName = data.middleName?.trim();
 
-      const metadata: Record<string, string> = {
-        first_name: data.firstName.trim(),
-        last_name: data.lastName.trim(),
-        full_name: fullName,
-        phone,
+      const payload = (await response.json()) as {
+        error?: string;
+        redirectTo?: string;
+        needsVerification?: boolean;
       };
 
-      if (middleName) {
-        metadata.middle_name = middleName;
+      if (!response.ok) {
+        const message = payload.error ?? "Registration failed. Please try again.";
+        toast.error("Registration failed", { description: message });
+        return { success: false as const, error: message };
       }
 
-      metadata.registration_intent = data.registrationIntent;
-      metadata.accepted_legal_at_signup = "true";
-
-      if (data.country?.trim()) {
-        metadata.country = data.country.trim();
-      }
-
-      const { data: authData, error } = await supabase.auth.signUp({
-        email: data.email.trim(),
-        password: data.password,
-        options: {
-          data: metadata,
-          emailRedirectTo: getAuthCallbackUrl(),
-        },
-      });
-
-      if (error) {
-        toast.error("Registration failed", {
-          description: getAuthErrorMessage(error),
+      if (payload.needsVerification) {
+        toast.success("Account created!", {
+          description: "Please check your email to verify your account.",
         });
-        return { success: false as const, error: getAuthErrorMessage(error) };
-      }
-
-      if (authData.user?.identities?.length === 0) {
-        toast.error("Registration failed", {
-          description:
-            "An account with this email already exists. Try signing in instead.",
-        });
-        return {
-          success: false as const,
-          error: "An account with this email already exists.",
-        };
-      }
-
-      if (authData.session) {
-        try {
-          await fetch("/api/legal/register-acceptance", { method: "POST" });
-        } catch {
-          // Acceptance can be completed after login if this request fails.
-        }
-
-        toast.success("Welcome to Ryvonx!", {
-          description: "Your investor account is ready.",
-        });
-        hardNavigate(ROUTES.dashboard);
+        router.push(payload.redirectTo ?? ROUTES.verifyEmail);
         return { success: true as const };
       }
 
-      toast.success("Account created!", {
-        description: "Please check your email to verify your account.",
+      try {
+        await fetch("/api/legal/register-acceptance", { method: "POST" });
+      } catch {
+        // Acceptance can be completed after login if this request fails.
+      }
+
+      toast.success("Welcome to Ryvonx!", {
+        description: "Your investor account is ready.",
       });
-      router.push(ROUTES.verifyEmail);
+      hardNavigate(payload.redirectTo ?? ROUTES.dashboard);
       return { success: true as const };
     },
-    [supabase, router]
+    [router]
   );
 
   const signOut = useCallback(async () => {
