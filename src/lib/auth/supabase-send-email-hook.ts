@@ -244,6 +244,45 @@ function buildTemplateVariables(
   };
 }
 
+export async function sendAuthTemplateEmail(input: {
+  to: string;
+  actionType: string;
+  user: SupabaseSendEmailPayload["user"];
+  verificationLink: string;
+}): Promise<void> {
+  if (!isResendConfigured()) {
+    throw new Error("RESEND_API_KEY is not configured.");
+  }
+
+  const slug = templateSlugForAction(input.actionType);
+  const template = getRegistryTemplate(slug);
+  if (!template) {
+    throw new Error(`Auth email template not found: ${slug}`);
+  }
+
+  const emailData: SupabaseSendEmailPayload["email_data"] = {
+    token: "",
+    token_hash: "",
+    redirect_to: input.verificationLink,
+    email_action_type: input.actionType,
+    site_url: input.verificationLink,
+  };
+
+  const variables = buildTemplateVariables(input.user, emailData, input.verificationLink);
+  const rendered = renderTemplateWithPremium(template, variables);
+
+  const from =
+    process.env.EMAIL_FROM?.trim() ?? "RyvonX <notifications@ryvonx.com>";
+
+  await sendResendEmail({
+    to: input.to,
+    subject: rendered.subject ?? "RyvonX",
+    html: rendered.html ?? `<pre>${rendered.body}</pre>`,
+    text: rendered.plainText ?? rendered.body,
+    from,
+  });
+}
+
 export async function handleSupabaseSendEmailHook(
   payload: SupabaseSendEmailPayload
 ): Promise<void> {
@@ -252,21 +291,13 @@ export async function handleSupabaseSendEmailHook(
   }
 
   const { user, email_data: emailData } = payload;
-  const slug = templateSlugForAction(emailData.email_action_type);
-  const template = getRegistryTemplate(slug);
-  if (!template) {
-    throw new Error(`Auth email template not found: ${slug}`);
-  }
-  const authTemplate = template;
 
   async function sendAuthEmail(to: string, verificationLink: string) {
-    const variables = buildTemplateVariables(user, emailData, verificationLink);
-    const rendered = renderTemplateWithPremium(authTemplate, variables);
-    await sendResendEmail({
+    await sendAuthTemplateEmail({
       to,
-      subject: rendered.subject ?? "RyvonX",
-      html: rendered.html ?? `<pre>${rendered.body}</pre>`,
-      text: rendered.plainText ?? rendered.body,
+      actionType: emailData.email_action_type,
+      user,
+      verificationLink,
     });
   }
 

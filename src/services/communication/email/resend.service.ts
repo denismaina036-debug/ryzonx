@@ -67,7 +67,18 @@ export async function sendResendEmail(
   };
 
   if (!response.ok) {
-    throw new Error(body.message ?? `Resend API error (${response.status})`);
+    const status = response.status;
+    if (status === 429) {
+      throw new Error(
+        "Resend rate limit reached. Wait a minute and try again."
+      );
+    }
+    if (status === 403) {
+      throw new Error(
+        "Resend rejected the sender domain. Verify ryvonx.com in Resend and set EMAIL_FROM to notifications@ryvonx.com."
+      );
+    }
+    throw new Error(body.message ?? `Resend API error (${status})`);
   }
 
   if (!body.id) {

@@ -12,7 +12,11 @@ const AUTH_CODE_MESSAGES: Record<string, string> = {
   unexpected_failure:
     "We could not finish creating your account. Please try again in a moment.",
   over_email_send_rate_limit:
-    "Email sending is temporarily limited. Wait a few minutes, then try again. If this persists, confirm the Send Email hook URL is https://ryvonx.com/api/auth/send-email and Resend is configured.",
+    "Too many verification emails were requested recently. Wait a few minutes and try again, or contact support if you need help.",
+  hook_payload_invalid:
+    "Account setup failed because the auth email hook rejected the request. Confirm SEND_EMAIL_HOOK_SECRET matches Supabase and redeploy.",
+  hook_timeout:
+    "Verification email timed out. Try again in a moment — if this continues, confirm https://ryvonx.com/api/auth/send-email is reachable.",
   hook_invalid_response:
     "Account setup failed because the auth email hook returned an invalid response. Redeploy the latest app version and confirm the hook returns JSON with Content-Type application/json.",
   validation_failed: "Please check your details and try again.",

@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { ensureInvestorBootstrap } from "@/lib/auth/ensure-investor-bootstrap";
-import { getAuthCallbackUrl } from "@/lib/app-url";
 import { getAuthErrorMessage } from "@/lib/auth/errors";
 import { formatFullName, normalizePhone } from "@/lib/auth/register";
+import { registerUserWithVerificationEmail } from "@/lib/auth/register-with-email";
+import { getAuthCallbackUrl } from "@/lib/app-url";
+import { isResendConfigured } from "@/services/communication/email/resend.service";
 import { ROUTES } from "@/constants/routes";
 
 export async function POST(request: Request) {
@@ -53,49 +55,81 @@ export async function POST(request: Request) {
     metadata.middle_name = middleName;
   }
 
-  const supabase = await createClient();
+  try {
+    if (isResendConfigured()) {
+      const result = await registerUserWithVerificationEmail({
+        email,
+        password,
+        metadata,
+      });
 
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: metadata,
-      emailRedirectTo: getAuthCallbackUrl(),
-    },
-  });
+      if (!result.needsVerification) {
+        try {
+          await ensureInvestorBootstrap(result.user);
+        } catch {
+          // Best-effort bootstrap
+        }
 
-  if (error) {
-    return NextResponse.json(
-      { error: getAuthErrorMessage(error) },
-      { status: 400 }
-    );
-  }
+        return NextResponse.json({
+          redirectTo: ROUTES.dashboard,
+          needsVerification: false,
+        });
+      }
 
-  if (data.user?.identities?.length === 0) {
-    return NextResponse.json(
-      {
-        error:
-          "An account with this email already exists. Try signing in instead.",
+      return NextResponse.json({
+        redirectTo: ROUTES.verifyEmail,
+        needsVerification: true,
+      });
+    }
+
+    const supabase = await createClient();
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: metadata,
+        emailRedirectTo: getAuthCallbackUrl(),
       },
-      { status: 409 }
-    );
-  }
+    });
 
-  if (data.session && data.user) {
-    try {
-      await ensureInvestorBootstrap(data.user);
-    } catch {
-      // Best-effort bootstrap
+    if (error) {
+      return NextResponse.json(
+        { error: getAuthErrorMessage(error) },
+        { status: 400 }
+      );
+    }
+
+    if (data.user?.identities?.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "An account with this email already exists. Try signing in instead.",
+        },
+        { status: 409 }
+      );
+    }
+
+    if (data.session && data.user) {
+      try {
+        await ensureInvestorBootstrap(data.user);
+      } catch {
+        // Best-effort bootstrap
+      }
+
+      return NextResponse.json({
+        redirectTo: ROUTES.dashboard,
+        needsVerification: false,
+      });
     }
 
     return NextResponse.json({
-      redirectTo: ROUTES.dashboard,
-      needsVerification: false,
+      redirectTo: ROUTES.verifyEmail,
+      needsVerification: true,
     });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Registration failed. Please try again.";
+    const status = message.includes("already exists") ? 409 : 400;
+    return NextResponse.json({ error: message }, { status });
   }
-
-  return NextResponse.json({
-    redirectTo: ROUTES.verifyEmail,
-    needsVerification: true,
-  });
 }
