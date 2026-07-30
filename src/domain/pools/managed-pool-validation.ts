@@ -87,6 +87,25 @@ export function validateManagedPoolForm(
       return "Select at least one trading instrument in What Is Traded.";
     }
 
+    if (!normalized.tradingSessionKey.trim()) {
+      return "Select a trading session.";
+    }
+
+    if (!normalized.tradingSchedulePreset.trim()) {
+      return "Select when you trade each week.";
+    }
+
+    if (!normalized.tradingScheduleTime.trim()) {
+      return "Set your trading start time (New York Time).";
+    }
+
+    if (
+      normalized.tradingSchedulePreset === "custom" &&
+      normalized.tradingScheduleDays.length === 0
+    ) {
+      return "Select at least one trading day.";
+    }
+
     const roiError = validateRoiConfig(normalized);
     if (roiError) return roiError;
 

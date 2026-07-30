@@ -30,7 +30,7 @@ import type {
 } from "@/domain/marketplace/types";
 import { normalizeMarketCodes } from "@/domain/reference-data/utils";
 import { tradeEntryService } from "@/services/trade-entry.service";
-import { tradingSessionLabel } from "@/domain/pools/trading-session";
+import { tradingSessionLabel, formatTradingScheduleLabel } from "@/domain/pools/trading-session";
 import { INVESTMENT_CYCLE_ALLOCATABLE_STATUSES } from "@/constants/investment-cycle";
 import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 import {
@@ -66,6 +66,10 @@ function readManagedPoolConfig(poolFaq: unknown) {
     tradingSessionKey?: string;
     tradingSessionCustom?: string;
     tradingTimeNy?: string;
+    tradingSchedulePreset?: string;
+    tradingScheduleDays?: string[];
+    tradingScheduleTime?: string;
+    tradingHours?: string;
     marketTypeCode?: string;
     tradingInstrumentCode?: string;
     marketsTradedCodes?: string[];
@@ -341,6 +345,12 @@ async function enrichPoolCards(
           (managed.durationUnit as ReturnDurationUnit | undefined) ??
           "days",
       }),
+      tradingScheduleLabel: formatTradingScheduleLabel({
+        preset: managed.tradingSchedulePreset,
+        days: managed.tradingScheduleDays,
+        time: managed.tradingScheduleTime,
+        legacyDateTime: managed.tradingTimeNy,
+      }) ?? managed.tradingHours ?? null,
       returnDurationPreset: inferReturnDurationPreset({
         preset: row.return_duration_preset as ReturnDurationPreset | null,
         value: row.return_duration_value as number | null,
@@ -560,6 +570,7 @@ function mapToCard(
     tradingStyleTag: null,
     riskLevelTag: null,
     expectedDurationLabel: "—",
+    tradingScheduleLabel: null,
     poolLevelLabel: formatPoolLevelLabel((row.capacity_status as string) ?? "open"),
     poolVerified: Boolean(row.governance_verified),
     managerRating: null,
@@ -895,6 +906,13 @@ export const marketplaceService = {
         managedConfig.tradingSessionCustom
       ),
       tradingTimeNy: managedConfig.tradingTimeNy ?? null,
+      tradingScheduleLabel:
+        formatTradingScheduleLabel({
+          preset: managedConfig.tradingSchedulePreset,
+          days: managedConfig.tradingScheduleDays,
+          time: managedConfig.tradingScheduleTime,
+          legacyDateTime: managedConfig.tradingTimeNy,
+        }) ?? managedConfig.tradingHours ?? null,
       marketTypeCode: managedConfig.marketTypeCode ?? null,
       tradingInstrumentCode: managedConfig.tradingInstrumentCode ?? null,
       marketsTradedCodes: managedConfig.marketsTradedCodes?.length

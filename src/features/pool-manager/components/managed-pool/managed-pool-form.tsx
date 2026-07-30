@@ -39,6 +39,7 @@ import { PmSectionCard } from "@/features/pool-manager/components/workspace/pm-p
 import { PoolImageUpload } from "./pool-image-upload";
 import { PmReturnDurationEditor } from "./pm-return-duration-editor";
 import { PmRoiMultiplierEditor } from "./pm-roi-multiplier-editor";
+import { PmTradingScheduleEditor } from "./pm-trading-schedule-editor";
 import type { PlatformInvestmentLevel } from "@/domain/roi";
 
 function buildStrategyReturnUrl(poolId?: string): string {
@@ -223,19 +224,15 @@ export function ManagedPoolForm({
               />
             </PmFormField>
           )}
-          <PmFormField
-            label="Trading Date & Time"
-            hint={`When trading begins — ${TRADING_TIME_ZONE_LABEL}.`}
-            required
-          >
-            <Input
-              type="datetime-local"
-              value={toTradingDateTimeLocalValue(values.tradingTimeNy)}
-              onChange={(e) => patch("tradingTimeNy", e.target.value)}
-              disabled={!editable}
-              className={pmInputClass}
-            />
-          </PmFormField>
+          <PmTradingScheduleEditor
+            preset={values.tradingSchedulePreset}
+            days={values.tradingScheduleDays}
+            time={values.tradingScheduleTime}
+            onPresetChange={(value) => patch("tradingSchedulePreset", value)}
+            onDaysChange={(value) => patch("tradingScheduleDays", value)}
+            onTimeChange={(value) => patch("tradingScheduleTime", value)}
+            disabled={!editable}
+          />
         </div>
       </PmSectionCard>
 

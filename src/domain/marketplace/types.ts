@@ -87,6 +87,8 @@ export interface MarketplacePoolCard {
   managerRating: number | null;
   managerReviewCount: number;
   poolDurationDays: number | null;
+  /** Recurring trading schedule label for investors. */
+  tradingScheduleLabel: string | null;
   /** Pool name without leading instrument symbol for card title. */
   displayPoolName: string;
 }
@@ -117,6 +119,7 @@ export interface MarketplacePoolDetail extends MarketplacePoolCard {
   tradingStartsAt: string | null;
   tradingSessionLabel: string | null;
   tradingTimeNy: string | null;
+  tradingScheduleLabel: string | null;
   marketTypeCode: string | null;
   tradingInstrumentCode: string | null;
   marketsTradedCodes: string[];

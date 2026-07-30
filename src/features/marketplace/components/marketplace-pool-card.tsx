@@ -196,6 +196,13 @@ function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
                   ) ?? "—"
                 }
               />
+              {pool.tradingScheduleLabel ? (
+                <CycleStat
+                  icon={Clock}
+                  label="Trading Time"
+                  value={pool.tradingScheduleLabel}
+                />
+              ) : null}
               <CycleStat
                 icon={Clock}
                 label="Payout Duration"

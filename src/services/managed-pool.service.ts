@@ -10,7 +10,12 @@ import type {
   ManagedPoolFormInput,
   ManagedPoolRiskLevel,
 } from "@/domain/pools/managed-pool";
-import { tradingSessionLabel, formatTradingDateTimeLabel } from "@/domain/pools/trading-session";
+import {
+  tradingSessionLabel,
+  formatTradingScheduleLabel,
+  resolveTradingScheduleFromConfig,
+} from "@/domain/pools/trading-session";
+import { validateMultiplier } from "@/domain/roi/calculator";
 import { poolGovernanceLockService } from "@/services/pool-governance-lock.service";
 import {
   normalizeManagedPoolForm,
@@ -113,6 +118,12 @@ function formToFundPatch(
   const targetReturn = parseAmount(input.targetReturnPct);
   const visibility = input.visibility;
   const sessionLabel = tradingSessionLabel(input.tradingSessionKey, input.tradingSessionCustom);
+  const scheduleLabel = formatTradingScheduleLabel({
+    preset: input.tradingSchedulePreset,
+    days: input.tradingScheduleDays,
+    time: input.tradingScheduleTime,
+    legacyDateTime: input.tradingTimeNy,
+  });
   const marketsTradedCodes = normalizeMarketCodes(input.marketsTradedCodes);
   const tradingInstrumentCodes = (input.tradingInstrumentCodes ?? []).filter(Boolean);
   const marketCode = marketsTradedCodes[0] ?? input.marketTypeCode.trim();
@@ -128,12 +139,15 @@ function formToFundPatch(
     tradingStyle: input.tradingStyle.trim(),
     timeframes: input.timeframes.trim(),
     tradingSessions: sessionLabel ?? input.tradingSessions.trim(),
-    tradingHours: input.tradingTimeNy.trim()
-      ? formatTradingDateTimeLabel(input.tradingTimeNy.trim()) ?? input.tradingHours.trim()
-      : input.tradingHours.trim(),
+    tradingHours: scheduleLabel ?? input.tradingHours.trim(),
     tradingSessionKey: input.tradingSessionKey || undefined,
     tradingSessionCustom: input.tradingSessionCustom.trim() || undefined,
-    tradingTimeNy: input.tradingTimeNy.trim() || undefined,
+    tradingSchedulePreset: input.tradingSchedulePreset || undefined,
+    tradingScheduleDays: input.tradingScheduleDays.length
+      ? input.tradingScheduleDays
+      : undefined,
+    tradingScheduleTime: input.tradingScheduleTime.trim() || undefined,
+    tradingTimeNy: undefined,
     marketTypeCode: marketCode || undefined,
     tradingInstrumentCode: instrumentCode || undefined,
     marketsTradedCodes: marketsTradedCodes.length ? marketsTradedCodes : undefined,
@@ -232,6 +246,7 @@ export function poolToManagedForm(
     : config.tradingStyle?.includes(",")
       ? config.tradingStyle
       : "";
+  const schedule = resolveTradingScheduleFromConfig(config);
 
   return {
     poolName: pool.name,
@@ -246,12 +261,13 @@ export function poolToManagedForm(
     markets: legacyMarkets,
     timeframes: config.timeframes ?? "",
     tradingSessions: config.tradingSessions ?? "",
-    tradingHours: config.tradingTimeNy
-      ? config.tradingTimeNy
-      : config.tradingHours?.replace(/\s*\(New York Time\)$/i, "") ?? "",
+    tradingHours: config.tradingHours ?? "",
     tradingSessionKey: config.tradingSessionKey ?? "",
     tradingSessionCustom: config.tradingSessionCustom ?? "",
-    tradingTimeNy: config.tradingTimeNy ?? "",
+    tradingTimeNy: "",
+    tradingSchedulePreset: schedule.tradingSchedulePreset,
+    tradingScheduleDays: schedule.tradingScheduleDays,
+    tradingScheduleTime: schedule.tradingScheduleTime,
     marketTypeCode: marketsTradedCodes[0] ?? marketFromConfig,
     tradingInstrumentCode: tradingInstrumentCodes[0] ?? instrumentFromConfig,
     marketsTradedCodes,
@@ -321,13 +337,46 @@ async function savePoolRoiMultipliers(
   input: ManagedPoolFormInput
 ): Promise<void> {
   if (!input.roiMultipliers?.length) return;
-  await poolRoiService.upsertMultipliers(
-    poolId,
-    input.roiMultipliers.map((m) => ({
-      investmentLevelId: m.investmentLevelId,
-      multiplier: Number(m.multiplier),
-    }))
-  );
+
+  const entries = input.roiMultipliers.map((entry) => {
+    const validationError = validateMultiplier(entry.multiplier);
+    if (validationError) {
+      throw new Error(validationError);
+    }
+    return {
+      investmentLevelId: entry.investmentLevelId,
+      multiplier: Number(entry.multiplier),
+    };
+  });
+
+  await poolRoiService.upsertMultipliers(poolId, entries);
+}
+
+function slugifyPoolName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 60);
+}
+
+async function generateUniquePoolSlug(
+  db: ReturnType<typeof createAdminClient>,
+  poolName: string
+): Promise<string> {
+  const base = slugifyPoolName(poolName) || "pool";
+  let candidate = base;
+  let suffix = 2;
+
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const { data } = await db.from("funds").select("id").eq("slug", candidate).maybeSingle();
+    if (!data) return candidate;
+    const suffixText = `-${suffix}`;
+    candidate = `${base.slice(0, Math.max(1, 64 - suffixText.length))}${suffixText}`;
+    suffix += 1;
+  }
+
+  throw new Error("Could not generate a unique pool URL. Try a different pool name.");
 }
 
 async function loadPoolRoiFormData(poolId: string): Promise<{
@@ -527,11 +576,7 @@ export const managedPoolService = {
       .eq("id", managerId)
       .single();
 
-    const slug = normalized.poolName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 64);
+    const slug = await generateUniquePoolSlug(db, normalized.poolName);
 
     const mgr = manager as {
       username?: string | null;
@@ -559,7 +604,12 @@ export const managedPoolService = {
       .select("id, slug")
       .single();
 
-    if (error || !data) throw new Error(error?.message ?? "Could not create pool.");
+    if (error || !data) {
+      if (error?.code === "23505" && error.message.includes("funds_slug_key")) {
+        throw new Error("A pool with a similar name already exists. Try a different pool name.");
+      }
+      throw new Error(error?.message ?? "Could not create pool.");
+    }
 
     const created = data as { id: string; slug: string };
     const config = readManagedConfig(patch.pool_faq);
@@ -673,6 +723,7 @@ export const managedPoolService = {
       throw new Error("Only draft pools can be submitted.");
     }
 
+    const roiData = await loadPoolRoiFormData(poolId);
     const form = poolToManagedForm(
       pool,
       config,
@@ -680,7 +731,8 @@ export const managedPoolService = {
       undefined,
       targetInvestors,
       aggressivenessLevel,
-      { displayActiveInvestors, displayRaisedCapital }
+      { displayActiveInvestors, displayRaisedCapital },
+      roiData
     );
     const validationError = validateManagedPoolForm(form, { mode: "submit" });
     if (validationError) throw new Error(validationError);

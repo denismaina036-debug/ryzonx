@@ -152,6 +152,12 @@ export function PoolDetailView({ pool }: PoolDetailViewProps) {
 
                 <dl className="grid gap-3 sm:grid-cols-2">
                   <DetailItem label="Traded" value={tradedLabel} />
+                  {pool.tradingScheduleLabel ? (
+                    <DetailItem label="Trading Time" value={pool.tradingScheduleLabel} />
+                  ) : null}
+                  {pool.tradingSessionLabel ? (
+                    <DetailItem label="Trading Session" value={pool.tradingSessionLabel} />
+                  ) : null}
                   <DetailItem
                     label="Total Capital"
                     value={formatCurrency(pool.raisedCapital)}

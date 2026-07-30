@@ -137,6 +137,12 @@ export interface ManagedPoolConfig {
 
   tradingTimeNy?: string;
 
+  tradingSchedulePreset?: string;
+
+  tradingScheduleDays?: string[];
+
+  tradingScheduleTime?: string;
+
   marketTypeCode?: string;
 
   tradingInstrumentCode?: string;
@@ -278,6 +284,12 @@ export interface ManagedPoolFormInput {
   tradingSessionCustom: string;
 
   tradingTimeNy: string;
+
+  tradingSchedulePreset: string;
+
+  tradingScheduleDays: string[];
+
+  tradingScheduleTime: string;
 
   marketTypeCode: string;
 
@@ -440,6 +452,12 @@ export function emptyManagedPoolForm(): ManagedPoolFormInput {
     tradingSessionCustom: "",
 
     tradingTimeNy: "",
+
+    tradingSchedulePreset: "",
+
+    tradingScheduleDays: [],
+
+    tradingScheduleTime: "",
 
     marketTypeCode: "",
 
