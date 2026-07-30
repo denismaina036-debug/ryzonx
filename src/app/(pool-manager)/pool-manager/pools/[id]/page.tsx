@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { managedPoolService, poolToManagedForm } from "@/services/managed-pool.service";
 import { investmentCycleService } from "@/services/investment-cycle.service";
 import { strategyService } from "@/services/strategy.service";
+import { platformInvestmentLevelService } from "@/services/platform-investment-level.service";
 import { ManagedPoolEditClient } from "@/features/pool-manager/components/managed-pool/managed-pool-edit-client";
 
 export default async function PoolManagerPoolDetailPage({
@@ -19,10 +20,12 @@ export default async function PoolManagerPoolDetailPage({
 
   const { id } = await params;
   try {
-    const [{ pool, config, marketsTraded, profitSharing, targetInvestors, aggressivenessLevel, displayActiveInvestors, displayRaisedCapital }, strategies, cycles] = await Promise.all([
+    const [{ pool, config, marketsTraded, profitSharing, targetInvestors, aggressivenessLevel, displayActiveInvestors, displayRaisedCapital }, strategies, cycles, roiData, investmentLevels] = await Promise.all([
       managedPoolService.getForManager(id),
       strategyService.listApprovedForPoolCreation(),
       investmentCycleService.listByFundForManager(id).catch(() => []),
+      managedPoolService.loadRoiFormData(id).catch(() => null),
+      platformInvestmentLevelService.listActive(),
     ]);
     const editable = ["draft", "live", "approved", "paused"].includes(
       pool.lifecycleStatus ?? "draft"
@@ -38,12 +41,14 @@ export default async function PoolManagerPoolDetailPage({
           profitSharing,
           targetInvestors,
           aggressivenessLevel,
-          { displayActiveInvestors, displayRaisedCapital }
+          { displayActiveInvestors, displayRaisedCapital },
+          roiData ?? undefined
         )}
         editable={editable}
         canSubmit={canSubmit}
         approvedStrategies={strategies.map((s) => ({ id: s.id, name: s.name }))}
         cycles={cycles}
+        investmentLevels={investmentLevels}
       />
     );
   } catch {

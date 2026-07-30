@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/middleware";
 import { redirectWithSupabaseCookies } from "@/lib/supabase/middleware-redirect";
 import { hasSupabaseSessionCookie } from "@/lib/auth/session-cookies";
+import { isStaleRefreshTokenError } from "@/lib/auth/stale-session";
 import {
   canAccessRoute,
   getPostAuthRedirect,
@@ -42,22 +43,33 @@ export async function middleware(request: NextRequest) {
   try {
     const {
       data: { user: authUser },
+      error: authError,
     } = await supabase.auth.getUser();
 
-    user = authUser;
+    if (authError) {
+      if (isStaleRefreshTokenError(authError)) {
+        await supabase.auth.signOut().catch(() => undefined);
+      }
+    } else {
+      user = authUser;
 
-    if (user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
 
-      profileRole = (profile as { role: UserRole } | null)?.role ?? null;
+        profileRole = (profile as { role: UserRole } | null)?.role ?? null;
+      }
     }
   } catch (error) {
-    supabaseReachable = false;
-    console.error("[middleware] Supabase auth check failed:", error);
+    if (isStaleRefreshTokenError(error as Error)) {
+      await supabase.auth.signOut().catch(() => undefined);
+    } else {
+      supabaseReachable = false;
+      console.error("[middleware] Supabase auth check failed:", error);
+    }
   }
 
   const isAuthenticated = !!user || (!supabaseReachable && hasSessionCookie);

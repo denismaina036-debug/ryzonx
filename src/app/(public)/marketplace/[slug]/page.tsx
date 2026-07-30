@@ -16,14 +16,7 @@ export default async function MarketplacePoolPage({
 
   return (
     <InvestorPageContent wide className="py-2 sm:py-4">
-      <PoolDetailView
-        pool={data.pool}
-        performance={data.performance}
-        journal={data.journal}
-        investorStats={data.investorStats}
-        activity={data.activity}
-        relatedPools={data.relatedPools}
-      />
+      <PoolDetailView pool={data.pool} />
     </InvestorPageContent>
   );
 }

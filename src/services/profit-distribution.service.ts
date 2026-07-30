@@ -6,12 +6,12 @@ import {
   type ProfitSettlementStatus,
 } from "@/constants/profit-distribution";
 import { generateLedgerReference } from "@/lib/financial/ledger-utils";
+import { computeCycleRealizedTradingProfit } from "@/lib/financial/profit-distribution-calculator";
 import {
-  computeCycleRealizedTradingProfit,
-} from "@/lib/financial/profit-distribution-calculator";
-import { calculateFixedReturnDistribution } from "@/lib/financial/fixed-return-distribution";
-import { calculateVariableReturnDistribution } from "@/lib/financial/variable-return-distribution";
-import type { ManagedPoolReturnModel } from "@/domain/pools/return-model";
+  calculateRoiV2Distribution,
+  type RoiV2AllocationInput,
+} from "@/lib/financial/roi-v2-distribution";
+import { poolRoiService } from "@/services/pool-roi.service";
 import { platformSettingsService } from "@/services/platform-settings.service";
 import { auditService } from "@/services/audit.service";
 import { investmentCycleService } from "@/services/investment-cycle.service";
@@ -20,11 +20,6 @@ import { tradeEntryService } from "@/services/trade-entry.service";
 import { ledgerService } from "@/services/ledger.service";
 import { ledgerAccountService } from "@/services/ledger-account.service";
 import { publishPlatformEvent, PLATFORM_EVENT_TYPES } from "@/lib/platform-events/publish";
-import type { ReturnTier } from "@/features/investor/types/account";
-import {
-  normalizeFixedReturnRows,
-  type FixedReturnRow,
-} from "@/domain/pools/fixed-return";
 import type {
   ProfitSettlement,
   ProfitSettlementAllocation,
@@ -121,85 +116,13 @@ function mapAllocation(row: AllocationRow): ProfitSettlementAllocation {
   };
 }
 
-function parseReturnTiers(raw: unknown): ReturnTier[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .filter((tier): tier is ReturnTier => tier != null && typeof tier === "object")
-    .map((tier) => ({
-      minAmount: toNumber((tier as ReturnTier).minAmount),
-      maxAmount:
-        (tier as ReturnTier).maxAmount != null
-          ? toNumber((tier as ReturnTier).maxAmount)
-          : null,
-      returnPct: toNumber((tier as ReturnTier).returnPct),
-    }));
-}
-
-function readManagedReturnModel(poolFaq: unknown): ManagedPoolReturnModel {
-  if (!poolFaq || typeof poolFaq !== "object" || Array.isArray(poolFaq)) return "variable";
-  const model = (poolFaq as { managedPool?: { returnModel?: string } }).managedPool?.returnModel;
-  return model === "fixed" ? "fixed" : "variable";
-}
-
-function parseFixedReturnRows(raw: unknown, poolFaq: unknown): FixedReturnRow[] {
-  if (poolFaq && typeof poolFaq === "object" && !Array.isArray(poolFaq)) {
-    const managed = (poolFaq as { managedPool?: { fixedReturnRows?: unknown } }).managedPool;
-    if (Array.isArray(managed?.fixedReturnRows)) {
-      return normalizeFixedReturnRows(managed.fixedReturnRows as FixedReturnRow[]);
-    }
-  }
-  return [];
-}
-
-async function readPoolFinancialConfig(fundId: string | null): Promise<{
-  returnModel: ManagedPoolReturnModel;
-  investorSharePct: number;
-  poolManagerSharePct: number;
-  returnStructure: ReturnTier[];
-  fixedReturnSchedule: FixedReturnRow[];
-  targetCapital: number;
+async function readPoolRoiConfig(fundId: string | null): Promise<{
+  multipliers: Map<string, number>;
 }> {
-  if (!fundId) {
-    return {
-      returnModel: "variable",
-      investorSharePct: 80,
-      poolManagerSharePct: 20,
-      returnStructure: [],
-      fixedReturnSchedule: [],
-      targetCapital: 0,
-    };
-  }
-  const db = createAdminClient();
-  const { data } = await db
-    .from("funds")
-    .select("investor_share_pct, pool_manager_share_pct, return_tiers, pool_faq, target_capital")
-    .eq("id", fundId)
-    .maybeSingle();
-  const row = data as {
-    investor_share_pct?: number;
-    pool_manager_share_pct?: number;
-    return_tiers?: unknown;
-    pool_faq?: unknown;
-    target_capital?: number;
-  } | null;
-  const returnModel = readManagedReturnModel(row?.pool_faq);
-  const legacyTiers = parseReturnTiers(row?.return_tiers);
-  let fixedReturnSchedule = parseFixedReturnRows(row?.return_tiers, row?.pool_faq);
-  if (returnModel === "fixed" && fixedReturnSchedule.length === 0 && legacyTiers.length) {
-    fixedReturnSchedule = normalizeFixedReturnRows(
-      legacyTiers.map((tier) => ({
-        investmentAmount: tier.minAmount,
-        fixedReturnAmount: tier.minAmount * (1 + tier.returnPct / 100),
-      }))
-    );
-  }
+  if (!fundId) return { multipliers: new Map() };
+  const rows = await poolRoiService.getMultipliersForFund(fundId);
   return {
-    returnModel,
-    investorSharePct: toNumber(row?.investor_share_pct) || 80,
-    poolManagerSharePct: toNumber(row?.pool_manager_share_pct) || 20,
-    returnStructure: returnModel === "variable" ? legacyTiers : [],
-    fixedReturnSchedule,
-    targetCapital: toNumber(row?.target_capital),
+    multipliers: new Map(rows.map((r) => [r.investmentLevelId, r.multiplier])),
   };
 }
 
@@ -272,37 +195,64 @@ export const profitDistributionService = {
         ? options.grossTradingProfitOverride
         : journalProfit;
 
-    const poolConfig = await readPoolFinancialConfig(cycle.fundId);
+    const roiConfig = await readPoolRoiConfig(cycle.fundId);
     const cycleCapital = settled.reduce((s, a) => s + a.amount, 0);
     const platformFeeRate = await platformSettingsService.getPlatformServiceFeeRate();
-    const allocationInput = settled.map((a) => ({
-      allocationId: a.id,
-      investorId: a.investorId,
-      capitalBasis: a.amount,
-    }));
 
-    const breakdown =
-      poolConfig.returnModel === "fixed"
-        ? calculateFixedReturnDistribution({
-            grossTradingProfit,
-            platformServiceFeeRate: platformFeeRate,
-            fixedReturnSchedule: poolConfig.fixedReturnSchedule,
-            allocations: allocationInput,
-          })
-        : calculateVariableReturnDistribution({
-            grossTradingProfit,
-            platformServiceFeeRate: platformFeeRate,
-            profitSharing: {
-              investorSharePct: poolConfig.investorSharePct,
-              poolManagerSharePct: poolConfig.poolManagerSharePct,
-            },
-            targetCapital: poolConfig.targetCapital || cycleCapital,
-            allocations: allocationInput,
-          });
+    const db = createAdminClient();
+    const { data: allocationRows } = await db
+      .from("investment_allocations")
+      .select(
+        "id, investor_id, amount, investment_level_id, roi_multiplier, cumulative_realised_return, target_fulfilled"
+      )
+      .eq("investment_cycle_id", cycleId)
+      .in(
+        "id",
+        settled.map((a) => a.id)
+      );
+
+    const roiRowMap = new Map(
+      ((allocationRows ?? []) as Array<{
+        id: string;
+        investor_id: string;
+        amount: number;
+        investment_level_id: string | null;
+        roi_multiplier: number | null;
+        cumulative_realised_return: number | null;
+        target_fulfilled: boolean | null;
+      }>).map((row) => [row.id, row])
+    );
+
+    const allocationInput: RoiV2AllocationInput[] = settled.map((a) => {
+      const row = roiRowMap.get(a.id);
+      const levelId = row?.investment_level_id ?? null;
+      const multiplier =
+        row?.roi_multiplier != null
+          ? toNumber(row.roi_multiplier)
+          : levelId
+            ? roiConfig.multipliers.get(levelId) ?? 2.0
+            : 2.0;
+      return {
+        allocationId: a.id,
+        investorId: a.investorId,
+        capitalBasis: a.amount,
+        roiMultiplier: multiplier,
+        cumulativeRealisedReturn: toNumber(row?.cumulative_realised_return),
+        targetFulfilled: Boolean(row?.target_fulfilled),
+        investmentLevelId: levelId,
+      };
+    });
+
+    const breakdown = calculateRoiV2Distribution({
+      grossTradingProfit,
+      platformServiceFeeRate: platformFeeRate,
+      allocations: allocationInput,
+    });
 
     // Per-trade losses are written down on close; avoid double-charging investors at settlement.
     if (grossTradingProfit < 0) {
       breakdown.poolManagerEarnings = 0;
+      breakdown.poolManagerSurplus = 0;
       breakdown.investorProfitPool = 0;
       breakdown.investorDistributionTotal = 0;
       breakdown.investorAllocations = breakdown.investorAllocations.map((alloc) => ({
@@ -311,7 +261,6 @@ export const profitDistributionService = {
       }));
     }
 
-    const db = createAdminClient();
     const settlementPayload = {
       investment_cycle_id: cycleId,
       fund_id: cycle.fundId,
@@ -329,27 +278,15 @@ export const profitDistributionService = {
       settlement_date: new Date().toISOString(),
       currency: "USD",
       metadata: {
-        returnModel: poolConfig.returnModel,
-        settlementSequence:
-          poolConfig.returnModel === "fixed"
-            ? [
-                "gross_trading_profit",
-                "platform_service_fee",
-                "fixed_return_obligations",
-                "pool_manager_remainder",
-              ]
-            : [
-                "gross_trading_profit",
-                "platform_service_fee",
-                "net_distributable_profit",
-                "profit_split",
-                "target_capital_allocation",
-              ],
-        fixedReturnSchedule:
-          poolConfig.returnModel === "fixed" ? poolConfig.fixedReturnSchedule : undefined,
-        returnStructure:
-          poolConfig.returnModel === "variable" ? poolConfig.returnStructure : undefined,
-        targetCapital: poolConfig.targetCapital,
+        engine: "roi_v2",
+        settlementSequence: [
+          "gross_trading_profit",
+          "platform_service_fee",
+          "proportional_capital_distribution",
+          "target_tracking",
+          "pool_manager_surplus",
+        ],
+        poolManagerSurplus: breakdown.poolManagerSurplus,
         investorProfitPool: breakdown.investorProfitPool,
       },
     };
@@ -389,6 +326,16 @@ export const profitDistributionService = {
         status: "pending",
       } as never);
       if (error) throw new Error(error.message);
+    }
+
+    for (const update of breakdown.allocationUpdates) {
+      await db
+        .from("investment_allocations")
+        .update({
+          cumulative_realised_return: update.cumulativeRealisedReturn,
+          target_fulfilled: update.targetFulfilled,
+        } as never)
+        .eq("id", update.allocationId);
     }
 
     await auditService.log({

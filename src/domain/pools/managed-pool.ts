@@ -28,6 +28,11 @@ import {
   type CoverImagePosition,
 } from "@/domain/pools/cover-image-position";
 import type { PayoutDurationPreset } from "@/domain/pools/payout-duration";
+import type {
+  ReturnDurationPreset,
+  ReturnDurationUnit,
+} from "@/domain/roi/types";
+import type { RoiMultiplierEntry } from "@/features/pool-manager/components/managed-pool/pm-roi-multiplier-editor";
 
 
 
@@ -190,7 +195,9 @@ export interface ManagedPoolConfig {
 
   payoutDurationPreset?: PayoutDurationPreset;
 
-
+  returnDurationPreset?: ReturnDurationPreset;
+  returnDurationValue?: number;
+  returnDurationUnit?: ReturnDurationUnit;
 
   maxDrawdownPct?: number;
 
@@ -348,7 +355,13 @@ export interface ManagedPoolFormInput {
 
   payoutDurationPreset: PayoutDurationPreset;
 
+  /** ROI v2 return duration configuration. */
+  returnDurationPreset: ReturnDurationPreset;
+  returnDurationValue: string;
+  returnDurationUnit: ReturnDurationUnit;
 
+  /** ROI v2 multipliers per platform investment level. */
+  roiMultipliers: RoiMultiplierEntry[];
 
   openingDate: string;
 
@@ -518,7 +531,10 @@ export function emptyManagedPoolForm(): ManagedPoolFormInput {
 
     payoutDurationPreset: "daily",
 
-
+    returnDurationPreset: "daily",
+    returnDurationValue: "1",
+    returnDurationUnit: "days",
+    roiMultipliers: [],
 
     openingDate: "",
 

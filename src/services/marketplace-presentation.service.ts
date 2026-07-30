@@ -169,31 +169,10 @@ export const marketplacePresentationService = {
 
   async getOpportunityPageData(slug: string): Promise<{
     pool: MarketplacePoolDetail;
-    performance: Awaited<ReturnType<typeof marketplaceService.getPerformanceAnalytics>>;
-    journal: MarketplaceJournalEntry[];
-    investorStats: Awaited<ReturnType<typeof marketplaceService.getInvestorStats>>;
-    activity: Awaited<ReturnType<typeof marketplaceService.getRecentActivity>>;
-    relatedPools: MarketplacePoolCard[];
   } | null> {
     const pool = await marketplaceService.getPoolBySlug(slug);
     if (!pool) return null;
 
-    const [performance, journal, investorStats, activity, allPools] = await Promise.all([
-      marketplaceService.getPerformanceAnalytics(pool.id),
-      marketplaceService.getPublicJournal(pool.id),
-      marketplaceService.getInvestorStats(pool.id),
-      marketplaceService.getRecentActivity(pool.id),
-      marketplaceService.getMarketplacePools(),
-    ]);
-
-    const sameManager = allPools.filter(
-      (p) => p.id !== pool.id && p.managerSlug && p.managerSlug === pool.managerSlug
-    );
-    const relatedPools =
-      sameManager.length > 0
-        ? sameManager.slice(0, 2)
-        : allPools.filter((p) => p.id !== pool.id).slice(0, 2);
-
-    return { pool, performance, journal, investorStats, activity, relatedPools };
+    return { pool };
   },
 };

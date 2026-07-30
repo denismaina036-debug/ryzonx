@@ -1,9 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { mapProfileToUser } from "@/lib/auth/utils";
 import { ensureInvestorBootstrap } from "@/lib/auth/ensure-investor-bootstrap";
+import { isStaleRefreshTokenError } from "@/lib/auth/stale-session";
 import { parseRegistrationIntent } from "@/domain/investor/pm-journey-variant";
 import type { UserProfile } from "@/types";
-import type { User } from "@supabase/supabase-js";
+import type { User, AuthError } from "@supabase/supabase-js";
 
 /**
  * Get the current authenticated user with profile data.
@@ -20,12 +21,23 @@ export async function getCurrentUser(): Promise<UserProfile | null> {
       error: authError,
     } = await supabase.auth.getUser();
 
-    if (authError || !authUser) {
+    if (authError) {
+      if (isStaleRefreshTokenError(authError)) {
+        await supabase.auth.signOut().catch(() => undefined);
+      }
+      return null;
+    }
+
+    if (!authUser) {
       return null;
     }
 
     user = authUser;
   } catch (error) {
+    if (isStaleRefreshTokenError(error as AuthError)) {
+      await supabase.auth.signOut().catch(() => undefined);
+      return null;
+    }
     console.error("[getCurrentUser] Supabase auth failed:", error);
     return null;
   }

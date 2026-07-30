@@ -85,6 +85,21 @@ export function formatRelativeTime(dateString: string): string {
 }
 
 /**
+ * Format a name for display: first letter uppercase, rest lowercase.
+ */
+export function formatDisplayName(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return trimmed;
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+}
+
+/** First name from a full name, formatted for display. */
+export function getDisplayFirstName(fullName: string): string {
+  const first = fullName.trim().split(/\s+/)[0] ?? fullName.trim();
+  return formatDisplayName(first);
+}
+
+/**
  * Anonymize investor display name: "John Smith" → "John S."
  */
 export function anonymizeDisplayName(fullName: string): string {

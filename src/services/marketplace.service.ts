@@ -42,12 +42,21 @@ import {
   resolveTradingAssetLabel,
   stripInstrumentFromPoolName,
   resolvePublicDisplayCount,
+  attachRoiToPoolCard,
 } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 import {
   computeFundingProgressPct,
   computeRemainingCapital,
 } from "@/domain/investment/cycle-metrics";
 import { investmentCycleMetricsService } from "@/services/investment-cycle-metrics.service";
+import { poolRoiService } from "@/services/pool-roi.service";
+import { platformInvestmentLevelService } from "@/services/platform-investment-level.service";
+import {
+  formatReturnDurationLabel,
+  inferReturnDurationPreset,
+  migrateLegacyPayoutPreset,
+} from "@/domain/roi/return-duration";
+import type { ReturnDurationPreset, ReturnDurationUnit } from "@/domain/roi/types";
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
@@ -194,6 +203,35 @@ async function enrichPoolCards(
     }
   }
 
+  const investmentLevels = await platformInvestmentLevelService.listActive();
+  const { data: multiplierRows } = await db
+    .from("pool_roi_multipliers")
+    .select("id, fund_id, investment_level_id, multiplier")
+    .in("fund_id", poolIds);
+
+  const multipliersByFund = new Map<string, Array<{
+    id: string;
+    fundId: string;
+    investmentLevelId: string;
+    multiplier: number;
+  }>>();
+  for (const row of (multiplierRows ?? []) as Array<{
+    id: string;
+    fund_id: string;
+    investment_level_id: string;
+    multiplier: string | number;
+  }>) {
+    const fundId = row.fund_id;
+    const list = multipliersByFund.get(fundId) ?? [];
+    list.push({
+      id: row.id,
+      fundId,
+      investmentLevelId: row.investment_level_id,
+      multiplier: toNumber(row.multiplier),
+    });
+    multipliersByFund.set(fundId, list);
+  }
+
   return cards.map((card) => {
     const row = rows.find((r) => (r.id as string) === card.id);
     if (!row) return card;
@@ -259,7 +297,8 @@ async function enrichPoolCards(
       ? card.ryvonxRating
       : managerOverallRating;
 
-    return {
+    return attachRoiToPoolCard(
+      {
       ...card,
       name: card.name,
       displayPoolName: stripInstrumentFromPoolName(card.name, tradingAssetTag),
@@ -303,17 +342,34 @@ async function enrichPoolCards(
       tradingStyleTag:
         managed.tradingStyle?.trim() || card.tradingStyle?.trim() || null,
       riskLevelTag: formatRiskLevelTag(card.aggressivenessLevel),
-      expectedDurationLabel: formatExpectedDurationLabel(
-        row.pool_duration_days as number | null,
-        managed.durationUnit as string | undefined,
-        managed.payoutDurationPreset as string | undefined
-      ),
+      expectedDurationLabel: formatReturnDurationLabel({
+        preset: (row.return_duration_preset as ReturnDurationPreset | null) ??
+          migrateLegacyPayoutPreset(managed.payoutDurationPreset),
+        value: (row.return_duration_value as number | null) ?? (row.pool_duration_days as number | null),
+        unit: (row.return_duration_unit as ReturnDurationUnit | null) ??
+          (managed.durationUnit as ReturnDurationUnit | undefined) ??
+          "days",
+      }),
+      returnDurationPreset: inferReturnDurationPreset({
+        preset: row.return_duration_preset as ReturnDurationPreset | null,
+        value: row.return_duration_value as number | null,
+        unit: row.return_duration_unit as ReturnDurationUnit | null,
+      }),
+      returnDurationValue:
+        (row.return_duration_value as number | null) ??
+        (row.pool_duration_days as number | null) ??
+        1,
+      returnDurationUnit:
+        (row.return_duration_unit as ReturnDurationUnit | null) ?? "days",
       poolLevelLabel: formatPoolLevelLabel(card.capacityStatus),
       poolVerified: card.governanceVerified,
       managerRating: resolvedManagerRating,
       managerReviewCount: resolvePublicDisplayCount(seedReviewCount, liveReviewCount),
       poolDurationDays: row.pool_duration_days as number | null,
-    };
+      },
+      investmentLevels,
+      multipliersByFund.get(card.id) ?? []
+    );
   });
 }
 
@@ -505,6 +561,11 @@ function mapToCard(
     investorSharePct: toNumber(row.investor_share_pct as number | null) || 80,
     poolManagerSharePct: toNumber(row.pool_manager_share_pct as number | null) || 20,
     returnModel: "variable",
+    returnDurationPreset: "daily" as ReturnDurationPreset,
+    returnDurationValue: 1,
+    returnDurationUnit: "days" as ReturnDurationUnit,
+    roiMultipliers: [],
+    investmentLevels: [],
     coverSubtitle: null,
     tradingAssetTag: null,
     strategyTag: null,
@@ -812,10 +873,19 @@ export const marketplaceService = {
               }))
             )
         : [];
-    const activeOpenTrades =
+    const [activeOpenTrades, cycleRealizedProfit] = await Promise.all([
       enrichedCard.activeCycle?.status === "trading" && enrichedCard.activeCycle.id
-        ? await tradeEntryService.listOpenTradesPublic(enrichedCard.activeCycle.id)
-        : [];
+        ? tradeEntryService.listOpenTradesPublic(enrichedCard.activeCycle.id)
+        : Promise.resolve([]),
+      enrichedCard.activeCycle?.id
+        ? tradeEntryService.sumRealizedProfitForCyclePublic(enrichedCard.activeCycle.id)
+        : Promise.resolve(0),
+    ]);
+
+    const [investmentLevels, roiMultipliers] = await Promise.all([
+      platformInvestmentLevelService.listActive(),
+      poolRoiService.getCompleteMultipliers(row.id as string),
+    ]);
 
     const detail: MarketplacePoolDetail = {
       ...enrichedCard,
@@ -867,6 +937,9 @@ export const marketplaceService = {
           ? [managedConfig.tradingInstrumentCode]
           : [],
       activeOpenTrades,
+      cycleRealizedProfit,
+      roiMultipliers,
+      investmentLevels,
       manager: mapManagerSummary(manager),
       faq,
     };

@@ -138,6 +138,50 @@ export const tradeEntryService = {
     return entries.filter((e) => e.status === "open" || e.status === "partially_closed");
   },
 
+  /** Sum closed-trade realized P/L for a marketplace-listed cycle. */
+  async sumRealizedProfitForCyclePublic(cycleId: string): Promise<number> {
+    const db = createAdminClient();
+    const { data: cycleRow } = await db
+      .from("investment_cycles")
+      .select("fund_id")
+      .eq("id", cycleId)
+      .maybeSingle();
+    const cycle = cycleRow as { fund_id: string | null } | null;
+    if (!cycle?.fund_id) return 0;
+
+    const { data: fundRow } = await db
+      .from("funds")
+      .select("is_marketplace_listed, lifecycle_status")
+      .eq("id", cycle.fund_id)
+      .maybeSingle();
+    const fund = fundRow as { is_marketplace_listed?: boolean; lifecycle_status?: string } | null;
+    if (!fund?.is_marketplace_listed || fund.lifecycle_status !== "live") return 0;
+
+    const { data, error } = await db
+      .from("trade_entries")
+      .select("entry_price, exit_price, quantity, direction, status")
+      .eq("investment_cycle_id", cycleId)
+      .eq("status", "closed");
+
+    if (error) throw new Error(error.message);
+
+    return ((data ?? []) as Array<{
+      entry_price: string | number;
+      exit_price: string | number | null;
+      quantity: string | number;
+      direction: string;
+      status: string;
+    }>).reduce((sum, row) => {
+      if (row.exit_price == null) return sum;
+      const entryPrice = toNumber(row.entry_price);
+      const exitPrice = toNumber(row.exit_price);
+      const quantity = toNumber(row.quantity);
+      const delta = exitPrice - entryPrice;
+      const signed = row.direction === "long" ? delta : -delta;
+      return sum + signed * quantity;
+    }, 0);
+  },
+
   /** Public open trades for marketplace display during trading status. */
   async listOpenTradesPublic(
     cycleId: string

@@ -18,13 +18,14 @@ import { ROUTES } from "@/constants/routes";
 import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
 import { formatCurrency, cn } from "@/lib/utils";
 import { PoolCoverBanner } from "@/features/marketplace/components/pool-cover-banner";
+import { MobileMarketplacePoolCard } from "@/features/marketplace/components/mobile-marketplace-pool-card";
 import { Button } from "@/components/ui/button";
 import type { MarketplacePoolCard } from "@/domain/marketplace/types";
 import {
   formatRaisedCapitalPct,
-  formatReturnStructureLabel,
   participantIndicatorCount,
 } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
+import { PoolCardRoiPreview } from "@/features/marketplace/components/pool-card-roi-preview";
 import { formatTradingDateTimeLabel } from "@/domain/pools/trading-session";
 
 interface MarketplacePoolCardProps {
@@ -33,15 +34,23 @@ interface MarketplacePoolCardProps {
 }
 
 export function MarketplacePoolCardView({ pool }: MarketplacePoolCardProps) {
+  return (
+    <>
+      <div className="md:hidden">
+        <MobileMarketplacePoolCard pool={pool} />
+      </div>
+      <div className="hidden md:block">
+        <DesktopMarketplacePoolCard pool={pool} />
+      </div>
+    </>
+  );
+}
+
+function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
   const raisedPct = formatRaisedCapitalPct(pool.raisedCapital, pool.targetCapital);
   const progressPct = pool.targetCapital > 0
     ? Math.min(100, (pool.raisedCapital / pool.targetCapital) * 100)
     : 0;
-  const returnLabel = formatReturnStructureLabel(
-    pool.returnModel,
-    pool.investorSharePct,
-    pool.poolManagerSharePct
-  );
   const participantDots = participantIndicatorCount(pool.cycleParticipantCount);
   const participateDisabled =
     !pool.canParticipate ||
@@ -255,25 +264,27 @@ export function MarketplacePoolCardView({ pool }: MarketplacePoolCardProps) {
           </div>
         </div>
 
-        {/* Return row */}
+        {/* ROI targets row */}
         <div className="mt-4 grid grid-cols-3 gap-2 border-t border-[var(--id-border)] pt-4 text-center">
-          <div>
-            <p className="text-[10px] text-[var(--id-text-muted)]">Return Structure</p>
-            <p className="mt-1 text-sm font-bold text-[var(--id-text)]">{returnLabel}</p>
-            <Link
-              href={`${ROUTES.marketplace}/${pool.slug}#return-structure`}
-              className="mt-0.5 inline-block text-[11px] font-medium text-[var(--id-accent-text)] hover:underline"
-            >
-              View
-            </Link>
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--id-text-muted)]">
+              Projected ROI
+            </p>
+            <PoolCardRoiPreview pool={pool} className="mt-2" />
           </div>
           <div>
-            <p className="text-[10px] text-[var(--id-text-muted)]">Payout Duration</p>
-            <p className="mt-1 text-sm font-bold text-[var(--id-text)]">{pool.expectedDurationLabel}</p>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--id-text-muted)]">
+              Return Duration
+            </p>
+            <p className="mt-2 text-sm font-bold leading-snug text-[var(--id-text)]">
+              {pool.expectedDurationLabel}
+            </p>
           </div>
           <div>
-            <p className="text-[10px] text-[var(--id-text-muted)]">Level</p>
-            <p className="mt-1 text-sm font-bold text-[var(--id-success)]">{pool.poolLevelLabel}</p>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--id-text-muted)]">
+              Level
+            </p>
+            <p className="mt-2 text-sm font-bold text-[var(--id-success)]">{pool.poolLevelLabel}</p>
           </div>
         </div>
 

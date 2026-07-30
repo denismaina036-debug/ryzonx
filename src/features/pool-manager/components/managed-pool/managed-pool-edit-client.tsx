@@ -17,6 +17,7 @@ import { PmPageHeader, PmFormMessage } from "@/features/pool-manager/components/
 import { ManagedPoolForm } from "./managed-pool-form";
 import { ManagedPoolCyclesPanel } from "./managed-pool-cycles-panel";
 import type { InvestmentCycle } from "@/domain/investment/types";
+import type { PlatformInvestmentLevel } from "@/domain/roi";
 
 export function ManagedPoolEditClient({
   pool,
@@ -25,6 +26,7 @@ export function ManagedPoolEditClient({
   canSubmit = false,
   approvedStrategies = [],
   cycles = [],
+  investmentLevels = [],
 }: {
   pool: Pool;
   initialValues: ManagedPoolFormInput;
@@ -32,6 +34,7 @@ export function ManagedPoolEditClient({
   canSubmit?: boolean;
   approvedStrategies?: { id: string; name: string }[];
   cycles?: InvestmentCycle[];
+  investmentLevels?: PlatformInvestmentLevel[];
 }) {
   const router = useRouter();
   const [values, setValues] = useState(initialValues);
@@ -146,6 +149,7 @@ export function ManagedPoolEditClient({
         poolId={pool.id}
         editable={editable}
         approvedStrategies={approvedStrategies}
+        investmentLevels={investmentLevels}
       />
       <ManagedPoolCyclesPanel
         poolId={pool.id}

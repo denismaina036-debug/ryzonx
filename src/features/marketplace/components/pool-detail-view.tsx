@@ -1,65 +1,60 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import Link from "next/link";
-import { BadgeCheck } from "lucide-react";
+import { BadgeCheck, ShieldCheck } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
-import {
-  AGGRESSIVENESS_LABELS,
-  CAPACITY_STATUS_LABELS,
-  POOL_HEALTH_LABELS,
-  SECURITY_RATING_LABELS,
-} from "@/constants/marketplace";
-import { PROTECTION_INDICATOR_LABELS } from "@/constants/governance";
-import { PerformanceChart } from "@/components/ui/chart";
-import { formatCurrency, formatPercentage } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { PoolCoverBanner } from "@/features/marketplace/components/pool-cover-banner";
 import { Button } from "@/components/ui/button";
-import { MarketplacePoolCardView } from "@/features/marketplace/components/marketplace-pool-card";
 import {
   MarketplaceBreadcrumb,
   managerProfileCrumb,
   marketplaceHomeCrumb,
   opportunityCrumb,
 } from "@/features/marketplace/components/marketplace-breadcrumb";
-import type {
-  MarketplaceActivityItem,
-  MarketplaceInvestorStats,
-  MarketplaceJournalEntry,
-  MarketplacePerformanceAnalytics,
-  MarketplacePoolDetail,
-  MarketplacePoolCard,
-} from "@/domain/marketplace/types";
-import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
-import { TRADE_ENTRY_DIRECTION_LABELS } from "@/constants/trade-entry";
+import type { MarketplacePoolDetail } from "@/domain/marketplace/types";
 import { formatInstrumentTicker } from "@/domain/reference-data/instrument-display";
-import { formatTradingDateTimeLabel } from "@/domain/pools/trading-session";
-import { formatFixedReturnRowLabel } from "@/domain/pools/fixed-return";
-import { MANAGED_POOL_RETURN_MODEL_LABELS } from "@/domain/pools/return-model";
+import { formatMultiplier } from "@/domain/roi/calculator";
+import { formatInvestmentLevelRange } from "@/features/pool-manager/components/managed-pool/pm-roi-multiplier-editor";
+import { LiveRoiPreview, RoiDisclaimerBlock } from "@/features/roi/components/live-roi-preview";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 interface PoolDetailViewProps {
   pool: MarketplacePoolDetail;
-  performance: MarketplacePerformanceAnalytics;
-  journal: MarketplaceJournalEntry[];
-  investorStats: MarketplaceInvestorStats;
-  activity: MarketplaceActivityItem[];
-  relatedPools: MarketplacePoolCard[];
 }
 
-export function PoolDetailView({
-  pool,
-  performance,
-  journal,
-  investorStats,
-  activity: _activity,
-  relatedPools,
-}: PoolDetailViewProps) {
-  const chartData = performance.historicalGrowth.map((d) => ({
-    date: new Date(d.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    value: d.poolValue,
-  }));
+function formatTradedInstruments(pool: MarketplacePoolDetail): string {
+  if (pool.tradingInstrumentCodes.length > 0) {
+    return pool.tradingInstrumentCodes
+      .map((code) => formatInstrumentTicker(code))
+      .join(", ");
+  }
+  return formatInstrumentTicker(pool.tradingInstrumentCode ?? pool.tradingPair ?? null);
+}
+
+function formatCycleName(pool: MarketplacePoolDetail): string {
+  if (!pool.activeCycle) return "—";
+  const { cycleNumber, name } = pool.activeCycle;
+  return name?.trim() ? name : `Cycle ${cycleNumber}`;
+}
+
+export function PoolDetailView({ pool }: PoolDetailViewProps) {
+  const [previewAmount, setPreviewAmount] = useState(String(pool.minInvestment));
+
+  const parsedPreviewAmount = useMemo(() => {
+    const num = Number(previewAmount);
+    return Number.isFinite(num) && num > 0 ? num : 0;
+  }, [previewAmount]);
+
+  const displayName = pool.displayPoolName || pool.name;
+  const tradedLabel = formatTradedInstruments(pool);
+  const isHealthy = pool.poolHealth === "healthy";
+  const showActiveSignal = Boolean(pool.activeCycle && pool.canParticipate);
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-6 sm:space-y-8">
       <MarketplaceBreadcrumb
         items={[
           marketplaceHomeCrumb(),
@@ -70,121 +65,106 @@ export function PoolDetailView({
         ]}
       />
 
-      {/* Hero */}
-      <section className="overflow-hidden rounded-2xl border border-[var(--id-border)] bg-[var(--id-surface)]">
-        <PoolCoverBanner
-          coverImageUrl={pool.coverImageUrl}
-          cardBackgroundColor={pool.cardBackgroundColor}
-          coverImagePosition={pool.coverImagePosition}
-          className="relative h-48 sm:h-64"
-        >
-          <div className="absolute inset-0 bg-gradient-to-t from-navy-950/90 to-transparent" />
-          <div className="absolute bottom-6 left-6 right-6">
-            <h1 className="text-2xl font-bold text-white sm:text-4xl">{pool.name}</h1>
-            {pool.tagline && <p className="mt-1 text-white/80">{pool.tagline}</p>}
-          </div>
-        </PoolCoverBanner>
-        <div className="flex flex-wrap items-center justify-between gap-4 p-6">
-          <div className="flex items-center gap-3">
-            {pool.managerPhotoUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={pool.managerPhotoUrl} alt="" className="h-12 w-12 rounded-full object-cover" />
+      {/* Hero — name first, compact cover */}
+      <header className="space-y-4">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight text-[var(--id-text)] sm:text-3xl">
+              {displayName}
+            </h1>
+            {pool.poolVerified && (
+              <BadgeCheck
+                className="h-5 w-5 shrink-0 text-[var(--id-accent-text)]"
+                aria-label="RyvonX approved"
+              />
             )}
-            <div>
+          </div>
+          {pool.tagline && (
+            <p className="max-w-2xl text-sm text-[var(--id-text-muted)] sm:text-base">
+              {pool.tagline}
+            </p>
+          )}
+          {pool.managerName && (
+            <p className="text-sm text-[var(--id-text-muted)]">
+              Managed by{" "}
               {pool.managerSlug ? (
                 <Link
                   href={`${ROUTES.managerPublicProfile}/${pool.managerSlug}`}
-                  className="font-semibold text-[var(--id-text)] hover:text-[var(--id-accent-text)]"
+                  className="font-medium text-[var(--id-text)] hover:text-[var(--id-accent-text)]"
                 >
                   {pool.managerName}
                 </Link>
               ) : (
-                <p className="font-semibold text-[var(--id-text)]">{pool.managerName}</p>
+                <span className="font-medium text-[var(--id-text)]">{pool.managerName}</span>
               )}
-              <div className="flex items-center gap-1 text-sm text-[var(--id-text-muted)]">
-                {pool.managerVerified && <BadgeCheck className="h-4 w-4 text-[var(--id-accent-text)]" />}
-                Manager · {pool.tradingPair}
-              </div>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            {pool.canParticipate ? (
-              <Button asChild>
-                <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Participate</Link>
-              </Button>
-            ) : (
-              <Button disabled variant="outline">
-                Participate
-              </Button>
-            )}
-          </div>
+            </p>
+          )}
         </div>
-      </section>
 
-      <section className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
-        <h2 className="text-sm font-semibold text-[var(--id-text)]">Current Investment Cycle</h2>
+        <div className="overflow-hidden rounded-xl border border-[var(--id-border)]">
+          <PoolCoverBanner
+            coverImageUrl={pool.coverImageUrl}
+            cardBackgroundColor={pool.cardBackgroundColor}
+            coverImagePosition={pool.coverImagePosition}
+            className="relative h-24 sm:h-28"
+          >
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+          </PoolCoverBanner>
+        </div>
+      </header>
+
+      {/* Trust signals */}
+      {(isHealthy || pool.poolVerified) && (
+        <div className="flex flex-wrap gap-2">
+          {isHealthy && (
+            <TrustBadge icon={ShieldCheck} label="Pool is healthy" variant="healthy" />
+          )}
+          {pool.poolVerified && (
+            <TrustBadge icon={BadgeCheck} label="Approved by RyvonX" variant="verified" />
+          )}
+        </div>
+      )}
+
+      {/* Current investment cycle */}
+      <section className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5 sm:p-6">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--id-text-faint)]">
+          Current Investment Cycle
+        </p>
+
         {pool.activeCycle ? (
-          <div className="mt-3 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="font-medium text-[var(--id-text)]">
-                  Cycle {pool.activeCycle.cycleNumber}
-                  {pool.activeCycle.name ? ` — ${pool.activeCycle.name}` : ""}
-                </p>
-                <p className="text-sm text-[var(--id-text-muted)]">
-                  {INVESTMENT_CYCLE_STATUS_LABELS[pool.activeCycle.status] ??
-                    pool.activeCycle.status}
-                </p>
-                <p className="mt-1 text-xs text-[var(--id-text-muted)]">
-                  Funding Start:{" "}
-                  {formatTradingDateTimeLabel(
-                    pool.activeCycle.fundingStartedAt ??
-                      pool.activeCycle.openingDate ??
-                      undefined
-                  ) ?? "—"}
-                </p>
+          <div className="mt-4 space-y-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 space-y-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--id-text)] sm:text-xl">
+                    {formatCycleName(pool)}
+                  </h2>
+                  {showActiveSignal && (
+                    <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                      </span>
+                      Active — open for investment
+                    </div>
+                  )}
+                </div>
+
+                <dl className="grid gap-3 sm:grid-cols-2">
+                  <DetailItem label="Traded" value={tradedLabel} />
+                  <DetailItem
+                    label="Total Capital"
+                    value={formatCurrency(pool.raisedCapital)}
+                  />
+                </dl>
               </div>
+
               {pool.canParticipate && (
-                <Button asChild size="sm">
-                  <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Participate</Link>
+                <Button asChild size="lg" className="h-11 shrink-0 px-8 sm:mt-1">
+                  <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Invest</Link>
                 </Button>
               )}
             </div>
-            {pool.expectedDurationLabel && pool.expectedDurationLabel !== "—" && (
-              <div className="rounded-lg bg-[var(--id-surface-muted)] px-4 py-3">
-                <p className="text-[10px] uppercase tracking-wider text-[var(--id-text-faint)]">
-                  Payout Duration
-                </p>
-                <p className="mt-1 text-lg font-semibold text-[var(--id-text)]">
-                  {pool.expectedDurationLabel}
-                </p>
-              </div>
-            )}
-            {pool.activeCycle.status === "trading" && (
-              <div className="rounded-lg border border-[var(--id-border)] px-4 py-3">
-                <p className="text-sm font-semibold text-[var(--id-text)]">Running Active Trades</p>
-                {pool.activeOpenTrades.length > 0 ? (
-                  <>
-                    <ul className="mt-2 space-y-1 text-sm text-[var(--id-text-secondary)]">
-                      {pool.activeOpenTrades.map((trade, index) => (
-                        <li key={`${trade.instrument}-${index}`}>
-                          {trade.instrument}{" "}
-                          {TRADE_ENTRY_DIRECTION_LABELS[
-                            trade.direction as keyof typeof TRADE_ENTRY_DIRECTION_LABELS
-                          ] ?? trade.direction}
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="mt-2 text-xs text-[var(--id-text-muted)]">
-                      {pool.activeOpenTrades.length} active trade
-                      {pool.activeOpenTrades.length === 1 ? "" : "s"}
-                    </p>
-                  </>
-                ) : (
-                  <p className="mt-2 text-sm text-[var(--id-text-muted)]">All Trades Closed</p>
-                )}
-              </div>
-            )}
           </div>
         ) : (
           <p className="mt-3 text-sm text-[var(--id-text-muted)]">
@@ -193,76 +173,96 @@ export function PoolDetailView({
         )}
       </section>
 
-      <section className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
-        <h2 className="text-sm font-semibold text-[var(--id-text)]">Trading Details</h2>
-        <dl className="mt-3 grid gap-3 sm:grid-cols-2 text-sm">
-          <Row label="Trading Session" value={pool.tradingSessionLabel ?? "—"} />
-          <Row label="Trading Date & Time" value={formatTradingDateTimeLabel(pool.tradingTimeNy ?? undefined) ?? "—"} />
-          <Row
-            label="Traded Instrument"
-            value={
-              pool.tradingInstrumentCodes.length > 0
-                ? pool.tradingInstrumentCodes
-                    .map((code) => formatInstrumentTicker(code))
-                    .join(", ")
-                : formatInstrumentTicker(
-                    pool.tradingInstrumentCode ?? pool.tradingPair ?? null
-                  )
-            }
-          />
-          <Row label="Return Model" value={MANAGED_POOL_RETURN_MODEL_LABELS[pool.returnModel]} />
-        </dl>
-      </section>
-
-      {pool.returnModel === "fixed" && pool.fixedReturnRows.length > 0 && (
-        <section id="return-structure" className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
-          <h2 className="text-sm font-semibold text-[var(--id-text)]">Fixed Return Schedule</h2>
-          <div className="mt-3 space-y-2">
-            {pool.fixedReturnRows.map((row, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between rounded-lg border border-[var(--id-border)] px-4 py-2 text-sm"
-              >
-                <span className="text-[var(--id-text-secondary)]">
-                  {formatCurrency(row.investmentAmount)}
-                </span>
-                <span className="font-medium text-[var(--id-text)]">
-                  {formatFixedReturnRowLabel(row)}
-                </span>
-              </div>
-            ))}
-          </div>
+      {/* Cycle performance */}
+      {pool.activeCycle && (
+        <section className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5 sm:p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--id-text-faint)]">
+            Cycle Performance
+          </p>
+          <p className="mt-3 text-2xl font-semibold tabular-nums text-[var(--id-text)] sm:text-3xl">
+            {formatCurrency(pool.cycleRealizedProfit)}
+          </p>
+          <p className="mt-1 text-sm text-[var(--id-text-muted)]">
+            Total profits realized in this cycle
+          </p>
         </section>
       )}
 
-      {pool.returnModel === "variable" && pool.returnTiers.length > 0 && (
-        <section id="return-structure" className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
-          <h2 className="text-sm font-semibold text-[var(--id-text)]">Variable Return Tiers</h2>
-          <div className="mt-3 space-y-2">
-            {pool.returnTiers.map((tier, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between rounded-lg border border-[var(--id-border)] px-4 py-2 text-sm"
-              >
-                <span className="text-[var(--id-text-secondary)]">
-                  {formatCurrency(tier.minAmount)}
-                  {tier.maxAmount != null ? ` – ${formatCurrency(tier.maxAmount)}` : "+"}
-                </span>
-                <span className="font-medium text-[var(--id-text)]">
-                  {formatPercentage(tier.returnPct)} expected return
-                </span>
-              </div>
-            ))}
+      {pool.roiMultipliers.length > 0 && (
+        <section
+          id="return-structure"
+          className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5 sm:p-6"
+        >
+          <h2 className="text-sm font-semibold text-[var(--id-text)]">
+            Investment Levels & ROI Targets
+          </h2>
+          <p className="mt-1 text-xs text-[var(--id-text-muted)]">
+            Projected ROI multipliers set by the Pool Manager for each platform investment level.
+          </p>
+          <div className="mt-4 space-y-2">
+            {pool.roiMultipliers.map((entry) => {
+              const level =
+                entry.level ??
+                pool.investmentLevels.find((l) => l.id === entry.investmentLevelId);
+              return (
+                <div
+                  key={entry.investmentLevelId}
+                  className="flex items-center justify-between rounded-lg border border-[var(--id-border)] px-4 py-3 text-sm"
+                >
+                  <div>
+                    <span className="font-medium text-[var(--id-text)]">
+                      {level?.name ?? "Investment Level"}
+                    </span>
+                    {level && (
+                      <p className="text-xs text-[var(--id-text-muted)]">
+                        {formatInvestmentLevelRange(level)}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-lg font-bold tabular-nums text-[var(--id-accent-text)]">
+                    {formatMultiplier(entry.multiplier)}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-          <dl className="mt-4 grid gap-3 border-t border-[var(--id-border)] pt-4 sm:grid-cols-2 text-sm">
-            <Row label="Investor Share" value={`${Math.round(pool.investorSharePct)}%`} />
-            <Row label="Pool Manager Share" value={`${Math.round(pool.poolManagerSharePct)}%`} />
-          </dl>
+          <RoiDisclaimerBlock className="mt-4" />
+        </section>
+      )}
+
+      {pool.canParticipate && (
+        <section className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5 sm:p-6">
+          <h2 className="text-sm font-semibold text-[var(--id-text)]">Preview Your Investment</h2>
+          <p className="mt-1 text-xs text-[var(--id-text-muted)]">
+            Enter an amount to see projected returns update instantly.
+          </p>
+          <div className="mt-4 grid gap-5 lg:grid-cols-2 lg:items-start">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-[var(--id-text-muted)]">
+                Investment Amount
+              </label>
+              <Input
+                type="number"
+                min={pool.minInvestment}
+                value={previewAmount}
+                onChange={(e) => setPreviewAmount(e.target.value)}
+                className="mt-1 h-11"
+              />
+            </div>
+            <LiveRoiPreview
+              amount={parsedPreviewAmount}
+              levels={pool.investmentLevels}
+              multipliers={pool.roiMultipliers}
+              returnDurationPreset={pool.returnDurationPreset}
+              returnDurationValue={pool.returnDurationValue}
+              returnDurationUnit={pool.returnDurationUnit}
+            />
+          </div>
         </section>
       )}
 
       {pool.poolHealth === "suspended" && pool.suspensionReason && (
-        <section className="rounded-xl border border-red-500/30 bg-red-500/10 p-5">
+        <section className="rounded-xl border border-red-500/30 bg-red-500/10 p-5 sm:p-6">
           <h2 className="font-semibold text-[var(--id-danger)]">Suspended by RyvonX</h2>
           <p className="mt-2 text-sm text-[var(--id-text-secondary)]">{pool.suspensionReason}</p>
           {pool.suspendedAt && (
@@ -273,238 +273,49 @@ export function PoolDetailView({
         </section>
       )}
 
-      {pool.protectionIndicators.length > 0 && (
-        <section className="rounded-xl border border-[var(--id-accent)]/20 bg-[var(--id-accent-soft)] p-5">
-          <h2 className="text-sm font-semibold text-[var(--id-text)]">Investor Protection</h2>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {pool.protectionIndicators.map((ind) => (
-              <span
-                key={ind}
-                className="rounded-full bg-[var(--id-surface)] px-3 py-1 text-xs font-medium text-[var(--id-accent-text)] shadow-sm"
-              >
-                {PROTECTION_INDICATOR_LABELS[ind] ?? ind}
-              </span>
-            ))}
-          </div>
+      {(pool.poolDescription || pool.description) && (
+        <section className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5 sm:p-6">
+          <h2 className="text-sm font-semibold text-[var(--id-text)]">About this pool</h2>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-[var(--id-text-secondary)]">
+            {pool.poolDescription || pool.description}
+          </p>
         </section>
       )}
+    </div>
+  );
+}
 
-      <section className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
-        <h2 className="text-sm font-semibold text-[var(--id-text)]">Capital Transparency</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <CapitalStat label="Investor Capital" value={formatCurrency(pool.investorCapital)} sub={`${pool.investorPct}% of pool capital`} />
-          <CapitalStat label="RyvonX Capital" value={formatCurrency(pool.ryvonxCapital)} sub={`${pool.ryvonxPct}% of pool capital`} />
-          <CapitalStat label="Total Capital" value={formatCurrency(pool.assetsUnderManagement)} sub={`${pool.activeInvestors} investors`} />
-          <CapitalStat label="Growth Rate" value={pool.growthRatePct != null ? formatPercentage(pool.growthRatePct) : "—"} sub={pool.capacityStatus} />
-        </div>
-        {pool.isRyvonxBacked && (
-          <p className="mt-3 text-xs text-[var(--id-accent-text)] italic">
-            This pool receives RyvonX company capital — verified by the RyvonX Capital Committee.
-          </p>
-        )}
-      </section>
-
-      {/* Ratings row */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="RyvonX Rating" value={pool.ryvonxRating?.toFixed(1) ?? "—"} />
-        <StatCard
-          label="Security"
-          value={
-            pool.securityRating
-              ? (SECURITY_RATING_LABELS[pool.securityRating] ?? pool.securityRating)
-              : "—"
-          }
-        />
-        <StatCard
-          label="Aggressiveness"
-          value={
-            pool.aggressivenessLevel
-              ? (AGGRESSIVENESS_LABELS[pool.aggressivenessLevel] ?? pool.aggressivenessLevel)
-              : "—"
-          }
-        />
-        <StatCard
-          label="Pool Health"
-          value={POOL_HEALTH_LABELS[pool.poolHealth] ?? pool.poolHealth}
-        />
-      </div>
-
-      <div className="grid gap-8 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-8">
-          <Section title="Pool Overview">
-            <p className="text-[var(--id-text-secondary)] whitespace-pre-wrap leading-relaxed">
-              {pool.poolDescription || pool.description}
-            </p>
-          </Section>
-
-          <Section title="Performance">
-            <PerformanceChart data={chartData} type="area" height={280} />
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 text-sm">
-              <MiniStat label="Total ROI" value={formatPercentage(performance.totalRoiPct)} />
-              <MiniStat label="Monthly" value={formatPercentage(performance.monthlyReturnPct)} />
-              <MiniStat label="Best Month" value={performance.bestMonthPct != null ? formatPercentage(performance.bestMonthPct) : "—"} />
-              <MiniStat label="Winning Months" value={String(performance.winningMonths)} />
-            </div>
-          </Section>
-
-          <Section title="Trading Journal">
-            {journal.length === 0 ? (
-              <p className="text-sm text-[var(--id-text-faint)]">No published trades yet.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-[var(--id-text-faint)]">
-                      <th className="pb-2 pr-4">Asset</th>
-                      <th className="pb-2 pr-4">Direction</th>
-                      <th className="pb-2 pr-4">ROI</th>
-                      <th className="pb-2">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {journal.map((t) => (
-                      <tr key={t.id} className="border-b border-[var(--id-border)]/50">
-                        <td className="py-2.5 font-medium">{t.asset}</td>
-                        <td className="py-2.5 capitalize">{t.direction}</td>
-                        <td className="py-2.5">
-                          {t.roiPct != null ? formatPercentage(t.roiPct) : "—"}
-                        </td>
-                        <td className="py-2.5 text-[var(--id-text-muted)]">
-                          {t.date ? new Date(t.date).toLocaleDateString() : "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Section>
-
-          {pool.faq.length > 0 && (
-            <Section title="FAQ">
-              <dl className="space-y-4">
-                {pool.faq.map((item, i) => (
-                  <div key={i}>
-                    <dt className="font-medium text-[var(--id-text)]">{item.question}</dt>
-                    <dd className="mt-1 text-sm text-[var(--id-text-secondary)]">{item.answer}</dd>
-                  </div>
-                ))}
-              </dl>
-            </Section>
-          )}
-        </div>
-
-        <aside className="space-y-6">
-          <Section title="Investment Requirements">
-            <dl className="space-y-3 text-sm">
-              <Row label="Minimum" value={formatCurrency(pool.minInvestment)} />
-              <Row label="Suggested" value={formatCurrency(pool.suggestedInvestment)} />
-              <Row
-                label="Duration"
-                value={pool.poolDurationDays ? `${pool.poolDurationDays} days` : "Flexible"}
-              />
-              <Row
-                label="Capacity"
-                value={CAPACITY_STATUS_LABELS[pool.capacityStatus] ?? pool.capacityStatus}
-              />
-            </dl>
-            {pool.riskSummary && (
-              <p className="mt-4 text-xs text-[var(--id-text-muted)] leading-relaxed">{pool.riskSummary}</p>
-            )}
-          </Section>
-
-          <Section title="Investor Statistics">
-            <dl className="space-y-3 text-sm">
-              <Row label="Investors" value={String(investorStats.currentInvestors)} />
-              <Row label="Total capital" value={formatCurrency(investorStats.totalCapital)} />
-              <Row label="Avg. investment" value={formatCurrency(investorStats.averageInvestment)} />
-              <Row label="Recent deposits" value={String(investorStats.recentDepositCount)} />
-            </dl>
-            <p className="mt-3 text-[10px] text-[var(--id-text-faint)]">
-              Individual investor identities are never shown.
-            </p>
-          </Section>
-
-          {pool.adminComments && (
-            <Section title="RyvonX Notes">
-              <p className="text-sm text-[var(--id-text-secondary)]">{pool.adminComments}</p>
-            </Section>
-          )}
-
-          {pool.manager && (
-            <Section title="Manager">
-              <Link
-                href={`${ROUTES.managerPublicProfile}/${pool.manager.slug}`}
-                className="text-sm font-medium text-[var(--id-accent-text)] hover:underline"
-              >
-                View full profile →
-              </Link>
-            </Section>
-          )}
-        </aside>
-      </div>
-
-      {relatedPools.length > 0 && (
-        <Section
-          title={
-            pool.managerSlug
-              ? "More opportunities from this manager"
-              : "More investment opportunities"
-          }
-        >
-          <div className="grid gap-6 sm:grid-cols-2">
-            {relatedPools.slice(0, 2).map((p) => (
-              <MarketplacePoolCardView key={p.id} pool={p} compact />
-            ))}
-          </div>
-        </Section>
+function TrustBadge({
+  icon: Icon,
+  label,
+  variant,
+}: {
+  icon: typeof ShieldCheck;
+  label: string;
+  variant: "healthy" | "verified";
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium",
+        variant === "healthy"
+          ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+          : "border-[var(--id-accent)]/25 bg-[var(--id-accent-soft)] text-[var(--id-accent-text)]"
       )}
-    </div>
+    >
+      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      {label}
+    </span>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-2xl border border-[var(--id-border)] bg-[var(--id-surface)] p-6">
-      <h2 className="mb-4 text-lg font-semibold text-[var(--id-text)]">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-4 text-center">
-      <p className="text-xs text-[var(--id-text-faint)]">{label}</p>
-      <p className="mt-1 text-xl font-bold text-[var(--id-text)]">{value}</p>
-    </div>
-  );
-}
-
-function CapitalStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="rounded-lg bg-[var(--id-surface-muted)] px-4 py-3">
-      <p className="text-[10px] uppercase tracking-wider text-[var(--id-text-faint)]">{label}</p>
-      <p className="mt-1 text-lg font-bold text-[var(--id-text)]">{value}</p>
-      {sub && <p className="text-xs text-[var(--id-text-muted)]">{sub}</p>}
-    </div>
-  );
-}
-
-function MiniStat({ label, value }: { label: string; value: string }) {
+function DetailItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[var(--id-text-faint)]">{label}</p>
-      <p className="font-semibold text-[var(--id-text)]">{value}</p>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between">
-      <dt className="text-[var(--id-text-muted)]">{label}</dt>
-      <dd className="font-medium text-[var(--id-text)]">{value}</dd>
+      <dt className="text-[11px] font-semibold uppercase tracking-wider text-[var(--id-text-faint)]">
+        {label}
+      </dt>
+      <dd className="mt-1 text-base font-medium text-[var(--id-text)]">{value}</dd>
     </div>
   );
 }

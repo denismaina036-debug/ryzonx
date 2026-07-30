@@ -14,18 +14,23 @@ import { pmPrimaryButtonClass, pmSecondaryButtonClass } from "@/features/pool-ma
 import { PmFormGuide } from "@/features/pool-manager/components/workspace/pm-form-field";
 import { PmPageHeader, PmFormMessage } from "@/features/pool-manager/components/workspace/pm-page-header";
 import { ManagedPoolForm } from "./managed-pool-form";
+import { defaultRoiMultipliers } from "./pm-roi-multiplier-editor";
+import type { PlatformInvestmentLevel } from "@/domain/roi";
 
 export function ManagedPoolCreateClient({
   approvedStrategies,
   defaultStrategyId,
+  investmentLevels,
 }: {
   approvedStrategies: { id: string; name: string }[];
   defaultStrategyId?: string | null;
+  investmentLevels: PlatformInvestmentLevel[];
 }) {
   const router = useRouter();
   const [values, setValues] = useState(() => {
     const form = emptyManagedPoolForm();
     if (defaultStrategyId) form.strategyId = defaultStrategyId;
+    form.roiMultipliers = defaultRoiMultipliers(investmentLevels);
     return form;
   });
   const [loading, setLoading] = useState<"draft" | "submit" | null>(null);
@@ -83,6 +88,7 @@ export function ManagedPoolCreateClient({
         values={values}
         onChange={setValues}
         approvedStrategies={approvedStrategies}
+        investmentLevels={investmentLevels}
       />
       <div className="space-y-3">
         <PmFormMessage message={error} variant="error" />

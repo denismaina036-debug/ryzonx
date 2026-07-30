@@ -17,7 +17,7 @@ export interface PoolManagerAdminStatistics {
   safetyRating?: number | null;
   performanceRating?: number | null;
   consistencyScore?: number | null;
-  /** Public profile: years on RyvonX (admin baseline; live tenure can exceed). */
+  /** Public profile: years on RyvonX (pre-platform baseline; live tenure adds on top). */
   yearsOnRyvonX?: number | null;
   /** @deprecated Use yearsOnRyvonX */
   experienceYears?: number | null;
@@ -61,15 +61,15 @@ export const POOL_MANAGER_STAT_FIELD_HINTS: Partial<
   Record<keyof typeof POOL_MANAGER_STAT_FIELD_LABELS, string>
 > = {
   assetsUnderManagement:
-    "Baseline capital shown publicly. Live pool totals above this value display automatically.",
+    "Pre-platform capital from the manager's proven history. Platform investments add on top automatically.",
   displayInvestorCount:
-    "Baseline investor count. Live investor totals above this value display automatically.",
+    "Pre-platform investor count. New platform investors add on top automatically.",
   displayReviewCount:
-    "Baseline review count. Live reviews above this value display automatically.",
+    "Pre-platform review count. New platform reviews add on top automatically.",
   displayTradeCount:
-    "Baseline trade count. Live verified trades above this value display automatically.",
+    "Pre-platform verified trade count. New platform trades add on top automatically.",
   yearsOnRyvonX:
-    "Baseline tenure on RyvonX. Actual platform years above this value display automatically.",
+    "Pre-platform years on RyvonX. Time since joining the platform adds on top automatically.",
   maxDrawdownPct:
     "Enter as a positive number (e.g. 8 for 8%). Shown publicly as a negative percentage.",
   securityRating: "Manager security score from 0 to 5 stars.",
@@ -103,7 +103,7 @@ export const POOL_MANAGER_STAT_SECTIONS: PoolManagerStatSection[] = [
     id: "capital",
     title: "Capital & Investors",
     description:
-      "Baseline figures for capital and investors. Leave blank to follow live platform data only.",
+      "Proven-history baselines for capital and investors. Live platform activity adds on top. Leave blank to show live data only.",
     fields: [
       "assetsUnderManagement",
       "totalCapitalManaged",
@@ -114,7 +114,8 @@ export const POOL_MANAGER_STAT_SECTIONS: PoolManagerStatSection[] = [
   {
     id: "activity",
     title: "Activity & Trust",
-    description: "Baseline counts for trades, reviews, cycles, and followers.",
+    description:
+      "Proven-history baselines for trades, reviews, cycles, and followers. Live platform activity adds on top.",
     fields: [
       "displayTradeCount",
       "displayReviewCount",

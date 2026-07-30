@@ -387,7 +387,7 @@ export function ManagerProfileView({
           {managedPools.length === 0 ? (
             <p className="text-sm text-[var(--id-text-muted)]">No live pools yet.</p>
           ) : (
-            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3.5 md:gap-6 sm:grid-cols-2 xl:grid-cols-3">
               {managedPools.map((pool) => (
                 <MarketplacePoolCardView key={pool.id} pool={pool} />
               ))}
@@ -406,7 +406,7 @@ export function ManagerProfileView({
               No live opportunities listed for this manager yet.
             </p>
           ) : (
-            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3.5 md:gap-6 sm:grid-cols-2 xl:grid-cols-3">
               {managedPools.map((pool) => (
                 <MarketplacePoolCardView key={pool.id} pool={pool} />
               ))}

@@ -2,6 +2,12 @@ import type { ReturnTier } from "@/features/investor/types/account";
 import type { FixedReturnRow } from "@/domain/pools/fixed-return";
 import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 import type { CoverImagePosition } from "@/domain/pools/cover-image-position";
+import type {
+  PlatformInvestmentLevel,
+  PoolRoiMultiplier,
+  ReturnDurationPreset,
+  ReturnDurationUnit,
+} from "@/domain/roi/types";
 
 export interface MarketplaceActiveCycle {
   id: string;
@@ -69,6 +75,12 @@ export interface MarketplacePoolCard {
   investorSharePct: number;
   poolManagerSharePct: number;
   returnModel: "fixed" | "variable";
+  /** ROI v2 configuration */
+  returnDurationPreset: ReturnDurationPreset;
+  returnDurationValue: number;
+  returnDurationUnit: ReturnDurationUnit;
+  roiMultipliers: PoolRoiMultiplier[];
+  investmentLevels: PlatformInvestmentLevel[];
   coverSubtitle: string | null;
   tradingAssetTag: string | null;
   strategyTag: string | null;
@@ -117,6 +129,8 @@ export interface MarketplacePoolDetail extends MarketplacePoolCard {
   marketsTradedCodes: string[];
   tradingInstrumentCodes: string[];
   activeOpenTrades: Array<{ instrument: string; direction: string }>;
+  /** Sum of closed-trade realized P/L for the active cycle. */
+  cycleRealizedProfit: number;
   manager: PoolManagerPublicSummary | null;
   faq: Array<{ question: string; answer: string }>;
 }

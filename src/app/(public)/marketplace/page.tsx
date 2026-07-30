@@ -9,7 +9,7 @@ export default async function MarketplacePage() {
     await marketplacePresentationService.getLandingPageData();
 
   return (
-    <InvestorPageContent wide className="py-2 sm:py-4">
+    <InvestorPageContent wide className="py-1 sm:py-4">
       <MarketplaceBrowse
         managers={managers}
         pools={pools}

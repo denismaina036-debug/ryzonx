@@ -8,6 +8,9 @@ import { publishPlatformEvent, PLATFORM_EVENT_TYPES } from "@/lib/platform-event
 import { investmentCycleService } from "@/services/investment-cycle.service";
 import { investmentCycleMetricsService } from "@/services/investment-cycle-metrics.service";
 import { generateAllocationReference } from "@/lib/investment/utils";
+import { resolveAllocationRoi } from "@/lib/financial/roi-v2-distribution";
+import { poolRoiService } from "@/services/pool-roi.service";
+import { platformInvestmentLevelService } from "@/services/platform-investment-level.service";
 import type {
   CreateInvestmentAllocationInput,
   InvestmentAllocation,
@@ -63,6 +66,22 @@ async function getManagerIdForUser(userId: string): Promise<string | null> {
     .eq("status", "approved")
     .maybeSingle();
   return (data as { id?: string } | null)?.id ?? null;
+}
+
+async function resolveAllocationRoiFields(fundId: string, amount: number) {
+  const [levels, multipliers] = await Promise.all([
+    platformInvestmentLevelService.listActive(),
+    poolRoiService.getMultipliersForFund(fundId),
+  ]);
+  const resolved = resolveAllocationRoi({
+    amount,
+    levels,
+    multipliers: multipliers.map((m) => ({
+      investmentLevelId: m.investmentLevelId,
+      multiplier: m.multiplier,
+    })),
+  });
+  return resolved;
 }
 
 export const investmentAllocationService = {
@@ -349,12 +368,23 @@ export const investmentAllocationService = {
 
     if (existing && existing.status !== "cancelled" && existing.status !== "rejected") {
       const nextAmount = existing.amount + input.amount;
+      const roiFields =
+        cycle.fundId != null
+          ? await resolveAllocationRoiFields(cycle.fundId, nextAmount)
+          : null;
       const { data, error } = await db
         .from("investment_allocations")
         .update({
           amount: nextAmount,
           status: "funding_confirmed",
           funding_confirmed_at: existing.fundingConfirmedAt ?? now,
+          ...(roiFields
+            ? {
+                investment_level_id: roiFields.investmentLevelId,
+                roi_multiplier: roiFields.roiMultiplier,
+                projected_payout: roiFields.projectedPayout,
+              }
+            : {}),
         } as never)
         .eq("id", existing.id)
         .select("*")
@@ -363,6 +393,11 @@ export const investmentAllocationService = {
       await investmentCycleMetricsService.recalculateCycleRaisedCapital(input.cycleId);
       return mapAllocation(data as AllocationRow);
     }
+
+    const roiFields =
+      cycle.fundId != null
+        ? await resolveAllocationRoiFields(cycle.fundId, input.amount)
+        : null;
 
     const { data, error } = await db
       .from("investment_allocations")
@@ -374,6 +409,13 @@ export const investmentAllocationService = {
         status: "funding_confirmed",
         funding_confirmed_at: now,
         reference_number: generateAllocationReference(),
+        ...(roiFields
+          ? {
+              investment_level_id: roiFields.investmentLevelId,
+              roi_multiplier: roiFields.roiMultiplier,
+              projected_payout: roiFields.projectedPayout,
+            }
+          : {}),
       } as never)
       .select("*")
       .single();
@@ -434,6 +476,7 @@ export const investmentAllocationService = {
           } as never)
           .eq("id", existing.id);
       } else {
+        const roiFields = await resolveAllocationRoiFields(fundId, amount);
         await db.from("investment_allocations").insert({
           investment_cycle_id: cycleId,
           investor_id: row.user_id,
@@ -442,6 +485,9 @@ export const investmentAllocationService = {
           status: "funding_confirmed",
           funding_confirmed_at: now,
           reference_number: generateAllocationReference(),
+          investment_level_id: roiFields.investmentLevelId,
+          roi_multiplier: roiFields.roiMultiplier,
+          projected_payout: roiFields.projectedPayout,
         } as never);
       }
     }

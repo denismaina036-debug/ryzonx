@@ -7,9 +7,9 @@ import {
   sanitizeCycleCapacityFields,
   validateCycleCapacityFields,
 } from "@/domain/investment/cycle-validation";
-import { validateFixedReturnRows } from "@/domain/pools/fixed-return";
-import { validateVariableReturnConfig } from "@/domain/pools/variable-return";
 import { normalizeMarketCodes } from "@/domain/reference-data/utils";
+import { validateMultiplier } from "@/domain/roi/calculator";
+import { resolveReturnDuration } from "@/domain/roi/return-duration";
 
 export type ManagedPoolValidationMode = "draft" | "submit";
 
@@ -36,6 +36,33 @@ export function normalizeManagedPoolForm(input: ManagedPoolFormInput): ManagedPo
   };
 }
 
+export function validateRoiConfig(input: ManagedPoolFormInput): string | null {
+  const duration = resolveReturnDuration({
+    preset: input.returnDurationPreset,
+    value: parseAmount(input.returnDurationValue),
+    unit: input.returnDurationUnit,
+  });
+
+  if (input.returnDurationPreset === "custom") {
+    const value = parseAmount(input.returnDurationValue);
+    if (!value || value <= 0) {
+      return "Custom return duration must be a positive number.";
+    }
+  }
+
+  if (!input.roiMultipliers?.length) {
+    return "Configure ROI multipliers for each investment level.";
+  }
+
+  for (const entry of input.roiMultipliers) {
+    const error = validateMultiplier(entry.multiplier);
+    if (error) return error;
+  }
+
+  void duration;
+  return null;
+}
+
 export function validateManagedPoolForm(
   input: ManagedPoolFormInput,
   options: { mode?: ManagedPoolValidationMode } = {}
@@ -60,40 +87,24 @@ export function validateManagedPoolForm(
       return "Select at least one trading instrument in What Is Traded.";
     }
 
-    if (normalized.returnModel === "fixed") {
-      const fixedError = validateFixedReturnRows(normalized.fixedReturnRows);
-      if (fixedError) return fixedError;
-    } else {
-      const variableError = validateVariableReturnConfig({
-        returnTiers: normalized.returnTiers,
-        investorSharePct: normalized.investorSharePct,
-        poolManagerSharePct: normalized.poolManagerSharePct,
-      });
-      if (variableError) return variableError;
-    }
+    const roiError = validateRoiConfig(normalized);
+    if (roiError) return roiError;
+
+    const duration = resolveReturnDuration({
+      preset: normalized.returnDurationPreset,
+      value: parseAmount(normalized.returnDurationValue),
+      unit: normalized.returnDurationUnit,
+    });
 
     const capacityError = validateCycleCapacityFields(
       sanitizeCycleCapacityFields({
         targetCapital: parseAmount(normalized.maxPoolSize),
         minInvestment: parseAmount(normalized.minInvestment),
         maxCapacity: parseAmount(normalized.maxPoolSize),
-        durationDays: parseAmount(normalized.tradingDurationDays),
+        durationDays: duration.value,
       })
     );
     if (capacityError) return capacityError;
-  } else {
-    const min = parseAmount(normalized.minInvestment);
-    if (min != null && min <= 0) {
-      return "Minimum investment must be greater than zero, or leave blank.";
-    }
-    const target = parseAmount(normalized.maxPoolSize);
-    if (target != null && target <= 0) {
-      return "Maximum pool size must be greater than zero, or leave blank.";
-    }
-    const duration = parseAmount(normalized.tradingDurationDays);
-    if (duration != null && duration <= 0) {
-      return "Duration must be greater than zero, or leave blank.";
-    }
   }
 
   return null;

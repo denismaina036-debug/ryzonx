@@ -32,6 +32,16 @@ import {
 import { normalizeCoverImageUrl } from "@/lib/pools/cover-image-url";
 import { revalidatePoolMarketplaceSurfaces } from "@/lib/pools/revalidate-pool-surfaces";
 import { inferPayoutDurationPreset } from "@/domain/pools/payout-duration";
+import {
+  durationToDays,
+  inferReturnDurationPreset,
+  migrateLegacyPayoutPreset,
+  resolveReturnDuration,
+} from "@/domain/roi/return-duration";
+import { defaultRoiMultipliers } from "@/features/pool-manager/components/managed-pool/pm-roi-multiplier-editor";
+import { platformInvestmentLevelService } from "@/services/platform-investment-level.service";
+import { poolRoiService } from "@/services/pool-roi.service";
+import type { ReturnDurationPreset, ReturnDurationUnit } from "@/domain/roi/types";
 import { normalizeMarketCodes } from "@/domain/reference-data/utils";
 import { resolvePoolManagerPublicLabel, managerRowToIdentity } from "@/domain/pool-manager/public-profile";
 
@@ -43,18 +53,12 @@ function parseAmount(value: string): number | undefined {
 }
 
 function resolvePoolDurationDays(input: ManagedPoolFormInput): number | undefined {
-  switch (input.payoutDurationPreset) {
-    case "daily":
-      return 1;
-    case "weekly":
-      return 7;
-    case "monthly":
-      return 30;
-    case "every_session":
-    case "custom":
-    default:
-      return parseAmount(input.tradingDurationDays);
-  }
+  const resolved = resolveReturnDuration({
+    preset: input.returnDurationPreset,
+    value: parseAmount(input.returnDurationValue),
+    unit: input.returnDurationUnit,
+  });
+  return durationToDays(resolved.value, resolved.unit);
 }
 
 function parseMarkets(value: string): string[] {
@@ -133,6 +137,11 @@ function formToFundPatch(
   const displayActiveInvestors = parseAmount(input.displayActiveInvestors);
   const displayRaisedCapital = parseAmount(input.displayRaisedCapital);
   const durationDays = resolvePoolDurationDays(input);
+  const durationResolved = resolveReturnDuration({
+    preset: input.returnDurationPreset,
+    value: parseAmount(input.returnDurationValue),
+    unit: input.returnDurationUnit,
+  });
   const targetReturn = parseAmount(input.targetReturnPct);
   const visibility = input.visibility;
   const returnModel = resolveReturnModel(input.returnModel);
@@ -177,6 +186,9 @@ function formToFundPatch(
     scheduleOpenEnded: input.scheduleOpenEnded,
     durationUnit: input.durationUnit,
     payoutDurationPreset: input.payoutDurationPreset,
+    returnDurationPreset: input.returnDurationPreset,
+    returnDurationValue: durationResolved.value,
+    returnDurationUnit: durationResolved.unit,
     maxDrawdownPct: parseAmount(input.maxDrawdownPct),
     leverage: input.leverage.trim() || undefined,
     visibility,
@@ -212,6 +224,9 @@ function formToFundPatch(
     display_raised_capital:
       displayRaisedCapital != null ? Math.max(0, displayRaisedCapital) : 0,
     pool_duration_days: durationDays ?? null,
+    return_duration_preset: input.returnDurationPreset,
+    return_duration_value: durationResolved.value,
+    return_duration_unit: durationResolved.unit,
     profit_target_pct: targetReturn ?? null,
     aggressiveness_level: riskToAggressiveness(input.riskLevel),
     risk_summary: input.tradingMethodology.trim() || null,
@@ -234,7 +249,13 @@ export function poolToManagedForm(
   profitSharing?: { investorSharePct?: number; poolManagerSharePct?: number },
   targetInvestors?: number | null,
   aggressivenessLevel?: string | null,
-  displayMetrics?: { displayActiveInvestors?: number; displayRaisedCapital?: number } | null
+  displayMetrics?: { displayActiveInvestors?: number; displayRaisedCapital?: number } | null,
+  roiData?: {
+    returnDurationPreset?: string | null;
+    returnDurationValue?: number | null;
+    returnDurationUnit?: string | null;
+    roiMultipliers?: Array<{ investmentLevelId: string; multiplier: string }>;
+  }
 ): ManagedPoolFormInput {
   const returnTiers =
     pool.returnTiers?.length > 0 ? pool.returnTiers : [...DEFAULT_MANAGED_POOL_RETURN_TIERS];
@@ -312,6 +333,27 @@ export function poolToManagedForm(
       durationDays: pool.poolDurationDays,
       durationUnit: config.durationUnit,
     }),
+    returnDurationPreset: inferReturnDurationPreset({
+      preset: (roiData?.returnDurationPreset ??
+        config.returnDurationPreset ??
+        migrateLegacyPayoutPreset(config.payoutDurationPreset)) as ReturnDurationPreset,
+      value: roiData?.returnDurationValue ?? config.returnDurationValue ?? pool.poolDurationDays,
+      unit: (roiData?.returnDurationUnit ??
+        config.returnDurationUnit ??
+        config.durationUnit ??
+        "days") as ReturnDurationUnit,
+    }),
+    returnDurationValue: String(
+      roiData?.returnDurationValue ??
+        config.returnDurationValue ??
+        pool.poolDurationDays ??
+        1
+    ),
+    returnDurationUnit: (roiData?.returnDurationUnit ??
+      config.returnDurationUnit ??
+      config.durationUnit ??
+      "days") as ReturnDurationUnit,
+    roiMultipliers: roiData?.roiMultipliers ?? [],
     openingDate: config.openingDate ?? "",
     closingDate: config.closingDate ?? "",
     scheduleOpenEnded: config.scheduleOpenEnded ?? false,
@@ -329,6 +371,48 @@ export function poolToManagedForm(
         ? String(profitSharing.poolManagerSharePct)
         : "20",
     visibility: config.visibility ?? (pool.isInviteOnly ? "invite_only" : "public"),
+  };
+}
+
+async function savePoolRoiMultipliers(
+  poolId: string,
+  input: ManagedPoolFormInput
+): Promise<void> {
+  if (!input.roiMultipliers?.length) return;
+  await poolRoiService.upsertMultipliers(
+    poolId,
+    input.roiMultipliers.map((m) => ({
+      investmentLevelId: m.investmentLevelId,
+      multiplier: Number(m.multiplier),
+    }))
+  );
+}
+
+async function loadPoolRoiFormData(poolId: string): Promise<{
+  returnDurationPreset?: string | null;
+  returnDurationValue?: number | null;
+  returnDurationUnit?: string | null;
+  roiMultipliers: Array<{ investmentLevelId: string; multiplier: string }>;
+}> {
+  const [duration, multipliers, levels] = await Promise.all([
+    poolRoiService.getReturnDuration(poolId),
+    poolRoiService.getCompleteMultipliers(poolId),
+    platformInvestmentLevelService.listActive(),
+  ]);
+
+  const multiplierEntries =
+    multipliers.length > 0
+      ? multipliers.map((m) => ({
+          investmentLevelId: m.investmentLevelId,
+          multiplier: String(m.multiplier),
+        }))
+      : defaultRoiMultipliers(levels);
+
+  return {
+    returnDurationPreset: duration.preset,
+    returnDurationValue: duration.value,
+    returnDurationUnit: duration.unit,
+    roiMultipliers: multiplierEntries,
   };
 }
 
@@ -545,6 +629,7 @@ export const managedPoolService = {
     const created = data as { id: string; slug: string };
     const config = readManagedConfig(patch.pool_faq);
     await ensureDraftCycleForPool(created.id, user.id, config, patch.pool_faq);
+    await savePoolRoiMultipliers(created.id, normalized);
 
     return created;
   },
@@ -605,6 +690,7 @@ export const managedPoolService = {
     }
 
     await syncActiveCycleFromPoolConfig(poolId, normalized, nextConfig);
+    await savePoolRoiMultipliers(poolId, normalized);
     revalidatePoolMarketplaceSurfaces(row.slug);
   },
 
@@ -631,6 +717,8 @@ export const managedPoolService = {
     }
     const { error } = await db.from("funds").update(patch as never).eq("id", poolId);
     if (error) throw new Error(error.message);
+
+    await savePoolRoiMultipliers(poolId, normalized);
 
     const { data: fundRow } = await db.from("funds").select("slug").eq("id", poolId).maybeSingle();
     revalidatePoolMarketplaceSurfaces((fundRow as { slug?: string } | null)?.slug ?? null);
@@ -768,6 +856,10 @@ export const managedPoolService = {
       .eq("id", poolId);
 
     revalidatePoolMarketplaceSurfaces((fund.slug as string | undefined) ?? null);
+  },
+
+  async loadRoiFormData(poolId: string) {
+    return loadPoolRoiFormData(poolId);
   },
 
   async listCycles(poolId: string) {

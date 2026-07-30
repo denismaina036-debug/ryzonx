@@ -931,6 +931,9 @@ export type Database = {
           name: string
           pool_description: string | null
           pool_duration_days: number | null
+          return_duration_preset: string | null
+          return_duration_value: number | null
+          return_duration_unit: string | null
           pool_faq: Json
           pool_config_version: number
           pending_revision: Json | null
@@ -1008,6 +1011,9 @@ export type Database = {
           name: string
           pool_description?: string | null
           pool_duration_days?: number | null
+          return_duration_preset?: string | null
+          return_duration_value?: number | null
+          return_duration_unit?: string | null
           pool_config_version?: number
           pending_revision?: Json | null
           revision_status?: string
@@ -1049,6 +1055,9 @@ export type Database = {
           name?: string
           pool_description?: string | null
           pool_duration_days?: number | null
+          return_duration_preset?: string | null
+          return_duration_value?: number | null
+          return_duration_unit?: string | null
           pool_config_version?: number
           pending_revision?: Json | null
           revision_status?: string
@@ -1630,6 +1639,81 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_investment_levels: {
+        Row: {
+          id: string
+          name: string
+          min_amount: number
+          max_amount: number | null
+          sort_order: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          min_amount: number
+          max_amount?: number | null
+          sort_order?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          min_amount?: number
+          max_amount?: number | null
+          sort_order?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      pool_roi_multipliers: {
+        Row: {
+          id: string
+          fund_id: string
+          investment_level_id: string
+          multiplier: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          fund_id: string
+          investment_level_id: string
+          multiplier: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          fund_id?: string
+          investment_level_id?: string
+          multiplier?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pool_roi_multipliers_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
+            referencedRelation: "funds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pool_roi_multipliers_investment_level_id_fkey"
+            columns: ["investment_level_id"]
+            isOneToOne: false
+            referencedRelation: "platform_investment_levels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_revenue_entries: {
         Row: {
           id: string
@@ -1922,49 +2006,64 @@ export type Database = {
         Row: {
           allocated_at: string
           amount: number
+          cumulative_realised_return: number
           created_at: string
           currency: string
           funding_confirmed_at: string | null
           id: string
           investment_cycle_id: string
+          investment_level_id: string | null
           investor_id: string
           locked_at: string | null
+          projected_payout: number | null
           reference_number: string
+          roi_multiplier: number | null
           settled_at: string | null
           settlement_transaction_id: string | null
           status: Database["public"]["Enums"]["investment_allocation_status"]
+          target_fulfilled: boolean
           updated_at: string
         }
         Insert: {
           allocated_at?: string
           amount: number
+          cumulative_realised_return?: number
           created_at?: string
           currency?: string
           funding_confirmed_at?: string | null
           id?: string
           investment_cycle_id: string
+          investment_level_id?: string | null
           investor_id: string
           locked_at?: string | null
+          projected_payout?: number | null
           reference_number: string
+          roi_multiplier?: number | null
           settled_at?: string | null
           settlement_transaction_id?: string | null
           status?: Database["public"]["Enums"]["investment_allocation_status"]
+          target_fulfilled?: boolean
           updated_at?: string
         }
         Update: {
           allocated_at?: string
           amount?: number
+          cumulative_realised_return?: number
           created_at?: string
           currency?: string
           funding_confirmed_at?: string | null
           id?: string
           investment_cycle_id?: string
+          investment_level_id?: string | null
           investor_id?: string
           locked_at?: string | null
+          projected_payout?: number | null
           reference_number?: string
+          roi_multiplier?: number | null
           settled_at?: string | null
           settlement_transaction_id?: string | null
           status?: Database["public"]["Enums"]["investment_allocation_status"]
+          target_fulfilled?: boolean
           updated_at?: string
         }
         Relationships: [

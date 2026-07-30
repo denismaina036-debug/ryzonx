@@ -14,19 +14,10 @@ import {
 import { ROUTES } from "@/constants/routes";
 import { REFERENCE_SET_KEYS } from "@/domain/reference-data/set-keys";
 import {
-  MANAGED_POOL_DURATION_UNITS,
   MANAGED_POOL_RISK_LEVELS,
   MANAGED_POOL_VISIBILITY,
   type ManagedPoolFormInput,
 } from "@/domain/pools/managed-pool";
-import {
-  PAYOUT_DURATION_PRESET_LABELS,
-  PAYOUT_DURATION_PRESETS,
-} from "@/domain/pools/payout-duration";
-import {
-  MANAGED_POOL_RETURN_MODEL_LABELS,
-  MANAGED_POOL_RETURN_MODELS,
-} from "@/domain/pools/return-model";
 import {
   TRADING_SESSION_OPTIONS,
   TRADING_TIME_ZONE_LABEL,
@@ -46,8 +37,9 @@ import {
 import { PmFormField } from "@/features/pool-manager/components/workspace/pm-form-field";
 import { PmSectionCard } from "@/features/pool-manager/components/workspace/pm-page-header";
 import { PoolImageUpload } from "./pool-image-upload";
-import { PmFixedReturnEditor } from "./pm-fixed-return-editor";
-import { PmVariableReturnEditor } from "./pm-variable-return-editor";
+import { PmReturnDurationEditor } from "./pm-return-duration-editor";
+import { PmRoiMultiplierEditor } from "./pm-roi-multiplier-editor";
+import type { PlatformInvestmentLevel } from "@/domain/roi";
 
 function buildStrategyReturnUrl(poolId?: string): string {
   const returnTo = poolId
@@ -62,12 +54,14 @@ export function ManagedPoolForm({
   editable = true,
   poolId,
   approvedStrategies = [],
+  investmentLevels = [],
 }: {
   values: ManagedPoolFormInput;
   onChange: (values: ManagedPoolFormInput) => void;
   editable?: boolean;
   poolId?: string;
   approvedStrategies?: { id: string; name: string }[];
+  investmentLevels?: PlatformInvestmentLevel[];
 }) {
   const { items: marketOptions, loading: marketsLoading } = useReferenceData(
     REFERENCE_SET_KEYS.FINANCIAL_MARKETS
@@ -77,7 +71,6 @@ export function ManagedPoolForm({
     onChange({ ...values, [key]: value });
   }
 
-  const isFixedReturn = values.returnModel === "fixed";
   const marketsTradedCodes = values.marketsTradedCodes ?? [];
   const tradingInstrumentCodes = values.tradingInstrumentCodes ?? [];
   const normalizedMarkets = normalizeMarketCodes(marketsTradedCodes);
@@ -367,65 +360,48 @@ export function ManagedPoolForm({
             </div>
           )}
           <div className="grid gap-6 sm:grid-cols-2">
-            <PmFormField label="Payout Duration">
-              <Select
-                value={values.payoutDurationPreset}
-                onValueChange={(v) =>
-                  patch("payoutDurationPreset", v as ManagedPoolFormInput["payoutDurationPreset"])
-                }
+            <PmFormField label="Funding Period (days)" hint="How long investors can join before trading starts.">
+              <Input
+                type="number"
+                min={1}
+                value={values.fundingPeriodDays}
+                onChange={(e) => patch("fundingPeriodDays", e.target.value)}
                 disabled={!editable}
-              >
-                <SelectTrigger className={pmSelectTriggerClass}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className={pmSelectContentClass}>
-                  {PAYOUT_DURATION_PRESETS.map((preset) => (
-                    <SelectItem key={preset} value={preset} className={pmSelectItemClass}>
-                      {PAYOUT_DURATION_PRESET_LABELS[preset]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                className={pmInputClass}
+              />
             </PmFormField>
-            {values.payoutDurationPreset === "custom" ? (
-              <>
-                <PmFormField label="Custom Duration">
-                  <Input
-                    type="number"
-                    min={1}
-                    value={values.tradingDurationDays}
-                    onChange={(e) => patch("tradingDurationDays", e.target.value)}
-                    disabled={!editable}
-                    className={pmInputClass}
-                  />
-                </PmFormField>
-                <PmFormField label="Custom Unit">
-                  <Select
-                    value={values.durationUnit}
-                    onValueChange={(v) =>
-                      patch("durationUnit", v as ManagedPoolFormInput["durationUnit"])
-                    }
-                    disabled={!editable}
-                  >
-                    <SelectTrigger className={pmSelectTriggerClass}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className={pmSelectContentClass}>
-                      {MANAGED_POOL_DURATION_UNITS.map((u) => (
-                        <SelectItem key={u} value={u} className={`${pmSelectItemClass} capitalize`}>
-                          {u}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </PmFormField>
-              </>
-            ) : null}
           </div>
         </div>
       </PmSectionCard>
 
-      <PmSectionCard title="Risk Configuration" description="Risk profile and return targets for this pool.">
+      <PmSectionCard
+        title="Return Duration"
+        description="Step 1 — Select the investment cycle duration investors will see."
+      >
+        <PmReturnDurationEditor
+          preset={values.returnDurationPreset}
+          value={values.returnDurationValue}
+          unit={values.returnDurationUnit}
+          onPresetChange={(preset) => patch("returnDurationPreset", preset)}
+          onValueChange={(v) => patch("returnDurationValue", v)}
+          onUnitChange={(unit) => patch("returnDurationUnit", unit)}
+          disabled={!editable}
+        />
+      </PmSectionCard>
+
+      <PmSectionCard
+        title="ROI Multipliers"
+        description="Step 2 — Set the projected ROI multiplier for each platform investment level."
+      >
+        <PmRoiMultiplierEditor
+          levels={investmentLevels}
+          multipliers={values.roiMultipliers}
+          onChange={(roiMultipliers) => patch("roiMultipliers", roiMultipliers)}
+          disabled={!editable}
+        />
+      </PmSectionCard>
+
+      <PmSectionCard title="Risk Configuration" description="Risk profile for this pool.">
         <div className="grid gap-6 sm:grid-cols-2">
           <PmFormField label="Risk Level">
             <Select value={values.riskLevel || "none"} onValueChange={(v) => patch("riskLevel", v === "none" ? "" : v as ManagedPoolFormInput["riskLevel"])} disabled={!editable}>
@@ -438,61 +414,10 @@ export function ManagedPoolForm({
               </SelectContent>
             </Select>
           </PmFormField>
-          <PmFormField label="Target Return (%)">
-            <Input type="number" min={0} step="0.1" value={values.targetReturnPct} onChange={(e) => patch("targetReturnPct", e.target.value)} disabled={!editable} className={pmInputClass} />
-          </PmFormField>
           <PmFormField label="Target Drawdown (%)">
             <Input type="number" min={0} step="0.1" value={values.maxDrawdownPct} onChange={(e) => patch("maxDrawdownPct", e.target.value)} disabled={!editable} className={pmInputClass} />
           </PmFormField>
         </div>
-      </PmSectionCard>
-
-      <PmSectionCard
-        title="Return Structure"
-        description="Choose one settlement model. Fixed Return and Variable Return are completely independent."
-      >
-        <PmFormField label="Return Model" required>
-          <Select
-            value={values.returnModel}
-            onValueChange={(v) => patch("returnModel", v as ManagedPoolFormInput["returnModel"])}
-            disabled={!editable}
-          >
-            <SelectTrigger className={pmSelectTriggerClass}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className={pmSelectContentClass}>
-              {MANAGED_POOL_RETURN_MODELS.map((model) => (
-                <SelectItem key={model} value={model} className={pmSelectItemClass}>
-                  {MANAGED_POOL_RETURN_MODEL_LABELS[model]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </PmFormField>
-
-        {isFixedReturn ? (
-          <div className="mt-6">
-            <PmFixedReturnEditor
-              rows={values.fixedReturnRows}
-              onChange={(fixedReturnRows) => patch("fixedReturnRows", fixedReturnRows)}
-              disabled={!editable}
-            />
-          </div>
-        ) : (
-          <div className="mt-6">
-            <PmVariableReturnEditor
-              tiers={values.returnTiers}
-              investorSharePct={values.investorSharePct}
-              poolManagerSharePct={values.poolManagerSharePct}
-              onTiersChange={(returnTiers) => patch("returnTiers", returnTiers)}
-              onInvestorShareChange={(investorSharePct) => patch("investorSharePct", investorSharePct)}
-              onPoolManagerShareChange={(poolManagerSharePct) =>
-                patch("poolManagerSharePct", poolManagerSharePct)
-              }
-              disabled={!editable}
-            />
-          </div>
-        )}
       </PmSectionCard>
 
       <PmSectionCard title="Pool Visibility" description="Control who can discover and join this pool.">

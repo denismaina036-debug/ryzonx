@@ -17,7 +17,7 @@ export function readAdminYearsOnRyvonX(
   return value;
 }
 
-/** Admin seed as baseline; live platform tenure can exceed the seed. */
+/** Pre-platform tenure baseline plus live platform tenure. */
 export function resolveYearsOnRyvonX(
   liveYears: number,
   adminStats: PoolManagerAdminStatistics | null | undefined
@@ -27,7 +27,7 @@ export function resolveYearsOnRyvonX(
   return resolvePublicDisplayCount(seed, liveYears);
 }
 
-/** Admin seed as baseline; live capital can exceed the seed. */
+/** Pre-platform capital baseline plus live platform pool capital. */
 export function resolvePublicCapital(
   liveCapital: number,
   adminStats: PoolManagerAdminStatistics | null | undefined

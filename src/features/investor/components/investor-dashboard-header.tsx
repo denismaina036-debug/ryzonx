@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowDownToLine, ArrowUpFromLine, TrendingDown, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants/routes";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, getDisplayFirstName } from "@/lib/utils";
 import type { UserProfile } from "@/types";
 
 interface InvestorDashboardHeaderProps {
@@ -25,7 +25,7 @@ export function InvestorDashboardHeader({
   dailyProfit = 0,
   hasInvestments = false,
 }: InvestorDashboardHeaderProps) {
-  const firstName = user.fullName.split(" ")[0] ?? user.fullName;
+  const firstName = getDisplayFirstName(user.fullName);
   const profitPositive = dailyProfit >= 0;
   const TrendIcon = profitPositive ? TrendingUp : TrendingDown;
 

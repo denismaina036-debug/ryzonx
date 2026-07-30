@@ -15,6 +15,7 @@ import type { UserProfile } from "@/types";
 import Link from "next/link";
 import { ROUTES } from "@/constants/routes";
 import type { PmJourneyCardVariant } from "@/domain/investor/pm-journey-variant";
+import { getDisplayFirstName } from "@/lib/utils";
 
 interface MobileDashboardViewProps {
   user: UserProfile;
@@ -41,7 +42,7 @@ export function MobileDashboardView({
   showManagerJourneyCard = false,
   pmJourneyVariant = "become",
 }: MobileDashboardViewProps) {
-  const firstName = user.fullName.split(" ")[0] ?? user.fullName;
+  const firstName = getDisplayFirstName(user.fullName);
   const hasInvestments = data.investment.participations.length > 0;
   const dailyProfit = data.poolPerformance.dailyProfit ?? 0;
 

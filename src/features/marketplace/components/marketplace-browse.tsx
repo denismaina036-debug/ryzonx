@@ -188,13 +188,13 @@ export function MarketplaceBrowse({
     activeTab === "managers" ? filteredManagers.length : filteredPools.length;
 
   return (
-    <div className="space-y-12 pb-8">
-      <MarketplaceBreadcrumb items={[marketplaceHomeCrumb()]} />
+    <div className="space-y-4 pb-6 md:space-y-12 md:pb-8">
+      <MarketplaceBreadcrumb items={[marketplaceHomeCrumb()]} className="hidden md:flex" />
 
       <MarketplaceHero stats={heroStats} />
 
       {topSection && activeTab === "managers" && (
-        <section className="space-y-6">
+        <section className="hidden space-y-6 md:block">
           <div className="flex items-end justify-between gap-4">
             <div>
               <h2 className="text-xl font-semibold tracking-tight text-[var(--id-text)]">
@@ -213,8 +213,70 @@ export function MarketplaceBrowse({
         </section>
       )}
 
-      <section className="space-y-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <section className="space-y-3 md:space-y-6">
+        {/* Mobile — compact toolbar */}
+        <div className="space-y-2 md:hidden">
+          <div className="flex gap-1 rounded-lg border border-[var(--id-border)] bg-[var(--id-surface-muted)]/40 p-0.5">
+            {MARKETPLACE_MANAGER_TABS.map((tab) => {
+              const Icon = TAB_ICONS[tab.value];
+              const isActive = activeTab === tab.value;
+              return (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => setActiveTab(tab.value)}
+                  className={cn(
+                    "inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-2 text-xs font-medium transition-all",
+                    isActive
+                      ? "bg-[var(--id-surface)] text-[var(--id-text)] shadow-sm"
+                      : "text-[var(--id-text-muted)]"
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--id-text-faint)]" />
+              <Input
+                placeholder={searchPlaceholder}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-9 border-[var(--id-border)] bg-[var(--id-surface)] pl-8 text-sm text-[var(--id-text)] placeholder:text-[var(--id-text-faint)]"
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 shrink-0 border-[var(--id-border)]"
+              onClick={() => setFiltersOpen(true)}
+              aria-label="Filters"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+            </Button>
+            <Select value={sort} onValueChange={setSort}>
+              <SelectTrigger
+                className={cn("h-9 w-[6.75rem] shrink-0 px-2 text-xs", MARKETPLACE_SELECT_TRIGGER)}
+              >
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent className={MARKETPLACE_SELECT_CONTENT}>
+                {sortOptions.map((o) => (
+                  <SelectItem key={o.value} value={o.value} className={MARKETPLACE_SELECT_ITEM}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Desktop — existing toolbar */}
+        <div className="hidden flex-col gap-4 md:flex lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap gap-1 rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)]/50 p-1">
             {MARKETPLACE_MANAGER_TABS.map((tab) => {
               const Icon = TAB_ICONS[tab.value];
@@ -251,7 +313,7 @@ export function MarketplaceBrowse({
             <Button
               variant="outline"
               size="sm"
-              className="h-10 shrink-0 border-[var(--id-border)] lg:hidden"
+              className="hidden h-10 shrink-0 border-[var(--id-border)] lg:hidden"
               onClick={() => setFiltersOpen(true)}
             >
               <SlidersHorizontal className="mr-2 h-4 w-4" />
@@ -260,15 +322,13 @@ export function MarketplaceBrowse({
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="hidden flex-col gap-4 sm:flex-row sm:items-center sm:justify-between md:flex">
           <p className="text-sm text-[var(--id-text-muted)]">
             {resultCount} result{resultCount !== 1 ? "s" : ""}
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <Select value={sort} onValueChange={setSort}>
-              <SelectTrigger
-                className={cn("h-9 w-full sm:w-44", MARKETPLACE_SELECT_TRIGGER)}
-              >
+              <SelectTrigger className={cn("h-9 w-full sm:w-44", MARKETPLACE_SELECT_TRIGGER)}>
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent className={MARKETPLACE_SELECT_CONTENT}>
@@ -362,7 +422,7 @@ export function MarketplaceBrowse({
             {filteredPools.length === 0 ? (
               <EmptyState message="No live pools match your filters." />
             ) : (
-              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3.5 md:gap-6 sm:grid-cols-2 xl:grid-cols-3">
                 {filteredPools.map((pool) => (
                   <MarketplacePoolCardView key={pool.id} pool={pool} />
                 ))}

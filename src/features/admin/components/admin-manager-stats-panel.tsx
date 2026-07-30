@@ -186,9 +186,9 @@ export function AdminManagerStatsPanel({
         <div className="max-w-2xl">
           <h3 className="font-semibold text-navy-900">Profile Statistics</h3>
           <p className="mt-1 text-sm text-navy-500">
-            Set public manager profile baselines here. For counts, capital, and tenure, live
-            platform activity above your baseline displays automatically. You can adjust any
-            value again at any time.
+            Set public manager profile baselines from proven history here. For counts, capital,
+            and tenure, live platform activity adds on top of your baseline automatically. You
+            can adjust any value again at any time.
           </p>
           <p className="mt-2 text-xs text-navy-400">
             Per-pool marketplace display seeds (investors, raised capital on individual pool
