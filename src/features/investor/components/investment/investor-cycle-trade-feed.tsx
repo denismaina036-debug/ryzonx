@@ -1,8 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { TrendingDown, TrendingUp } from "lucide-react";
-import { TRADE_ENTRY_RESULT_LABELS } from "@/constants/trade-entry";
+import { TRADE_ENTRY_DIRECTION_LABELS, TRADE_ENTRY_RESULT_LABELS } from "@/constants/trade-entry";
 import type { PublicTradeEntryView } from "@/domain/trading-journal/types";
 import { cn, formatCurrency } from "@/lib/utils";
 import { SimpleCyclePhaseBar } from "@/features/pool-manager/components/journal/simple-cycle-phase-bar";
@@ -59,6 +58,9 @@ function InvestorTradeCard({ trade }: { trade: PublicTradeEntryView }) {
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <p className="font-semibold text-[var(--id-text)]">{trade.instrument}</p>
+            <p className="mt-1 text-xs text-[var(--id-text-muted)]">
+              {TRADE_ENTRY_DIRECTION_LABELS[trade.direction]}
+            </p>
             {trade.tradeResult && (
               <p
                 className={cn(
@@ -86,12 +88,11 @@ function InvestorTradeCard({ trade }: { trade: PublicTradeEntryView }) {
       {trade.screenshotUrl ? (
         <div className="border-t border-[var(--id-border)] bg-[var(--id-surface-muted)] p-3">
           <div className="relative aspect-video overflow-hidden rounded-lg">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={trade.screenshotUrl}
               alt={`${trade.instrument} trade chart`}
-              fill
-              className="object-contain"
-              sizes="(max-width: 768px) 100vw, 720px"
+              className="h-full w-full object-contain"
             />
           </div>
         </div>

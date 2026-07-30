@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth/session";
+import { USER_ROLES } from "@/constants/roles";
 import { tradingJournalService } from "@/services/trading-journal.service";
 import { tradeEntryService } from "@/services/trade-entry.service";
 import { tradeSnapshotService } from "@/services/trade-snapshot.service";
@@ -21,6 +23,9 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params;
+    const user = await requireRole(USER_ROLES.POOL_MANAGER);
+    await tradeEntryService.reconcileUnappliedTradeBalances(id, user.id);
+
     const [journal, entries, snapshots, progress] = await Promise.all([
       tradingJournalService.getForManager(id),
       tradeEntryService.listByCycle(id),

@@ -1,47 +1,16 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { RAISED_CAPITAL_ALLOCATION_STATUSES } from "@/domain/investment/cycle-metrics";
 import { auditService } from "@/services/audit.service";
 import { investmentCycleMetricsService } from "@/services/investment-cycle-metrics.service";
 import type { TradeEntry } from "@/domain/trading-journal/types";
+import {
+  applyInvestorPortfolioDelta,
+  distributeProRataAmount,
+  loadCycleAllocations,
+  resolveFundIdForCycle,
+} from "@/lib/financial/trade-balance-impact";
 
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
-}
-
-function distributeProRataProfit(
-  profitAmount: number,
-  allocations: Array<{ id: string; investorId: string; amount: number }>
-): Array<{
-  allocationId: string;
-  investorId: string;
-  profitShare: number;
-  ownershipPct: number;
-  previousAmount: number;
-  newAmount: number;
-}> {
-  const total = roundMoney(allocations.reduce((s, a) => s + a.amount, 0));
-  if (total <= 0 || profitAmount <= 0) return [];
-
-  let allocated = 0;
-  return allocations.map((alloc, index) => {
-    const ownershipPct = alloc.amount / total;
-    let profitShare: number;
-    if (index === allocations.length - 1) {
-      profitShare = roundMoney(profitAmount - allocated);
-    } else {
-      profitShare = roundMoney(profitAmount * ownershipPct);
-      allocated += profitShare;
-    }
-    const newAmount = roundMoney(alloc.amount + profitShare);
-    return {
-      allocationId: alloc.id,
-      investorId: alloc.investorId,
-      profitShare,
-      ownershipPct: roundMoney(ownershipPct * 1_000_000) / 1_000_000,
-      previousAmount: alloc.amount,
-      newAmount,
-    };
-  });
 }
 
 export const tradeProfitAllocationService = {
@@ -58,32 +27,20 @@ export const tradeProfitAllocationService = {
     if (profitAmount <= 0) return;
     if (tradeEntry.profitAppliedAt) return;
 
-    const db = createAdminClient();
-    const { data: allocationRows, error } = await db
-      .from("investment_allocations")
-      .select("id, investor_id, amount")
-      .eq("investment_cycle_id", tradeEntry.investmentCycleId)
-      .in("status", RAISED_CAPITAL_ALLOCATION_STATUSES);
-
-    if (error) throw new Error(error.message);
-
-    const allocations = ((allocationRows ?? []) as Array<{
-      id: string;
-      investor_id: string;
-      amount: string | number;
-    }>).map((row) => ({
-      id: row.id,
-      investorId: row.investor_id,
-      amount: typeof row.amount === "number" ? row.amount : Number(row.amount),
-    }));
-
-    if (allocations.length === 0) return;
+    const allocations = await loadCycleAllocations(tradeEntry.investmentCycleId);
+    if (allocations.length === 0) {
+      throw new Error(
+        "No investor allocations found for this cycle. Commitments must exist before profit can be distributed."
+      );
+    }
 
     const effectiveProfit = roundMoney(profitAmount);
-    const shares = distributeProRataProfit(effectiveProfit, allocations);
+    const shares = distributeProRataAmount(effectiveProfit, allocations, "credit");
+    const fundId = await resolveFundIdForCycle(tradeEntry.investmentCycleId);
+    const db = createAdminClient();
 
     for (const share of shares) {
-      if (share.profitShare <= 0) continue;
+      if (share.share <= 0) continue;
 
       const { error: updateError } = await db
         .from("investment_allocations")
@@ -97,11 +54,19 @@ export const tradeProfitAllocationService = {
         investment_cycle_id: tradeEntry.investmentCycleId,
         investment_allocation_id: share.allocationId,
         investor_id: share.investorId,
-        profit_amount: share.profitShare,
+        profit_amount: share.share,
         ownership_pct: share.ownershipPct,
         previous_amount: share.previousAmount,
         new_amount: share.newAmount,
       } as never);
+
+      if (fundId) {
+        await applyInvestorPortfolioDelta({
+          fundId,
+          investorId: share.investorId,
+          delta: share.share,
+        });
+      }
     }
 
     await db
@@ -111,13 +76,6 @@ export const tradeProfitAllocationService = {
 
     await investmentCycleMetricsService.recalculateCycleRaisedCapital(tradeEntry.investmentCycleId);
 
-    const { data: cycleRow } = await db
-      .from("investment_cycles")
-      .select("fund_id")
-      .eq("id", tradeEntry.investmentCycleId)
-      .maybeSingle();
-
-    const fundId = (cycleRow as { fund_id?: string | null } | null)?.fund_id;
     if (fundId) {
       const { data: fundRow } = await db
         .from("funds")

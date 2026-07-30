@@ -221,27 +221,67 @@ export const tradeEntryService = {
 
   /** Closed trades visible to investors (marketplace / cycle pages). */
   async listPublicClosedByCycle(cycleId: string): Promise<PublicTradeEntryView[]> {
-    const entries = await this.listClosedByCycle(cycleId);
-    return entries
-      .filter((entry) => entry.investorVisible && entry.closedAt)
-      .sort(
-        (a, b) =>
-          new Date(b.closedAt ?? b.createdAt).getTime() -
-          new Date(a.closedAt ?? a.createdAt).getTime()
-      )
-      .map((entry) => ({
-        id: entry.id,
-        tradeReference: entry.tradeReference,
-        instrument: entry.instrument,
-        direction: entry.direction,
-        entryPrice: entry.entryPrice,
-        exitPrice: entry.exitPrice,
-        quantity: entry.quantity,
-        tradeResult: entry.tradeResult,
-        realizedPnl: entry.realizedPnl,
-        screenshotUrl: entry.screenshotUrl,
-        closedAt: entry.closedAt,
-      }));
+    const db = createAdminClient();
+    const { data, error } = await db
+      .from("trade_entries")
+      .select("*")
+      .eq("investment_cycle_id", cycleId)
+      .eq("status", "closed")
+      .eq("investor_visible", true)
+      .not("closed_at", "is", null)
+      .order("closed_at", { ascending: false });
+
+    if (error) throw new Error(error.message);
+
+    return ((data ?? []) as EntryRow[]).map(mapEntry).map((entry) => ({
+      id: entry.id,
+      tradeReference: entry.tradeReference,
+      instrument: entry.instrument,
+      direction: entry.direction,
+      entryPrice: entry.entryPrice,
+      exitPrice: entry.exitPrice,
+      quantity: entry.quantity,
+      tradeResult: entry.tradeResult,
+      realizedPnl: entry.realizedPnl,
+      screenshotUrl: entry.screenshotUrl,
+      closedAt: entry.closedAt,
+    }));
+  },
+
+  /** Backfill balance impact for closed trades that were recorded before distribution ran. */
+  async reconcileUnappliedTradeBalances(cycleId: string, actorId: string): Promise<number> {
+    const db = createAdminClient();
+    const { data, error } = await db
+      .from("trade_entries")
+      .select("*")
+      .eq("investment_cycle_id", cycleId)
+      .eq("status", "closed");
+
+    if (error) throw new Error(error.message);
+
+    let repaired = 0;
+    for (const row of (data ?? []) as EntryRow[]) {
+      const entry = mapEntry(row);
+      const pnl = entry.realizedPnl ?? 0;
+
+      if (entry.tradeResult === "profit" && pnl > 0 && !entry.profitAppliedAt) {
+        await tradeProfitAllocationService.applyProfitToCycle({
+          tradeEntry: entry,
+          profitAmount: pnl,
+          actorId,
+        });
+        repaired += 1;
+      } else if (entry.tradeResult === "loss" && pnl < 0 && !entry.lossAppliedAt) {
+        await tradeLossAllocationService.applyLossToCycle({
+          tradeEntry: entry,
+          lossAmount: Math.abs(pnl),
+          actorId,
+        });
+        repaired += 1;
+      }
+    }
+
+    return repaired;
   },
 
   /** One-step: create, open, and close a trade with optional screenshot. */

@@ -5,11 +5,18 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ImagePlus, TrendingDown, TrendingUp } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
-import { TRADE_ENTRY_RESULT_LABELS } from "@/constants/trade-entry";
+import { TRADE_ENTRY_RESULT_LABELS, TRADE_ENTRY_DIRECTION_LABELS, TRADE_ENTRY_DIRECTIONS } from "@/constants/trade-entry";
 import { resolveSimplifiedCyclePhase } from "@/constants/cycle-progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { InvestmentCycle } from "@/domain/investment/types";
 import type { TradeEntry } from "@/domain/trading-journal/types";
 import type { TradeEntryResult } from "@/constants/trade-entry";
@@ -18,6 +25,9 @@ import {
   pmInputClass,
   pmPrimaryButtonClass,
   pmSecondaryButtonClass,
+  pmSelectContentClass,
+  pmSelectItemClass,
+  pmSelectTriggerClass,
   pmTextareaClass,
 } from "@/features/pool-manager/constants/ui";
 import { PmFormField } from "@/features/pool-manager/components/workspace/pm-form-field";
@@ -34,10 +44,21 @@ type OutcomeChoice = "profit" | "loss";
 
 const emptyForm = {
   instrument: "",
+  direction: "long" as const,
   amountUsd: "",
   outcome: "profit" as OutcomeChoice,
+  screenshotUrl: "",
   notes: "",
 };
+
+function isValidScreenshotUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 async function uploadScreenshot(file: File): Promise<string> {
   const formData = new FormData();
@@ -91,14 +112,14 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
   }, [load]);
 
   useEffect(() => {
-    if (!screenshotFile) {
-      setScreenshotPreview(null);
-      return;
+    if (screenshotFile) {
+      const url = URL.createObjectURL(screenshotFile);
+      setScreenshotPreview(url);
+      return () => URL.revokeObjectURL(url);
     }
-    const url = URL.createObjectURL(screenshotFile);
-    setScreenshotPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [screenshotFile]);
+    const trimmed = form.screenshotUrl.trim();
+    setScreenshotPreview(trimmed && isValidScreenshotUrl(trimmed) ? trimmed : null);
+  }, [screenshotFile, form.screenshotUrl]);
 
   const closedEntries = useMemo(
     () => (data?.entries ?? []).filter((entry) => entry.status === "closed"),
@@ -123,10 +144,15 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
         throw new Error("Enter a positive dollar amount.");
       }
 
-      const screenshotUrl = screenshotFile ? await uploadScreenshot(screenshotFile) : undefined;
+      const screenshotUrl = screenshotFile
+        ? await uploadScreenshot(screenshotFile)
+        : form.screenshotUrl.trim() && isValidScreenshotUrl(form.screenshotUrl.trim())
+          ? form.screenshotUrl.trim()
+          : undefined;
 
-      await createTradeEntry(cycle.id, {
+      const entry = await createTradeEntry(cycle.id, {
         instrument: form.instrument.trim(),
+        direction: form.direction,
         amountUsd,
         tradeResult: form.outcome,
         notes: form.notes.trim() || null,
@@ -135,12 +161,15 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
 
       setForm(emptyForm);
       setScreenshotFile(null);
+      const distributed =
+        form.outcome === "profit" ? entry.profitAppliedAt : entry.lossAppliedAt;
       setMessage({
-        text:
-          form.outcome === "profit"
+        text: distributed
+          ? form.outcome === "profit"
             ? `Win recorded — ${formatCurrency(amountUsd)} profit distributed to investors.`
-            : `Loss recorded — ${formatCurrency(amountUsd)} applied to cycle balance.`,
-        variant: "success",
+            : `Loss recorded — ${formatCurrency(amountUsd)} applied to cycle balance.`
+          : `Trade recorded — ${formatCurrency(amountUsd)}. Balance distribution is pending investor allocations.`,
+        variant: distributed ? "success" : "error",
       });
       await load();
     } catch (err) {
@@ -216,6 +245,26 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
                   disabled={submitting}
                 />
               </PmFormField>
+              <PmFormField label="Direction" required>
+                <Select
+                  value={form.direction}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, direction: value as typeof form.direction }))
+                  }
+                  disabled={submitting}
+                >
+                  <SelectTrigger className={pmSelectTriggerClass}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className={pmSelectContentClass}>
+                    {TRADE_ENTRY_DIRECTIONS.map((direction) => (
+                      <SelectItem key={direction} value={direction} className={pmSelectItemClass}>
+                        {TRADE_ENTRY_DIRECTION_LABELS[direction]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </PmFormField>
               <PmFormField label="Amount (USD)" required hint="Profit or loss in dollars.">
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--id-text-muted)]">
@@ -235,27 +284,45 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
               </PmFormField>
             </div>
 
-            <PmFormField label="Trade Screenshot" hint="Visible to investors on the marketplace.">
-              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--id-border-strong)] bg-[var(--id-surface-muted)] px-4 py-6 text-center transition-colors hover:border-[var(--pm-accent)]">
-                <ImagePlus className="h-5 w-5 text-[var(--id-text-muted)]" />
-                <span className="text-sm text-[var(--id-text-secondary)]">
-                  {screenshotFile ? screenshotFile.name : "Upload chart screenshot"}
-                </span>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  className="hidden"
-                  disabled={submitting}
-                  onChange={(e) => setScreenshotFile(e.target.files?.[0] ?? null)}
+            <div className="grid gap-5 sm:grid-cols-2">
+              <PmFormField label="Screenshot URL" hint="Paste a chart URL, or upload below.">
+                <Input
+                  type="url"
+                  value={form.screenshotUrl}
+                  onChange={(e) => setForm((prev) => ({ ...prev, screenshotUrl: e.target.value }))}
+                  placeholder="https://…"
+                  className={pmInputClass}
+                  disabled={submitting || Boolean(screenshotFile)}
                 />
-              </label>
-              {screenshotPreview ? (
-                <div className="relative mt-3 overflow-hidden rounded-xl border border-[var(--id-border)]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={screenshotPreview} alt="Screenshot preview" className="max-h-48 w-full object-cover" />
-                </div>
-              ) : null}
-            </PmFormField>
+              </PmFormField>
+              <PmFormField label="Upload Screenshot" hint="Visible to investors on the marketplace.">
+                <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--id-border-strong)] bg-[var(--id-surface-muted)] px-4 py-6 text-center transition-colors hover:border-[var(--pm-accent)]">
+                  <ImagePlus className="h-5 w-5 text-[var(--id-text-muted)]" />
+                  <span className="text-sm text-[var(--id-text-secondary)]">
+                    {screenshotFile ? screenshotFile.name : "Upload chart screenshot"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    disabled={submitting}
+                    onChange={(e) => {
+                      setScreenshotFile(e.target.files?.[0] ?? null);
+                      if (e.target.files?.[0]) {
+                        setForm((prev) => ({ ...prev, screenshotUrl: "" }));
+                      }
+                    }}
+                  />
+                </label>
+              </PmFormField>
+            </div>
+
+            {screenshotPreview ? (
+              <div className="relative overflow-hidden rounded-xl border border-[var(--id-border)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={screenshotPreview} alt="Screenshot preview" className="max-h-48 w-full object-cover" />
+              </div>
+            ) : null}
 
             <PmFormField label="Notes">
               <Textarea
@@ -361,6 +428,9 @@ function TradeCard({ entry }: { entry: TradeEntry }) {
       <div className="flex flex-wrap items-start justify-between gap-3 p-4">
         <div>
           <p className="font-semibold text-[var(--id-text)]">{entry.instrument}</p>
+          <p className="mt-1 text-xs text-[var(--id-text-muted)]">
+            {TRADE_ENTRY_DIRECTION_LABELS[entry.direction]}
+          </p>
           {entry.tradeResult && (
             <p
               className={cn(

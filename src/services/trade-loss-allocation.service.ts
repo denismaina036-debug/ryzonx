@@ -1,11 +1,16 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { RAISED_CAPITAL_ALLOCATION_STATUSES } from "@/domain/investment/cycle-metrics";
 import { computeTradeRealizedPnl } from "@/lib/financial/profit-distribution-calculator";
-import type { TradeEntryDirection, TradeEntryResult, TradeEntryStatus } from "@/constants/trade-entry";
+import type { TradeEntryResult } from "@/constants/trade-entry";
 import { TRADE_ENTRY_RESULTS } from "@/constants/trade-entry";
 import { auditService } from "@/services/audit.service";
 import { investmentCycleMetricsService } from "@/services/investment-cycle-metrics.service";
 import type { TradeEntry } from "@/domain/trading-journal/types";
+import {
+  applyInvestorPortfolioDelta,
+  distributeProRataAmount,
+  loadCycleAllocations,
+  resolveFundIdForCycle,
+} from "@/lib/financial/trade-balance-impact";
 
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
@@ -19,44 +24,6 @@ export function resolveTradeResult(
   if (pnl > 0) return "profit";
   if (pnl < 0) return "loss";
   return "breakeven";
-}
-
-function distributeProRataLoss(
-  lossAmount: number,
-  allocations: Array<{ id: string; investorId: string; amount: number }>
-): Array<{
-  allocationId: string;
-  investorId: string;
-  lossShare: number;
-  ownershipPct: number;
-  previousAmount: number;
-  newAmount: number;
-}> {
-  const total = roundMoney(allocations.reduce((s, a) => s + a.amount, 0));
-  if (total <= 0 || lossAmount <= 0) return [];
-
-  let allocated = 0;
-  const rows = allocations.map((alloc, index) => {
-    const ownershipPct = alloc.amount / total;
-    let lossShare: number;
-    if (index === allocations.length - 1) {
-      lossShare = roundMoney(lossAmount - allocated);
-    } else {
-      lossShare = roundMoney(lossAmount * ownershipPct);
-      allocated += lossShare;
-    }
-    const newAmount = roundMoney(Math.max(0, alloc.amount - lossShare));
-    return {
-      allocationId: alloc.id,
-      investorId: alloc.investorId,
-      lossShare,
-      ownershipPct: roundMoney(ownershipPct * 1_000_000) / 1_000_000,
-      previousAmount: alloc.amount,
-      newAmount,
-    };
-  });
-
-  return rows;
 }
 
 export const tradeLossAllocationService = {
@@ -76,32 +43,23 @@ export const tradeLossAllocationService = {
     if (lossAmount <= 0) return;
     if (tradeEntry.lossAppliedAt) return;
 
+    const allocations = await loadCycleAllocations(tradeEntry.investmentCycleId);
+    if (allocations.length === 0) {
+      throw new Error(
+        "No investor allocations found for this cycle. Commitments must exist before loss can be applied."
+      );
+    }
+
+    const poolTotal = roundMoney(allocations.reduce((s, a) => s + a.amount, 0));
+    const effectiveLoss = roundMoney(Math.min(lossAmount, poolTotal));
+    if (effectiveLoss <= 0) return;
+
+    const shares = distributeProRataAmount(effectiveLoss, allocations, "debit");
+    const fundId = await resolveFundIdForCycle(tradeEntry.investmentCycleId);
     const db = createAdminClient();
-    const { data: allocationRows, error } = await db
-      .from("investment_allocations")
-      .select("id, investor_id, amount")
-      .eq("investment_cycle_id", tradeEntry.investmentCycleId)
-      .in("status", RAISED_CAPITAL_ALLOCATION_STATUSES);
-
-    if (error) throw new Error(error.message);
-
-    const allocations = ((allocationRows ?? []) as Array<{
-      id: string;
-      investor_id: string;
-      amount: string | number;
-    }>).map((row) => ({
-      id: row.id,
-      investorId: row.investor_id,
-      amount: typeof row.amount === "number" ? row.amount : Number(row.amount),
-    }));
-
-    const effectiveLoss = roundMoney(Math.min(lossAmount, allocations.reduce((s, a) => s + a.amount, 0)));
-    if (effectiveLoss <= 0 || allocations.length === 0) return;
-
-    const shares = distributeProRataLoss(effectiveLoss, allocations);
 
     for (const share of shares) {
-      if (share.lossShare <= 0) continue;
+      if (share.share <= 0) continue;
 
       const { error: updateError } = await db
         .from("investment_allocations")
@@ -115,11 +73,19 @@ export const tradeLossAllocationService = {
         investment_cycle_id: tradeEntry.investmentCycleId,
         investment_allocation_id: share.allocationId,
         investor_id: share.investorId,
-        loss_amount: share.lossShare,
+        loss_amount: share.share,
         ownership_pct: share.ownershipPct,
         previous_amount: share.previousAmount,
         new_amount: share.newAmount,
       } as never);
+
+      if (fundId) {
+        await applyInvestorPortfolioDelta({
+          fundId,
+          investorId: share.investorId,
+          delta: -share.share,
+        });
+      }
     }
 
     await db
@@ -129,13 +95,6 @@ export const tradeLossAllocationService = {
 
     await investmentCycleMetricsService.recalculateCycleRaisedCapital(tradeEntry.investmentCycleId);
 
-    const { data: cycleRow } = await db
-      .from("investment_cycles")
-      .select("fund_id")
-      .eq("id", tradeEntry.investmentCycleId)
-      .maybeSingle();
-
-    const fundId = (cycleRow as { fund_id?: string | null } | null)?.fund_id;
     if (fundId) {
       const { data: fundRow } = await db
         .from("funds")
