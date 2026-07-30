@@ -18,6 +18,7 @@ import { formatInstrumentTicker } from "@/domain/reference-data/instrument-displ
 import { formatMultiplier } from "@/domain/roi/calculator";
 import { formatInvestmentLevelRange } from "@/features/pool-manager/components/managed-pool/pm-roi-multiplier-editor";
 import { LiveRoiPreview, RoiDisclaimerBlock } from "@/features/roi/components/live-roi-preview";
+import { InvestorCycleTradeFeed } from "@/features/investor/components/investment/investor-cycle-trade-feed";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -192,6 +193,13 @@ export function PoolDetailView({ pool }: PoolDetailViewProps) {
             Total profits realized in this cycle
           </p>
         </section>
+      )}
+
+      {pool.publicTrades.length > 0 && pool.activeCycle && (
+        <InvestorCycleTradeFeed
+          trades={pool.publicTrades}
+          cycleStatus={pool.activeCycle.status}
+        />
       )}
 
       {pool.roiMultipliers.length > 0 && (

@@ -929,9 +929,12 @@ export const marketplaceService = {
       cycleRealizedProfit,
       roiMultipliers,
       investmentLevels,
-      manager: mapManagerSummary(manager),
-      faq,
-    };
+  manager: mapManagerSummary(manager),
+  faq,
+  publicTrades: enrichedCard.activeCycle?.id
+    ? await tradeEntryService.listPublicClosedByCycle(enrichedCard.activeCycle.id)
+    : [],
+};
 
     return detail;
   },

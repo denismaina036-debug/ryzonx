@@ -1,5 +1,6 @@
 import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 import type { CoverImagePosition } from "@/domain/pools/cover-image-position";
+import type { PublicTradeEntryView } from "@/domain/trading-journal/types";
 import type {
   PlatformInvestmentLevel,
   PoolRoiMultiplier,
@@ -129,6 +130,7 @@ export interface MarketplacePoolDetail extends MarketplacePoolCard {
   cycleRealizedProfit: number;
   manager: PoolManagerPublicSummary | null;
   faq: Array<{ question: string; answer: string }>;
+  publicTrades: PublicTradeEntryView[];
 }
 
 export interface PoolManagerPublicSummary {

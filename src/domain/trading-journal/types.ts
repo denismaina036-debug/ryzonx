@@ -28,6 +28,8 @@ export interface TradeEntry {
   tradeResult: TradeEntryResult | null;
   realizedPnl: number | null;
   lossAppliedAt: string | null;
+  screenshotUrl: string | null;
+  investorVisible: boolean;
   notes: string | null;
   openedAt: string | null;
   closedAt: string | null;
@@ -35,6 +37,21 @@ export interface TradeEntry {
   updatedBy: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Minimal trade card for investor-facing journal feeds. */
+export interface PublicTradeEntryView {
+  id: string;
+  tradeReference: string;
+  instrument: string;
+  direction: TradeEntryDirection;
+  entryPrice: number;
+  exitPrice: number | null;
+  quantity: number;
+  tradeResult: TradeEntryResult | null;
+  realizedPnl: number | null;
+  screenshotUrl: string | null;
+  closedAt: string | null;
 }
 
 export interface TradeSnapshot {
@@ -90,6 +107,8 @@ export interface InvestorCycleOperationsView {
   tradingStatus: string;
   currentPhase: CycleProgressPhase;
   phaseLabel: string;
+  simplifiedPhase: "funding" | "trading";
+  simplifiedPhaseLabel: string;
   timeline: Array<{ label: string; occurredAt: string; description?: string | null }>;
   journalSummary: {
     openPositionsCount: number;
@@ -97,6 +116,7 @@ export interface InvestorCycleOperationsView {
     totalTrades: number;
     lastSnapshotAt: string | null;
   };
+  publicTrades: PublicTradeEntryView[];
   portfolioProgress: {
     raisedCapital: number;
     targetCapital: number | null;
@@ -115,6 +135,10 @@ export interface CreateTradeEntryInput {
   entryPrice: number;
   quantity: number;
   notes?: string | null;
+  /** When set, records a completed trade in one step (entry + exit + P/L). */
+  exitPrice?: number;
+  tradeResult?: TradeEntryResult | null;
+  screenshotUrl?: string | null;
 }
 
 export interface UpdateTradeEntryInput {
@@ -130,4 +154,5 @@ export interface CloseTradeEntryInput {
   exitPrice: number;
   tradeResult?: TradeEntryResult | null;
   notes?: string | null;
+  screenshotUrl?: string | null;
 }

@@ -18,6 +18,7 @@ import { tradeLossAllocationService } from "@/services/trade-loss-allocation.ser
 import type {
   CloseTradeEntryInput,
   CreateTradeEntryInput,
+  PublicTradeEntryView,
   TradeEntry,
   UpdateTradeEntryInput,
 } from "@/domain/trading-journal/types";
@@ -38,6 +39,8 @@ type EntryRow = {
   trade_result: string | null;
   realized_pnl: string | number | null;
   loss_applied_at: string | null;
+  screenshot_url: string | null;
+  investor_visible: boolean | null;
   notes: string | null;
   opened_at: string | null;
   closed_at: string | null;
@@ -69,6 +72,8 @@ function mapEntry(row: EntryRow): TradeEntry {
     tradeResult: (row.trade_result as TradeEntryResult | null) ?? null,
     realizedPnl: row.realized_pnl != null ? toNumber(row.realized_pnl) : null,
     lossAppliedAt: row.loss_applied_at,
+    screenshotUrl: row.screenshot_url ?? null,
+    investorVisible: row.investor_visible ?? true,
     notes: row.notes,
     openedAt: row.opened_at,
     closedAt: row.closed_at,
@@ -220,6 +225,50 @@ export const tradeEntryService = {
   async listClosedByCycle(cycleId: string): Promise<TradeEntry[]> {
     const entries = await this.listByCycle(cycleId);
     return entries.filter((e) => e.status === "closed");
+  },
+
+  /** Closed trades visible to investors (marketplace / cycle pages). */
+  async listPublicClosedByCycle(cycleId: string): Promise<PublicTradeEntryView[]> {
+    const entries = await this.listClosedByCycle(cycleId);
+    return entries
+      .filter((entry) => entry.investorVisible && entry.closedAt)
+      .sort(
+        (a, b) =>
+          new Date(b.closedAt ?? b.createdAt).getTime() -
+          new Date(a.closedAt ?? a.createdAt).getTime()
+      )
+      .map((entry) => ({
+        id: entry.id,
+        tradeReference: entry.tradeReference,
+        instrument: entry.instrument,
+        direction: entry.direction,
+        entryPrice: entry.entryPrice,
+        exitPrice: entry.exitPrice,
+        quantity: entry.quantity,
+        tradeResult: entry.tradeResult,
+        realizedPnl: entry.realizedPnl,
+        screenshotUrl: entry.screenshotUrl,
+        closedAt: entry.closedAt,
+      }));
+  },
+
+  /** One-step: create, open, and close a trade with optional screenshot. */
+  async recordCompletedTrade(
+    cycleId: string,
+    input: CreateTradeEntryInput
+  ): Promise<TradeEntry> {
+    if (input.exitPrice == null || input.exitPrice <= 0) {
+      throw new Error("Exit price is required to record a completed trade.");
+    }
+
+    const draft = await this.createDraft(cycleId, input);
+    const opened = await this.openTrade(draft.id);
+    return this.closeTrade(opened.id, {
+      exitPrice: input.exitPrice,
+      tradeResult: input.tradeResult,
+      notes: input.notes,
+      screenshotUrl: input.screenshotUrl,
+    });
   },
 
   async createDraft(cycleId: string, input: CreateTradeEntryInput): Promise<TradeEntry> {
@@ -414,6 +463,9 @@ export const tradeEntryService = {
       updated_by: userId,
     };
     if (input.notes !== undefined) patch.notes = input.notes?.trim() ?? null;
+    if (input.screenshotUrl !== undefined) {
+      patch.screenshot_url = input.screenshotUrl?.trim() || null;
+    }
 
     const db = createAdminClient();
     const { data, error } = await db

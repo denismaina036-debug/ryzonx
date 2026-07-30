@@ -34,6 +34,8 @@ function mapEntry(row: EntryRow): TradeEntry {
     tradeResult: null,
     realizedPnl: null,
     lossAppliedAt: null,
+    screenshotUrl: null,
+    investorVisible: true,
     notes: null,
     openedAt: row.opened_at,
     closedAt: row.closed_at,

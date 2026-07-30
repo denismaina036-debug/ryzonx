@@ -16,9 +16,15 @@ import type {
   CycleProgressEvent,
   CycleProgressSummary,
   InvestorCycleOperationsView,
+  PublicTradeEntryView,
   TradeEntry,
   TradeSnapshot,
 } from "@/domain/trading-journal/types";
+import {
+  resolveSimplifiedCyclePhase,
+  SIMPLIFIED_CYCLE_PHASE_LABELS,
+} from "@/constants/cycle-progress";
+import { tradeEntryService } from "@/services/trade-entry.service";
 import type { InvestmentCycle } from "@/domain/investment/types";
 import type { TradeEntryDirection, TradeEntryStatus } from "@/constants/trade-entry";
 
@@ -38,6 +44,8 @@ type EntryRow = {
   notes: string | null;
   opened_at: string | null;
   closed_at: string | null;
+  screenshot_url: string | null;
+  investor_visible: boolean | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -66,6 +74,8 @@ function mapEntryRow(row: EntryRow): TradeEntry {
     tradeResult: null,
     realizedPnl: null,
     lossAppliedAt: null,
+    screenshotUrl: row.screenshot_url ?? null,
+    investorVisible: row.investor_visible ?? true,
     notes: row.notes,
     openedAt: row.opened_at,
     closedAt: row.closed_at,
@@ -336,10 +346,13 @@ export const cycleProgressService = {
     const cycle = await investmentCycleService.getPublicBySlug(slug);
     if (!cycle) return null;
     if (!["trading", "distribution", "completed", "archived"].includes(cycle.status)) {
+      const simplifiedPhase = resolveSimplifiedCyclePhase({ cycleStatus: cycle.status });
       return {
         tradingStatus: INVESTMENT_CYCLE_STATUS_LABELS[cycle.status],
         currentPhase: cycle.status === "funding" ? "funding" : "funding",
         phaseLabel: CYCLE_PROGRESS_PHASE_LABELS.funding,
+        simplifiedPhase,
+        simplifiedPhaseLabel: SIMPLIFIED_CYCLE_PHASE_LABELS[simplifiedPhase],
         timeline: buildLifecycleMilestones(cycle).map((e) => ({
           label: e.label,
           occurredAt: e.occurredAt,
@@ -351,6 +364,7 @@ export const cycleProgressService = {
           totalTrades: 0,
           lastSnapshotAt: null,
         },
+        publicTrades: [],
         portfolioProgress: {
           raisedCapital: cycle.raisedCapital,
           targetCapital: cycle.targetCapital,
@@ -377,6 +391,9 @@ export const cycleProgressService = {
       }));
 
     const currentPhase = resolveCurrentPhase(cycle, metrics.openPositions);
+    const simplifiedPhase = resolveSimplifiedCyclePhase({ cycleStatus: cycle.status });
+    const publicTrades: PublicTradeEntryView[] =
+      await tradeEntryService.listPublicClosedByCycle(cycle.id);
 
     const db = createAdminClient();
     const { data: latestSnapshot } = await db
@@ -391,6 +408,8 @@ export const cycleProgressService = {
       tradingStatus: INVESTMENT_CYCLE_STATUS_LABELS[cycle.status],
       currentPhase,
       phaseLabel: CYCLE_PROGRESS_PHASE_LABELS[currentPhase],
+      simplifiedPhase,
+      simplifiedPhaseLabel: SIMPLIFIED_CYCLE_PHASE_LABELS[simplifiedPhase],
       timeline,
       journalSummary: {
         openPositionsCount: metrics.openPositions,
@@ -398,6 +417,7 @@ export const cycleProgressService = {
         totalTrades: metrics.totalTrades,
         lastSnapshotAt: (latestSnapshot as { snapshot_at?: string } | null)?.snapshot_at ?? null,
       },
+      publicTrades,
       portfolioProgress: {
         raisedCapital: cycle.raisedCapital,
         targetCapital: cycle.targetCapital,

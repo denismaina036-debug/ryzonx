@@ -151,7 +151,11 @@ export function PmCycleDetailClient({
             disabled={loading}
             className="bg-emerald-600 text-white hover:bg-emerald-500"
             onClick={() =>
-              runAction(() => transitionCycle(cycle.id, "trading"), "Trading started")
+              runAction(async () => {
+                const next = await transitionCycle(cycle.id, "trading");
+                router.push(`${ROUTES.poolManagerInvestmentCycles}/${cycle.id}/journal`);
+                return next;
+              }, "Trading started")
             }
           >
             Start Trading

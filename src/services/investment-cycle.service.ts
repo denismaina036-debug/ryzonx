@@ -5,6 +5,7 @@ import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 import { INVESTMENT_CYCLE_ALLOCATABLE_STATUSES } from "@/constants/investment-cycle";
 import { auditService } from "@/services/audit.service";
 import { strategyService } from "@/services/strategy.service";
+import { tradingJournalService } from "@/services/trading-journal.service";
 import { tradeEntryService } from "@/services/trade-entry.service";
 import {
   assertInvestmentCycleTransition,
@@ -750,6 +751,11 @@ export const investmentCycleService = {
 
     const poolManagerUserId = await resolvePoolManagerUserId(cycle.poolManagerId);
     if (nextStatus === "trading") {
+      try {
+        await tradingJournalService.getOrCreateForCycle(id);
+      } catch {
+        /* journal opens on first trade if creation fails */
+      }
       publishPlatformEvent({
         eventType: PLATFORM_EVENT_TYPES.CYCLE_STARTED,
         category: "investment",
