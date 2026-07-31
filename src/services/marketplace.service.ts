@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { normalizeCountryCode } from "@/constants/countries";
 import {
   FEATURED_SECTION_KEYS,
   FEATURED_SECTION_LABELS,
@@ -298,6 +299,7 @@ async function enrichPoolCards(
     return attachRoiToPoolCard(
       {
       ...card,
+      managerCountryCode: normalizeCountryCode(manager?.country) ?? card.managerCountryCode,
       name: card.name,
       displayPoolName: stripInstrumentFromPoolName(card.name, tradingAssetTag),
       activeInvestors: resolvePublicDisplayCount(
@@ -508,7 +510,7 @@ function mapToCard(
     ),
     managerSlug: manager?.slug ?? null,
     managerId: manager?.id ?? null,
-    managerCountryCode: manager?.country ?? null,
+    managerCountryCode: normalizeCountryCode(manager?.country),
     managerVerified: manager?.is_verified ?? false,
     managerPhotoUrl: manager?.profile_photo_url ?? manager?.icon_url ?? null,
     assetsUnderManagement: toNumber(row.assets_under_management as number),

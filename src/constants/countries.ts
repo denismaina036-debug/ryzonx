@@ -233,3 +233,10 @@ export function getCountryName(value: string | undefined | null): string | null 
   if (resolved) return resolved.name;
   return value?.trim() || null;
 }
+
+/** Normalize stored country values (ISO code or full name) to ISO alpha-2. */
+export function normalizeCountryCode(value: string | undefined | null): string | null {
+  const resolved = resolveCountry(value);
+  if (resolved) return resolved.code;
+  return null;
+}

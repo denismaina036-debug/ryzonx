@@ -10,6 +10,15 @@ export function countryCodeToFlag(code: string): string {
     .join("");
 }
 
+/** Cross-platform flag image URL (emoji flags are invisible on many Windows browsers). */
+export function countryFlagImageUrl(code: string, height = 16): string {
+  const normalized = code.trim().toLowerCase();
+  if (normalized.length !== 2 || !/^[a-z]{2}$/.test(normalized)) {
+    return "";
+  }
+  return `https://flagcdn.com/h${height}/${normalized}.png`;
+}
+
 export function formatCountryLabel(code: string, name: string): string {
   return `${countryCodeToFlag(code)} ${name}`;
 }
