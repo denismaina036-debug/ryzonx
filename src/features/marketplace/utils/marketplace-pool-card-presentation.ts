@@ -276,35 +276,74 @@ function isUsableInstrumentTicker(ticker: string): boolean {
 }
 
 /** Hide taglines that only repeat the pool display name. */
+function normalizeLabelForComparison(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 export function shouldShowPoolTagline(
   tagline: string | null | undefined,
-  displayName: string
+  displayName: string,
+  poolName?: string
 ): boolean {
   const trimmed = tagline?.trim();
   if (!trimmed) return false;
-  return trimmed.toLowerCase() !== displayName.trim().toLowerCase();
+
+  const normalizedTagline = normalizeLabelForComparison(trimmed);
+  const comparableNames = [displayName, poolName]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .map(normalizeLabelForComparison);
+
+  return !comparableNames.some((name) => name === normalizedTagline);
+}
+
+function stripPoolPrefixFromCycleName(rawName: string, prefix: string): string | null {
+  const prefixTrimmed = prefix.trim();
+  if (!prefixTrimmed) return null;
+
+  const escaped = prefixTrimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const withoutPrefix = rawName
+    .replace(new RegExp(`^${escaped}\\s*[:—–-]\\s*`, "i"), "")
+    .trim();
+
+  if (!withoutPrefix || withoutPrefix.toLowerCase() === prefixTrimmed.toLowerCase()) {
+    return null;
+  }
+
+  return withoutPrefix;
 }
 
 /** Strip pool prefix from cycle names like "POOL — Cycle 1" when the pool is already shown elsewhere. */
 export function formatShortCycleLabel(
   poolDisplayName: string,
-  cycle: { cycleNumber: number; name: string } | null | undefined
+  cycle: { cycleNumber: number; name: string } | null | undefined,
+  poolName?: string
 ): string {
   if (!cycle) return "—";
 
-  const poolName = poolDisplayName.trim();
+  const cycleNumberLabel = `Cycle ${cycle.cycleNumber}`;
   const raw = cycle.name?.trim() ?? "";
+  if (!raw) return cycleNumberLabel;
 
-  if (raw) {
-    const escaped = poolName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const withoutPrefix = raw
-      .replace(new RegExp(`^${escaped}\\s*[—–-]\\s*`, "i"), "")
-      .trim();
-
-    if (withoutPrefix && withoutPrefix.toLowerCase() !== poolName.toLowerCase()) {
-      return withoutPrefix;
-    }
+  const cycleSuffixMatch = raw.match(/\bcycle\s*(\d+)\s*$/i);
+  if (cycleSuffixMatch) {
+    return `Cycle ${cycleSuffixMatch[1]}`;
   }
 
-  return `Cycle ${cycle.cycleNumber}`;
+  const prefixes = [poolDisplayName, poolName]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .map((value) => value.trim());
+
+  for (const prefix of prefixes) {
+    const stripped = stripPoolPrefixFromCycleName(raw, prefix);
+    if (stripped) return stripped;
+  }
+
+  if (
+    prefixes.some((prefix) => raw.toLowerCase() === prefix.toLowerCase()) ||
+    raw.toLowerCase() === poolDisplayName.trim().toLowerCase()
+  ) {
+    return cycleNumberLabel;
+  }
+
+  return cycleNumberLabel;
 }
