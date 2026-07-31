@@ -13,6 +13,7 @@ import { poolRoiService } from "@/services/pool-roi.service";
 import { platformInvestmentLevelService } from "@/services/platform-investment-level.service";
 import type {
   CreateInvestmentAllocationInput,
+  CycleParticipantView,
   InvestmentAllocation,
 } from "@/domain/investment/types";
 
@@ -120,6 +121,63 @@ export const investmentAllocationService = {
 
     if (error) throw new Error(error.message);
     return ((data ?? []) as AllocationRow[]).map(mapAllocation);
+  },
+
+  async listParticipantsByCycle(cycleId: string): Promise<CycleParticipantView[]> {
+    const user = await requireAuth();
+    const cycle = await investmentCycleService.getById(cycleId);
+    if (!cycle) throw new Error("Investment cycle not found.");
+
+    const isAdmin = user.role === USER_ROLES.ADMINISTRATOR;
+    const managerId = await getManagerIdForUser(user.id);
+    const isOwner = managerId != null && cycle.poolManagerId === managerId;
+
+    if (!isAdmin && !isOwner) {
+      throw new Error("Insufficient permissions");
+    }
+
+    const allocations = await this.listByCycle(cycleId);
+    const active = allocations.filter(
+      (a) => a.status !== "cancelled" && a.status !== "rejected"
+    );
+    if (active.length === 0) return [];
+
+    const investorIds = [...new Set(active.map((a) => a.investorId))];
+    const db = createAdminClient();
+    const { data: profiles, error: profilesError } = await db
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", investorIds);
+
+    if (profilesError) throw new Error(profilesError.message);
+
+    const nameById = new Map(
+      ((profiles ?? []) as Array<{ id: string; full_name: string | null }>).map((p) => [
+        p.id,
+        p.full_name?.trim() || "Investor",
+      ])
+    );
+
+    const shareBase =
+      cycle.raisedCapital > 0
+        ? cycle.raisedCapital
+        : active.reduce((sum, a) => sum + a.amount, 0);
+
+    return active
+      .map((a) => ({
+        id: a.id,
+        investorId: a.investorId,
+        investorName: nameById.get(a.investorId) ?? "Investor",
+        amount: a.amount,
+        sharePct:
+          shareBase > 0
+            ? Math.round((a.amount / shareBase) * 10000) / 100
+            : 0,
+        status: a.status,
+        referenceNumber: a.referenceNumber,
+        allocatedAt: a.allocatedAt,
+      }))
+      .sort((a, b) => b.amount - a.amount);
   },
 
   async listAll(filters?: {

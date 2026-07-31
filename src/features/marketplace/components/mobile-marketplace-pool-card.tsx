@@ -16,6 +16,7 @@ import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
 import { AGGRESSIVENESS_LABELS } from "@/constants/marketplace";
 import { formatCurrency, cn } from "@/lib/utils";
 import { PoolCoverBanner } from "@/features/marketplace/components/pool-cover-banner";
+import { ManagerCountryBadge } from "@/features/marketplace/components/manager-country-badge";
 import { Button } from "@/components/ui/button";
 import { resolveMobilePoolBannerPresentation } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 import type { MarketplacePoolCard } from "@/domain/marketplace/types";
@@ -97,7 +98,7 @@ export function MobileMarketplacePoolCard({ pool }: MobileMarketplacePoolCardPro
         )}
         <div className="min-w-0 flex-1">
           <p className="text-[11px] text-[var(--id-text-muted)]">Managed by</p>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             {pool.managerSlug ? (
               <Link
                 href={`${ROUTES.managerPublicProfile}/${pool.managerSlug}`}
@@ -110,6 +111,7 @@ export function MobileMarketplacePoolCard({ pool }: MobileMarketplacePoolCardPro
                 {pool.managerName ?? "RyvonX"}
               </span>
             )}
+            <ManagerCountryBadge countryCode={pool.managerCountryCode} />
             {pool.managerVerified ? (
               <BadgeCheck
                 className="h-4 w-4 shrink-0 text-[var(--id-accent-text)]"

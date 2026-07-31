@@ -1,6 +1,6 @@
 "use client";
 
-import type { InvestmentAllocation, InvestmentCycle, Strategy } from "@/domain/investment/types";
+import type { CycleParticipantView, InvestmentCycle, Strategy } from "@/domain/investment/types";
 import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 import type { StrategyStatus } from "@/constants/strategy";
 
@@ -139,9 +139,9 @@ export async function transitionCycle(
   return data.cycle;
 }
 
-export async function fetchCycleAllocations(cycleId: string): Promise<InvestmentAllocation[]> {
-  const data = await parseJson<{ allocations: InvestmentAllocation[] }>(
+export async function fetchCycleParticipants(cycleId: string): Promise<CycleParticipantView[]> {
+  const data = await parseJson<{ participants: CycleParticipantView[] }>(
     await fetch(`/api/pool-manager/investment-cycles/${cycleId}/allocations`)
   );
-  return data.allocations;
+  return data.participants;
 }

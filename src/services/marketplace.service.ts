@@ -508,6 +508,7 @@ function mapToCard(
     ),
     managerSlug: manager?.slug ?? null,
     managerId: manager?.id ?? null,
+    managerCountryCode: manager?.country ?? null,
     managerVerified: manager?.is_verified ?? false,
     managerPhotoUrl: manager?.profile_photo_url ?? manager?.icon_url ?? null,
     assetsUnderManagement: toNumber(row.assets_under_management as number),

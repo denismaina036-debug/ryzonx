@@ -6,6 +6,7 @@ import { BadgeCheck, ShieldCheck } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { formatCurrency } from "@/lib/utils";
 import { PoolCoverBanner } from "@/features/marketplace/components/pool-cover-banner";
+import { ManagerCountryBadge } from "@/features/marketplace/components/manager-country-badge";
 import { Button } from "@/components/ui/button";
 import {
   MarketplaceBreadcrumb,
@@ -86,17 +87,21 @@ export function PoolDetailView({ pool }: PoolDetailViewProps) {
             </p>
           )}
           {pool.managerName && (
-            <p className="text-sm text-[var(--id-text-muted)]">
-              Managed by{" "}
+            <p className="flex flex-wrap items-center gap-2 text-sm text-[var(--id-text-muted)]">
+              <span>Managed by</span>
               {pool.managerSlug ? (
                 <Link
                   href={`${ROUTES.managerPublicProfile}/${pool.managerSlug}`}
-                  className="font-medium text-[var(--id-text)] hover:text-[var(--id-accent-text)]"
+                  className="inline-flex items-center gap-1.5 font-medium text-[var(--id-text)] hover:text-[var(--id-accent-text)]"
                 >
-                  {pool.managerName}
+                  <span>{pool.managerName}</span>
+                  <ManagerCountryBadge countryCode={pool.managerCountryCode} size="md" />
                 </Link>
               ) : (
-                <span className="font-medium text-[var(--id-text)]">{pool.managerName}</span>
+                <span className="inline-flex items-center gap-1.5 font-medium text-[var(--id-text)]">
+                  <span>{pool.managerName}</span>
+                  <ManagerCountryBadge countryCode={pool.managerCountryCode} size="md" />
+                </span>
               )}
             </p>
           )}

@@ -72,7 +72,7 @@ export function MobileDashboardView({
         <MobilePrimaryActions hasActivePool={hasInvestments} />
       </motion.div>
 
-      {homeInvestment && homeInvestment.recommendedCycles.length > 0 && (
+      {homeInvestment && homeInvestment.fundingCycleCount > 0 && (
         <motion.div variants={item}>
           <Link
             href={ROUTES.marketplace}
@@ -80,8 +80,8 @@ export function MobileDashboardView({
           >
             <p className="font-semibold text-[var(--id-text)]">Investment opportunities</p>
             <p className="mt-1 text-[var(--id-text-muted)]">
-              {homeInvestment.recommendedCycles.length} cycle
-              {homeInvestment.recommendedCycles.length === 1 ? "" : "s"} open for funding
+              {homeInvestment.fundingCycleCount} cycle
+              {homeInvestment.fundingCycleCount === 1 ? "" : "s"} open for funding
             </p>
           </Link>
         </motion.div>

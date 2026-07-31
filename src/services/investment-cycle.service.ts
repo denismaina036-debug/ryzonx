@@ -50,6 +50,7 @@ type CycleRow = {
   min_investment: number | null;
   max_capacity: number | null;
   raised_capital: number;
+  current_cycle_profit: number | null;
   investor_count: number;
   opening_date: string | null;
   closing_date: string | null;
@@ -94,6 +95,7 @@ function mapCycle(row: CycleRow): InvestmentCycle {
     minInvestment: row.min_investment != null ? toNumber(row.min_investment) : null,
     maxCapacity: row.max_capacity != null ? toNumber(row.max_capacity) : null,
     raisedCapital: toNumber(row.raised_capital),
+    currentCycleProfit: toNumber(row.current_cycle_profit),
     investorCount: row.investor_count,
     openingDate: row.opening_date,
     closingDate: row.closing_date ?? row.funding_deadline,

@@ -18,6 +18,7 @@ import { ROUTES } from "@/constants/routes";
 import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
 import { formatCurrency, cn } from "@/lib/utils";
 import { PoolCoverBanner } from "@/features/marketplace/components/pool-cover-banner";
+import { ManagerCountryBadge } from "@/features/marketplace/components/manager-country-badge";
 import { MobileMarketplacePoolCard } from "@/features/marketplace/components/mobile-marketplace-pool-card";
 import { Button } from "@/components/ui/button";
 import type { MarketplacePoolCard } from "@/domain/marketplace/types";
@@ -134,7 +135,7 @@ function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
           )}
           <div className="min-w-0 flex-1">
             <p className="text-[11px] text-[var(--id-text-muted)]">Managed by</p>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               {pool.managerSlug ? (
                 <Link
                   href={`${ROUTES.managerPublicProfile}/${pool.managerSlug}`}
@@ -147,6 +148,7 @@ function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
                   {pool.managerName ?? "RyvonX"}
                 </span>
               )}
+              <ManagerCountryBadge countryCode={pool.managerCountryCode} />
               {pool.managerVerified && (
                 <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-[var(--id-accent-text)]" aria-hidden />
               )}

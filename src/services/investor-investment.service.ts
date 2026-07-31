@@ -246,6 +246,7 @@ export const investorInvestmentService = {
       .reduce((sum, a) => sum + a.amount, 0);
 
     return {
+      fundingCycleCount: fundingCycles.length,
       recommendedCycles: recommended,
       featuredManagers,
       activeCycles: activeCycles.slice(0, 8),

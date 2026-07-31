@@ -43,7 +43,11 @@ export function InvestorHomeInvestmentPanel({ data }: { data: InvestorHomeData }
         <section>
           <SectionHeader
             title="Recommended Opportunities"
-            subtitle="Investment cycles currently open for funding"
+            subtitle={
+              data.fundingCycleCount > data.recommendedCycles.length
+                ? `${data.fundingCycleCount} cycles currently open for funding`
+                : "Investment cycles currently open for funding"
+            }
             href={ROUTES.marketplace}
           />
           <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

@@ -74,6 +74,8 @@ export interface InvestorPortfolioData {
 }
 
 export interface InvestorHomeData {
+  /** Total public cycles in funding status (not capped). */
+  fundingCycleCount: number;
   recommendedCycles: InvestorCycleCard[];
   featuredManagers: Array<{
     id: string;

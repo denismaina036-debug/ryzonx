@@ -35,6 +35,8 @@ export interface MarketplacePoolCard {
   managerName: string | null;
   managerSlug: string | null;
   managerId: string | null;
+  /** ISO 3166-1 alpha-2 country code for the pool manager. */
+  managerCountryCode: string | null;
   managerVerified: boolean;
   managerPhotoUrl: string | null;
   assetsUnderManagement: number;

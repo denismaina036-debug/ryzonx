@@ -42,6 +42,8 @@ export interface InvestmentCycle {
   remainingCapital?: number | null;
   fundingProgressPct?: number | null;
   investorCount: number;
+  /** Sum of realized P&L from closed trades in this cycle. */
+  currentCycleProfit: number;
   openingDate: string | null;
   closingDate: string | null;
   fundingDeadline: string | null;
@@ -55,6 +57,17 @@ export interface InvestmentCycle {
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CycleParticipantView {
+  id: string;
+  investorId: string;
+  investorName: string;
+  amount: number;
+  sharePct: number;
+  status: InvestmentAllocationStatus;
+  referenceNumber: string;
+  allocatedAt: string;
 }
 
 export interface InvestmentAllocation {

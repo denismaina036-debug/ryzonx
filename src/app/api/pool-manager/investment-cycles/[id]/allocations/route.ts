@@ -15,8 +15,8 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params;
-    const allocations = await investmentAllocationService.listByCycle(id);
-    return NextResponse.json({ allocations });
+    const participants = await investmentAllocationService.listParticipantsByCycle(id);
+    return NextResponse.json({ participants });
   } catch (error) {
     return errorResponse(error, "Failed to load cycle allocations");
   }
