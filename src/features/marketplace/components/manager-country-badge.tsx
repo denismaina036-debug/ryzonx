@@ -12,8 +12,8 @@ interface ManagerCountryBadgeProps {
 }
 
 const FLAG_DISPLAY = {
-  sm: { width: 20, height: 14, codeClass: "text-[9px]" },
-  md: { width: 24, height: 17, codeClass: "text-[10px]" },
+  sm: { width: 20, height: 14 },
+  md: { width: 24, height: 17 },
 } as const;
 
 export function ManagerCountryBadge({
@@ -31,7 +31,7 @@ export function ManagerCountryBadge({
 
   return (
     <span
-      className={cn("inline-flex shrink-0 items-center gap-1", className)}
+      className={cn("inline-flex shrink-0 items-center", className)}
       title={code}
       aria-label={`Manager country: ${code}`}
     >
@@ -62,14 +62,6 @@ export function ManagerCountryBadge({
             {countryCodeToFlag(code)}
           </span>
         )}
-      </span>
-      <span
-        className={cn(
-          "font-semibold uppercase tracking-wide text-[var(--id-text-muted)]",
-          display.codeClass
-        )}
-      >
-        {code}
       </span>
     </span>
   );
