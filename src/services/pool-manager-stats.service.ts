@@ -24,6 +24,7 @@ import { mergeAdminStatistics } from "@/lib/pool-manager/merge-admin-statistics"
 import { computeLiveYearsOnRyvonX } from "@/lib/pool-manager/public-statistics";
 import { auditService } from "@/services/audit.service";
 import { poolManagerPerformanceStatsService } from "@/services/pool-manager-performance-stats.service";
+import { resolveManagerPlatformPerformance } from "@/lib/pool-manager/resolve-manager-live-performance";
 
 type ManagerRow = Record<string, unknown>;
 
@@ -162,7 +163,7 @@ async function loadLiveMetrics(managerId: string, row: ManagerRow): Promise<Pool
       .eq("pool_manager_id", managerId),
     adminOverrides.livePerformance
       ? Promise.resolve(adminOverrides.livePerformance)
-      : poolManagerPerformanceStatsService.computeForManager(managerId),
+      : resolveManagerPlatformPerformance(managerId, adminOverrides),
   ]);
 
   const poolRows = (poolsRes.data ?? []) as Array<{
@@ -173,7 +174,7 @@ async function loadLiveMetrics(managerId: string, row: ManagerRow): Promise<Pool
 
   const liveInvestors = poolRows.reduce((s, p) => s + (toNumber(p.active_investors) ?? 0), 0);
   const liveReviewCount = reviewCountRes.count ?? 0;
-  const liveTradeCount = performanceStats.closedTrades;
+  const liveTradeCount = performanceStats?.closedTrades ?? 0;
   const liveAum = poolRows.reduce(
     (s, p) => s + (toNumber(p.assets_under_management) ?? 0),
     0
@@ -181,7 +182,7 @@ async function loadLiveMetrics(managerId: string, row: ManagerRow): Promise<Pool
   const liveYears = computeLiveYearsOnRyvonX(String(row.created_at ?? new Date().toISOString()));
 
   return {
-    winRatePct: performanceStats.winRatePct,
+    winRatePct: performanceStats?.winRatePct ?? null,
     avgMonthlyReturnPct: null,
     maxDrawdownPct: null,
     ryvonxRating: null,

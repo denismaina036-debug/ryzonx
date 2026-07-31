@@ -84,19 +84,17 @@ export const ratingEngineService = {
       const adminRating =
         (managerRow as { ryvonx_rating?: number | null } | null)?.ryvonx_rating ?? null;
 
-      const ratingPatch: Record<string, unknown> = {
-        win_rate_pct: metrics.winRate * 100,
-      };
+      const ratingPatch: Record<string, unknown> = {};
       if (hasSufficientData || adminRating == null) {
         ratingPatch.ryvonx_rating = overallRating;
-      } else {
-        // Keep the admin Overall Rating; never replace with empty-metric ~2.5 scores.
       }
 
-      await db
-        .from("pool_managers")
-        .update(ratingPatch as never)
-        .eq("id", entityId);
+      if (Object.keys(ratingPatch).length > 0) {
+        await db
+          .from("pool_managers")
+          .update(ratingPatch as never)
+          .eq("id", entityId);
+      }
 
       const publishedRating =
         hasSufficientData || adminRating == null ? overallRating : Number(adminRating);

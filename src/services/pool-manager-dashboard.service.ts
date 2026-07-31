@@ -17,6 +17,12 @@ import { normalizeCoverImageUrl } from "@/lib/pools/cover-image-url";
 import { revalidatePoolMarketplaceSurfaces } from "@/lib/pools/revalidate-pool-surfaces";
 import { mergeAdminStatistics } from "@/lib/pool-manager/merge-admin-statistics";
 import {
+  attachManagerLivePerformance,
+  buildManagerMergeLiveInput,
+  normalizeAdminStatistics,
+  resolveManagerPlatformPerformance,
+} from "@/lib/pool-manager/resolve-manager-live-performance";
+import {
   computeLiveYearsOnRyvonX,
   resolvePublicCapital,
   resolveYearsOnRyvonX,
@@ -380,7 +386,7 @@ export const poolManagerDashboardService = {
     const managerId = row.id as string;
 
     const db = createAdminClient();
-    const [poolsRes, achievementsRes, reviewCountRes, tradeMetricsRes] = await Promise.all([
+    const [poolsRes, achievementsRes, reviewCountRes] = await Promise.all([
       db
         .from("funds")
         .select("active_investors, display_active_investors, assets_under_management")
@@ -395,13 +401,6 @@ export const poolManagerDashboardService = {
         .from("pool_manager_reviews")
         .select("id", { count: "exact", head: true })
         .eq("pool_manager_id", managerId),
-      db
-        .from("trade_snapshots")
-        .select("total_trades")
-        .eq("pool_manager_id", managerId)
-        .order("snapshot_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
     ]);
 
     const poolRows = (poolsRes.data ?? []) as Array<{
@@ -432,32 +431,46 @@ export const poolManagerDashboardService = {
     );
     const liveReviewCount = reviewCountRes.count ?? 0;
     const seedReviewCount = toNumber(row.display_review_count as number);
-    const liveTradeCount = toNumber(
-      (tradeMetricsRes.data as { total_trades?: number } | null)?.total_trades
-    );
-    const seedTradeCount = toNumber(row.display_trade_count as number);
     const liveAum = poolRows.reduce(
       (s, p) => s + toNumber(p.assets_under_management),
       0
     );
 
-    const adminStatsRaw = (row.admin_statistics as PoolManagerAdminStatistics | null) ?? null;
-    const adminStats: PoolManagerAdminStatistics | null = adminStatsRaw
-      ? {
-          ...adminStatsRaw,
-          yearsOnRyvonX:
-            adminStatsRaw.yearsOnRyvonX ?? adminStatsRaw.experienceYears ?? null,
-          displayInvestorCount:
-            adminStatsRaw.displayInvestorCount ??
-            adminStatsRaw.activeInvestors ??
-            null,
-        }
-      : null;
+    const adminStats = normalizeAdminStatistics(
+      row.admin_statistics as PoolManagerAdminStatistics | null
+    );
+    const platformLive = await resolveManagerPlatformPerformance(managerId, adminStats);
+    const adminStatsForMerge = attachManagerLivePerformance(adminStats, platformLive);
 
     const investorSeed = Math.max(
       seedInvestors,
       adminStats?.displayInvestorCount ?? 0
     );
+
+    const liveMergeInput = buildManagerMergeLiveInput({
+      platformLive,
+      liveAum,
+      liveInvestors,
+      liveReviewCount,
+      liveYears,
+      poolsManaged: poolRows.length,
+      ryvonxRating:
+        row.ryvonx_rating != null ? toNumber(row.ryvonx_rating as number) : null,
+      securityRating:
+        row.security_rating != null ? toNumber(row.security_rating as number) : null,
+      aggressivenessRating:
+        row.aggressiveness_rating != null
+          ? toNumber(row.aggressiveness_rating as number)
+          : null,
+      winRatePct:
+        row.win_rate_pct != null ? toNumber(row.win_rate_pct as number) : null,
+      avgMonthlyReturnPct:
+        row.avg_monthly_return_pct != null
+          ? toNumber(row.avg_monthly_return_pct as number)
+          : null,
+      maxDrawdownPct:
+        row.max_drawdown_pct != null ? toNumber(row.max_drawdown_pct as number) : null,
+    });
 
     const liveProfile = {
       id: managerId,
@@ -478,20 +491,12 @@ export const poolManagerDashboardService = {
       markets: (row.markets as string[]) ?? [],
       tradingStyle: (row.trading_style as string) ?? null,
       isVerified: Boolean(row.is_verified),
-      ryvonxRating: row.ryvonx_rating != null ? toNumber(row.ryvonx_rating as number) : null,
-      securityRating:
-        row.security_rating != null ? toNumber(row.security_rating as number) : null,
-      aggressivenessRating:
-        row.aggressiveness_rating != null
-          ? toNumber(row.aggressiveness_rating as number)
-          : null,
-      winRatePct: row.win_rate_pct != null ? toNumber(row.win_rate_pct as number) : null,
-      avgMonthlyReturnPct:
-        row.avg_monthly_return_pct != null
-          ? toNumber(row.avg_monthly_return_pct as number)
-          : null,
-      maxDrawdownPct:
-        row.max_drawdown_pct != null ? toNumber(row.max_drawdown_pct as number) : null,
+      ryvonxRating: liveMergeInput.ryvonxRating,
+      securityRating: liveMergeInput.securityRating,
+      aggressivenessRating: liveMergeInput.aggressivenessRating,
+      winRatePct: liveMergeInput.winRatePct,
+      avgMonthlyReturnPct: liveMergeInput.avgMonthlyReturnPct,
+      maxDrawdownPct: liveMergeInput.maxDrawdownPct,
       assetsUnderManagement: liveAum,
       activeInvestors: resolvePublicDisplayCount(investorSeed, liveInvestors),
       poolsManaged: poolRows.length,
@@ -499,11 +504,11 @@ export const poolManagerDashboardService = {
       approvedAt: (row.approved_at as string) ?? null,
       managerLevel: (row.manager_level as string | null) ?? null,
       publicReviewCount: resolvePublicDisplayCount(seedReviewCount, liveReviewCount),
-      publicTradeCount: resolvePublicDisplayCount(seedTradeCount, liveTradeCount),
+      publicTradeCount: liveMergeInput.publicTradeCount ?? 0,
       achievements,
     };
 
-    const merged = mergeAdminStatistics(liveProfile, adminStats);
+    const merged = mergeAdminStatistics(liveMergeInput, adminStatsForMerge);
 
     return {
       ...liveProfile,
@@ -513,9 +518,9 @@ export const poolManagerDashboardService = {
       winRatePct: merged.winRatePct ?? liveProfile.winRatePct,
       avgMonthlyReturnPct: merged.avgMonthlyReturnPct ?? liveProfile.avgMonthlyReturnPct,
       maxDrawdownPct: merged.maxDrawdownPct ?? liveProfile.maxDrawdownPct,
-      assetsUnderManagement: resolvePublicCapital(liveAum, adminStats),
+      assetsUnderManagement: resolvePublicCapital(liveAum, adminStatsForMerge),
       activeInvestors: resolvePublicDisplayCount(investorSeed, liveInvestors),
-      yearsOnRyvonX: resolveYearsOnRyvonX(liveYears, adminStats),
+      yearsOnRyvonX: resolveYearsOnRyvonX(liveYears, adminStatsForMerge),
       publicReviewCount:
         merged.displayReviewCount ?? liveProfile.publicReviewCount,
       publicTradeCount: merged.displayTradeCount ?? liveProfile.publicTradeCount,

@@ -9,6 +9,7 @@ import { buildProtectionIndicators } from "@/lib/governance/protection-indicator
 import { resolvePoolManagerPublicLabel, resolvePublicManagerName, managerRowToIdentity } from "@/domain/pool-manager/public-profile";
 import { parseCoverImagePosition } from "@/domain/pools/cover-image-position";
 import { mergeAdminStatistics } from "@/lib/pool-manager/merge-admin-statistics";
+import { normalizeAdminStatistics } from "@/lib/pool-manager/resolve-manager-live-performance";
 import type { PoolManagerAdminStatistics } from "@/domain/pool-manager/admin-statistics";
 import { resolveYearsOnRyvonX } from "@/lib/pool-manager/public-statistics";
 import {
@@ -421,7 +422,10 @@ function mapManagerSummary(row: ManagerRow | null): PoolManagerPublicSummary | n
       ((Date.now() - createdAt.getTime()) / (365.25 * 24 * 60 * 60 * 1000)) * 10
     ) / 10
   );
-  const adminStats = (row.admin_statistics as PoolManagerAdminStatistics | null) ?? null;
+  const adminStats = normalizeAdminStatistics(
+    row.admin_statistics as PoolManagerAdminStatistics | null
+  );
+  const platformTradeCount = adminStats?.livePerformance?.closedTrades ?? 0;
   const merged = mergeAdminStatistics(
     {
       ryvonxRating: row.ryvonx_rating != null ? toNumber(row.ryvonx_rating) : null,
@@ -432,6 +436,8 @@ function mapManagerSummary(row: ManagerRow | null): PoolManagerPublicSummary | n
       avgMonthlyReturnPct:
         row.avg_monthly_return_pct != null ? toNumber(row.avg_monthly_return_pct) : null,
       maxDrawdownPct: row.max_drawdown_pct != null ? toNumber(row.max_drawdown_pct) : null,
+      publicTradeCount: platformTradeCount,
+      displayTradeCount: platformTradeCount,
     },
     adminStats
   );
@@ -691,7 +697,10 @@ function enrichManagerCards(
     if (!row) return card;
 
     const createdAt = new Date(row.created_at);
-    const adminStats = (row.admin_statistics as PoolManagerAdminStatistics | null) ?? null;
+    const adminStats = normalizeAdminStatistics(
+      row.admin_statistics as PoolManagerAdminStatistics | null
+    );
+    const platformTradeCount = adminStats?.livePerformance?.closedTrades ?? 0;
     const liveYears = Math.max(
       0,
       Math.round(
@@ -714,6 +723,8 @@ function enrichManagerCards(
             : card.avgMonthlyReturnPct,
         maxDrawdownPct:
           row.max_drawdown_pct != null ? toNumber(row.max_drawdown_pct) : card.maxDrawdownPct,
+        publicTradeCount: platformTradeCount,
+        displayTradeCount: platformTradeCount,
       },
       adminStats
     );
