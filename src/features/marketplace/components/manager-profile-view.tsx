@@ -20,7 +20,6 @@ import { Button } from "@/components/ui/button";
 import { MarketplacePoolCardView } from "@/features/marketplace/components/marketplace-pool-card";
 import {
   MarketplaceBreadcrumb,
-  managerProfileCrumb,
   marketplaceHomeCrumb,
 } from "@/features/marketplace/components/marketplace-breadcrumb";
 import { formatCurrency, formatPercentage, cn } from "@/lib/utils";
@@ -109,12 +108,7 @@ export function ManagerProfileView({
 
   return (
     <div className="space-y-8 pb-8">
-      <MarketplaceBreadcrumb
-        items={[
-          marketplaceHomeCrumb(),
-          managerProfileCrumb(profile.slug, profile.publicDisplayName),
-        ]}
-      />
+      <MarketplaceBreadcrumb items={[marketplaceHomeCrumb()]} />
 
       <section className="overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow)]">
         <div className="relative h-40 sm:h-52">

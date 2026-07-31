@@ -274,3 +274,37 @@ function isUsableInstrumentTicker(ticker: string): boolean {
   }
   return !upper.includes("MAJOR PAIRS");
 }
+
+/** Hide taglines that only repeat the pool display name. */
+export function shouldShowPoolTagline(
+  tagline: string | null | undefined,
+  displayName: string
+): boolean {
+  const trimmed = tagline?.trim();
+  if (!trimmed) return false;
+  return trimmed.toLowerCase() !== displayName.trim().toLowerCase();
+}
+
+/** Strip pool prefix from cycle names like "POOL — Cycle 1" when the pool is already shown elsewhere. */
+export function formatShortCycleLabel(
+  poolDisplayName: string,
+  cycle: { cycleNumber: number; name: string } | null | undefined
+): string {
+  if (!cycle) return "—";
+
+  const poolName = poolDisplayName.trim();
+  const raw = cycle.name?.trim() ?? "";
+
+  if (raw) {
+    const escaped = poolName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const withoutPrefix = raw
+      .replace(new RegExp(`^${escaped}\\s*[—–-]\\s*`, "i"), "")
+      .trim();
+
+    if (withoutPrefix && withoutPrefix.toLowerCase() !== poolName.toLowerCase()) {
+      return withoutPrefix;
+    }
+  }
+
+  return `Cycle ${cycle.cycleNumber}`;
+}

@@ -8,7 +8,6 @@ import { MarketplaceCycleCard, MarketplaceStrategyCard } from "@/features/market
 import {
   MarketplaceBreadcrumb,
   marketplaceHomeCrumb,
-  managerProfileCrumb,
 } from "@/features/marketplace/components/marketplace-breadcrumb";
 import { InvestorStrategyIntelligencePanel } from "@/features/investor/components/investment/investor-intelligence-panels";
 import type { StrategyIntelligence } from "@/domain/performance-intelligence/types";
@@ -46,15 +45,7 @@ export function StrategyDetailView({
 
   return (
     <div className="space-y-8 pb-10">
-      <MarketplaceBreadcrumb
-        items={[
-          marketplaceHomeCrumb(),
-          manager.slug
-            ? managerProfileCrumb(manager.slug, manager.name)
-            : { label: manager.name },
-          { label: strategy.name },
-        ]}
-      />
+      <MarketplaceBreadcrumb items={[marketplaceHomeCrumb()]} />
 
       <header className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-6 shadow-[var(--id-shadow)]">
         <p className="text-xs font-semibold uppercase tracking-widest text-[var(--id-accent)]">Strategy</p>

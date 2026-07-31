@@ -18,6 +18,7 @@ import {
   MarketplaceBreadcrumb,
   marketplaceHomeCrumb,
 } from "@/features/marketplace/components/marketplace-breadcrumb";
+import { formatShortCycleLabel } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 
 export function CycleOpportunityView({
   cycle,
@@ -37,13 +38,14 @@ export function CycleOpportunityView({
   const remaining = cycle.remainingCapital;
   const canAllocate = cycle.status === "funding";
 
+  const cycleLabel = formatShortCycleLabel(strategy.name, cycle);
+
   return (
     <div className="space-y-8 pb-10">
       <MarketplaceBreadcrumb
         items={[
           marketplaceHomeCrumb(),
           { label: strategy.name, href: `${ROUTES.marketplaceStrategies}/${strategy.slug}` },
-          { label: cycle.name },
         ]}
       />
 
@@ -51,7 +53,7 @@ export function CycleOpportunityView({
         <p className="text-xs font-semibold uppercase tracking-widest text-[var(--id-accent)]">
           Investment Opportunity
         </p>
-        <h1 className="mt-2 text-2xl font-semibold text-[var(--id-text)] sm:text-3xl">{cycle.name}</h1>
+        <h1 className="mt-2 text-2xl font-semibold text-[var(--id-text)] sm:text-3xl">{cycleLabel}</h1>
         <p className="mt-2 max-w-3xl text-sm text-[var(--id-text-muted)]">
           {cycle.description ?? "A time-bound fundraising and trading period under a verified strategy."}
         </p>

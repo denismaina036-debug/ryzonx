@@ -10,8 +10,8 @@ import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 import {
   MarketplaceBreadcrumb,
   marketplaceHomeCrumb,
-  opportunityCrumb,
 } from "@/features/marketplace/components/marketplace-breadcrumb";
+import { formatShortCycleLabel } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,13 +41,7 @@ export function PoolActivityView({ data }: PoolActivityViewProps) {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <MarketplaceBreadcrumb
-        items={[
-          marketplaceHomeCrumb(),
-          opportunityCrumb(data.poolSlug, data.poolName),
-          { label: "Pool Activity", href: `${ROUTES.marketplace}/${data.poolSlug}/activity` },
-        ]}
-      />
+      <MarketplaceBreadcrumb items={[marketplaceHomeCrumb()]} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button asChild variant="ghost" size="sm" className="w-fit px-0 hover:bg-transparent">
@@ -65,7 +59,7 @@ export function PoolActivityView({ data }: PoolActivityViewProps) {
         <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <HeaderStat
             label="Current Trading Cycle"
-            value={activeCycle?.name ?? "—"}
+            value={formatShortCycleLabel(displayName, activeCycle)}
           />
           <HeaderStat
             label="Current Cycle Status"

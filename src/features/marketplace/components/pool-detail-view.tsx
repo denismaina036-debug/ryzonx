@@ -10,14 +10,16 @@ import { ManagerCountryBadge } from "@/features/marketplace/components/manager-c
 import { Button } from "@/components/ui/button";
 import {
   MarketplaceBreadcrumb,
-  managerProfileCrumb,
   marketplaceHomeCrumb,
-  opportunityCrumb,
 } from "@/features/marketplace/components/marketplace-breadcrumb";
 import type { MarketplacePoolDetail } from "@/domain/marketplace/types";
 import { formatInstrumentTicker } from "@/domain/reference-data/instrument-display";
 import { formatMultiplier } from "@/domain/roi/calculator";
 import { formatInvestmentLevelRange } from "@/features/pool-manager/components/managed-pool/pm-roi-multiplier-editor";
+import {
+  formatShortCycleLabel,
+  shouldShowPoolTagline,
+} from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 import { LiveRoiPreview, RoiDisclaimerBlock } from "@/features/roi/components/live-roi-preview";
 import { InvestorCycleTradeFeed } from "@/features/investor/components/investment/investor-cycle-trade-feed";
 import { Input } from "@/components/ui/input";
@@ -36,12 +38,6 @@ function formatTradedInstruments(pool: MarketplacePoolDetail): string {
   return formatInstrumentTicker(pool.tradingInstrumentCode ?? pool.tradingPair ?? null);
 }
 
-function formatCycleName(pool: MarketplacePoolDetail): string {
-  if (!pool.activeCycle) return "—";
-  const { cycleNumber, name } = pool.activeCycle;
-  return name?.trim() ? name : `Cycle ${cycleNumber}`;
-}
-
 export function PoolDetailView({ pool }: PoolDetailViewProps) {
   const [previewAmount, setPreviewAmount] = useState(String(pool.minInvestment));
 
@@ -57,15 +53,7 @@ export function PoolDetailView({ pool }: PoolDetailViewProps) {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <MarketplaceBreadcrumb
-        items={[
-          marketplaceHomeCrumb(),
-          ...(pool.managerSlug && pool.managerName
-            ? [managerProfileCrumb(pool.managerSlug, pool.managerName)]
-            : []),
-          opportunityCrumb(pool.slug, pool.name),
-        ]}
-      />
+      <MarketplaceBreadcrumb items={[marketplaceHomeCrumb()]} />
 
       {/* Hero — name first, compact cover */}
       <header className="space-y-4">
@@ -81,7 +69,7 @@ export function PoolDetailView({ pool }: PoolDetailViewProps) {
               />
             )}
           </div>
-          {pool.tagline && (
+          {shouldShowPoolTagline(pool.tagline, displayName) && (
             <p className="max-w-2xl text-sm text-[var(--id-text-muted)] sm:text-base">
               {pool.tagline}
             </p>
@@ -143,7 +131,7 @@ export function PoolDetailView({ pool }: PoolDetailViewProps) {
               <div className="min-w-0 space-y-4">
                 <div>
                   <h2 className="text-lg font-semibold text-[var(--id-text)] sm:text-xl">
-                    {formatCycleName(pool)}
+                    {formatShortCycleLabel(displayName, pool.activeCycle)}
                   </h2>
                   {showActiveSignal && (
                     <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
