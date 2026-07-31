@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth/session";
 import { communicationTriggers } from "@/services/communication";
 import { formatMoney } from "@/services/communication/user-variables";
+import { auditService } from "@/services/audit.service";
 import {
   TRADE_SCREENSHOT_BUCKET,
   TRADE_SCREENSHOT_MAX_BYTES,
@@ -113,6 +114,18 @@ function resolveInvestorStatus(
   if (status === "closed") return "closed";
   if (status === "cancelled") return "cancelled";
   return "running";
+}
+
+function signedTransactionShare(notes: string | null | undefined, amount: number): number {
+  const isLoss = notes?.toLowerCase().includes("loss") ?? false;
+  return isLoss ? -Math.abs(amount) : Math.abs(amount);
+}
+
+function extractScreenshotStoragePath(publicUrl: string): string | null {
+  const marker = `/storage/v1/object/public/${TRADE_SCREENSHOT_BUCKET}/`;
+  const index = publicUrl.indexOf(marker);
+  if (index === -1) return null;
+  return decodeURIComponent(publicUrl.slice(index + marker.length));
 }
 
 export const tradeAdminService = {
@@ -380,5 +393,141 @@ export const tradeAdminService = {
       .eq("id", input.fundId);
 
     return mapTradeRow(trade as TradeRow);
+  },
+
+  async deleteTrade(tradeId: string): Promise<void> {
+    const admin = await requireRole("administrator");
+    const db = createAdminClient();
+
+    const { data: tradeRow, error: tradeError } = await db
+      .from("trades")
+      .select("*")
+      .eq("id", tradeId)
+      .maybeSingle();
+
+    if (tradeError) throw new Error(tradeError.message);
+    if (!tradeRow) throw new Error("Trade not found.");
+
+    const trade = tradeRow as TradeRow;
+    const totalProfit = toNumber(trade.pnl);
+    const isClosed = trade.status === "closed";
+    const isCancelled = trade.status === "cancelled";
+
+    const { data: linkedTransactions, error: txListError } = await db
+      .from("transactions")
+      .select("id, user_id, amount, notes")
+      .eq("reference", tradeId)
+      .eq("payment_method", "trade_profit");
+
+    if (txListError) throw new Error(txListError.message);
+
+    for (const tx of (linkedTransactions ?? []) as Array<{
+      id: string;
+      user_id: string;
+      amount: number | string;
+      notes: string | null;
+    }>) {
+      const share = signedTransactionShare(tx.notes, toNumber(tx.amount));
+      if (share === 0) continue;
+
+      const { data: portfolio } = await db
+        .from("investor_portfolios")
+        .select("unrealized_pnl, realized_pnl, current_value")
+        .eq("user_id", tx.user_id)
+        .eq("fund_id", trade.fund_id)
+        .maybeSingle();
+
+      const row = portfolio as {
+        unrealized_pnl?: number;
+        realized_pnl?: number;
+        current_value?: number;
+      } | null;
+
+      const updates: Record<string, number> = {
+        current_value: toNumber(row?.current_value) - share,
+      };
+
+      if (isClosed) {
+        updates.realized_pnl = toNumber(row?.realized_pnl) - share;
+      } else if (!isCancelled) {
+        updates.unrealized_pnl = toNumber(row?.unrealized_pnl) - share;
+      }
+
+      const { error: portfolioError } = await db
+        .from("investor_portfolios")
+        .update(updates as never)
+        .eq("user_id", tx.user_id)
+        .eq("fund_id", trade.fund_id);
+
+      if (portfolioError) throw new Error(portfolioError.message);
+    }
+
+    if ((linkedTransactions ?? []).length > 0) {
+      const { error: deleteTxError } = await db
+        .from("transactions")
+        .delete()
+        .eq("reference", tradeId)
+        .eq("payment_method", "trade_profit");
+
+      if (deleteTxError) throw new Error(deleteTxError.message);
+    }
+
+    const { data: poolStats } = await db
+      .from("pool_stats")
+      .select("total_pool_value, total_closed_trades")
+      .eq("fund_id", trade.fund_id)
+      .maybeSingle();
+
+    const statsRow = poolStats as {
+      total_pool_value?: number;
+      total_closed_trades?: number;
+    } | null;
+
+    await db
+      .from("pool_stats")
+      .update({
+        total_pool_value: toNumber(statsRow?.total_pool_value) - totalProfit,
+        total_closed_trades: Math.max(
+          0,
+          toNumber(statsRow?.total_closed_trades) - (isClosed ? 1 : 0)
+        ),
+      } as never)
+      .eq("fund_id", trade.fund_id);
+
+    const { data: fund } = await db
+      .from("funds")
+      .select("pool_value")
+      .eq("id", trade.fund_id)
+      .maybeSingle();
+
+    await db
+      .from("funds")
+      .update({
+        pool_value: toNumber((fund as { pool_value?: number } | null)?.pool_value) - totalProfit,
+      } as never)
+      .eq("id", trade.fund_id);
+
+    const { error: deleteTradeError } = await db.from("trades").delete().eq("id", tradeId);
+    if (deleteTradeError) throw new Error(deleteTradeError.message);
+
+    if (trade.chart_screenshot_url) {
+      const storagePath = extractScreenshotStoragePath(trade.chart_screenshot_url);
+      if (storagePath) {
+        await db.storage.from(TRADE_SCREENSHOT_BUCKET).remove([storagePath]);
+      }
+    }
+
+    await auditService.log({
+      actorId: admin.id,
+      action: "admin_trade_deleted",
+      entityType: "trade",
+      entityId: tradeId,
+      oldValues: {
+        symbol: trade.symbol,
+        fundId: trade.fund_id,
+        status: trade.status,
+        pnl: totalProfit,
+      },
+    });
   },
 };

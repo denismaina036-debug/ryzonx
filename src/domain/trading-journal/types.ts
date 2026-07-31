@@ -55,6 +55,14 @@ export interface PublicTradeEntryView {
   closedAt: string | null;
 }
 
+/** Public pool journal trade — includes cycle context for grouping. */
+export interface PublicPoolTradeView extends PublicTradeEntryView {
+  investmentCycleId: string;
+  cycleNumber: number;
+  cycleName: string;
+  cycleStatus: string;
+}
+
 export interface TradeSnapshot {
   id: string;
   journalId: string;

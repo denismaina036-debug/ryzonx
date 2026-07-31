@@ -980,6 +980,8 @@ export type Database = {
           next_review_at: string | null
           review_frequency: string | null
           investor_capital: number
+          seed_pool_capital: number | null
+          seed_investor_count: number | null
           ryvonx_capital: number
           is_ryvonx_backed: boolean
           ryvonx_backed_at: string | null
@@ -1711,6 +1713,39 @@ export type Database = {
           },
         ]
       }
+      pool_investor_positions: {
+        Row: {
+          capital: number
+          created_at: string
+          fund_id: string
+          id: string
+          investor_id: string | null
+          is_virtual: boolean
+          updated_at: string
+          virtual_label: string | null
+        }
+        Insert: {
+          capital?: number
+          created_at?: string
+          fund_id: string
+          id?: string
+          investor_id?: string | null
+          is_virtual?: boolean
+          updated_at?: string
+          virtual_label?: string | null
+        }
+        Update: {
+          capital?: number
+          created_at?: string
+          fund_id?: string
+          id?: string
+          investor_id?: string | null
+          is_virtual?: boolean
+          updated_at?: string
+          virtual_label?: string | null
+        }
+        Relationships: []
+      }
       platform_revenue_entries: {
         Row: {
           id: string
@@ -2087,6 +2122,7 @@ export type Database = {
           closing_date: string | null
           completed_at: string | null
           created_at: string
+          current_cycle_profit: number
           cycle_number: number
           description: string | null
           distribution_started_at: string | null
@@ -2197,6 +2233,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      investment_queue: {
+        Row: {
+          amount: number
+          created_at: string
+          fund_id: string
+          id: string
+          investor_id: string
+          notes: string | null
+          processed_at: string | null
+          queue_type: Database["public"]["Enums"]["investment_queue_type"]
+          source_settlement_id: string | null
+          status: Database["public"]["Enums"]["investment_queue_status"]
+          target_cycle_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          fund_id: string
+          id?: string
+          investor_id: string
+          notes?: string | null
+          processed_at?: string | null
+          queue_type: Database["public"]["Enums"]["investment_queue_type"]
+          source_settlement_id?: string | null
+          status?: Database["public"]["Enums"]["investment_queue_status"]
+          target_cycle_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          fund_id?: string
+          id?: string
+          investor_id?: string
+          notes?: string | null
+          processed_at?: string | null
+          queue_type?: Database["public"]["Enums"]["investment_queue_type"]
+          source_settlement_id?: string | null
+          status?: Database["public"]["Enums"]["investment_queue_status"]
+          target_cycle_id?: string | null
+        }
+        Relationships: []
       }
       strategies: {
         Row: {
@@ -2337,6 +2415,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      investor_profit_wallets: {
+        Row: {
+          balance: number
+          fund_id: string
+          id: string
+          investor_id: string
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          fund_id: string
+          id?: string
+          investor_id: string
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          fund_id?: string
+          id?: string
+          investor_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       journal_entries: {
         Row: {
@@ -3312,6 +3414,45 @@ export type Database = {
           },
         ]
       }
+      cycle_ownership_snapshots: {
+        Row: {
+          capital: number
+          fund_id: string
+          id: string
+          investment_cycle_id: string
+          investor_id: string | null
+          is_virtual: boolean
+          ownership_pct: number
+          pool_capital_total: number
+          snapshot_at: string
+          virtual_label: string | null
+        }
+        Insert: {
+          capital: number
+          fund_id: string
+          id?: string
+          investment_cycle_id: string
+          investor_id?: string | null
+          is_virtual?: boolean
+          ownership_pct: number
+          pool_capital_total: number
+          snapshot_at?: string
+          virtual_label?: string | null
+        }
+        Update: {
+          capital?: number
+          fund_id?: string
+          id?: string
+          investment_cycle_id?: string
+          investor_id?: string | null
+          is_virtual?: boolean
+          ownership_pct?: number
+          pool_capital_total?: number
+          snapshot_at?: string
+          virtual_label?: string | null
+        }
+        Relationships: []
+      }
       cycle_progress_events: {
         Row: {
           actor_id: string | null
@@ -4034,6 +4175,9 @@ export type Database = {
         | "locked"
         | "distributed"
         | "cancelled"
+        | "rejected"
+      investment_queue_type: "investment" | "withdrawal" | "reinvestment"
+      investment_queue_status: "pending" | "processed" | "cancelled"
         | "rejected"
       distribution_record_status:
         | "preparation"

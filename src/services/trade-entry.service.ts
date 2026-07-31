@@ -15,7 +15,7 @@ import { resolveCycleManagerUserId } from "@/lib/platform-events/resolve-recipie
 import { generateTradeReference } from "@/lib/investment/utils";
 import { computeTradeRealizedPnl } from "@/lib/financial/profit-distribution-calculator";
 import { tradeLossAllocationService } from "@/services/trade-loss-allocation.service";
-import { tradeProfitAllocationService } from "@/services/trade-profit-allocation.service";
+import { cycleProfitService } from "@/services/investment-engine/cycle-profit.service";
 import type {
   CloseTradeEntryInput,
   CreateTradeEntryInput,
@@ -248,40 +248,17 @@ export const tradeEntryService = {
     }));
   },
 
-  /** Backfill balance impact for closed trades that were recorded before distribution ran. */
-  async reconcileUnappliedTradeBalances(cycleId: string, actorId: string): Promise<number> {
+  /** Sync cached cycle profit from closed journal trades (no pool capital mutation). */
+  async reconcileUnappliedTradeBalances(cycleId: string, _actorId: string): Promise<number> {
+    await cycleProfitService.recalculateCycleProfit(cycleId);
     const db = createAdminClient();
     const { data, error } = await db
       .from("trade_entries")
-      .select("*")
+      .select("id")
       .eq("investment_cycle_id", cycleId)
       .eq("status", "closed");
-
     if (error) throw new Error(error.message);
-
-    let repaired = 0;
-    for (const row of (data ?? []) as EntryRow[]) {
-      const entry = mapEntry(row);
-      const pnl = entry.realizedPnl ?? 0;
-
-      if (entry.tradeResult === "profit" && pnl > 0 && !entry.profitAppliedAt) {
-        await tradeProfitAllocationService.applyProfitToCycle({
-          tradeEntry: entry,
-          profitAmount: pnl,
-          actorId,
-        });
-        repaired += 1;
-      } else if (entry.tradeResult === "loss" && pnl < 0 && !entry.lossAppliedAt) {
-        await tradeLossAllocationService.applyLossToCycle({
-          tradeEntry: entry,
-          lossAmount: Math.abs(pnl),
-          actorId,
-        });
-        repaired += 1;
-      }
-    }
-
-    return repaired;
+    return (data ?? []).length;
   },
 
   /** One-step: create, open, and close a trade with optional screenshot. */
@@ -564,21 +541,7 @@ export const tradeEntryService = {
       },
     });
 
-    if (tradeResult === "loss" && realizedPnl < 0) {
-      await tradeLossAllocationService.applyLossToCycle({
-        tradeEntry: entry,
-        lossAmount: Math.abs(realizedPnl),
-        actorId: userId,
-      });
-    }
-
-    if (tradeResult === "profit" && realizedPnl > 0) {
-      await tradeProfitAllocationService.applyProfitToCycle({
-        tradeEntry: entry,
-        profitAmount: realizedPnl,
-        actorId: userId,
-      });
-    }
+    await cycleProfitService.applyTradeCloseDelta(entry.investmentCycleId, realizedPnl);
 
     await cycleProgressService.recordTradeClosed(entry, userId);
 

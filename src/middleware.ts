@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/middleware";
 import { redirectWithSupabaseCookies } from "@/lib/supabase/middleware-redirect";
-import { hasSupabaseSessionCookie } from "@/lib/auth/session-cookies";
-import { isStaleRefreshTokenError } from "@/lib/auth/stale-session";
+import { isStaleRefreshTokenError, clearStaleAuthSession } from "@/lib/auth/stale-session";
+import { hasSupabaseSessionCookie, isSupabaseAuthCookieName } from "@/lib/auth/session-cookies";
 import {
   canAccessRoute,
   getPostAuthRedirect,
@@ -48,7 +48,12 @@ export async function middleware(request: NextRequest) {
 
     if (authError) {
       if (isStaleRefreshTokenError(authError)) {
-        await supabase.auth.signOut().catch(() => undefined);
+        await clearStaleAuthSession(supabase);
+        for (const cookie of request.cookies.getAll()) {
+          if (isSupabaseAuthCookieName(cookie.name)) {
+            supabaseResponse.cookies.delete(cookie.name);
+          }
+        }
       }
     } else {
       user = authUser;
@@ -65,7 +70,12 @@ export async function middleware(request: NextRequest) {
     }
   } catch (error) {
     if (isStaleRefreshTokenError(error as Error)) {
-      await supabase.auth.signOut().catch(() => undefined);
+      await clearStaleAuthSession(supabase);
+      for (const cookie of request.cookies.getAll()) {
+        if (isSupabaseAuthCookieName(cookie.name)) {
+          supabaseResponse.cookies.delete(cookie.name);
+        }
+      }
     } else {
       supabaseReachable = false;
       console.error("[middleware] Supabase auth check failed:", error);

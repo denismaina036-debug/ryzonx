@@ -403,12 +403,73 @@ export const poolParticipationService = {
       investor_capital?: number;
     } | null;
 
+    const activeCycle = await investmentCycleService.getActiveForFund(poolId);
+    const queueDuringTrading =
+      activeCycle &&
+      (activeCycle.status === "trading" || activeCycle.status === "distribution");
+
+    if (queueDuringTrading) {
+      const { investmentQueueService } = await import(
+        "@/services/investment-engine/investment-queue.service"
+      );
+      await investmentQueueService.enqueue({
+        fundId: poolId,
+        investorId: user.id,
+        queueType: "investment",
+        amount,
+        targetCycleId: activeCycle.id,
+        notes: `Queued during ${activeCycle.status}`,
+      });
+
+      const { data: txData, error: txError } = await db.from("transactions").insert({
+        user_id: user.id,
+        fund_id: poolId,
+        type: "adjustment",
+        amount,
+        status: "pending",
+        payment_method: "pool_allocation",
+        notes: `Queued investment in ${fundRow.name} (cycle ${activeCycle.name})`,
+      } as never)
+        .select("id")
+        .single();
+
+      if (txError || !txData) {
+        throw new Error(txError?.message ?? "Failed to record queued allocation.");
+      }
+
+      await attachTransactionReference(db, (txData as { id: string }).id, {
+        type: "adjustment",
+        payment_method: "pool_allocation",
+        notes: `Queued investment in ${fundRow.name}`,
+      });
+
+      await communicationTriggers.poolInvestmentConfirmed({
+        userId: user.id,
+        amount: formatMoney(amount),
+        poolName: fundRow.name,
+        poolId,
+      });
+
+      await db
+        .from("pool_invitations")
+        .update({ status: "accepted" } as never)
+        .eq("fund_id", poolId)
+        .eq("user_id", user.id);
+      return;
+    }
+
+    const { poolCapitalService } = await import(
+      "@/services/investment-engine/pool-capital.service"
+    );
+    await poolCapitalService.applyInvestment(poolId, user.id, amount);
+    const poolCapitalTotal = await poolCapitalService.getPoolCapitalTotal(poolId);
+
     assertDb(
       await db
         .from("funds")
         .update({
           current_capital: toNumber(fundStats?.current_capital) + amount,
-          investor_capital: toNumber(fundStats?.investor_capital) + amount,
+          investor_capital: poolCapitalTotal,
           active_investors:
             toNumber(fundStats?.active_investors) + (isNewParticipant ? 1 : 0),
         } as never)
@@ -420,7 +481,6 @@ export const poolParticipationService = {
 
     // Wire the wallet investment to the Active Investment Cycle so Raised Capital
     // updates on the PM cycle page and marketplace cards.
-    const activeCycle = await investmentCycleService.getActiveForFund(poolId);
     if (activeCycle && (activeCycle.status === "funding" || activeCycle.status === "approved")) {
       await investmentAllocationService.recordMarketplaceJoin({
         cycleId: activeCycle.id,
@@ -428,10 +488,7 @@ export const poolParticipationService = {
         amount,
       });
     } else if (activeCycle) {
-      await investmentAllocationService.syncPortfolioInvestmentsToCycle(
-        poolId,
-        activeCycle.id
-      );
+      await investmentAllocationService.syncPortfolioInvestmentsToCycle(poolId, activeCycle.id);
     }
 
     const { data: txData, error: txError } = await db.from("transactions").insert({
@@ -665,66 +722,38 @@ export const poolParticipationService = {
       throw new Error("Invalid pool.");
     }
 
-    const isMainPool = fundId === DEFAULT_FUND_ID;
     const db = createAdminClient();
-    const poolRow = await getPoolParticipation(db, user.id, fundId);
+    const { investorProfitWalletService } = await import(
+      "@/services/investment-engine/investor-profit-wallet.service"
+    );
 
     const { data: fund } = await db.from("funds").select("name").eq("id", fundId).maybeSingle();
     const poolName = (fund as { name?: string } | null)?.name ?? "Pool";
 
-    const availableProfit = poolProfitAmount(poolRow);
+    const profitWallet = await investorProfitWalletService.getOrCreate(user.id, fundId);
+    let availableProfit = profitWallet.balance;
+    if (availableProfit <= 0) {
+      const poolRow = await getPoolParticipation(db, user.id, fundId);
+      availableProfit = poolProfitAmount(poolRow);
+    }
+
     if (availableProfit <= 0) {
       throw new Error("No pool profit available to transfer.");
     }
 
     const transferAmount =
       amount != null && Number.isFinite(amount) ? amount : availableProfit;
-    const realized = toNumber(poolRow.realized_pnl);
-    const unrealized = toNumber(poolRow.unrealized_pnl);
-    const { newRealized, newUnrealized, applied } = applyProfitReduction(
-      realized,
-      unrealized,
-      transferAmount
-    );
+    if (transferAmount > availableProfit) {
+      throw new Error("Amount exceeds available pool profit.");
+    }
 
-    const nextPoolValue = toNumber(poolRow.current_value) - applied;
+    const applied = transferAmount;
+    const usesProfitWallet = profitWallet.balance >= applied;
 
-    if (isMainPool) {
-      const walletBalance = toNumber(poolRow.available_balance);
-      assertDb(
-        await db
-          .from("investor_portfolios")
-          .update({
-            current_value: nextPoolValue,
-            realized_pnl: newRealized,
-            unrealized_pnl: newUnrealized,
-            available_balance: walletBalance + applied,
-          } as never)
-          .eq("user_id", user.id)
-          .eq("fund_id", DEFAULT_FUND_ID)
-          .select("user_id")
-          .single(),
-        "Could not transfer pool profit to Funding Wallet."
-      );
-    } else {
+    if (usesProfitWallet) {
+      await investorProfitWalletService.debit(user.id, fundId, applied);
       const walletPortfolio = await ensureWalletPortfolio(db, user.id);
       const walletBalance = toNumber(walletPortfolio.available_balance);
-
-      assertDb(
-        await db
-          .from("investor_portfolios")
-          .update({
-            current_value: nextPoolValue,
-            realized_pnl: newRealized,
-            unrealized_pnl: newUnrealized,
-          } as never)
-          .eq("user_id", user.id)
-          .eq("fund_id", fundId)
-          .select("user_id")
-          .single(),
-        "Could not update pool profit."
-      );
-
       assertDb(
         await db
           .from("investor_portfolios")
@@ -735,6 +764,62 @@ export const poolParticipationService = {
           .single(),
         "Could not credit Funding Wallet."
       );
+    } else {
+      const poolRow = await getPoolParticipation(db, user.id, fundId);
+      const realized = toNumber(poolRow.realized_pnl);
+      const unrealized = toNumber(poolRow.unrealized_pnl);
+      const { newRealized, newUnrealized, applied: legacyApplied } = applyProfitReduction(
+        realized,
+        unrealized,
+        transferAmount
+      );
+      const nextPoolValue = toNumber(poolRow.current_value) - legacyApplied;
+
+      if (fundId === DEFAULT_FUND_ID) {
+        const walletBalance = toNumber(poolRow.available_balance);
+        assertDb(
+          await db
+            .from("investor_portfolios")
+            .update({
+              current_value: nextPoolValue,
+              realized_pnl: newRealized,
+              unrealized_pnl: newUnrealized,
+              available_balance: walletBalance + legacyApplied,
+            } as never)
+            .eq("user_id", user.id)
+            .eq("fund_id", DEFAULT_FUND_ID)
+            .select("user_id")
+            .single(),
+          "Could not transfer pool profit to Funding Wallet."
+        );
+      } else {
+        const walletPortfolio = await ensureWalletPortfolio(db, user.id);
+        const walletBalance = toNumber(walletPortfolio.available_balance);
+        assertDb(
+          await db
+            .from("investor_portfolios")
+            .update({
+              current_value: nextPoolValue,
+              realized_pnl: newRealized,
+              unrealized_pnl: newUnrealized,
+            } as never)
+            .eq("user_id", user.id)
+            .eq("fund_id", fundId)
+            .select("user_id")
+            .single(),
+          "Could not update pool profit."
+        );
+        assertDb(
+          await db
+            .from("investor_portfolios")
+            .update({ available_balance: walletBalance + legacyApplied } as never)
+            .eq("user_id", user.id)
+            .eq("fund_id", DEFAULT_FUND_ID)
+            .select("user_id")
+            .single(),
+          "Could not credit Funding Wallet."
+        );
+      }
     }
 
     const profitNotes = `Pool profit transferred to Funding Wallet — ${poolName}`;
@@ -780,7 +865,15 @@ export const poolParticipationService = {
     }
 
     const db = createAdminClient();
-    const poolRow = await getPoolParticipation(db, user.id, fundId);
+    const { investorProfitWalletService } = await import(
+      "@/services/investment-engine/investor-profit-wallet.service"
+    );
+    const { investmentQueueService } = await import(
+      "@/services/investment-engine/investment-queue.service"
+    );
+    const { poolCapitalService } = await import(
+      "@/services/investment-engine/pool-capital.service"
+    );
 
     const { data: fund } = await db
       .from("funds")
@@ -795,7 +888,12 @@ export const poolParticipationService = {
     } | null;
 
     const poolName = fundRow?.name ?? "Pool";
-    const availableProfit = poolProfitAmount(poolRow);
+    const profitWallet = await investorProfitWalletService.getOrCreate(user.id, fundId);
+    let availableProfit = profitWallet.balance;
+    if (availableProfit <= 0) {
+      const poolRow = await getPoolParticipation(db, user.id, fundId);
+      availableProfit = poolProfitAmount(poolRow);
+    }
 
     if (availableProfit <= 0) {
       throw new Error("No pool profit available to reinvest.");
@@ -803,52 +901,101 @@ export const poolParticipationService = {
 
     const reinvestAmount =
       amount != null && Number.isFinite(amount) ? amount : availableProfit;
-    const realized = toNumber(poolRow.realized_pnl);
-    const unrealized = toNumber(poolRow.unrealized_pnl);
-    const { newRealized, newUnrealized, applied } = applyProfitReduction(
-      realized,
-      unrealized,
-      reinvestAmount
-    );
-
-    const nextInvested = toNumber(poolRow.total_invested) + applied;
-
-    assertDb(
-      await db
-        .from("investor_portfolios")
-        .update({
-          total_invested: nextInvested,
-          realized_pnl: newRealized,
-          unrealized_pnl: newUnrealized,
-        } as never)
-        .eq("user_id", user.id)
-        .eq("fund_id", fundId)
-        .select("user_id")
-        .single(),
-      "Could not reinvest pool profit."
-    );
-
-    if (fundRow) {
-      await db
-        .from("funds")
-        .update({
-          current_capital: toNumber(fundRow.current_capital) + applied,
-          investor_capital: toNumber(fundRow.investor_capital) + applied,
-        } as never)
-        .eq("id", fundId);
+    if (reinvestAmount > availableProfit) {
+      throw new Error("Amount exceeds available pool profit.");
     }
 
-    const reinvestNotes = `Pool profit reinvested — ${poolName}`;
+    const activeCycle = await investmentCycleService.getActiveForFund(fundId);
+    const queueDuringTrading =
+      activeCycle &&
+      (activeCycle.status === "trading" || activeCycle.status === "distribution");
+
+    let applied = reinvestAmount;
+
+    if (queueDuringTrading) {
+      await investmentQueueService.enqueueReinvestment({
+        fundId,
+        investorId: user.id,
+        amount: reinvestAmount,
+        targetCycleId: activeCycle.id,
+      });
+    } else if (profitWallet.balance >= reinvestAmount) {
+      await investorProfitWalletService.debit(user.id, fundId, reinvestAmount);
+      await poolCapitalService.applyReinvestment(fundId, user.id, reinvestAmount);
+      const poolCapitalTotal = await poolCapitalService.getPoolCapitalTotal(fundId);
+      const poolRow = await getPoolParticipation(db, user.id, fundId);
+      const nextInvested = toNumber(poolRow.total_invested) + reinvestAmount;
+      assertDb(
+        await db
+          .from("investor_portfolios")
+          .update({ total_invested: nextInvested } as never)
+          .eq("user_id", user.id)
+          .eq("fund_id", fundId)
+          .select("user_id")
+          .single(),
+        "Could not update pool allocation."
+      );
+      if (fundRow) {
+        await db
+          .from("funds")
+          .update({
+            current_capital: toNumber(fundRow.current_capital) + reinvestAmount,
+            investor_capital: poolCapitalTotal,
+          } as never)
+          .eq("id", fundId);
+      }
+    } else {
+      const poolRow = await getPoolParticipation(db, user.id, fundId);
+      const realized = toNumber(poolRow.realized_pnl);
+      const unrealized = toNumber(poolRow.unrealized_pnl);
+      const reduction = applyProfitReduction(realized, unrealized, reinvestAmount);
+      applied = reduction.applied;
+      const nextInvested = toNumber(poolRow.total_invested) + applied;
+
+      assertDb(
+        await db
+          .from("investor_portfolios")
+          .update({
+            total_invested: nextInvested,
+            realized_pnl: reduction.newRealized,
+            unrealized_pnl: reduction.newUnrealized,
+          } as never)
+          .eq("user_id", user.id)
+          .eq("fund_id", fundId)
+          .select("user_id")
+          .single(),
+        "Could not reinvest pool profit."
+      );
+
+      await poolCapitalService.applyReinvestment(fundId, user.id, applied);
+      const poolCapitalTotal = await poolCapitalService.getPoolCapitalTotal(fundId);
+
+      if (fundRow) {
+        await db
+          .from("funds")
+          .update({
+            current_capital: toNumber(fundRow.current_capital) + applied,
+            investor_capital: poolCapitalTotal,
+          } as never)
+          .eq("id", fundId);
+      }
+    }
+
+    const reinvestNotes = queueDuringTrading
+      ? `Pool profit reinvestment queued — ${poolName}`
+      : `Pool profit reinvested — ${poolName}`;
 
     const { data: reinvestTx, error: reinvestTxError } = await db.from("transactions").insert({
       user_id: user.id,
       fund_id: fundId,
       type: "adjustment",
       amount: applied,
-      status: "completed",
+      status: queueDuringTrading ? "pending" : "completed",
       payment_method: "profit_reinvest",
       notes: reinvestNotes,
-    } as never).select("id").single();
+    } as never)
+      .select("id")
+      .single();
 
     if (reinvestTxError || !reinvestTx) {
       throw new Error(reinvestTxError?.message ?? "Failed to record reinvestment.");
@@ -863,7 +1010,9 @@ export const poolParticipationService = {
     await communicationTriggers.investmentUpdated({
       userId: user.id,
       poolName,
-      message: `$${applied.toLocaleString()} from ${poolName} profit was added back to your pool capital.`,
+      message: queueDuringTrading
+        ? `$${applied.toLocaleString()} from ${poolName} profit is queued for reinvestment.`
+        : `$${applied.toLocaleString()} from ${poolName} profit was added back to your pool capital.`,
       poolId: fundId,
     });
 

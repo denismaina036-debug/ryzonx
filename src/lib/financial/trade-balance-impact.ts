@@ -44,7 +44,18 @@ export async function loadCycleAllocations(cycleId: string): Promise<CycleAlloca
     .from("investment_allocations")
     .select("id, investor_id, amount")
     .eq("investment_cycle_id", cycleId)
-    .in("status", RAISED_CAPITAL_ALLOCATION_STATUSES);
+    .in(
+      "status",
+      RAISED_CAPITAL_ALLOCATION_STATUSES as unknown as readonly (
+        | "pending"
+        | "funding_confirmed"
+        | "confirmed"
+        | "settled"
+        | "locked"
+        | "distributed"
+        | "cancelled"
+      )[]
+    );
 
   if (error) throw new Error(error.message);
 

@@ -158,13 +158,6 @@ function resolveAmountPresentation(
   }
 }
 
-function specialAmountSuffix(category: TransactionDisplayCategory): string | null {
-  if (category === "pool_profit") return "Profit";
-  if (category === "pool_loss") return "Loss";
-  if (category === "profit_distribution") return "Profit";
-  return null;
-}
-
 export function buildTransactionTimeline(status: string): TransactionTimelineStep[] {
   const normalized = status.toLowerCase();
 
@@ -214,7 +207,6 @@ export function buildTransactionPresentation(
 ): TransactionPresentation {
   const category = resolveTransactionCategory(input);
   const amountMeta = resolveAmountPresentation(category, input);
-  const specialSuffix = specialAmountSuffix(category);
 
   return {
     category,
@@ -222,7 +214,7 @@ export function buildTransactionPresentation(
     subtitle: resolveSubtitle(category, input),
     iconKind: CATEGORY_ICONS[category],
     amountPrefix: amountMeta.prefix,
-    amountSuffix: specialSuffix ?? amountMeta.suffix,
+    amountSuffix: amountMeta.suffix,
     statusLabel: normalizeStatus(input.status),
     timeline: buildTransactionTimeline(input.status),
     isCredit: amountMeta.isCredit,
@@ -429,7 +421,7 @@ export function buildInvestorTransactionDetail(
 ): InvestorTransactionDetail {
   const presentation = buildTransactionPresentation(input);
   const detailFields = buildTransactionDetailFields(input, extras);
-  const displayAmount = `${presentation.amountPrefix}${formatCurrency(input.amount)} ${presentation.amountSuffix}`;
+  const displayAmount = `${presentation.amountPrefix}${formatCurrency(input.amount)}`;
 
   return {
     ...input,

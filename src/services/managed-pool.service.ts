@@ -830,6 +830,13 @@ export const managedPoolService = {
       );
     }
 
+    try {
+      const { poolSeedService } = await import("@/services/investment-engine/pool-seed.service");
+      await poolSeedService.applySeedCapitalIfConfigured(poolId);
+    } catch {
+      /* seed is optional */
+    }
+
     await db
       .from("funds")
       .update({

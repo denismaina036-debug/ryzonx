@@ -492,6 +492,39 @@ export const investmentCycleService = {
     return insertCycleFromPoolFund(fund, input.fundId, managerId, input, userId);
   },
 
+  /** System/admin auto-create next cycle without manager session. */
+  async createFromPoolAsSystem(input: {
+    fundId: string;
+    actorUserId: string;
+    name?: string;
+    openingDate?: string;
+    closingDate?: string;
+  }): Promise<InvestmentCycle> {
+    const db = createAdminClient();
+    const { data: fundRow, error: fundError } = await db
+      .from("funds")
+      .select("*")
+      .eq("id", input.fundId)
+      .single();
+    if (fundError || !fundRow) throw new Error("Pool not found.");
+    const fund = fundRow as Record<string, unknown>;
+    const managerId = fund.pool_manager_id as string;
+    if (!managerId) throw new Error("Pool has no assigned manager.");
+
+    return insertCycleFromPoolFund(
+      fund,
+      input.fundId,
+      managerId,
+      {
+        fundId: input.fundId,
+        name: input.name,
+        openingDate: input.openingDate,
+        closingDate: input.closingDate,
+      },
+      input.actorUserId
+    );
+  },
+
   async createFirstCycleForApprovedPool(
     fundId: string,
     actorUserId: string,
@@ -756,6 +789,16 @@ export const investmentCycleService = {
       } catch {
         /* journal opens on first trade if creation fails */
       }
+      if (existing.fundId) {
+        try {
+          const { cycleLifecycleOrchestrator } = await import(
+            "@/services/investment-engine/cycle-lifecycle-orchestrator.service"
+          );
+          await cycleLifecycleOrchestrator.onTradingStarted(id, existing.fundId);
+        } catch {
+          /* snapshot failure should not block trading */
+        }
+      }
       publishPlatformEvent({
         eventType: PLATFORM_EVENT_TYPES.CYCLE_STARTED,
         category: "investment",
@@ -834,6 +877,102 @@ export const investmentCycleService = {
       }
     }
 
+    return cycle;
+  },
+
+  /** Internal lifecycle transition (settlement / queue engine) — no session role required. */
+  async systemTransition(
+    id: string,
+    nextStatus: InvestmentCycleStatus,
+    actorUserId: string
+  ): Promise<InvestmentCycle> {
+    const existing = await this.getById(id);
+    if (!existing) throw new Error("Investment cycle not found.");
+
+    assertInvestmentCycleTransition(existing.status, nextStatus, "admin");
+
+    const now = new Date().toISOString();
+    const db = createAdminClient();
+    const { data, error } = await db
+      .from("investment_cycles")
+      .update({
+        status: nextStatus,
+        ...statusTimestampPatch(nextStatus, now, existing),
+      } as never)
+      .eq("id", id)
+      .select("*")
+      .single();
+
+    if (error) throw new Error(error.message);
+    const cycle = mapCycle(data as CycleRow);
+
+    await auditService.log({
+      actorId: actorUserId,
+      action: "investment_cycle_status_changed",
+      entityType: "investment_cycle",
+      entityId: cycle.id,
+      oldValues: { status: existing.status },
+      newValues: { status: nextStatus, system: true },
+    });
+
+    if (nextStatus === "trading" && existing.fundId) {
+      try {
+        const { cycleLifecycleOrchestrator } = await import(
+          "@/services/investment-engine/cycle-lifecycle-orchestrator.service"
+        );
+        await cycleLifecycleOrchestrator.onTradingStarted(id, existing.fundId);
+      } catch {
+        /* snapshot optional */
+      }
+    }
+
+    if (nextStatus === "funding" && existing.fundId) {
+      const { data: fundRow } = await db
+        .from("funds")
+        .select("*")
+        .eq("id", existing.fundId)
+        .maybeSingle();
+      if (fundRow) {
+        const deadline = computeFundingDeadline(
+          fundRow as Record<string, unknown>,
+          existing.closingDate
+        );
+        if (deadline) {
+          await db
+            .from("investment_cycles")
+            .update({ funding_deadline: deadline } as never)
+            .eq("id", id);
+        }
+      }
+    }
+
+    if (nextStatus === "distribution") {
+      try {
+        const { profitDistributionService } = await import(
+          "@/services/profit-distribution.service"
+        );
+        await profitDistributionService.initiateSettlementForCycle(id, actorUserId);
+      } catch {
+        /* settlement may require allocations */
+      }
+    }
+
+    return cycle;
+  },
+
+  async systemActivateCycleForFunding(cycleId: string, actorUserId: string): Promise<InvestmentCycle> {
+    let cycle = await this.getById(cycleId);
+    if (!cycle) throw new Error("Investment cycle not found.");
+
+    if (cycle.status === "draft") {
+      cycle = await this.systemTransition(cycle.id, "submitted", actorUserId);
+    }
+    if (cycle.status === "submitted") {
+      cycle = await this.systemTransition(cycle.id, "approved", actorUserId);
+    }
+    if (cycle.status === "approved") {
+      cycle = await this.systemTransition(cycle.id, "funding", actorUserId);
+    }
     return cycle;
   },
 

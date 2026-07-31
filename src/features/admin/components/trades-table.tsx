@@ -1,7 +1,9 @@
 "use client";
 
 import { Fragment, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -18,12 +20,14 @@ import { resolveTradeScreenshotUrl } from "@/lib/storage/trade-screenshots";
 import type { AdminTrade } from "@/features/admin/types";
 
 export function TradesTable({ trades }: { trades: AdminTrade[] }) {
+  const router = useRouter();
   const [urls, setUrls] = useState<Record<string, string>>(() =>
     Object.fromEntries(trades.map((t) => [t.id, t.screenshotUrl ?? ""]))
   );
   const [files, setFiles] = useState<Record<string, File | null>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   function toggleScreenshotRow(tradeId: string) {
     setExpandedId((current) => (current === tradeId ? null : tradeId));
@@ -58,6 +62,28 @@ export function TradesTable({ trades }: { trades: AdminTrade[] }) {
     }
   }
 
+  async function deleteTrade(trade: AdminTrade) {
+    const confirmed = window.confirm(
+      `Delete ${trade.symbol} trade for ${trade.fundName}? This removes the trade and reverses its profit allocation.`
+    );
+    if (!confirmed) return;
+
+    setDeleting(trade.id);
+    try {
+      const res = await fetch(`/api/admin/trades/${trade.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Delete failed");
+
+      toast.success("Trade deleted");
+      setExpandedId((current) => (current === trade.id ? null : current));
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setDeleting(null);
+    }
+  }
+
   return (
     <Table>
       <TableHeader>
@@ -71,6 +97,7 @@ export function TradesTable({ trades }: { trades: AdminTrade[] }) {
           <TableHead>Status</TableHead>
           <TableHead>Published</TableHead>
           <TableHead>Screenshot</TableHead>
+          <TableHead className="text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -111,11 +138,23 @@ export function TradesTable({ trades }: { trades: AdminTrade[] }) {
                     ) : null}
                   </div>
                 </TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                    disabled={deleting === t.id || saving === t.id}
+                    onClick={() => deleteTrade(t)}
+                  >
+                    <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                    {deleting === t.id ? "Deleting…" : "Delete"}
+                  </Button>
+                </TableCell>
               </TableRow>
 
               {isExpanded ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="bg-surface-1/50">
+                  <TableCell colSpan={10} className="bg-surface-1/50">
                     <div className="max-w-xl py-2">
                       <TradeScreenshotField
                         compact

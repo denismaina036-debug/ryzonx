@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib/auth/session";
+import { getShellUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { challengeCenterService } from "@/services/challenge-center.service";
@@ -19,7 +19,21 @@ export interface InvestorShellProps {
 }
 
 export async function getInvestorShellProps(): Promise<InvestorShellProps> {
-  const user = await getCurrentUser();
+  try {
+    return await loadInvestorShellProps();
+  } catch {
+    return {
+      user: null,
+      unreadNotifications: 0,
+      hasActivePool: false,
+      challengeDisplayStatus: CHALLENGE_DISPLAY_STATUS.NONE,
+      pmJourneyVariant: "hidden",
+    };
+  }
+}
+
+async function loadInvestorShellProps(): Promise<InvestorShellProps> {
+  const user = await getShellUser();
   let unreadNotifications = 0;
   let hasActivePool = false;
   let challengeDisplayStatus: ChallengeDisplayStatus = CHALLENGE_DISPLAY_STATUS.NONE;

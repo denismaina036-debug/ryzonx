@@ -202,6 +202,57 @@ export function calculateRoiV2Distribution(input: {
   });
 }
 
+/** Pure ownership distribution — no ROI target caps. */
+export function calculateOwnershipOnlyDistribution(input: {
+  grossTradingProfit: number;
+  platformServiceFeeRate?: number;
+  allocations: Array<{
+    allocationId: string;
+    investorId: string;
+    capitalBasis: number;
+    ownershipPct: number;
+  }>;
+}): RoiV2DistributionResult {
+  const feeRate = input.platformServiceFeeRate ?? PLATFORM_SERVICE_FEE_RATE;
+  const gross = roundMoney(input.grossTradingProfit);
+  const taxableGross = gross > 0 ? gross : 0;
+  const platformServiceFee = roundMoney(taxableGross * feeRate);
+  const netDistributableProfit =
+    gross > 0 ? roundMoney(taxableGross - platformServiceFee) : roundMoney(gross);
+
+  const investorAllocations: InvestorProfitAllocation[] = input.allocations.map((alloc) => {
+    const profitShare =
+      netDistributableProfit !== 0
+        ? roundMoney(netDistributableProfit * alloc.ownershipPct)
+        : 0;
+    return {
+      allocationId: alloc.allocationId,
+      investorId: alloc.investorId,
+      capitalBasis: alloc.capitalBasis,
+      tierReturnPct: null,
+      returnMultiplier: 1,
+      tierWeight: 0,
+      allocationWeight: alloc.capitalBasis,
+      ownershipPct: alloc.ownershipPct,
+      profitShare,
+    };
+  });
+
+  return buildResult({
+    gross,
+    feeRate,
+    platformServiceFee,
+    netDistributableProfit,
+    investorAllocations,
+    poolManagerSurplus: 0,
+    allocationUpdates: input.allocations.map((a) => ({
+      allocationId: a.allocationId,
+      cumulativeRealisedReturn: 0,
+      targetFulfilled: false,
+    })),
+  });
+}
+
 function buildResult(input: {
   gross: number;
   feeRate: number;
@@ -234,7 +285,7 @@ function buildResult(input: {
   };
 }
 
-/** Resolve investment level + multiplier for an investment amount at join time. */
+/** Resolve investment level + progressive ROI multiplier for an investment amount. */
 export function resolveAllocationRoi(input: {
   amount: number;
   levels: PlatformInvestmentLevel[];
@@ -245,25 +296,57 @@ export function resolveAllocationRoi(input: {
   projectedPayout: number | null;
 } {
   const sorted = input.levels.filter((l) => l.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
-  let matched = null;
-  for (const level of sorted) {
+  let matched: PlatformInvestmentLevel | null = null;
+  let matchedIndex = -1;
+  for (let i = 0; i < sorted.length; i++) {
+    const level = sorted[i]!;
     const aboveMin = input.amount >= level.minAmount;
     const belowMax = level.maxAmount == null || input.amount <= level.maxAmount;
     if (aboveMin && belowMax) {
       matched = level;
+      matchedIndex = i;
       break;
     }
   }
   if (!matched) {
     return { investmentLevelId: null, roiMultiplier: null, projectedPayout: null };
   }
-  const mult = input.multipliers.find((m) => m.investmentLevelId === matched!.id);
-  const multiplier = mult?.multiplier ?? null;
-  const projectedPayout =
-    multiplier != null ? roundMoney(input.amount * multiplier) : null;
+
+  const tierMaxMult =
+    input.multipliers.find((m) => m.investmentLevelId === matched!.id)?.multiplier ?? null;
+  if (tierMaxMult == null) {
+    return { investmentLevelId: matched.id, roiMultiplier: null, projectedPayout: null };
+  }
+
+  const previousTier = matchedIndex > 0 ? sorted[matchedIndex - 1] : null;
+  const previousMaxMult = previousTier
+    ? input.multipliers.find((m) => m.investmentLevelId === previousTier.id)?.multiplier ?? 1
+    : 1;
+
+  const progressiveMultiplier = calculateProgressiveMultiplier({
+    amount: input.amount,
+    level: matched,
+    minMultiplier: previousMaxMult,
+    maxMultiplier: tierMaxMult,
+  });
+
   return {
     investmentLevelId: matched.id,
-    roiMultiplier: multiplier,
-    projectedPayout,
+    roiMultiplier: progressiveMultiplier,
+    projectedPayout: roundMoney(input.amount * progressiveMultiplier),
   };
+}
+
+/** Linear interpolation: min amount → minMultiplier, max amount → maxMultiplier. */
+export function calculateProgressiveMultiplier(input: {
+  amount: number;
+  level: PlatformInvestmentLevel;
+  minMultiplier: number;
+  maxMultiplier: number;
+}): number {
+  const minAmount = input.level.minAmount;
+  const maxAmount = input.level.maxAmount ?? input.amount;
+  if (maxAmount <= minAmount) return roundMoney(input.maxMultiplier);
+  const ratio = Math.min(1, Math.max(0, (input.amount - minAmount) / (maxAmount - minAmount)));
+  return roundMoney(input.minMultiplier + (input.maxMultiplier - input.minMultiplier) * ratio);
 }

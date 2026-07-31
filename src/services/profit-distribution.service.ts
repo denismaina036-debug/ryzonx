@@ -9,6 +9,7 @@ import { generateLedgerReference } from "@/lib/financial/ledger-utils";
 import { computeCycleRealizedTradingProfit } from "@/lib/financial/profit-distribution-calculator";
 import {
   calculateRoiV2Distribution,
+  calculateOwnershipOnlyDistribution,
   type RoiV2AllocationInput,
 } from "@/lib/financial/roi-v2-distribution";
 import { poolRoiService } from "@/services/pool-roi.service";
@@ -17,6 +18,10 @@ import { auditService } from "@/services/audit.service";
 import { investmentCycleService } from "@/services/investment-cycle.service";
 import { investmentAllocationService } from "@/services/investment-allocation.service";
 import { tradeEntryService } from "@/services/trade-entry.service";
+import { cycleProfitService } from "@/services/investment-engine/cycle-profit.service";
+import { cycleOwnershipService } from "@/services/investment-engine/cycle-ownership.service";
+import { investorProfitWalletService } from "@/services/investment-engine/investor-profit-wallet.service";
+import { cycleLifecycleOrchestrator } from "@/services/investment-engine/cycle-lifecycle-orchestrator.service";
 import { ledgerService } from "@/services/ledger.service";
 import { ledgerAccountService } from "@/services/ledger-account.service";
 import { publishPlatformEvent, PLATFORM_EVENT_TYPES } from "@/lib/platform-events/publish";
@@ -70,6 +75,10 @@ type AllocationRow = {
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
   return typeof value === "number" ? value : Number(value);
+}
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 function mapSettlement(row: SettlementRow): ProfitSettlement {
@@ -190,13 +199,22 @@ export const profitDistributionService = {
 
     const tradeEntries = await tradeEntryService.listByCycle(cycleId, "admin");
     const journalProfit = computeCycleRealizedTradingProfit(tradeEntries);
+    const cachedCycleProfit = await cycleProfitService.getCycleProfit(cycleId);
     const grossTradingProfit =
       options?.grossTradingProfitOverride != null
         ? options.grossTradingProfitOverride
-        : journalProfit;
+        : cachedCycleProfit !== 0
+          ? cachedCycleProfit
+          : journalProfit;
+
+    const snapshots = await cycleOwnershipService.getSnapshot(cycleId);
+    const useOwnershipSnapshots = snapshots.length > 0;
 
     const roiConfig = await readPoolRoiConfig(cycle.fundId);
-    const cycleCapital = settled.reduce((s, a) => s + a.amount, 0);
+    const hasRoiMultipliers = roiConfig.multipliers.size > 0;
+    const cycleCapital = useOwnershipSnapshots
+      ? snapshots[0]!.poolCapitalTotal
+      : settled.reduce((s, a) => s + a.amount, 0);
     const platformFeeRate = await platformSettingsService.getPlatformServiceFeeRate();
 
     const db = createAdminClient();
@@ -225,17 +243,23 @@ export const profitDistributionService = {
 
     const allocationInput: RoiV2AllocationInput[] = settled.map((a) => {
       const row = roiRowMap.get(a.id);
+      const snapshot = useOwnershipSnapshots
+        ? snapshots.find((s) => !s.isVirtual && s.investorId === a.investorId)
+        : null;
+      const capitalBasis = snapshot?.capital ?? a.amount;
       const levelId = row?.investment_level_id ?? null;
       const multiplier =
         row?.roi_multiplier != null
           ? toNumber(row.roi_multiplier)
-          : levelId
+          : levelId && hasRoiMultipliers
             ? roiConfig.multipliers.get(levelId) ?? 2.0
-            : 2.0;
+            : hasRoiMultipliers
+              ? 2.0
+              : 1.0;
       return {
         allocationId: a.id,
         investorId: a.investorId,
-        capitalBasis: a.amount,
+        capitalBasis,
         roiMultiplier: multiplier,
         cumulativeRealisedReturn: toNumber(row?.cumulative_realised_return),
         targetFulfilled: Boolean(row?.target_fulfilled),
@@ -243,22 +267,48 @@ export const profitDistributionService = {
       };
     });
 
-    const breakdown = calculateRoiV2Distribution({
-      grossTradingProfit,
-      platformServiceFeeRate: platformFeeRate,
-      allocations: allocationInput,
-    });
+    const breakdown = hasRoiMultipliers
+      ? calculateRoiV2Distribution({
+          grossTradingProfit,
+          platformServiceFeeRate: platformFeeRate,
+          allocations: allocationInput,
+        })
+      : calculateOwnershipOnlyDistribution({
+          grossTradingProfit,
+          platformServiceFeeRate: platformFeeRate,
+          allocations: allocationInput.map((a) => {
+            const snapshot = useOwnershipSnapshots
+              ? snapshots.find((s) => !s.isVirtual && s.investorId === a.investorId)
+              : null;
+            const totalCapital =
+              cycleCapital > 0
+                ? cycleCapital
+                : allocationInput.reduce((s, x) => s + x.capitalBasis, 0);
+            const ownershipPct = snapshot
+              ? snapshot.ownershipPct / 100
+              : totalCapital > 0
+                ? a.capitalBasis / totalCapital
+                : 0;
+            return {
+              allocationId: a.allocationId,
+              investorId: a.investorId,
+              capitalBasis: a.capitalBasis,
+              ownershipPct,
+            };
+          }),
+        });
 
-    // Per-trade losses are written down on close; avoid double-charging investors at settlement.
-    if (grossTradingProfit < 0) {
-      breakdown.poolManagerEarnings = 0;
-      breakdown.poolManagerSurplus = 0;
-      breakdown.investorProfitPool = 0;
-      breakdown.investorDistributionTotal = 0;
-      breakdown.investorAllocations = breakdown.investorAllocations.map((alloc) => ({
-        ...alloc,
-        profitShare: 0,
-      }));
+    if (useOwnershipSnapshots && grossTradingProfit > 0) {
+      const netAfterFee = roundMoney(grossTradingProfit * (1 - platformFeeRate));
+      const virtualShare = snapshots
+        .filter((s) => s.isVirtual)
+        .reduce((sum, s) => sum + roundMoney(netAfterFee * (s.ownershipPct / 100)), 0);
+      if (virtualShare > 0) {
+        breakdown.poolManagerEarnings = roundMoney(breakdown.poolManagerEarnings + virtualShare);
+        breakdown.poolManagerSurplus = roundMoney(
+          (breakdown.poolManagerSurplus ?? 0) + virtualShare
+        );
+      }
     }
 
     const settlementPayload = {
@@ -557,6 +607,14 @@ export const profitDistributionService = {
     for (const alloc of toTransfer) {
       const investorAccounts = await ledgerAccountService.ensureInvestorAccounts(alloc.investorId);
 
+      if (settlement.fundId) {
+        await investorProfitWalletService.credit(
+          alloc.investorId,
+          settlement.fundId,
+          alloc.profitShare
+        );
+      }
+
       const { transaction } = await ledgerService.postTransaction({
         description: `Investment profit distribution — ${cycle.name}`,
         transactionType: "profit_distribution",
@@ -620,6 +678,15 @@ export const profitDistributionService = {
       entityType: "profit_settlement",
       entityId: settlementId,
     });
+
+    try {
+      await cycleLifecycleOrchestrator.onSettlementDistributed(
+        settlement.investmentCycleId,
+        actorId
+      );
+    } catch {
+      /* queue processing / next cycle should not block distribution record */
+    }
 
     return mapSettlement(completed as SettlementRow);
   },

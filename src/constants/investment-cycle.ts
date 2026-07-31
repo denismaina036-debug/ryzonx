@@ -70,8 +70,5 @@ export const INVESTMENT_CYCLE_PUBLIC_STATUSES: InvestmentCycleStatus[] = [
   "archived",
 ];
 
-/** Statuses where new allocations may be recorded. */
-export const INVESTMENT_CYCLE_ALLOCATABLE_STATUSES: InvestmentCycleStatus[] = [
-  "funding",
-  "trading",
-];
+/** Statuses where new allocations may be recorded immediately (not queued). */
+export const INVESTMENT_CYCLE_ALLOCATABLE_STATUSES: InvestmentCycleStatus[] = ["funding"];

@@ -166,17 +166,31 @@ export function PoolDetailView({ pool }: PoolDetailViewProps) {
                 </dl>
               </div>
 
-              {pool.canParticipate && (
-                <Button asChild size="lg" className="h-11 shrink-0 px-8 sm:mt-1">
-                  <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Invest</Link>
+              <div className="flex flex-col gap-2 sm:mt-1 sm:shrink-0 sm:items-stretch">
+                {pool.canParticipate && (
+                  <Button asChild size="lg" className="h-11 px-8">
+                    <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Invest</Link>
+                  </Button>
+                )}
+                <Button asChild variant="outline" size="lg" className="h-11 px-8">
+                  <Link href={`${ROUTES.marketplace}/${pool.slug}/activity`}>
+                    Pool Activity
+                  </Link>
                 </Button>
-              )}
+              </div>
             </div>
           </div>
         ) : (
-          <p className="mt-3 text-sm text-[var(--id-text-muted)]">
-            No investment cycle is currently accepting new participants.
-          </p>
+          <div className="mt-3 space-y-4">
+            <p className="text-sm text-[var(--id-text-muted)]">
+              No investment cycle is currently accepting new participants.
+            </p>
+            <Button asChild variant="outline" size="lg" className="h-11 w-fit px-8">
+              <Link href={`${ROUTES.marketplace}/${pool.slug}/activity`}>
+                Pool Activity
+              </Link>
+            </Button>
+          </div>
         )}
       </section>
 

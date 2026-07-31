@@ -37,10 +37,14 @@ function roundMoney(value: number): number {
 }
 
 export function computeTradeRealizedPnl(entry: TradeEntry): number {
-  if (entry.status !== "closed" || entry.exitPrice == null) return 0;
+  if (entry.status !== "closed") return 0;
+  if (entry.realizedPnl != null && Number.isFinite(entry.realizedPnl)) {
+    return roundMoney(entry.realizedPnl);
+  }
+  if (entry.exitPrice == null) return 0;
   const delta = entry.exitPrice - entry.entryPrice;
   const signed = entry.direction === "long" ? delta : -delta;
-  return signed * entry.quantity;
+  return roundMoney(signed * entry.quantity);
 }
 
 /** Sum of closed-trade PnL; losses reduce total but fee applies only when net is positive. */

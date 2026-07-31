@@ -1,47 +1,53 @@
 import { createClient } from "@/lib/supabase/server";
 import { mapProfileToUser } from "@/lib/auth/utils";
 import { ensureInvestorBootstrap } from "@/lib/auth/ensure-investor-bootstrap";
-import { isStaleRefreshTokenError } from "@/lib/auth/stale-session";
+import {
+  clearStaleAuthSession,
+  isStaleRefreshTokenError,
+} from "@/lib/auth/stale-session";
+import { hasServerSupabaseSessionCookie } from "@/lib/auth/session-cookies";
 import { parseRegistrationIntent } from "@/domain/investor/pm-journey-variant";
 import type { UserProfile } from "@/types";
 import type { User, AuthError } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+
+function isSessionFresh(expiresAt: number | undefined): boolean {
+  if (!expiresAt) return true;
+  return expiresAt * 1000 > Date.now() + 5_000;
+}
 
 /**
- * Get the current authenticated user with profile data.
- * Returns null if not authenticated or profile not found.
+ * Lightweight auth for public shells — reads the cookie session only.
+ * Does not call Auth refresh APIs (avoids stale refresh-token errors on /login).
  */
-export async function getCurrentUser(): Promise<UserProfile | null> {
-  const supabase = await createClient();
-
-  let user = null;
-
-  try {
-    const {
-      data: { user: authUser },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError) {
-      if (isStaleRefreshTokenError(authError)) {
-        await supabase.auth.signOut().catch(() => undefined);
-      }
-      return null;
-    }
-
-    if (!authUser) {
-      return null;
-    }
-
-    user = authUser;
-  } catch (error) {
-    if (isStaleRefreshTokenError(error as AuthError)) {
-      await supabase.auth.signOut().catch(() => undefined);
-      return null;
-    }
-    console.error("[getCurrentUser] Supabase auth failed:", error);
+export async function getShellUser(): Promise<UserProfile | null> {
+  const cookieStore = await cookies();
+  if (!hasServerSupabaseSessionCookie(cookieStore)) {
     return null;
   }
 
+  const supabase = await createClient();
+
+  try {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError || !session?.user || !isSessionFresh(session.expires_at)) {
+      return null;
+    }
+
+    return loadProfileForAuthUser(supabase, session.user);
+  } catch {
+    return null;
+  }
+}
+
+async function loadProfileForAuthUser(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  user: User
+): Promise<UserProfile | null> {
   let { data: profile } = await supabase
     .from("profiles")
     .select("*")
@@ -57,16 +63,56 @@ export async function getCurrentUser(): Promise<UserProfile | null> {
         .eq("id", user.id)
         .maybeSingle();
       profile = refetch.data;
-    } catch (error) {
-      console.error("[getCurrentUser] Profile bootstrap failed:", error);
+    } catch {
+      return null;
     }
   }
 
-  if (!profile) {
+  if (!profile) return null;
+  return mergeAuthMetadata(mapProfileToUser(profile), user);
+}
+
+/**
+ * Get the current authenticated user with profile data.
+ * Returns null if not authenticated or profile not found.
+ */
+export async function getCurrentUser(): Promise<UserProfile | null> {
+  const cookieStore = await cookies();
+  if (!hasServerSupabaseSessionCookie(cookieStore)) {
     return null;
   }
 
-  return mergeAuthMetadata(mapProfileToUser(profile), user);
+  const supabase = await createClient();
+
+  let user = null;
+
+  try {
+    const {
+      data: { user: authUser },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError) {
+      if (isStaleRefreshTokenError(authError)) {
+        await clearStaleAuthSession(supabase);
+      }
+      return null;
+    }
+
+    if (!authUser) {
+      return null;
+    }
+
+    user = authUser;
+  } catch (error) {
+    if (isStaleRefreshTokenError(error as AuthError)) {
+      await clearStaleAuthSession(supabase);
+      return null;
+    }
+    return null;
+  }
+
+  return loadProfileForAuthUser(supabase, user);
 }
 
 function mergeAuthMetadata(profile: UserProfile, authUser: User): UserProfile {

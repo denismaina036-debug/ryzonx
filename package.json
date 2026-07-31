@@ -16,6 +16,8 @@
     "seo:assets": "node scripts/generate-seo-assets.mjs",
     "db:link": "supabase link",
     "db:push": "supabase db push --yes",
+    "db:reconcile": "node scripts/reconcile-investment-engine.mjs",
+    "db:reconcile:apply": "node scripts/reconcile-investment-engine.mjs --apply",
     "db:types": "powershell -ExecutionPolicy Bypass -File ./scripts/safe-gen-types.ps1",
     "db:types:local": "supabase gen types typescript --local > src/types/database.types.ts",
     "db:migrate": "powershell -ExecutionPolicy Bypass -File ./scripts/db-migrate.ps1",
