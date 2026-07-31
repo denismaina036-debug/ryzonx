@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { poolManagerStatsService } from "@/services/pool-manager-stats.service";
 import type { PoolManagerAdminStatistics } from "@/domain/pool-manager/admin-statistics";
 import type { PoolManagerStatField } from "@/domain/pool-manager/admin-statistics";
+import { friendlyStatSaveError } from "@/domain/pool-manager/stat-validation";
 
 export async function GET(
   _request: Request,
@@ -34,7 +35,7 @@ export async function PATCH(
     });
     return NextResponse.json(stats);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Update failed.";
+    const message = friendlyStatSaveError(err);
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

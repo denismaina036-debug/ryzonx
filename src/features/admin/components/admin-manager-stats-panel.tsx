@@ -17,6 +17,7 @@ import {
   type PoolManagerAdminStatistics,
   type PoolManagerStatField,
 } from "@/domain/pool-manager/admin-statistics";
+import { normalizePoolManagerStatPatch } from "@/domain/pool-manager/stat-validation";
 import type {
   PoolManagerLiveMetrics,
   PoolManagerStatisticsView,
@@ -34,6 +35,38 @@ const LIVE_TRACKED_FIELDS: Partial<
 
 function fieldInputType(field: PoolManagerStatField): "number" | "text" {
   return field === "riskRating" ? "text" : "number";
+}
+
+function fieldInputConstraints(field: PoolManagerStatField): {
+  min?: number;
+  max?: number;
+  step?: number;
+} {
+  switch (field) {
+    case "ryvonxRating":
+    case "securityRating":
+      return { min: 0, max: 5, step: 0.1 };
+    case "winRatePct":
+    case "successRatio":
+    case "consistencyScore":
+    case "safetyRating":
+    case "performanceRating":
+      return { min: 0, max: 100, step: 0.01 };
+    case "maxDrawdownPct":
+      return { min: 0, max: 100, step: 0.01 };
+    case "avgMonthlyReturnPct":
+      return { min: -9999.9999, max: 9999.9999, step: 0.0001 };
+    case "yearsOnRyvonX":
+      return { min: 0, max: 80, step: 0.1 };
+    case "displayInvestorCount":
+    case "displayReviewCount":
+    case "displayTradeCount":
+    case "successfulCycles":
+    case "followers":
+      return { min: 0, step: 1 };
+    default:
+      return { min: 0, step: 0.01 };
+  }
 }
 
 function formatMetricValue(
@@ -131,6 +164,8 @@ export function AdminManagerStatsPanel({
           patch[field] = Number(raw);
         }
       }
+
+      normalizePoolManagerStatPatch(patch);
 
       const res = await fetch(`/api/admin/managers/${managerId}/stats`, {
         method: "PATCH",
@@ -266,7 +301,9 @@ export function AdminManagerStatsPanel({
                         </span>
                         <Input
                           type={fieldInputType(field)}
-                          step={fieldInputType(field) === "number" ? "any" : undefined}
+                          step={fieldInputType(field) === "number" ? fieldInputConstraints(field).step : undefined}
+                          min={fieldInputType(field) === "number" ? fieldInputConstraints(field).min : undefined}
+                          max={fieldInputType(field) === "number" ? fieldInputConstraints(field).max : undefined}
                           value={draft[field] ?? ""}
                           onChange={(e) =>
                             setDraft((d) => ({ ...d, [field]: e.target.value }))

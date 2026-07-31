@@ -15,6 +15,10 @@ import {
   type PoolManagerAdminStatistics,
   type PoolManagerStatField,
 } from "@/domain/pool-manager/admin-statistics";
+import {
+  friendlyStatSaveError,
+  normalizePoolManagerStatPatch,
+} from "@/domain/pool-manager/stat-validation";
 import { mergeAdminStatistics } from "@/lib/pool-manager/merge-admin-statistics";
 import {
   computeLiveYearsOnRyvonX,
@@ -283,13 +287,14 @@ export const poolManagerStatsService = {
     const row = current as ManagerRow;
     const previousOverrides = readJsonStats(row);
     const previousStats = await this.getStatistics(input.managerId);
+    const patch = normalizePoolManagerStatPatch(input.patch);
 
     const columnUpdates: Record<string, unknown> = {};
     const jsonPatch: PoolManagerAdminStatistics = { ...previousOverrides };
     delete jsonPatch.experienceYears;
     delete jsonPatch.activeInvestors;
 
-    for (const [field, value] of Object.entries(input.patch) as Array<
+    for (const [field, value] of Object.entries(patch) as Array<
       [PoolManagerStatField, unknown]
     >) {
       if (!isEditableStatField(field)) continue;
@@ -313,9 +318,9 @@ export const poolManagerStatsService = {
       .update(columnUpdates as never)
       .eq("id", input.managerId);
 
-    if (updateError) throw new Error(updateError.message);
+    if (updateError) throw new Error(friendlyStatSaveError(updateError));
 
-    for (const [field, newValue] of Object.entries(input.patch) as Array<
+    for (const [field, newValue] of Object.entries(patch) as Array<
       [PoolManagerStatField, unknown]
     >) {
       if (!isEditableStatField(field)) continue;
