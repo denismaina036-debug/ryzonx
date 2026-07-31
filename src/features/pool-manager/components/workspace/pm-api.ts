@@ -139,6 +139,15 @@ export async function transitionCycle(
   return data.cycle;
 }
 
+export async function closeCycle(id: string): Promise<InvestmentCycle> {
+  const data = await parseJson<{ cycle: InvestmentCycle }>(
+    await fetch(`/api/pool-manager/investment-cycles/${id}/close`, {
+      method: "POST",
+    })
+  );
+  return data.cycle;
+}
+
 export async function fetchCycleParticipants(cycleId: string): Promise<CycleParticipantView[]> {
   const data = await parseJson<{ participants: CycleParticipantView[] }>(
     await fetch(`/api/pool-manager/investment-cycles/${cycleId}/allocations`)

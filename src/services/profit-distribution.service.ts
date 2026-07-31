@@ -15,6 +15,7 @@ import {
 import { poolRoiService } from "@/services/pool-roi.service";
 import { platformSettingsService } from "@/services/platform-settings.service";
 import { auditService } from "@/services/audit.service";
+import { PROFIT_SETTLEMENT_ELIGIBLE_ALLOCATION_STATUSES } from "@/constants/investment-allocation";
 import { investmentCycleService } from "@/services/investment-cycle.service";
 import { investmentAllocationService } from "@/services/investment-allocation.service";
 import { tradeEntryService } from "@/services/trade-entry.service";
@@ -180,8 +181,8 @@ export const profitDistributionService = {
   ): Promise<ProfitSettlement> {
     const cycle = await investmentCycleService.getById(cycleId);
     if (!cycle) throw new Error("Cycle not found.");
-    if (!["distribution", "completed"].includes(cycle.status)) {
-      throw new Error("Profit settlement requires a cycle in distribution or completed status.");
+    if (cycle.status !== "distribution") {
+      throw new Error("Profit settlement requires a cycle in distribution status.");
     }
 
     const existing = await this.getByCycleId(cycleId);
@@ -191,10 +192,10 @@ export const profitDistributionService = {
 
     const allocations = await investmentAllocationService.listByCycle(cycleId);
     const settled = allocations.filter((a) =>
-      ["settled", "locked", "distributed"].includes(a.status)
+      PROFIT_SETTLEMENT_ELIGIBLE_ALLOCATION_STATUSES.includes(a.status)
     );
     if (settled.length === 0) {
-      throw new Error("No settled investor allocations for this cycle.");
+      throw new Error("No investor allocations found for this cycle.");
     }
 
     const tradeEntries = await tradeEntryService.listByCycle(cycleId, "admin");
@@ -414,6 +415,39 @@ export const profitDistributionService = {
         summary: `Profit settlement calculated for ${cycle.name}`,
       },
     });
+
+    return settlement;
+  },
+
+  /**
+   * Calculate, confirm, and pay out cycle profits in one step after a cycle enters distribution.
+   * Marks the cycle completed via the lifecycle orchestrator when payouts finish.
+   */
+  async finalizeCycleProfits(cycleId: string, actorId: string): Promise<ProfitSettlement> {
+    const cycle = await investmentCycleService.getById(cycleId);
+    if (!cycle) throw new Error("Cycle not found.");
+
+    if (cycle.status === "completed") {
+      const done = await this.getByCycleId(cycleId);
+      if (done) return done;
+    }
+
+    if (cycle.status !== "distribution") {
+      throw new Error("Cycle must be in distribution before profits can be paid out.");
+    }
+
+    let settlement = await this.getByCycleId(cycleId);
+    if (!settlement || ["calculated", "pending_review", "cancelled"].includes(settlement.status)) {
+      settlement = await this.initiateSettlementForCycle(cycleId, actorId);
+    }
+
+    if (settlement.status === "pending_review") {
+      settlement = await this.confirmSettlement(settlement.id, actorId);
+    }
+
+    if (settlement.status === "confirmed" || settlement.status === "distributing") {
+      settlement = await this.distributeEarnings(settlement.id, actorId);
+    }
 
     return settlement;
   },

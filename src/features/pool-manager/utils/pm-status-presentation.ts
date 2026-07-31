@@ -25,7 +25,7 @@ export function simplifyCycleStatus(status: string): string {
     submitted: "Pending",
     under_review: "Pending",
     draft: "Draft",
-    distribution: "Distribution",
+    distribution: "Closing",
     completed: "Completed",
     archived: "Archived",
   };

@@ -7,8 +7,8 @@ import { BookOpen, ChevronLeft } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import {
   INVESTMENT_CYCLE_MANAGER_TRANSITIONS,
-  INVESTMENT_CYCLE_STATUS_LABELS,
 } from "@/constants/investment-cycle";
+import { simplifyCycleStatus } from "@/features/pool-manager/utils/pm-status-presentation";
 import { INVESTMENT_ALLOCATION_STATUS_LABELS } from "@/constants/investment-allocation";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,7 @@ import { PmStatusBadge } from "./pm-status-badge";
 import {
   fetchCycleParticipants,
   submitCycle,
+  closeCycle,
   transitionCycle,
 } from "./pm-api";
 
@@ -50,7 +51,8 @@ export function PmCycleDetailClient({
 
   const managerTransitions = INVESTMENT_CYCLE_MANAGER_TRANSITIONS[cycle.status] ?? [];
   const canCloseCycle =
-    cycle.status === "trading" && openTradeCount === 0 && managerTransitions.includes("distribution");
+    (cycle.status === "trading" && openTradeCount === 0 && managerTransitions.includes("distribution")) ||
+    cycle.status === "distribution";
   const profitTone =
     cycle.currentCycleProfit > 0
       ? "text-emerald-600 dark:text-emerald-400"
@@ -111,7 +113,7 @@ export function PmCycleDetailClient({
         description="Cycle performance and participants"
         actions={
           <PmStatusBadge
-            label={INVESTMENT_CYCLE_STATUS_LABELS[cycle.status]}
+            label={simplifyCycleStatus(cycle.status)}
             status={cycle.status}
           />
         }
@@ -154,12 +156,12 @@ export function PmCycleDetailClient({
               variant="danger"
               onClick={() =>
                 runAction(
-                  () => transitionCycle(cycle.id, "distribution"),
-                  "Investment cycle closed — distribution started"
+                  () => closeCycle(cycle.id),
+                  "Cycle closed — profits distributed to investors"
                 )
               }
             >
-              Close Investment Cycle
+              {cycle.status === "distribution" ? "Finish Closing Cycle" : "Close Cycle"}
             </ActionButton>
           )}
 

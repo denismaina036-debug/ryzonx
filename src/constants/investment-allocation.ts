@@ -36,3 +36,12 @@ export const INVESTMENT_ALLOCATION_MUTABLE_STATUSES: InvestmentAllocationStatus[
 export const INVESTMENT_ALLOCATION_SETTLEABLE_STATUSES: InvestmentAllocationStatus[] = [
   "funding_confirmed",
 ];
+
+/** Active cycle allocations eligible for profit settlement (includes marketplace joins). */
+export const PROFIT_SETTLEMENT_ELIGIBLE_ALLOCATION_STATUSES: InvestmentAllocationStatus[] = [
+  "funding_confirmed",
+  "confirmed",
+  "settled",
+  "locked",
+  "distributed",
+];

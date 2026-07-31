@@ -877,14 +877,12 @@ export const investmentCycleService = {
     }
 
     if (nextStatus === "distribution") {
-      try {
-        const { profitDistributionService } = await import(
-          "@/services/profit-distribution.service"
-        );
-        await profitDistributionService.initiateSettlementForCycle(id, userId);
-      } catch {
-        /* settlement may require allocations — retry from finance panel */
-      }
+      const { profitDistributionService } = await import(
+        "@/services/profit-distribution.service"
+      );
+      await profitDistributionService.finalizeCycleProfits(id, userId);
+      const refreshed = await this.getById(id);
+      return refreshed ?? cycle;
     }
 
     return cycle;
@@ -957,14 +955,12 @@ export const investmentCycleService = {
     }
 
     if (nextStatus === "distribution") {
-      try {
-        const { profitDistributionService } = await import(
-          "@/services/profit-distribution.service"
-        );
-        await profitDistributionService.initiateSettlementForCycle(id, actorUserId);
-      } catch {
-        /* settlement may require allocations */
-      }
+      const { profitDistributionService } = await import(
+        "@/services/profit-distribution.service"
+      );
+      await profitDistributionService.finalizeCycleProfits(id, actorUserId);
+      const refreshed = await this.getById(id);
+      return refreshed ?? cycle;
     }
 
     return cycle;
@@ -1004,6 +1000,41 @@ export const investmentCycleService = {
 
   async submit(id: string): Promise<InvestmentCycle> {
     return this.transition(id, "submitted", "manager");
+  },
+
+  /** Close an active cycle and pay out profits to investors in one step. */
+  async closeAndDistribute(id: string, actor: "manager" | "admin"): Promise<InvestmentCycle> {
+    const existing = await this.getById(id);
+    if (!existing) throw new Error("Investment cycle not found.");
+
+    if (existing.status === "trading") {
+      return this.transition(id, "distribution", actor);
+    }
+
+    if (existing.status === "distribution") {
+      let actorId: string;
+      if (actor === "admin") {
+        actorId = (await requireRole(USER_ROLES.ADMINISTRATOR)).id;
+      } else {
+        const { userId, managerId } = await requireManagerId();
+        if (existing.poolManagerId !== managerId) throw new Error("Insufficient permissions");
+        actorId = userId;
+      }
+
+      const { profitDistributionService } = await import(
+        "@/services/profit-distribution.service"
+      );
+      await profitDistributionService.finalizeCycleProfits(id, actorId);
+      const refreshed = await this.getById(id);
+      if (!refreshed) throw new Error("Investment cycle not found.");
+      return refreshed;
+    }
+
+    if (existing.status === "completed" || existing.status === "archived") {
+      return existing;
+    }
+
+    throw new Error("This cycle cannot be closed in its current status.");
   },
 
   async listPublicForInvestors(): Promise<InvestmentCycle[]> {
