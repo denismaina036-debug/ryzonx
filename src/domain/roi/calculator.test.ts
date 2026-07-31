@@ -65,6 +65,18 @@ describe("ROI calculator", () => {
     expect(preview.returnDurationLabel).toBe("Daily");
   });
 
+  it("builds hourly duration label from hour count", () => {
+    const preview = buildRoiPreview({
+      amount: 1000,
+      levels: LEVELS,
+      multipliers: MULTIPLIERS,
+      returnDurationPreset: "hourly",
+      returnDurationValue: 12,
+      returnDurationUnit: "hours",
+    });
+    expect(preview.returnDurationLabel).toBe("12 Hours");
+  });
+
   it("tracks target fulfillment", () => {
     expect(isTargetFulfilled(1000, 2, 999)).toBe(false);
     expect(isTargetFulfilled(1000, 2, 1000)).toBe(true);

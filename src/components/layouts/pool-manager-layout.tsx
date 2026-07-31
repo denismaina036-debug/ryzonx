@@ -23,6 +23,7 @@ import type { PoolManagerQuickActionContext } from "@/services/pool-manager-work
 import { useAuthActions } from "@/hooks/use-auth";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/utils";
+import { tapNavLink } from "@/lib/ui/interaction";
 import { Button } from "@/components/ui/button";
 import type { ReactNode } from "react";
 
@@ -86,6 +87,7 @@ export function PoolManagerLayoutShell({
                   key={item.href}
                   href={item.href}
                   className={cn(
+                    tapNavLink,
                     "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
                     isActive ? pmNavActiveClass : pmNavIdleClass
                   )}
@@ -110,6 +112,7 @@ export function PoolManagerLayoutShell({
                     key={item.href}
                     href={item.href}
                     className={cn(
+                      tapNavLink,
                       "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
                       isActive
                         ? "bg-[var(--id-surface-hover)] text-[var(--id-text-secondary)]"
@@ -134,7 +137,13 @@ export function PoolManagerLayoutShell({
               <InvestorThemeToggle />
             </div>
 
-            <div className="flex items-center gap-3 px-2 py-1">
+            <Link
+              href={ROUTES.poolManagerProfile}
+              className={cn(
+                tapNavLink,
+                "flex items-center gap-3 rounded-xl px-2 py-1.5 transition-colors hover:bg-[var(--id-surface-hover)]"
+              )}
+            >
               <UserAvatar
                 name={displayName}
                 avatarUrl={avatarUrl}
@@ -147,7 +156,7 @@ export function PoolManagerLayoutShell({
                   <p className="truncate text-xs text-[var(--id-text-muted)]">{userEmail}</p>
                 )}
               </div>
-            </div>
+            </Link>
 
             {managerSlug && (
               <Link

@@ -453,3 +453,25 @@
   background: rgb(79 70 229 / 0.12);
   color: #0f172a;
 }
+
+/* =============================================================================
+   Touch interaction utilities — premium mobile feedback without layout changes
+   ============================================================================= */
+
+@layer base {
+  button,
+  a,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  summary {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  .touch-target {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}

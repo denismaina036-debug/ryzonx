@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { cn } from "@/lib/utils";
+import { tapNavItem } from "@/lib/ui/interaction";
 
 interface MobileNavItem {
   label: string;
@@ -87,9 +88,10 @@ function NavButton({ item, active }: { item: MobileNavItem; active: boolean }) {
       <Link
         href={item.href}
         className={cn(
+          tapNavItem,
           "flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-2 text-[10px] font-medium transition-colors",
           active
-            ? "text-[var(--pm-accent-text)]"
+            ? "bg-[var(--pm-accent-soft)] text-[var(--pm-accent-text)]"
             : "text-[var(--id-text-muted)] hover:text-[var(--id-text)]"
         )}
       >

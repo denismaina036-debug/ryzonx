@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeftRight, ChevronRight } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { cn, formatCurrency } from "@/lib/utils";
+import { tapRow } from "@/lib/ui/interaction";
 import type { InvestorTransaction } from "@/features/investor/types/wallet";
 import { TransactionIcon } from "@/features/investor/components/transactions/transaction-icon";
 import { TransactionStatusPill } from "@/features/investor/components/transactions/transaction-status-pill";
@@ -57,7 +58,10 @@ export function InvestorTransactionsView({
               <li key={tx.id}>
                 <Link
                   href={ROUTES.transactionDetail(tx.id)}
-                  className="flex flex-col gap-4 px-5 py-4 transition-colors hover:bg-[var(--id-surface-hover)] sm:flex-row sm:items-center sm:justify-between sm:px-6"
+                  className={cn(
+                    tapRow,
+                    "flex flex-col gap-4 px-5 py-4 transition-colors hover:bg-[var(--id-surface-hover)] sm:flex-row sm:items-center sm:justify-between sm:px-6"
+                  )}
                 >
                   <div className="flex min-w-0 flex-1 items-start gap-4">
                     <TransactionIcon kind={tx.iconKind} />

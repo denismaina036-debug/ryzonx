@@ -13,19 +13,19 @@ export const pmHeroGradientClass =
   "pointer-events-none absolute inset-0 bg-[var(--pm-hero-gradient)]";
 
 export const pmPrimaryButtonClass =
-  "rounded-xl bg-[var(--pm-accent)] font-semibold text-[#0a0f18] hover:bg-[var(--pm-accent-hover)]";
+  "rounded-xl bg-[var(--pm-accent)] font-semibold text-[#0a0f18] hover:bg-[var(--pm-accent-hover)] active:opacity-90 active:scale-[0.97] touch-manipulation transition-all duration-150";
 
 export const pmSecondaryButtonClass =
-  "rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] text-[var(--id-text)] hover:bg-[var(--id-surface-hover)]";
+  "rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] text-[var(--id-text)] hover:bg-[var(--id-surface-hover)] active:bg-[var(--id-surface-hover)] active:scale-[0.97] touch-manipulation transition-all duration-150";
 
 export const pmAccentButtonClass =
-  "rounded-xl border border-[var(--id-accent-soft)] bg-[var(--id-accent-soft)] text-[var(--id-accent-text)] hover:opacity-90";
+  "rounded-xl border border-[var(--id-accent-soft)] bg-[var(--id-accent-soft)] text-[var(--id-accent-text)] hover:opacity-90 active:opacity-80 active:scale-[0.97] touch-manipulation transition-all duration-150";
 
 export const pmNavActiveClass =
   "bg-[var(--pm-accent-soft)] text-[var(--pm-accent-text)] ring-1 ring-inset ring-[var(--pm-accent-ring)]";
 
 export const pmNavIdleClass =
-  "text-[var(--id-text-muted)] hover:bg-[var(--id-surface-hover)] hover:text-[var(--id-text-secondary)]";
+  "text-[var(--id-text-muted)] hover:bg-[var(--id-surface-hover)] hover:text-[var(--id-text-secondary)] active:bg-[var(--id-surface-hover)] active:scale-[0.98] touch-manipulation transition-all duration-150";
 
 export const pmEyebrowClass =
   "text-xs font-semibold uppercase tracking-[0.2em] text-[var(--pm-accent-text)]";

@@ -9,7 +9,10 @@ export function resolveReturnDuration(input: {
 }): { value: number; unit: ReturnDurationUnit } {
   switch (input.preset) {
     case "hourly":
-      return { value: 1, unit: "hours" };
+      return {
+        value: input.value && input.value > 0 ? input.value : 1,
+        unit: "hours",
+      };
     case "daily":
       return { value: 1, unit: "days" };
     case "weekly":
@@ -46,6 +49,12 @@ export function formatReturnDurationLabel(input: {
   unit?: ReturnDurationUnit | string | null;
 }): string {
   const preset = input.preset as ReturnDurationPreset | undefined;
+
+  if (preset === "hourly") {
+    const hours = input.value != null && input.value > 0 ? Math.round(input.value) : 1;
+    return hours === 1 ? "1 Hour" : `${hours} Hours`;
+  }
+
   if (preset && preset !== "custom" && preset in RETURN_DURATION_PRESET_LABELS) {
     return RETURN_DURATION_PRESET_LABELS[preset];
   }

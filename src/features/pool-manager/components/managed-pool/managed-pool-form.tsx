@@ -379,7 +379,21 @@ export function ManagedPoolForm({
           preset={values.returnDurationPreset}
           value={values.returnDurationValue}
           unit={values.returnDurationUnit}
-          onPresetChange={(preset) => patch("returnDurationPreset", preset)}
+          onPresetChange={(preset) => {
+            if (preset === "hourly") {
+              onChange({
+                ...values,
+                returnDurationPreset: preset,
+                returnDurationUnit: "hours",
+                returnDurationValue:
+                  values.returnDurationUnit === "hours" && values.returnDurationValue.trim()
+                    ? values.returnDurationValue
+                    : "4",
+              });
+              return;
+            }
+            patch("returnDurationPreset", preset);
+          }}
           onValueChange={(v) => patch("returnDurationValue", v)}
           onUnitChange={(unit) => patch("returnDurationUnit", unit)}
           disabled={!editable}

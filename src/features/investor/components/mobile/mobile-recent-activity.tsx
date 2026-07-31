@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ROUTES } from "@/constants/routes";
 import { cn, formatCurrency } from "@/lib/utils";
+import { tapRow } from "@/lib/ui/interaction";
 import type { InvestorPoolActivityItem } from "@/features/investor/types";
 import { TransactionIcon } from "@/features/investor/components/transactions/transaction-icon";
 
@@ -48,7 +49,7 @@ export function MobileRecentActivity({
             <li key={item.id} className="border-b border-[var(--id-border)] last:border-0">
               <Link
                 href={ROUTES.transactionDetail(item.id)}
-                className="flex items-start gap-3 py-3 transition-colors hover:opacity-90"
+                className={cn(tapRow, "flex items-start gap-3 py-3 transition-colors hover:opacity-90")}
               >
                 <TransactionIcon kind={item.iconKind} size="sm" />
                 <div className="min-w-0 flex-1">

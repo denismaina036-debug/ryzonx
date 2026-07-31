@@ -20,6 +20,7 @@ import { WorkspaceRouteMemorySync } from "@/components/workspace/workspace-route
 import { LegalReacceptanceGate } from "@/features/auth/components/legal-reacceptance-gate";
 import { useAuthActions } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+import { tapNavLink } from "@/lib/ui/interaction";
 import type { ReactNode } from "react";
 import type { ChallengeDisplayStatus } from "@/domain/challenge/types";
 import type { PmJourneyCardVariant } from "@/domain/investor/pm-journey-variant";
@@ -148,6 +149,7 @@ function SidebarContent({
               key={item.label}
               href={item.href}
               className={cn(
+                tapNavLink,
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                 isActive
                   ? "bg-[var(--id-accent)] text-white"
@@ -189,7 +191,10 @@ function SidebarContent({
         <button
           type="button"
           onClick={onSignOut}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[var(--id-text-muted)] transition-colors hover:bg-[var(--id-surface-hover)] hover:text-[var(--id-text)]"
+          className={cn(
+            tapNavLink,
+            "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[var(--id-text-muted)] transition-colors hover:bg-[var(--id-surface-hover)] hover:text-[var(--id-text)]"
+          )}
         >
           <LogoutIcon className="h-4 w-4" strokeWidth={1.75} />
           {INVESTOR_LOGOUT_ITEM.label}

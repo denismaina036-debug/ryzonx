@@ -14,6 +14,7 @@ import {
   type PoolActivityFiltersState,
 } from "@/features/marketplace/components/pool-activity/pool-activity-filters";
 import { cn } from "@/lib/utils";
+import { tapRow } from "@/lib/ui/interaction";
 
 interface PoolActivityJournalTabProps {
   trades: PublicPoolTradeView[];
@@ -93,7 +94,10 @@ export function PoolActivityJournalTab({
                 <button
                   type="button"
                   onClick={() => toggleCycle(cycle.id)}
-                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-[var(--id-surface-muted)]"
+                  className={cn(
+                    tapRow,
+                    "flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-[var(--id-surface-muted)]"
+                  )}
                 >
                   <div>
                     <p className="font-semibold text-[var(--id-text)]">{cycle.name}</p>

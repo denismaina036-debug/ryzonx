@@ -9,6 +9,7 @@ import {
   screenshotListLabel,
 } from "@/lib/trading/trade-display";
 import { cn, formatCurrency } from "@/lib/utils";
+import { tapCard } from "@/lib/ui/interaction";
 
 interface PoolActivityTradeCardProps {
   trade: PublicPoolTradeView;
@@ -29,6 +30,7 @@ export function PoolActivityTradeCard({ trade, onSelect }: PoolActivityTradeCard
       type="button"
       onClick={() => onSelect(trade)}
       className={cn(
+        tapCard,
         "w-full rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-4 text-left transition-colors",
         "hover:border-[var(--id-accent)]/40 hover:bg-[var(--id-surface-muted)]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--id-accent)]"

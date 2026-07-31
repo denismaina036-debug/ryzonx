@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/providers/auth-provider";
 import { useAuthActions } from "@/hooks/use-auth";
+import { tapIconButton, tapProfileTrigger } from "@/lib/ui/interaction";
+import { cn } from "@/lib/utils";
 
 interface InvestorShellHeaderProps {
   unreadNotifications?: number;
@@ -39,7 +41,10 @@ export function InvestorShellHeader({
   const profileTrigger = (
     <button
       type="button"
-      className="flex h-9 shrink-0 items-center gap-2 rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] py-1 pl-1 pr-2 outline-none transition-colors hover:bg-[var(--id-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--id-accent-soft)] sm:h-10 sm:pr-3"
+      className={cn(
+        tapProfileTrigger,
+        "flex h-9 shrink-0 items-center gap-2 rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] py-1 pl-1 pr-2 outline-none hover:bg-[var(--id-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--id-accent-soft)] sm:h-10 sm:pr-3"
+      )}
       aria-label="Open profile menu"
     >
       <UserAvatar
@@ -84,7 +89,10 @@ export function InvestorShellHeader({
           {isPoolManager && <WorkspaceMobileSwitcher target="pool-manager" />}
           <Link
             href={ROUTES.notifications}
-            className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] text-[var(--id-text-secondary)] transition-colors hover:bg-[var(--id-surface-hover)] hover:text-[var(--id-text)]"
+            className={cn(
+              tapIconButton,
+              "relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] text-[var(--id-text-secondary)] hover:bg-[var(--id-surface-hover)] hover:text-[var(--id-text)]"
+            )}
             aria-label="Notifications"
           >
             <Bell className="h-4 w-4" strokeWidth={1.75} />
@@ -97,7 +105,10 @@ export function InvestorShellHeader({
 
           <Link
             href={ROUTES.support}
-            className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] text-[var(--id-text-secondary)] transition-colors hover:bg-[var(--id-surface-hover)] hover:text-[var(--id-text)]"
+            className={cn(
+              tapIconButton,
+              "relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] text-[var(--id-text-secondary)] hover:bg-[var(--id-surface-hover)] hover:text-[var(--id-text)]"
+            )}
             aria-label="Messages"
           >
             <MessageSquare className="h-4 w-4" strokeWidth={1.75} />

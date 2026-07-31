@@ -9,7 +9,7 @@ import {
 } from "@/domain/investment/cycle-validation";
 import { normalizeMarketCodes } from "@/domain/reference-data/utils";
 import { validateMultiplier } from "@/domain/roi/calculator";
-import { resolveReturnDuration } from "@/domain/roi/return-duration";
+import { durationToDays, resolveReturnDuration } from "@/domain/roi/return-duration";
 
 export type ManagedPoolValidationMode = "draft" | "submit";
 
@@ -43,10 +43,12 @@ export function validateRoiConfig(input: ManagedPoolFormInput): string | null {
     unit: input.returnDurationUnit,
   });
 
-  if (input.returnDurationPreset === "custom") {
+  if (input.returnDurationPreset === "hourly" || input.returnDurationPreset === "custom") {
     const value = parseAmount(input.returnDurationValue);
     if (!value || value <= 0) {
-      return "Custom return duration must be a positive number.";
+      return input.returnDurationPreset === "hourly"
+        ? "Hourly return duration must specify a positive number of hours."
+        : "Custom return duration must be a positive number.";
     }
   }
 
@@ -120,7 +122,7 @@ export function validateManagedPoolForm(
         targetCapital: parseAmount(normalized.maxPoolSize),
         minInvestment: parseAmount(normalized.minInvestment),
         maxCapacity: parseAmount(normalized.maxPoolSize),
-        durationDays: duration.value,
+        durationDays: durationToDays(duration.value, duration.unit),
       })
     );
     if (capacityError) return capacityError;

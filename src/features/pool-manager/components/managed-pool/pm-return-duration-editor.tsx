@@ -43,6 +43,7 @@ export function PmReturnDurationEditor({
   disabled = false,
 }: PmReturnDurationEditorProps) {
   const isCustom = preset === "custom";
+  const isHourly = preset === "hourly";
 
   return (
     <div className="space-y-4">
@@ -68,6 +69,24 @@ export function PmReturnDurationEditor({
           </SelectContent>
         </Select>
       </PmFormField>
+
+      {isHourly && (
+        <PmFormField
+          label="Duration (hours)"
+          required
+          hint="How long each investment cycle runs, e.g. 4 or 12 hours."
+        >
+          <Input
+            type="number"
+            min={1}
+            value={value}
+            onChange={(e) => onValueChange(e.target.value)}
+            disabled={disabled}
+            className={pmInputClass}
+            placeholder="e.g. 12"
+          />
+        </PmFormField>
+      )}
 
       {isCustom && (
         <div className="grid gap-4 sm:grid-cols-2">

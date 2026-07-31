@@ -2,6 +2,7 @@
 
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { cn } from "@/lib/utils";
+import { tapTabTrigger } from "@/lib/ui/interaction";
 
 const Tabs = TabsPrimitive.Root;
 
@@ -27,7 +28,8 @@ function TabsTrigger({
   return (
     <TabsPrimitive.Trigger
       className={cn(
-        "inline-flex items-center justify-center rounded-lg px-4 py-1.5 text-sm font-medium text-navy-500 transition-all data-[state=active]:bg-card data-[state=active]:text-navy-950 data-[state=active]:shadow-sm",
+        tapTabTrigger,
+        "inline-flex min-h-10 min-w-[2.75rem] items-center justify-center rounded-lg px-4 py-1.5 text-sm font-medium text-navy-500 transition-all data-[state=active]:bg-card data-[state=active]:text-navy-950 data-[state=active]:shadow-sm active:data-[state=inactive]:bg-surface-2",
         className
       )}
       {...props}

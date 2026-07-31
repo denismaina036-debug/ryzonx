@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ROUTES } from "@/constants/routes";
 import { cn, formatCurrency } from "@/lib/utils";
+import { tapRow } from "@/lib/ui/interaction";
 import {
   DashboardCard,
   dashboardCardBodyClass,
@@ -58,7 +59,10 @@ export function RecentActivityTimeline({
               <li key={item.id} className="border-b border-[var(--id-border)] last:border-0">
                 <Link
                   href={ROUTES.transactionDetail(item.id)}
-                  className="flex items-start gap-3 py-3.5 transition-colors hover:bg-[var(--id-surface-hover)]"
+                  className={cn(
+                    tapRow,
+                    "flex items-start gap-3 py-3.5 transition-colors hover:bg-[var(--id-surface-hover)]"
+                  )}
                 >
                   <TransactionIcon kind={item.iconKind} size="sm" />
 

@@ -4,26 +4,26 @@ import { forwardRef, type ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium touch-manipulation transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.97] motion-reduce:active:scale-100 [-webkit-tap-highlight-color:transparent] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         default:
-          "bg-navy-900 text-white shadow-sm hover:bg-navy-800 active:scale-[0.98]",
+          "bg-navy-900 text-white shadow-sm hover:bg-navy-800 active:bg-navy-950",
         secondary:
-          "bg-royal-600 text-white shadow-sm hover:bg-royal-700 active:scale-[0.98]",
+          "bg-royal-600 text-white shadow-sm hover:bg-royal-700 active:bg-royal-800",
         outline:
-          "border border-border bg-background text-navy-700 shadow-sm hover:bg-surface-1 hover:text-navy-900",
+          "border border-border bg-background text-navy-700 shadow-sm hover:bg-surface-1 hover:text-navy-900 active:bg-surface-2",
         ghost:
-          "text-navy-600 hover:bg-surface-1 hover:text-navy-900",
+          "text-navy-600 hover:bg-surface-1 hover:text-navy-900 active:bg-surface-2",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
+          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 active:opacity-90",
         success:
-          "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 active:scale-[0.98]",
+          "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 active:bg-emerald-800",
         accent:
-          "bg-gold-500 text-navy-950 shadow-sm hover:bg-gold-400 active:scale-[0.98]",
+          "bg-gold-500 text-navy-950 shadow-sm hover:bg-gold-400 active:opacity-90",
         link:
-          "text-royal-600 underline-offset-4 hover:underline",
+          "text-royal-600 underline-offset-4 hover:underline active:opacity-70 active:scale-100",
       },
       size: {
         default: "h-10 px-5 py-2",

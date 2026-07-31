@@ -2,6 +2,7 @@
 
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { cn } from "@/lib/utils";
+import { tapMenuItem } from "@/lib/ui/interaction";
 
 const DropdownMenu = DropdownMenuPrimitive.Root;
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
@@ -38,6 +39,7 @@ function DropdownMenuItem({
   return (
     <DropdownMenuPrimitive.Item
       className={cn(
+        tapMenuItem,
         "relative flex cursor-pointer select-none items-center gap-2 rounded-lg px-3 py-2.5 text-sm outline-none transition-colors",
         "focus:bg-[var(--id-surface-hover)] data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         inset && "pl-8",
