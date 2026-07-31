@@ -10,13 +10,21 @@ export function countryCodeToFlag(code: string): string {
     .join("");
 }
 
+/** Supported flagcdn.com dimension values (others return 404). */
+const FLAGCDN_SIZES = [20, 40, 80, 160, 320, 640, 1280, 2560] as const;
+
+function snapFlagcdnSize(requested: number): number {
+  return FLAGCDN_SIZES.find((size) => size >= requested) ?? FLAGCDN_SIZES.at(-1)!;
+}
+
 /** Cross-platform flag image URL (emoji flags are invisible on many Windows browsers). */
-export function countryFlagImageUrl(code: string, height = 16): string {
+export function countryFlagImageUrl(code: string, height = 20): string {
   const normalized = code.trim().toLowerCase();
   if (normalized.length !== 2 || !/^[a-z]{2}$/.test(normalized)) {
     return "";
   }
-  return `https://flagcdn.com/h${height}/${normalized}.png`;
+  const size = snapFlagcdnSize(height);
+  return `https://flagcdn.com/h${size}/${normalized}.png`;
 }
 
 export function formatCountryLabel(code: string, name: string): string {
