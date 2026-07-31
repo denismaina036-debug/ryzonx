@@ -15,18 +15,15 @@ import {
   type PoolManagerAdminStatistics,
   type PoolManagerStatField,
 } from "@/domain/pool-manager/admin-statistics";
+import { POOL_MANAGER_DYNAMIC_PERFORMANCE_FIELDS } from "@/domain/pool-manager/live-performance-statistics";
 import {
   friendlyStatSaveError,
   normalizePoolManagerStatPatch,
 } from "@/domain/pool-manager/stat-validation";
 import { mergeAdminStatistics } from "@/lib/pool-manager/merge-admin-statistics";
-import {
-  computeLiveYearsOnRyvonX,
-  resolvePublicCapital,
-  resolveYearsOnRyvonX,
-} from "@/lib/pool-manager/public-statistics";
-import { resolvePublicDisplayCount } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
+import { computeLiveYearsOnRyvonX } from "@/lib/pool-manager/public-statistics";
 import { auditService } from "@/services/audit.service";
+import { poolManagerPerformanceStatsService } from "@/services/pool-manager-performance-stats.service";
 
 type ManagerRow = Record<string, unknown>;
 
@@ -51,6 +48,26 @@ function readJsonStats(row: ManagerRow): PoolManagerAdminStatistics {
     normalized.displayInvestorCount = normalized.activeInvestors;
   }
   return normalized;
+}
+
+function trackPerformanceOverrides(
+  jsonPatch: PoolManagerAdminStatistics,
+  patch: Partial<PoolManagerAdminStatistics>
+): void {
+  const overrides = new Set(jsonPatch.performanceStatOverrides ?? []);
+
+  for (const field of POOL_MANAGER_DYNAMIC_PERFORMANCE_FIELDS) {
+    if (!(field in patch)) continue;
+    const value = patch[field];
+    if (value === null || value === undefined) {
+      overrides.delete(field);
+    } else {
+      overrides.add(field);
+    }
+  }
+
+  jsonPatch.performanceStatOverrides =
+    overrides.size > 0 ? Array.from(overrides) : undefined;
 }
 
 function normalizeEditableStatistics(
@@ -132,7 +149,8 @@ export interface PoolManagerStatisticsView {
 
 async function loadLiveMetrics(managerId: string, row: ManagerRow): Promise<PoolManagerLiveMetrics> {
   const db = createAdminClient();
-  const [poolsRes, reviewCountRes, tradeMetricsRes] = await Promise.all([
+  const adminOverrides = readJsonStats(row);
+  const [poolsRes, reviewCountRes, performanceStats] = await Promise.all([
     db
       .from("funds")
       .select("active_investors, display_active_investors, assets_under_management")
@@ -142,13 +160,9 @@ async function loadLiveMetrics(managerId: string, row: ManagerRow): Promise<Pool
       .from("pool_manager_reviews")
       .select("id", { count: "exact", head: true })
       .eq("pool_manager_id", managerId),
-    db
-      .from("trade_snapshots")
-      .select("total_trades")
-      .eq("pool_manager_id", managerId)
-      .order("snapshot_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+    adminOverrides.livePerformance
+      ? Promise.resolve(adminOverrides.livePerformance)
+      : poolManagerPerformanceStatsService.computeForManager(managerId),
   ]);
 
   const poolRows = (poolsRes.data ?? []) as Array<{
@@ -159,9 +173,7 @@ async function loadLiveMetrics(managerId: string, row: ManagerRow): Promise<Pool
 
   const liveInvestors = poolRows.reduce((s, p) => s + (toNumber(p.active_investors) ?? 0), 0);
   const liveReviewCount = reviewCountRes.count ?? 0;
-  const liveTradeCount = toNumber(
-    (tradeMetricsRes.data as { total_trades?: number } | null)?.total_trades
-  );
+  const liveTradeCount = performanceStats.closedTrades;
   const liveAum = poolRows.reduce(
     (s, p) => s + (toNumber(p.assets_under_management) ?? 0),
     0
@@ -169,7 +181,7 @@ async function loadLiveMetrics(managerId: string, row: ManagerRow): Promise<Pool
   const liveYears = computeLiveYearsOnRyvonX(String(row.created_at ?? new Date().toISOString()));
 
   return {
-    winRatePct: null,
+    winRatePct: performanceStats.winRatePct,
     avgMonthlyReturnPct: null,
     maxDrawdownPct: null,
     ryvonxRating: null,
@@ -178,7 +190,7 @@ async function loadLiveMetrics(managerId: string, row: ManagerRow): Promise<Pool
     assetsUnderManagement: liveAum,
     activeInvestors: liveInvestors,
     publicReviewCount: liveReviewCount,
-    publicTradeCount: liveTradeCount ?? 0,
+    publicTradeCount: liveTradeCount,
     yearsOnRyvonX: liveYears,
     poolsManaged: poolRows.length,
   };
@@ -191,22 +203,26 @@ function computePublishedMetrics(
 ): PoolManagerLiveMetrics {
   const merged = mergeAdminStatistics(
     {
-      winRatePct: null,
+      winRatePct: live.winRatePct,
       avgMonthlyReturnPct: null,
       maxDrawdownPct: null,
       ryvonxRating: null,
       securityRating: null,
       aggressivenessRating: null,
+      assetsUnderManagement: live.assetsUnderManagement,
+      activeInvestors: live.activeInvestors,
+      publicReviewCount: live.publicReviewCount,
+      publicTradeCount: live.publicTradeCount,
+      yearsOnRyvonX: live.yearsOnRyvonX,
     },
-    adminOverrides
+    {
+      ...adminOverrides,
+      ...statistics,
+      livePerformance: adminOverrides.livePerformance ?? statistics.livePerformance,
+      performanceStatOverrides:
+        adminOverrides.performanceStatOverrides ?? statistics.performanceStatOverrides,
+    }
   );
-
-  const investorSeed = Math.max(
-    statistics.displayInvestorCount ?? 0,
-    0
-  );
-  const reviewSeed = statistics.displayReviewCount ?? 0;
-  const tradeSeed = statistics.displayTradeCount ?? 0;
 
   return {
     winRatePct: merged.winRatePct ?? statistics.winRatePct ?? null,
@@ -217,17 +233,11 @@ function computePublishedMetrics(
     securityRating: merged.securityRating ?? statistics.securityRating ?? null,
     aggressivenessRating:
       merged.aggressivenessRating ?? statistics.aggressivenessRating ?? null,
-    assetsUnderManagement: resolvePublicCapital(
-      live.assetsUnderManagement,
-      adminOverrides
-    ),
-    activeInvestors: resolvePublicDisplayCount(investorSeed, live.activeInvestors),
-    publicReviewCount: resolvePublicDisplayCount(
-      reviewSeed,
-      live.publicReviewCount
-    ),
-    publicTradeCount: resolvePublicDisplayCount(tradeSeed, live.publicTradeCount),
-    yearsOnRyvonX: resolveYearsOnRyvonX(live.yearsOnRyvonX, adminOverrides),
+    assetsUnderManagement: merged.assetsUnderManagement ?? live.assetsUnderManagement,
+    activeInvestors: merged.activeInvestors ?? live.activeInvestors,
+    publicReviewCount: merged.displayReviewCount ?? live.publicReviewCount,
+    publicTradeCount: merged.displayTradeCount ?? live.publicTradeCount,
+    yearsOnRyvonX: merged.yearsOnRyvonX ?? live.yearsOnRyvonX,
     poolsManaged: live.poolsManaged,
   };
 }
@@ -311,6 +321,8 @@ export const poolManagerStatsService = {
       }
     }
 
+    trackPerformanceOverrides(jsonPatch, patch);
+
     columnUpdates.admin_statistics = jsonPatch;
 
     const { error: updateError } = await db
@@ -349,6 +361,10 @@ export const poolManagerStatsService = {
 
     revalidateManagerSurfaces((row.slug as string | null) ?? null);
 
+    await poolManagerPerformanceStatsService
+      .syncManager(input.managerId, "Admin updated manager statistics")
+      .catch(() => undefined);
+
     return this.getStatistics(input.managerId);
   },
 
@@ -375,6 +391,14 @@ export const poolManagerStatsService = {
       } else if (POOL_MANAGER_JSON_STAT_FIELDS.includes(field)) {
         delete jsonPatch[field];
       }
+
+      jsonPatch.performanceStatOverrides = (
+        jsonPatch.performanceStatOverrides ?? []
+      ).filter((entry) => entry !== field);
+    }
+
+    if ((jsonPatch.performanceStatOverrides ?? []).length === 0) {
+      delete jsonPatch.performanceStatOverrides;
     }
 
     delete jsonPatch.experienceYears;
@@ -398,6 +422,10 @@ export const poolManagerStatsService = {
     });
 
     revalidateManagerSurfaces(before.slug);
+
+    await poolManagerPerformanceStatsService
+      .syncManager(input.managerId, "Admin reset manager statistics")
+      .catch(() => undefined);
 
     return this.getStatistics(input.managerId);
   },

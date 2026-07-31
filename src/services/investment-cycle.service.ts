@@ -16,6 +16,7 @@ import { generateInvestmentSlug } from "@/lib/investment/utils";
 import { adminNotesService } from "@/services/admin-notes.service";
 import { publishPlatformEvent, PLATFORM_EVENT_TYPES } from "@/lib/platform-events/publish";
 import { resolvePoolManagerUserId } from "@/lib/platform-events/resolve-recipients";
+import { poolManagerPerformanceStatsService } from "@/services/pool-manager-performance-stats.service";
 import type {
   CreateInvestmentCycleInput,
   CreatePoolInvestmentCycleInput,
@@ -848,7 +849,14 @@ export const investmentCycleService = {
       });
     }
 
-    if (nextStatus === "funding" && existing.fundId) {
+    if (nextStatus === "completed" || nextStatus === "archived") {
+      await poolManagerPerformanceStatsService
+        .syncManager(
+          cycle.poolManagerId,
+          `Cycle ${cycle.name} ${nextStatus === "completed" ? "completed" : "archived"}`
+        )
+        .catch(() => undefined);
+    } else if (nextStatus === "funding" && existing.fundId) {
       const { data: fundRow } = await db
         .from("funds")
         .select("*")

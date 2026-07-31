@@ -1,3 +1,5 @@
+import type { PoolManagerLivePerformanceStatistics } from "@/domain/pool-manager/live-performance-statistics";
+
 /** Admin-editable Pool Manager statistics (merged over live metrics on public surfaces). */
 export interface PoolManagerAdminStatistics {
   winRatePct?: number | null;
@@ -26,12 +28,19 @@ export interface PoolManagerAdminStatistics {
   riskRating?: string | null;
   /** @deprecated Use displayInvestorCount */
   activeInvestors?: number | null;
+  /** System-managed performance snapshot derived from trade history. */
+  livePerformance?: PoolManagerLivePerformanceStatistics | null;
+  /** Admin-locked performance fields that should not be overwritten by live sync. */
+  performanceStatOverrides?: PoolManagerStatField[] | null;
 }
 
 export type PoolManagerStatField = keyof PoolManagerAdminStatistics;
 
 export const POOL_MANAGER_STAT_FIELD_LABELS: Record<
-  Exclude<PoolManagerStatField, "experienceYears" | "activeInvestors">,
+  Exclude<
+    PoolManagerStatField,
+    "experienceYears" | "activeInvestors" | "livePerformance" | "performanceStatOverrides"
+  >,
   string
 > = {
   winRatePct: "Win Rate (%)",

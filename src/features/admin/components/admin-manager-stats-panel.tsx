@@ -26,6 +26,7 @@ import type {
 const LIVE_TRACKED_FIELDS: Partial<
   Record<PoolManagerStatField, keyof PoolManagerLiveMetrics>
 > = {
+  winRatePct: "winRatePct",
   assetsUnderManagement: "assetsUnderManagement",
   displayInvestorCount: "activeInvestors",
   displayReviewCount: "publicReviewCount",
@@ -161,7 +162,7 @@ export function AdminManagerStatsPanel({
         } else if (field === "riskRating") {
           patch[field] = raw;
         } else {
-          patch[field] = Number(raw);
+          (patch as Record<string, unknown>)[field] = Number(raw);
         }
       }
 

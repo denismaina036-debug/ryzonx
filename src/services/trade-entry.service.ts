@@ -16,6 +16,7 @@ import { generateTradeReference } from "@/lib/investment/utils";
 import { computeTradeRealizedPnl } from "@/lib/financial/profit-distribution-calculator";
 import { tradeLossAllocationService } from "@/services/trade-loss-allocation.service";
 import { cycleProfitService } from "@/services/investment-engine/cycle-profit.service";
+import { poolManagerPerformanceStatsService } from "@/services/pool-manager-performance-stats.service";
 import type {
   CloseTradeEntryInput,
   CreateTradeEntryInput,
@@ -119,6 +120,13 @@ async function getEntryForManager(entryId: string): Promise<TradeEntry> {
 async function assertWritableCycle(cycleId: string): Promise<void> {
   const cycle = await investmentCycleService.getByIdForManager(cycleId);
   tradingJournalService.assertCycleJournalWritable(cycle.status);
+}
+
+async function syncManagerPerformanceStats(
+  managerId: string,
+  reason: string
+): Promise<void> {
+  await poolManagerPerformanceStatsService.syncManager(managerId, reason).catch(() => undefined);
 }
 
 export const tradeEntryService = {
@@ -252,12 +260,26 @@ export const tradeEntryService = {
   async reconcileUnappliedTradeBalances(cycleId: string, _actorId: string): Promise<number> {
     await cycleProfitService.recalculateCycleProfit(cycleId);
     const db = createAdminClient();
-    const { data, error } = await db
-      .from("trade_entries")
-      .select("id")
-      .eq("investment_cycle_id", cycleId)
-      .eq("status", "closed");
+    const [{ data, error }, cycleRes] = await Promise.all([
+      db
+        .from("trade_entries")
+        .select("id")
+        .eq("investment_cycle_id", cycleId)
+        .eq("status", "closed"),
+      db
+        .from("investment_cycles")
+        .select("pool_manager_id")
+        .eq("id", cycleId)
+        .maybeSingle(),
+    ]);
     if (error) throw new Error(error.message);
+    const managerId = (cycleRes.data as { pool_manager_id?: string } | null)?.pool_manager_id;
+    if (managerId) {
+      await syncManagerPerformanceStats(
+        managerId,
+        "Trade balances reconciled for cycle"
+      );
+    }
     return (data ?? []).length;
   },
 
@@ -561,6 +583,11 @@ export const tradeEntryService = {
         summary: `Trade ${entry.tradeReference} closed`,
       },
     });
+
+    await syncManagerPerformanceStats(
+      entry.poolManagerId,
+      `Trade ${entry.tradeReference} closed`
+    );
 
     return entry;
   },
