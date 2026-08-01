@@ -64,6 +64,7 @@ export function resolveTransactionCategory(input: {
   if (method === "pool_allocation") return "pool_investment";
   if (method === "profit_reinvest") return "pool_investment";
   if (method === "pool_exit") return "pool_settlement";
+  if (method === "cycle_profit") return "pool_profit";
   if (method === "profit_transfer") return "profit_distribution";
   if (method === "trade_profit") return notes.includes("loss") ? "pool_loss" : "pool_profit";
   if (method === "pm_admission_fee" || method === "challenge_fee") return "commission";
@@ -80,7 +81,7 @@ const CATEGORY_TITLES: Record<TransactionDisplayCategory, string> = {
   pool_investment: "Pool Investment",
   pool_settlement: "Pool Settlement",
   profit_distribution: "Profit Distribution",
-  pool_profit: "Pool Profit",
+  pool_profit: "Profit",
   pool_loss: "Pool Loss",
   investment_allocation: "Investment Allocation",
   adjustment: "Adjustment",

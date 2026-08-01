@@ -8,6 +8,7 @@ import { isPoolJoinBlocked } from "@/lib/governance/protection-indicators";
 import { investmentCycleService } from "@/services/investment-cycle.service";
 import { investmentAllocationService } from "@/services/investment-allocation.service";
 import { attachTransactionReference } from "@/lib/transaction/insert";
+import { roundMoney } from "@/lib/investment-engine/ownership";
 import { auditService } from "@/services/audit.service";
 import type {
   ParticipatablePool,
@@ -752,6 +753,35 @@ export const poolParticipationService = {
 
     if (usesProfitWallet) {
       await investorProfitWalletService.debit(user.id, fundId, applied);
+      const { ledgerAccountService } = await import("@/services/ledger-account.service");
+      const { ledgerService } = await import("@/services/ledger.service");
+      const poolProfitAccount = await ledgerAccountService.ensureInvestorPoolProfitAccount(
+        user.id,
+        fundId,
+        poolName
+      );
+      const investorAccounts = await ledgerAccountService.ensureInvestorAccounts(user.id);
+      await ledgerService.postTransaction({
+        description: `Pool profit transferred to Funding Wallet — ${poolName}`,
+        transactionType: "transfer",
+        sourceType: "investor_profit_wallet",
+        sourceId: fundId,
+        actorId: user.id,
+        entries: [
+          {
+            accountId: poolProfitAccount.id,
+            entrySide: "debit",
+            amount: applied,
+            memo: "Pool profit released to Funding Wallet",
+          },
+          {
+            accountId: investorAccounts.available.id,
+            entrySide: "credit",
+            amount: applied,
+            memo: "Pool profit transferred to Funding Wallet",
+          },
+        ],
+      });
       const walletPortfolio = await ensureWalletPortfolio(db, user.id);
       const walletBalance = toNumber(walletPortfolio.available_balance);
       assertDb(
@@ -764,6 +794,21 @@ export const poolParticipationService = {
           .single(),
         "Could not credit Funding Wallet."
       );
+      const poolRow = await getPoolParticipation(db, user.id, fundId);
+      if (poolRow) {
+        const invested = toNumber(poolRow.total_invested);
+        const remainingProfit = (await investorProfitWalletService.getOrCreate(user.id, fundId))
+          .balance;
+        await db
+          .from("investor_portfolios")
+          .update({
+            current_value: roundMoney(invested + remainingProfit),
+            realized_pnl: 0,
+            unrealized_pnl: 0,
+          } as never)
+          .eq("user_id", user.id)
+          .eq("fund_id", fundId);
+      }
     } else {
       const poolRow = await getPoolParticipation(db, user.id, fundId);
       const realized = toNumber(poolRow.realized_pnl);

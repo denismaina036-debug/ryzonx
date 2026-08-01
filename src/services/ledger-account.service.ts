@@ -157,6 +157,21 @@ export const ledgerAccountService = {
     return { available, reserved, settled };
   },
 
+  async ensureInvestorPoolProfitAccount(
+    investorId: string,
+    fundId: string,
+    poolName: string
+  ): Promise<LedgerAccount> {
+    const { investorPoolProfitAccountCode } = await import("@/constants/ledger");
+    return this.getOrCreate({
+      code: investorPoolProfitAccountCode(investorId, fundId),
+      name: `Pool Profit — ${poolName}`,
+      accountType: "liability",
+      ownerType: "investor",
+      ownerId: investorId,
+    });
+  },
+
   async ensureCycleAccounts(cycleId: string, cycleName: string): Promise<{
     escrow: LedgerAccount;
     settled: LedgerAccount;

@@ -26,6 +26,7 @@ import { investorProfitWalletService } from "@/services/investment-engine/invest
 import { cycleLifecycleOrchestrator } from "@/services/investment-engine/cycle-lifecycle-orchestrator.service";
 import { ledgerService } from "@/services/ledger.service";
 import { ledgerAccountService } from "@/services/ledger-account.service";
+import { attachTransactionReference } from "@/lib/transaction/insert";
 import { publishPlatformEvent, PLATFORM_EVENT_TYPES } from "@/lib/platform-events/publish";
 import type {
   ProfitSettlement,
@@ -135,6 +136,80 @@ async function readPoolRoiConfig(fundId: string | null): Promise<{
   return {
     multipliers: new Map(rows.map((r) => [r.investmentLevelId, r.multiplier])),
   };
+}
+
+async function syncInvestorPortfolioAfterProfitCredit(
+  investorId: string,
+  fundId: string,
+  profitBalance: number
+): Promise<void> {
+  const db = createAdminClient();
+  const { data: portfolio } = await db
+    .from("investor_portfolios")
+    .select("total_invested")
+    .eq("user_id", investorId)
+    .eq("fund_id", fundId)
+    .maybeSingle();
+  if (!portfolio) return;
+
+  const invested = toNumber((portfolio as { total_invested: number | string }).total_invested);
+  await db
+    .from("investor_portfolios")
+    .update({
+      current_value: roundMoney(invested + profitBalance),
+      realized_pnl: 0,
+      unrealized_pnl: 0,
+    } as never)
+    .eq("user_id", investorId)
+    .eq("fund_id", fundId);
+}
+
+async function recordInvestorCycleProfitActivity(input: {
+  investorId: string;
+  fundId: string;
+  poolName: string;
+  cycleId: string;
+  cycleName: string;
+  settlementId: string;
+  allocationId: string;
+  amount: number;
+}): Promise<void> {
+  if (input.amount <= 0) return;
+
+  const db = createAdminClient();
+  const notes = `Profit — ${input.poolName}`;
+  const { data: tx, error } = await db
+    .from("transactions")
+    .insert({
+      user_id: input.investorId,
+      fund_id: input.fundId,
+      type: "adjustment",
+      amount: input.amount,
+      status: "completed",
+      payment_method: "cycle_profit",
+      notes,
+      metadata: {
+        cycleId: input.cycleId,
+        cycleName: input.cycleName,
+        settlementId: input.settlementId,
+        allocationId: input.allocationId,
+      },
+    } as never)
+    .select("id")
+    .single();
+
+  if (error || !tx) throw new Error(error?.message ?? "Failed to record investor profit activity.");
+  await attachTransactionReference(db, (tx as { id: string }).id, {
+    type: "adjustment",
+    payment_method: "cycle_profit",
+    notes,
+  });
+}
+
+async function readPoolName(fundId: string): Promise<string> {
+  const db = createAdminClient();
+  const { data } = await db.from("funds").select("name").eq("id", fundId).maybeSingle();
+  return (data as { name?: string } | null)?.name ?? "Pool";
 }
 
 export const profitDistributionService = {
@@ -678,62 +753,89 @@ export const profitDistributionService = {
 
     const pending = await this.listAllocations(settlementId);
     const toTransfer = pending.filter((a) => a.status === "pending" && a.profitShare > 0);
+    const poolName =
+      settlement.fundId != null ? await readPoolName(settlement.fundId) : cycle.name;
 
     for (const alloc of toTransfer) {
-      const investorAccounts = await ledgerAccountService.ensureInvestorAccounts(alloc.investorId);
-
       if (settlement.fundId) {
-        await investorProfitWalletService.credit(
+        const wallet = await investorProfitWalletService.credit(
           alloc.investorId,
           settlement.fundId,
           alloc.profitShare
         );
-      }
 
-      const { transaction } = await ledgerService.postTransaction({
-        description: `Investment profit distribution — ${cycle.name}`,
-        transactionType: "profit_distribution",
-        sourceType: "profit_settlement_allocation",
-        sourceId: alloc.id,
-        actorId,
-        metadata: {
+        const poolProfitAccount = await ledgerAccountService.ensureInvestorPoolProfitAccount(
+          alloc.investorId,
+          settlement.fundId,
+          poolName
+        );
+
+        const { transaction } = await ledgerService.postTransaction({
+          description: `Cycle profit credited to pool wallet — ${cycle.name}`,
+          transactionType: "profit_distribution",
+          sourceType: "profit_settlement_allocation",
+          sourceId: alloc.id,
+          actorId,
+          metadata: {
+            cycleId: cycle.id,
+            cycleName: cycle.name,
+            settlementId,
+            investorId: alloc.investorId,
+            fundId: settlement.fundId,
+          },
+          entries: [
+            {
+              accountId: profitPayable.id,
+              entrySide: "debit",
+              amount: alloc.profitShare,
+              memo: "Investor profit payable release",
+            },
+            {
+              accountId: poolProfitAccount.id,
+              entrySide: "credit",
+              amount: alloc.profitShare,
+              memo: "Pool profit held for investor",
+            },
+          ],
+        });
+
+        await syncInvestorPortfolioAfterProfitCredit(
+          alloc.investorId,
+          settlement.fundId,
+          wallet.balance
+        );
+
+        await recordInvestorCycleProfitActivity({
+          investorId: alloc.investorId,
+          fundId: settlement.fundId,
+          poolName,
           cycleId: cycle.id,
           cycleName: cycle.name,
           settlementId,
-          investorId: alloc.investorId,
-        },
-        entries: [
-          {
-            accountId: profitPayable.id,
-            entrySide: "debit",
-            amount: alloc.profitShare,
-            memo: "Investor profit payable release",
-          },
-          {
-            accountId: investorAccounts.available.id,
-            entrySide: "credit",
-            amount: alloc.profitShare,
-            memo: "Investment profit distribution",
-          },
-        ],
-      });
+          allocationId: alloc.id,
+          amount: alloc.profitShare,
+        });
 
-      await db
-        .from("profit_settlement_allocations")
-        .update({
-          status: "transferred",
-          ledger_transaction_id: transaction.id,
-          transferred_at: new Date().toISOString(),
-        } as never)
-        .eq("id", alloc.id);
+        await db
+          .from("profit_settlement_allocations")
+          .update({
+            status: "transferred",
+            ledger_transaction_id: transaction.id,
+            transferred_at: new Date().toISOString(),
+          } as never)
+          .eq("id", alloc.id);
 
-      await auditService.log({
-        actorId,
-        action: FINANCIAL_AUDIT_PROFIT_ACTIONS.INVESTOR_PROFIT_TRANSFERRED,
-        entityType: "profit_settlement_allocation",
-        entityId: alloc.id,
-        newValues: { amount: alloc.profitShare, ledgerTransactionId: transaction.id },
-      });
+        await auditService.log({
+          actorId,
+          action: FINANCIAL_AUDIT_PROFIT_ACTIONS.INVESTOR_PROFIT_TRANSFERRED,
+          entityType: "profit_settlement_allocation",
+          entityId: alloc.id,
+          newValues: { amount: alloc.profitShare, ledgerTransactionId: transaction.id },
+        });
+        continue;
+      }
+
+      throw new Error("Settlement fund is required to credit investor pool profit.");
     }
 
     const { data: completed, error } = await db
@@ -764,6 +866,99 @@ export const profitDistributionService = {
     }
 
     return mapSettlement(completed as SettlementRow);
+  },
+
+  /** Backfill investor activity rows for settlements that predated cycle_profit logging. */
+  async backfillInvestorCycleProfitActivities(investorId: string): Promise<void> {
+    const db = createAdminClient();
+    const { data: allocations, error } = await db
+      .from("profit_settlement_allocations")
+      .select("id, investor_id, profit_share, profit_settlement_id")
+      .eq("investor_id", investorId)
+      .eq("status", "transferred")
+      .gt("profit_share", 0);
+
+    if (error) throw new Error(error.message);
+    if (!allocations?.length) return;
+
+    const settlementIds = [
+      ...new Set(
+        (allocations as Array<{ profit_settlement_id: string }>).map((row) => row.profit_settlement_id)
+      ),
+    ];
+    const { data: settlements } = await db
+      .from("profit_settlements")
+      .select("id, investment_cycle_id, fund_id")
+      .in("id", settlementIds);
+    const settlementMap = new Map(
+      ((settlements ?? []) as Array<{
+        id: string;
+        investment_cycle_id: string;
+        fund_id: string | null;
+      }>).map((row) => [row.id, row])
+    );
+
+    const cycleIds = [
+      ...new Set(
+        [...settlementMap.values()]
+          .map((row) => row.investment_cycle_id)
+          .filter(Boolean)
+      ),
+    ];
+    const { data: cycles } = cycleIds.length
+      ? await db.from("investment_cycles").select("id, name").in("id", cycleIds)
+      : { data: [] };
+    const cycleMap = new Map(
+      ((cycles ?? []) as Array<{ id: string; name: string }>).map((row) => [row.id, row.name])
+    );
+
+    for (const row of allocations as Array<{
+      id: string;
+      investor_id: string;
+      profit_share: number | string;
+      profit_settlement_id: string;
+    }>) {
+      const amount = toNumber(row.profit_share);
+      const settlement = settlementMap.get(row.profit_settlement_id);
+      const fundId = settlement?.fund_id;
+      if (!fundId || amount <= 0) continue;
+
+      const { data: existing } = await db
+        .from("transactions")
+        .select("id")
+        .eq("user_id", investorId)
+        .eq("payment_method", "cycle_profit")
+        .filter("metadata->>allocationId", "eq", row.id)
+        .maybeSingle();
+      if (existing) continue;
+
+      const poolName = await readPoolName(fundId);
+      const cycleName =
+        (settlement?.investment_cycle_id
+          ? cycleMap.get(settlement.investment_cycle_id)
+          : null) ?? "Cycle";
+
+      await recordInvestorCycleProfitActivity({
+        investorId,
+        fundId,
+        poolName,
+        cycleId: settlement?.investment_cycle_id ?? "",
+        cycleName,
+        settlementId: row.profit_settlement_id,
+        allocationId: row.id,
+        amount,
+      });
+
+      const wallet = await investorProfitWalletService.getOrCreate(investorId, fundId);
+      if (wallet.balance <= 0) {
+        await investorProfitWalletService.credit(investorId, fundId, amount);
+      }
+      await syncInvestorPortfolioAfterProfitCredit(
+        investorId,
+        fundId,
+        (await investorProfitWalletService.getOrCreate(investorId, fundId)).balance
+      );
+    }
   },
 
   async getPoolManagerDashboard(managerId: string): Promise<PoolManagerFinancialDashboard> {

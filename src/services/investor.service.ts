@@ -185,6 +185,12 @@ export const investorService = {
   async getDashboardPageData(): Promise<InvestorDashboardPageData> {
     const user = await requireAuth();
     const supabase = await createClient();
+    const { profitDistributionService } = await import(
+      "@/services/profit-distribution.service"
+    );
+    await profitDistributionService.backfillInvestorCycleProfitActivities(user.id).catch(
+      () => undefined
+    );
     const walletSummary = await walletService.getWalletSummary();
 
     const primary = walletSummary.participations[0] ?? null;
@@ -389,9 +395,24 @@ export const investorService = {
 
     const totalProfitPct =
       myInvestment > 0 ? (totalProfit / myInvestment) * 100 : 0;
-    const dailyRoi = toNumber(pool?.daily_roi);
-    const dailyProfit =
-      myInvestment > 0 ? (myInvestment * dailyRoi) / 100 : 0;
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const adminClient = createAdminClient();
+    const { data: todayProfitRows } = await adminClient
+      .from("transactions")
+      .select("amount, fund_id")
+      .eq("user_id", user.id)
+      .eq("payment_method", "cycle_profit")
+      .eq("status", "completed")
+      .gte("created_at", todayStart.toISOString());
+
+    let dailyProfit = 0;
+    for (const row of (todayProfitRows ?? []) as Array<{ amount: number | string; fund_id: string }>) {
+      if (!primaryFundId || row.fund_id === primaryFundId) {
+        dailyProfit += toNumber(row.amount);
+      }
+    }
 
     const rankIndex = rankRows.findIndex((r) => r.user_id === user.id);
     const investorRank = rankIndex >= 0 ? rankIndex + 1 : 0;
@@ -489,7 +510,7 @@ export const investorService = {
           winRate: pool?.win_rate != null ? toNumber(pool.win_rate) : null,
           profitFactor: null,
           maxDrawdownPct: null,
-          bestDayProfit: dailyProfit !== 0 ? Math.abs(dailyProfit) : null,
+          bestDayProfit: dailyProfit !== 0 ? dailyProfit : totalProfit > 0 ? totalProfit : null,
         }
       : emptyPoolPerformance();
 

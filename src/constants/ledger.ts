@@ -114,6 +114,13 @@ export function investorSettledAccountCode(investorId: string): string {
   return `INVESTOR_${investorId.replace(/-/g, "").slice(0, 12).toUpperCase()}_SETTLED`;
 }
 
+/** Pool-held profit for an investor in a specific fund — not spendable until transfer/reinvest. */
+export function investorPoolProfitAccountCode(investorId: string, fundId: string): string {
+  const investorKey = investorId.replace(/-/g, "").slice(0, 8).toUpperCase();
+  const fundKey = fundId.replace(/-/g, "").slice(0, 8).toUpperCase();
+  return `INVESTOR_${investorKey}_POOL_${fundKey}_PROFIT`;
+}
+
 export function cycleEscrowAccountCode(cycleId: string): string {
   return `CYCLE_${cycleId.replace(/-/g, "").slice(0, 12).toUpperCase()}_ESCROW`;
 }

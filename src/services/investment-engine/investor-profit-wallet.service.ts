@@ -71,6 +71,20 @@ export const investorProfitWalletService = {
     return { investorId, fundId, balance: next };
   },
 
+  async listForInvestor(investorId: string): Promise<InvestorProfitWallet[]> {
+    const db = createAdminClient();
+    const { data, error } = await db
+      .from("investor_profit_wallets")
+      .select("*")
+      .eq("investor_id", investorId);
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as WalletRow[]).map((row) => ({
+      investorId: row.investor_id,
+      fundId: row.fund_id,
+      balance: roundMoney(Number(row.balance)),
+    }));
+  },
+
   async listForFund(fundId: string): Promise<InvestorProfitWallet[]> {
     const db = createAdminClient();
     const { data, error } = await db

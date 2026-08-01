@@ -8,12 +8,14 @@ import {
   resolveRoiMultiplier,
 } from "@/features/investor/types/pool-participation";
 import { walletProjectionService } from "@/services/wallet-projection.service";
+import { investorProfitWalletService } from "@/services/investment-engine/investor-profit-wallet.service";
 import { platformInvestmentLevelService } from "@/services/platform-investment-level.service";
 import { poolRoiService } from "@/services/pool-roi.service";
 import type {
   InvestorInvestmentSummary,
   WalletPoolParticipation,
 } from "@/features/investor/types/wallet";
+import { roundMoney } from "@/lib/investment-engine/ownership";
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
@@ -102,7 +104,8 @@ export const walletService = {
 
     const fundIds = participationRows.map((r) => r.fund_id);
 
-    const [fundsResult, statsResult, investmentLevels, multipliersByFund] = await Promise.all([
+    const [fundsResult, statsResult, investmentLevels, multipliersByFund, profitWallets] =
+      await Promise.all([
       db
         .from("funds")
         .select("id, name, pool_duration_days, pool_faq, return_duration_preset, return_duration_value, return_duration_unit")
@@ -110,6 +113,7 @@ export const walletService = {
       db.from("pool_stats").select("fund_id, win_rate").in("fund_id", fundIds),
       platformInvestmentLevelService.listActive(),
       poolRoiService.getMultipliersForFunds(fundIds),
+      investorProfitWalletService.listForInvestor(user.id),
     ]);
 
     const fundMap = new Map(
@@ -129,13 +133,15 @@ export const walletService = {
       ).map((s) => [s.fund_id, toNumber(s.win_rate)])
     );
 
+    const profitWalletMap = new Map(profitWallets.map((wallet) => [wallet.fundId, wallet.balance]));
+
     let poolProfit = 0;
     const participations: WalletPoolParticipation[] = participationRows.map((row) => {
       const fund = fundMap.get(row.fund_id);
       const invested = toNumber(row.total_invested);
-      const unrealized = toNumber(row.unrealized_pnl);
-      const realized = toNumber(row.realized_pnl);
-      const profit = unrealized + realized;
+      const walletProfit = profitWalletMap.get(row.fund_id) ?? 0;
+      const legacyProfit = toNumber(row.unrealized_pnl) + toNumber(row.realized_pnl);
+      const profit = walletProfit > 0 ? walletProfit : legacyProfit;
       poolProfit += profit;
 
       const managed = readManagedConfig(fund?.pool_faq);
@@ -156,7 +162,7 @@ export const walletService = {
         fundId: row.fund_id,
         poolName: fund?.name ?? "Pool",
         amountInvested: invested,
-        currentValue: toNumber(row.current_value),
+        currentValue: roundMoney(invested + profit),
         poolProfit: profit,
         projectedReturnPct: multiplierToDisplayPct(roiMultiplier),
         projectedRoiMultiplier: roiMultiplier,
