@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth, requireRole } from "@/lib/auth/session";
+import { userOwnsPoolManager } from "@/lib/auth/pool-manager-access";
 import { USER_ROLES } from "@/constants/roles";
 import {
   FINANCIAL_AUDIT_PROFIT_ACTIONS,
@@ -423,9 +424,16 @@ export const profitDistributionService = {
    * Calculate, confirm, and pay out cycle profits in one step after a cycle enters distribution.
    * Marks the cycle completed via the lifecycle orchestrator when payouts finish.
    */
-  async finalizeCycleProfits(cycleId: string, actorId: string): Promise<ProfitSettlement> {
+  async finalizeCycleProfits(
+    cycleId: string,
+    actorId: string,
+    poolManagerId: string
+  ): Promise<ProfitSettlement> {
     const cycle = await investmentCycleService.getById(cycleId);
     if (!cycle) throw new Error("Cycle not found.");
+    if (cycle.poolManagerId !== poolManagerId) {
+      throw new Error("Insufficient permissions");
+    }
 
     if (cycle.status === "completed") {
       const done = await this.getByCycleId(cycleId);
@@ -442,11 +450,11 @@ export const profitDistributionService = {
     }
 
     if (settlement.status === "pending_review") {
-      settlement = await this.confirmSettlement(settlement.id, actorId);
+      settlement = await this.confirmSettlementInternal(settlement.id, actorId, poolManagerId);
     }
 
     if (settlement.status === "confirmed" || settlement.status === "distributing") {
-      settlement = await this.distributeEarnings(settlement.id, actorId);
+      settlement = await this.distributeEarningsInternal(settlement.id, actorId, poolManagerId);
     }
 
     return settlement;
@@ -466,15 +474,30 @@ export const profitDistributionService = {
     const settlement = mapSettlement(row as SettlementRow);
 
     const isAdmin = user.role === USER_ROLES.ADMINISTRATOR;
-    if (!isAdmin) {
-      const { data: mgr } = await db
-        .from("pool_managers")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if ((mgr as { id?: string } | null)?.id !== settlement.poolManagerId) {
-        throw new Error("Insufficient permissions");
-      }
+    if (!isAdmin && !(await userOwnsPoolManager(user.id, settlement.poolManagerId))) {
+      throw new Error("Insufficient permissions");
+    }
+
+    return this.confirmSettlementInternal(settlementId, actorId, settlement.poolManagerId);
+  },
+
+  async confirmSettlementInternal(
+    settlementId: string,
+    actorId: string,
+    poolManagerId: string
+  ): Promise<ProfitSettlement> {
+    const db = createAdminClient();
+
+    const { data: row, error: fetchError } = await db
+      .from("profit_settlements")
+      .select("*")
+      .eq("id", settlementId)
+      .single();
+    if (fetchError || !row) throw new Error("Settlement not found.");
+    const settlement = mapSettlement(row as SettlementRow);
+
+    if (settlement.poolManagerId !== poolManagerId) {
+      throw new Error("Insufficient permissions");
     }
 
     if (settlement.status !== "pending_review") {
@@ -607,15 +630,30 @@ export const profitDistributionService = {
     const settlement = mapSettlement(row as SettlementRow);
 
     const isAdmin = user.role === USER_ROLES.ADMINISTRATOR;
-    if (!isAdmin) {
-      const { data: mgr } = await db
-        .from("pool_managers")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if ((mgr as { id?: string } | null)?.id !== settlement.poolManagerId) {
-        throw new Error("Insufficient permissions");
-      }
+    if (!isAdmin && !(await userOwnsPoolManager(user.id, settlement.poolManagerId))) {
+      throw new Error("Insufficient permissions");
+    }
+
+    return this.distributeEarningsInternal(settlementId, actorId, settlement.poolManagerId);
+  },
+
+  async distributeEarningsInternal(
+    settlementId: string,
+    actorId: string,
+    poolManagerId: string
+  ): Promise<ProfitSettlement> {
+    const db = createAdminClient();
+
+    const { data: row } = await db
+      .from("profit_settlements")
+      .select("*")
+      .eq("id", settlementId)
+      .single();
+    if (!row) throw new Error("Settlement not found.");
+    const settlement = mapSettlement(row as SettlementRow);
+
+    if (settlement.poolManagerId !== poolManagerId) {
+      throw new Error("Insufficient permissions");
     }
 
     if (settlement.status !== "confirmed" && settlement.status !== "distributing") {

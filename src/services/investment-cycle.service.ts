@@ -880,7 +880,7 @@ export const investmentCycleService = {
       const { profitDistributionService } = await import(
         "@/services/profit-distribution.service"
       );
-      await profitDistributionService.finalizeCycleProfits(id, userId);
+      await profitDistributionService.finalizeCycleProfits(id, userId, existing.poolManagerId);
       const refreshed = await this.getById(id);
       return refreshed ?? cycle;
     }
@@ -958,7 +958,7 @@ export const investmentCycleService = {
       const { profitDistributionService } = await import(
         "@/services/profit-distribution.service"
       );
-      await profitDistributionService.finalizeCycleProfits(id, actorUserId);
+      await profitDistributionService.finalizeCycleProfits(id, actorUserId, existing.poolManagerId);
       const refreshed = await this.getById(id);
       return refreshed ?? cycle;
     }
@@ -1024,7 +1024,7 @@ export const investmentCycleService = {
       const { profitDistributionService } = await import(
         "@/services/profit-distribution.service"
       );
-      await profitDistributionService.finalizeCycleProfits(id, actorId);
+      await profitDistributionService.finalizeCycleProfits(id, actorId, existing.poolManagerId);
       const refreshed = await this.getById(id);
       if (!refreshed) throw new Error("Investment cycle not found.");
       return refreshed;
