@@ -191,7 +191,7 @@ export const profitDistributionService = {
       throw new Error("Settlement already confirmed for this cycle.");
     }
 
-    const allocations = await investmentAllocationService.listByCycle(cycleId);
+    const allocations = await investmentAllocationService.listByCycleInternal(cycleId);
     const settled = allocations.filter((a) =>
       PROFIT_SETTLEMENT_ELIGIBLE_ALLOCATION_STATUSES.includes(a.status)
     );
@@ -199,7 +199,7 @@ export const profitDistributionService = {
       throw new Error("No investor allocations found for this cycle.");
     }
 
-    const tradeEntries = await tradeEntryService.listByCycle(cycleId, "admin");
+    const tradeEntries = await tradeEntryService.listByCycleInternal(cycleId);
     const journalProfit = computeCycleRealizedTradingProfit(tradeEntries);
     const cachedCycleProfit = await cycleProfitService.getCycleProfit(cycleId);
     const grossTradingProfit =
@@ -424,16 +424,10 @@ export const profitDistributionService = {
    * Calculate, confirm, and pay out cycle profits in one step after a cycle enters distribution.
    * Marks the cycle completed via the lifecycle orchestrator when payouts finish.
    */
-  async finalizeCycleProfits(
-    cycleId: string,
-    actorId: string,
-    poolManagerId: string
-  ): Promise<ProfitSettlement> {
+  async finalizeCycleProfits(cycleId: string, actorId: string): Promise<ProfitSettlement> {
     const cycle = await investmentCycleService.getById(cycleId);
     if (!cycle) throw new Error("Cycle not found.");
-    if (cycle.poolManagerId !== poolManagerId) {
-      throw new Error("Insufficient permissions");
-    }
+    const poolManagerId = cycle.poolManagerId;
 
     if (cycle.status === "completed") {
       const done = await this.getByCycleId(cycleId);
@@ -445,6 +439,15 @@ export const profitDistributionService = {
     }
 
     let settlement = await this.getByCycleId(cycleId);
+    if (settlement && settlement.poolManagerId !== poolManagerId) {
+      const db = createAdminClient();
+      await db
+        .from("profit_settlements")
+        .update({ pool_manager_id: poolManagerId } as never)
+        .eq("id", settlement.id);
+      settlement = { ...settlement, poolManagerId };
+    }
+
     if (!settlement || ["calculated", "pending_review", "cancelled"].includes(settlement.status)) {
       settlement = await this.initiateSettlementForCycle(cycleId, actorId);
     }

@@ -149,6 +149,19 @@ export const tradeEntryService = {
     return ((data ?? []) as EntryRow[]).map(mapEntry);
   },
 
+  /** Trusted server-side reads — caller must already authorize cycle access. */
+  async listByCycleInternal(cycleId: string): Promise<TradeEntry[]> {
+    const db = createAdminClient();
+    const { data, error } = await db
+      .from("trade_entries")
+      .select("*")
+      .eq("investment_cycle_id", cycleId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as EntryRow[]).map(mapEntry);
+  },
+
   async listOpenByCycle(cycleId: string): Promise<TradeEntry[]> {
     const entries = await this.listByCycle(cycleId);
     return entries.filter((e) => e.status === "open" || e.status === "partially_closed");

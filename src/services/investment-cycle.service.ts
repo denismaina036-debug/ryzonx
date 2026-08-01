@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireRole } from "@/lib/auth/session";
+import { requireAuth, requireRole } from "@/lib/auth/session";
+import { userOwnsPoolManager } from "@/lib/auth/pool-manager-access";
 import { USER_ROLES } from "@/constants/roles";
 import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 import { INVESTMENT_CYCLE_ALLOCATABLE_STATUSES } from "@/constants/investment-cycle";
@@ -880,7 +881,7 @@ export const investmentCycleService = {
       const { profitDistributionService } = await import(
         "@/services/profit-distribution.service"
       );
-      await profitDistributionService.finalizeCycleProfits(id, userId, existing.poolManagerId);
+      await profitDistributionService.finalizeCycleProfits(id, userId);
       const refreshed = await this.getById(id);
       return refreshed ?? cycle;
     }
@@ -958,7 +959,7 @@ export const investmentCycleService = {
       const { profitDistributionService } = await import(
         "@/services/profit-distribution.service"
       );
-      await profitDistributionService.finalizeCycleProfits(id, actorUserId, existing.poolManagerId);
+      await profitDistributionService.finalizeCycleProfits(id, actorUserId);
       const refreshed = await this.getById(id);
       return refreshed ?? cycle;
     }
@@ -1016,15 +1017,17 @@ export const investmentCycleService = {
       if (actor === "admin") {
         actorId = (await requireRole(USER_ROLES.ADMINISTRATOR)).id;
       } else {
-        const { userId, managerId } = await requireManagerId();
-        if (existing.poolManagerId !== managerId) throw new Error("Insufficient permissions");
-        actorId = userId;
+        const user = await requireAuth();
+        if (!(await userOwnsPoolManager(user.id, existing.poolManagerId))) {
+          throw new Error("Insufficient permissions");
+        }
+        actorId = user.id;
       }
 
       const { profitDistributionService } = await import(
         "@/services/profit-distribution.service"
       );
-      await profitDistributionService.finalizeCycleProfits(id, actorId, existing.poolManagerId);
+      await profitDistributionService.finalizeCycleProfits(id, actorId);
       const refreshed = await this.getById(id);
       if (!refreshed) throw new Error("Investment cycle not found.");
       return refreshed;

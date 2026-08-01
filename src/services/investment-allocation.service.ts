@@ -123,6 +123,19 @@ export const investmentAllocationService = {
     return ((data ?? []) as AllocationRow[]).map(mapAllocation);
   },
 
+  /** Trusted server-side reads — caller must already authorize cycle access. */
+  async listByCycleInternal(cycleId: string): Promise<InvestmentAllocation[]> {
+    const db = createAdminClient();
+    const { data, error } = await db
+      .from("investment_allocations")
+      .select("*")
+      .eq("investment_cycle_id", cycleId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as AllocationRow[]).map(mapAllocation);
+  },
+
   async listParticipantsByCycle(cycleId: string): Promise<CycleParticipantView[]> {
     const user = await requireAuth();
     const cycle = await investmentCycleService.getById(cycleId);
