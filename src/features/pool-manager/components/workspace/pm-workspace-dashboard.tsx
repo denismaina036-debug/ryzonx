@@ -18,6 +18,7 @@ import {
   pmLinkClass,
   pmListLinkClass,
   pmPrimaryButtonClass,
+  RyvonxEmptyState,
 } from "@/features/pool-manager/constants/ui";
 import { PmPageHeader, PmSectionCard } from "./pm-page-header";
 import { PmStatCard } from "./pm-stat-card";
@@ -81,7 +82,16 @@ export function PmWorkspaceDashboard({ data }: { data: PoolManagerWorkspaceDashb
           }
         >
           {data.strategies.length === 0 && data.cycles.length === 0 ? (
-            <p className="text-sm text-[var(--id-text-muted)]">No pools yet. Create your first pool to begin.</p>
+            <RyvonxEmptyState
+              title="No pools yet"
+              description="Create your first pool to begin attracting investors."
+              action={
+                <Button asChild className={pmPrimaryButtonClass}>
+                  <Link href={`${ROUTES.poolManagerPools}/new`}>Create New Pool</Link>
+                </Button>
+              }
+              className="py-10"
+            />
           ) : (
             <ul className="divide-y divide-[var(--id-border)]">
               {data.strategies.slice(0, 5).map((s) => (
@@ -108,7 +118,11 @@ export function PmWorkspaceDashboard({ data }: { data: PoolManagerWorkspaceDashb
           }
         >
           {data.cycles.length === 0 ? (
-            <p className="text-sm text-[var(--id-text-muted)]">Pool activity will appear once you create and submit a pool.</p>
+            <RyvonxEmptyState
+              title="No pool activity yet"
+              description="Activity will appear once you create and submit a pool."
+              className="py-10"
+            />
           ) : (
             <ul className="divide-y divide-[var(--id-border)]">
               {data.cycles.slice(0, 5).map((c) => (
@@ -132,7 +146,11 @@ export function PmWorkspaceDashboard({ data }: { data: PoolManagerWorkspaceDashb
 
       <PmSectionCard title="Recent Activity" description="Latest updates across your workspace">
         {data.recentActivity.length === 0 ? (
-          <p className="text-sm text-[var(--id-text-muted)]">Activity will appear as you create and manage pools.</p>
+          <RyvonxEmptyState
+            title="No recent activity"
+            description="Updates will appear as you create and manage pools."
+            className="py-10"
+          />
         ) : (
           <ul className="divide-y divide-[var(--id-border)]">
             {data.recentActivity.map((item) => (
@@ -154,7 +172,11 @@ export function PmWorkspaceDashboard({ data }: { data: PoolManagerWorkspaceDashb
 
       <PmSectionCard title="Closed Pools" description={`${data.closedCycles.length} completed or archived`}>
         {data.closedCycles.length === 0 ? (
-          <p className="text-sm text-[var(--id-text-muted)]">Completed cycles will appear here for historical reference.</p>
+          <RyvonxEmptyState
+            title="No closed pools"
+            description="Completed cycles will appear here for historical reference."
+            className="py-10"
+          />
         ) : (
           <ul className="divide-y divide-[var(--id-border)]">
             {data.closedCycles.slice(0, 4).map((c) => (

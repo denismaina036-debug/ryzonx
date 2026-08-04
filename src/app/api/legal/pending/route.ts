@@ -9,7 +9,11 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const pending = await legalDocumentService.getPendingAcceptances(user.id);
+    const autoRecordRegistration = user.acceptedLegalAtSignup === true;
+
+    const pending = await legalDocumentService.getPendingAcceptances(user.id, {
+      autoRecordRegistration,
+    });
     return NextResponse.json({ pending });
   } catch (error) {
     return NextResponse.json(

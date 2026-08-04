@@ -22,10 +22,8 @@ import { ManagerCountryBadge } from "@/features/marketplace/components/manager-c
 import { MobileMarketplacePoolCard } from "@/features/marketplace/components/mobile-marketplace-pool-card";
 import { Button } from "@/components/ui/button";
 import type { MarketplacePoolCard } from "@/domain/marketplace/types";
-import {
-  formatRaisedCapitalPct,
-  participantIndicatorCount,
-} from "@/features/marketplace/utils/marketplace-pool-card-presentation";
+import { formatRaisedCapitalPct } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
+import { isCycleTradingPhase } from "@/lib/investment/cycle-display-phase";
 import { PoolCardRoiPreview } from "@/features/marketplace/components/pool-card-roi-preview";
 import { formatTradingDateTimeLabel } from "@/domain/pools/trading-session";
 
@@ -48,11 +46,11 @@ export function MarketplacePoolCardView({ pool }: MarketplacePoolCardProps) {
 }
 
 function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
+  const isTrading = pool.activeCycle != null && isCycleTradingPhase(pool.activeCycle.status);
   const raisedPct = formatRaisedCapitalPct(pool.raisedCapital, pool.targetCapital);
   const progressPct = pool.targetCapital > 0
     ? Math.min(100, (pool.raisedCapital / pool.targetCapital) * 100)
     : 0;
-  const participantDots = participantIndicatorCount(pool.cycleParticipantCount);
   const participateDisabled =
     !pool.canParticipate ||
     pool.capacityStatus === "full" ||
@@ -103,6 +101,8 @@ function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
           </div>
           <Heart className="h-5 w-5 shrink-0 text-[var(--id-text-faint)]" aria-hidden />
         </div>
+
+        <PoolCardDescription pool={pool} className="mt-3" />
 
         {/* Tags */}
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -222,21 +222,23 @@ function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
               />
               <CycleStat
                 icon={Building2}
-                label="Target Capital"
+                label={isTrading ? "Total Capital Under Management" : "Target Capital"}
                 value={pool.targetCapital > 0 ? formatCurrency(pool.targetCapital) : "—"}
               />
             </div>
             <div className="space-y-3">
               <CycleStat
                 icon={CircleDollarSign}
-                label="Raised Capital"
+                label={isTrading ? "Capital Traded" : "Raised Capital"}
                 value={
-                  pool.targetCapital > 0
-                    ? `${formatCurrency(pool.raisedCapital)} (${raisedPct}%)`
-                    : formatCurrency(pool.raisedCapital)
+                  isTrading
+                    ? formatCurrency(pool.raisedCapital)
+                    : pool.targetCapital > 0
+                      ? `${formatCurrency(pool.raisedCapital)} (${raisedPct}%)`
+                      : formatCurrency(pool.raisedCapital)
                 }
                 extra={
-                  pool.targetCapital > 0 ? (
+                  !isTrading && pool.targetCapital > 0 ? (
                     <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--id-border)]">
                       <div
                         className="h-full rounded-full bg-[var(--id-accent)]"
@@ -248,26 +250,8 @@ function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
               />
               <CycleStat
                 icon={User}
-                label="Participants"
-                value={
-                  pool.maxParticipants != null
-                    ? `${pool.cycleParticipantCount} / ${pool.maxParticipants}`
-                    : String(pool.cycleParticipantCount)
-                }
-                extra={
-                  participantDots > 0 ? (
-                    <div className="mt-1.5 flex items-center gap-1">
-                      {Array.from({ length: participantDots }).map((_, i) => (
-                        <span
-                          key={i}
-                          className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--id-accent-soft)]"
-                        >
-                          <User className="h-3 w-3 text-[var(--id-accent-text)]" aria-hidden />
-                        </span>
-                      ))}
-                    </div>
-                  ) : null
-                }
+                label="Investors"
+                value={String(pool.cycleParticipantCount)}
               />
             </div>
           </div>
@@ -366,5 +350,26 @@ function CycleStat({
         </div>
       </div>
     </div>
+  );
+}
+
+export function PoolCardDescription({
+  pool,
+  className,
+}: {
+  pool: MarketplacePoolCard;
+  className?: string;
+}) {
+  const text = pool.tagline?.trim();
+  if (!text) return null;
+  return (
+    <p
+      className={cn(
+        "text-wrap-pretty text-sm leading-relaxed text-[var(--id-text-secondary)] line-clamp-3",
+        className
+      )}
+    >
+      {text}
+    </p>
   );
 }

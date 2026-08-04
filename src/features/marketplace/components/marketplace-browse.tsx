@@ -37,6 +37,7 @@ import type {
 } from "@/domain/marketplace/types";
 import type { InvestorCycleCard, InvestorStrategyCard } from "@/domain/investment/investor-presentation";
 import { STRATEGY_RISK_PROFILES } from "@/constants/strategy";
+import { RyvonxEmptyState } from "@/components/ui/ryvonx-shell";
 import { cn } from "@/lib/utils";
 
 const TAB_ICONS = {
@@ -406,7 +407,7 @@ export function MarketplaceBrowse({
         {activeTab === "managers" && (
           <>
             {filteredManagers.length === 0 ? (
-              <EmptyState message="No managers match your filters. Try adjusting your search." />
+              <RyvonxEmptyState title="No managers match your filters" description="Try adjusting your search or filter selections." />
             ) : (
               <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                 {filteredManagers.map((manager) => (
@@ -420,7 +421,7 @@ export function MarketplaceBrowse({
         {activeTab === "opportunities" && (
           <>
             {filteredPools.length === 0 ? (
-              <EmptyState message="No live pools match your filters." />
+              <RyvonxEmptyState title="No live pools match your filters" description="Try adjusting your search or filter selections." />
             ) : (
               <div className="grid gap-3.5 md:gap-6 sm:grid-cols-2 xl:grid-cols-3">
                 {filteredPools.map((pool) => (
@@ -431,14 +432,6 @@ export function MarketplaceBrowse({
           </>
         )}
       </section>
-    </div>
-  );
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="rounded-[var(--id-radius)] border border-dashed border-[var(--id-border)] py-20 text-center">
-      <p className="text-sm text-[var(--id-text-muted)]">{message}</p>
     </div>
   );
 }

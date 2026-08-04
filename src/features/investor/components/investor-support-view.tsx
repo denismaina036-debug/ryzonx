@@ -17,6 +17,11 @@ import {
   cryptoFlowInputClass,
   cryptoFlowPrimaryButtonClass,
 } from "@/features/investor/components/crypto-flow/crypto-flow-step";
+import {
+  investorTextareaClass,
+  RyvonxEmptyState,
+  RyvonxPageHeader,
+} from "@/features/investor/constants/ui";
 import { cn } from "@/lib/utils";
 import type { SupportTicket } from "@/features/investor/types/account";
 
@@ -65,8 +70,7 @@ const COMMON_ISSUES = [
 type IssueCategoryId = (typeof ISSUE_CATEGORIES)[number]["id"];
 type CommonIssueId = (typeof COMMON_ISSUES)[number]["id"];
 
-const cryptoFlowTextareaClass =
-  "min-h-[120px] w-full resize-y rounded-md border border-[var(--id-border)] bg-[var(--id-surface-muted)] p-3 text-sm text-[var(--id-text)] placeholder:text-[var(--id-text-faint)] focus-visible:border-[var(--id-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--id-accent-soft)]";
+const cryptoFlowTextareaClass = investorTextareaClass;
 
 function buildSubject(
   category: IssueCategoryId | "",
@@ -192,14 +196,10 @@ export function InvestorSupportView({ tickets }: { tickets: SupportTicket[] }) {
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[1200px]">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight text-[var(--id-text)] sm:text-[1.85rem]">
-          Support
-        </h1>
-        <p className="mt-2 text-sm text-[var(--id-text-secondary)]">
-          Choose your issue type, describe what happened, and our team will reply here.
-        </p>
-      </div>
+      <RyvonxPageHeader
+        title="Support"
+        description="Choose your issue type, describe what happened, and our team will reply here."
+      />
 
       <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
         <aside className="space-y-4">
@@ -327,7 +327,14 @@ export function InvestorSupportView({ tickets }: { tickets: SupportTicket[] }) {
               </h3>
             </div>
             {tickets.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-[var(--id-text-muted)]">No tickets yet.</p>
+              <div className="p-4">
+                <RyvonxEmptyState
+                  icon={<MessageSquare className="h-5 w-5" />}
+                  title="No tickets yet"
+                  description="Raise a ticket on the left and your conversation will appear here."
+                  className="py-10"
+                />
+              </div>
             ) : (
               <ul className="max-h-[320px] divide-y divide-[var(--id-border)] overflow-y-auto">
                 {tickets.map((t) => (

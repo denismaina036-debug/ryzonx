@@ -17,43 +17,13 @@ export const cycleLifecycleOrchestrator = {
     return cycleProfitService.recalculateCycleProfit(cycleId);
   },
 
-  /**
-   * After settlement distribution completes: process queued capital movements,
-   * mark cycle completed, and auto-open the next funding cycle.
-   */
-  async onSettlementDistributed(cycleId: string, actorUserId: string): Promise<void> {
+  /** After settlement distribution completes: process queued capital movements. */
+  async onSettlementDistributed(cycleId: string, _actorUserId: string): Promise<void> {
     const cycle = await investmentCycleService.getById(cycleId);
     if (!cycle?.fundId) return;
 
     await investmentQueueService.processPendingForFund(cycle.fundId);
     await poolCapitalService.syncFundInvestorCapital(cycle.fundId);
-
-    if (cycle.status === "distribution") {
-      await investmentCycleService.systemTransition(cycleId, "completed", actorUserId);
-    }
-
-    await this.autoCreateNextFundingCycle(cycle.fundId, actorUserId);
-  },
-
-  async autoCreateNextFundingCycle(fundId: string, actorUserId: string): Promise<void> {
-    const cycles = await investmentCycleService.listByFund(fundId);
-    const active = cycles.find((c) =>
-      ["funding", "trading", "distribution", "approved"].includes(c.status)
-    );
-    if (active) return;
-
-    const last = cycles[0];
-    if (last && !["completed", "archived"].includes(last.status)) return;
-
-    try {
-      const next = await investmentCycleService.createFromPoolAsSystem({
-        fundId,
-        actorUserId,
-      });
-      await investmentCycleService.systemActivateCycleForFunding(next.id, actorUserId);
-    } catch {
-      /* next cycle may already exist */
-    }
   },
 
   isCapitalMutableStatus(status: InvestmentCycleStatus): boolean {

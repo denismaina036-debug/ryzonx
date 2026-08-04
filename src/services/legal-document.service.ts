@@ -601,7 +601,42 @@ export const legalDocumentService = {
     };
   },
 
-  async getPendingAcceptances(userId: string): Promise<PendingLegalAcceptance[]> {
+  async hasAnyAcceptance(userId: string): Promise<boolean> {
+    const db = createAdminClient();
+    const { data, error } = await db
+      .from("legal_document_acceptances")
+      .select("id")
+      .eq("user_id", userId)
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return Boolean(data);
+  },
+
+  /**
+   * Returns documents the user must accept before continuing.
+   * When `autoRecordRegistration` is true, silently records current published
+   * versions for users who accepted at registration but have no saved rows yet
+   * (registration recording race/failure). Does not skip re-acceptance after
+   * admin publishes a newer version.
+   */
+  async getPendingAcceptances(
+    userId: string,
+    options?: { autoRecordRegistration?: boolean }
+  ): Promise<PendingLegalAcceptance[]> {
+    if (options?.autoRecordRegistration) {
+      const pending = await legalDocumentService.getPendingAcceptances(userId);
+      if (pending.length === 0) return pending;
+
+      const hasAny = await legalDocumentService.hasAnyAcceptance(userId);
+      if (!hasAny) {
+        await legalDocumentService.recordCurrentPublishedAcceptances(userId);
+        return legalDocumentService.getPendingAcceptances(userId);
+      }
+
+      return pending;
+    }
+
     const db = createAdminClient();
     const { data: docs, error } = await db
       .from("legal_documents")

@@ -7,9 +7,9 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { Button } from "@/components/ui/button";
 import type { Strategy } from "@/domain/investment/types";
-import { PmPageHeader, PmSectionCard } from "./pm-page-header";
+import { PmPageHeader, PmSectionCard, PmFormMessage } from "./pm-page-header";
 import { PmStatusBadge } from "./pm-status-badge";
-import { pmPrimaryButtonClass, pmSecondaryButtonClass } from "@/features/pool-manager/constants/ui";
+import { pmPrimaryButtonClass, pmSecondaryButtonClass, RyvonxEmptyState } from "@/features/pool-manager/constants/ui";
 import {
   simplifyStrategyStatus,
   strategyBadgeStatus,
@@ -59,20 +59,19 @@ export function PmStrategiesClient({ initialStrategies }: { initialStrategies: S
         }
       />
 
-      {error && (
-        <p className="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-[var(--id-danger)]">{error}</p>
-      )}
+      {error && <PmFormMessage message={error} variant="error" />}
 
       <PmSectionCard title="My Strategies" description={`${visible.length} recorded strateg${visible.length === 1 ? "y" : "ies"}`}>
         {visible.length === 0 ? (
-          <div className="py-6 text-center">
-            <p className="text-sm text-[var(--id-text-muted)]">
-              No strategies yet. Create your first strategy to begin.
-            </p>
-            <Button asChild className={`mt-4 ${pmPrimaryButtonClass}`}>
-              <Link href={`${ROUTES.poolManagerStrategies}/new`}>Create Strategy</Link>
-            </Button>
-          </div>
+          <RyvonxEmptyState
+            title="No strategies yet"
+            description="Create your first strategy to begin. Once approved, use it when creating a pool."
+            action={
+              <Button asChild className={pmPrimaryButtonClass}>
+                <Link href={`${ROUTES.poolManagerStrategies}/new`}>Create Strategy</Link>
+              </Button>
+            }
+          />
         ) : (
           <ul className="divide-y divide-[var(--id-border)]">
             {visible.map((strategy) => {

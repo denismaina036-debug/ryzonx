@@ -7,9 +7,16 @@ import { STRATEGY_RISK_PROFILES } from "@/constants/strategy";
 import { formatCurrency } from "@/lib/utils";
 import type { InvestorCycleCard, InvestorStrategyCard } from "@/domain/investment/investor-presentation";
 import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
+import { isCycleFundingPhase, isCycleTradingPhase } from "@/lib/investment/cycle-display-phase";
 
 export function MarketplaceCycleCard({ cycle }: { cycle: InvestorCycleCard }) {
   const href = `${ROUTES.marketplaceCycles}/${cycle.slug}`;
+  const isFunding = isCycleFundingPhase(cycle.status);
+  const isTrading = isCycleTradingPhase(cycle.status);
+  const totalCapitalUnderManagement =
+    cycle.targetCapital != null && cycle.targetCapital > 0
+      ? cycle.targetCapital
+      : cycle.raisedCapital;
 
   return (
     <Link
@@ -36,20 +43,36 @@ export function MarketplaceCycleCard({ cycle }: { cycle: InvestorCycleCard }) {
 
       <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <div>
-          <p className="text-xs text-[var(--id-text-muted)]">Raised</p>
+          <p className="text-xs text-[var(--id-text-muted)]">
+            {isTrading ? "Capital Traded" : "Raised"}
+          </p>
           <p className="font-semibold tabular-nums text-[var(--id-text)]">
             {formatCurrency(cycle.raisedCapital)}
           </p>
         </div>
         <div>
-          <p className="text-xs text-[var(--id-text-muted)]">Min. investment</p>
+          <p className="text-xs text-[var(--id-text-muted)]">
+            {isTrading ? "Investors" : "Min. investment"}
+          </p>
           <p className="font-semibold tabular-nums text-[var(--id-text)]">
-            {cycle.minInvestment != null ? formatCurrency(cycle.minInvestment) : "—"}
+            {isTrading
+              ? String(cycle.investorCount)
+              : cycle.minInvestment != null
+                ? formatCurrency(cycle.minInvestment)
+                : "—"}
           </p>
         </div>
+        {isTrading ? (
+          <div className="col-span-2">
+            <p className="text-xs text-[var(--id-text-muted)]">Total Capital Under Management</p>
+            <p className="font-semibold tabular-nums text-[var(--id-text)]">
+              {formatCurrency(totalCapitalUnderManagement)}
+            </p>
+          </div>
+        ) : null}
       </div>
 
-      {cycle.fundingPct != null && (
+      {isFunding && cycle.fundingPct != null && (
         <div className="mt-4">
           <div className="h-1.5 overflow-hidden rounded-full bg-[var(--id-border)]">
             <div

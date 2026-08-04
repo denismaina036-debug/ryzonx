@@ -19,6 +19,7 @@ import { PoolCoverBanner } from "@/features/marketplace/components/pool-cover-ba
 import { ManagerCountryBadge } from "@/features/marketplace/components/manager-country-badge";
 import { Button } from "@/components/ui/button";
 import { resolveMobilePoolBannerPresentation } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
+import { PoolCardDescription } from "@/features/marketplace/components/marketplace-pool-card";
 import type { MarketplacePoolCard } from "@/domain/marketplace/types";
 import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 
@@ -137,6 +138,8 @@ export function MobileMarketplacePoolCard({ pool }: MobileMarketplacePoolCardPro
           </div>
         </div>
       </div>
+
+      <PoolCardDescription pool={pool} className="px-4 pb-1" />
 
       {/* 3. Divider */}
       <div className="mx-4 h-px bg-[var(--id-border)]" />

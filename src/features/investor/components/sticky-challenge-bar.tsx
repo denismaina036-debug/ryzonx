@@ -70,7 +70,7 @@ export function StickyChallengeBar({
 
   return (
     <>
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:bottom-0 lg:left-64 lg:pb-4 xl:left-[17rem]">
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-4 pb-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom))] lg:bottom-0 lg:left-64 lg:pb-4 xl:left-[17rem]">
         <div
           className={cn(
             investorCardElevatedClass,

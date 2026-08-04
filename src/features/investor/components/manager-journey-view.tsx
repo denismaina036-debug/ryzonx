@@ -21,6 +21,10 @@ import {
   cryptoFlowInputClass,
   cryptoFlowPrimaryButtonClass,
 } from "@/features/investor/components/crypto-flow/crypto-flow-step";
+import {
+  ExperienceDurationInput,
+  resolveExperienceDuration,
+} from "@/features/pool-manager/components/experience-duration-input";
 import { ChallengeView } from "@/features/investor/components/challenge-view";
 import { MANAGER_JOURNEY_STAGES } from "@/features/investor/constants/manager-journey";
 import { ROUTES } from "@/constants/routes";
@@ -297,19 +301,18 @@ export function ManagerJourneyView({
                   className={cryptoFlowInputClass}
                 />
               </Field>
-              <Field label="Years trading">
-                <Input
-                  type="number"
-                  min={0}
-                  value={basicInfo.yearsTrading ?? ""}
-                  onChange={(e) =>
+              <Field label="Trading experience duration">
+                <ExperienceDurationInput
+                  {...resolveExperienceDuration(basicInfo)}
+                  onChange={(next) =>
                     setBasicInfo((b) => ({
                       ...b,
-                      yearsTrading: Number(e.target.value) || undefined,
+                      experienceDurationValue: next.value,
+                      experienceDurationUnit: next.unit,
+                      yearsTrading: next.unit === "years" ? next.value : undefined,
                     }))
                   }
-                  placeholder="Years"
-                  className={cryptoFlowInputClass}
+                  inputClassName={cryptoFlowInputClass}
                 />
               </Field>
               <Field label="Trading style" className="sm:col-span-2">

@@ -3,25 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { BookOpen, Play } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
-import {
-  simplifyCycleStatus,
-} from "@/features/pool-manager/utils/pm-status-presentation";
 import type { InvestmentCycle } from "@/domain/investment/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatCurrency } from "@/lib/utils";
-import { pmInputClass, pmPrimaryButtonClass, pmSecondaryButtonClass } from "@/features/pool-manager/constants/ui";
+import { pmInputClass, pmPrimaryButtonClass } from "@/features/pool-manager/constants/ui";
 import { PmFormField } from "@/features/pool-manager/components/workspace/pm-form-field";
 import { PmSectionCard } from "@/features/pool-manager/components/workspace/pm-page-header";
 import { PmFormMessage } from "@/features/pool-manager/components/workspace/pm-page-header";
-import { PmStatusBadge } from "@/features/pool-manager/components/workspace/pm-status-badge";
-import { transitionCycle } from "@/features/pool-manager/components/workspace/pm-api";
-import {
-  canOpenJournal,
-  canStartTrading,
-} from "@/features/pool-manager/utils/pool-cycle-presentation";
+import { PmCycleListSections } from "@/features/pool-manager/components/workspace/pm-cycle-list-sections";
 
 export function ManagedPoolCyclesPanel({
   poolId,
@@ -40,7 +30,6 @@ export function ManagedPoolCyclesPanel({
   const [openingDate, setOpeningDate] = useState("");
   const [closingDate, setClosingDate] = useState("");
   const [loading, setLoading] = useState(false);
-  const [loadingCycleId, setLoadingCycleId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const isLive = lifecycleStatus === "live";
@@ -80,19 +69,6 @@ export function ManagedPoolCyclesPanel({
     }
   }
 
-  async function startTrading(cycleId: string) {
-    setLoadingCycleId(cycleId);
-    setError(null);
-    try {
-      await transitionCycle(cycleId, "trading");
-      router.push(`${ROUTES.poolManagerInvestmentCycles}/${cycleId}/journal`);
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start trading");
-      setLoadingCycleId(null);
-    }
-  }
-
   if (!isLive && cycles.length === 0) {
     return (
       <PmSectionCard
@@ -107,69 +83,12 @@ export function ManagedPoolCyclesPanel({
   }
 
   return (
-    <PmSectionCard
-      title="Investment Cycles"
-      description="Each cycle inherits your pool settings. Start trading to open the journal and record trades."
-    >
-      <div className="space-y-4">
-        {cycles.length === 0 ? (
-          <p className="text-sm text-[var(--id-text-muted)]">No cycles yet.</p>
-        ) : (
-          <ul className="divide-y divide-[var(--id-border)] rounded-lg border border-[var(--id-border)]">
-            {cycles.map((cycle) => (
-              <li
-                key={cycle.id}
-                className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium text-[var(--id-text)]">
-                      Cycle {cycle.cycleNumber}
-                      {cycle.name !== poolName ? ` — ${cycle.name}` : ""}
-                    </p>
-                    <PmStatusBadge
-                      label={simplifyCycleStatus(cycle.status)}
-                      status={cycle.status}
-                    />
-                  </div>
-                  <p className="mt-1 text-sm text-[var(--id-text-muted)]">
-                    {formatCurrency(cycle.raisedCapital ?? 0)} raised · {cycle.investorCount ?? 0}{" "}
-                    investors
-                  </p>
-                </div>
+    <div className="space-y-6">
+      <PmCycleListSections cycles={cycles} />
 
-                <div className="flex flex-wrap gap-2">
-                  {canStartTrading(cycle) && (
-                    <Button
-                      size="sm"
-                      disabled={loadingCycleId === cycle.id}
-                      className={pmPrimaryButtonClass}
-                      onClick={() => void startTrading(cycle.id)}
-                    >
-                      <Play className="mr-1.5 h-3.5 w-3.5" />
-                      Start Trading
-                    </Button>
-                  )}
-                  {canOpenJournal(cycle) && (
-                    <Button size="sm" className={pmPrimaryButtonClass} asChild>
-                      <Link href={`${ROUTES.poolManagerInvestmentCycles}/${cycle.id}/journal`}>
-                        <BookOpen className="mr-1.5 h-3.5 w-3.5" />
-                        Open Journal
-                      </Link>
-                    </Button>
-                  )}
-                  <Button size="sm" variant="outline" className={pmSecondaryButtonClass} asChild>
-                    <Link href={`${ROUTES.poolManagerInvestmentCycles}/${cycle.id}`}>Details</Link>
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {canCreate && (
-          <div className="space-y-4 rounded-lg border border-dashed border-[var(--id-border)] p-4">
-            <p className="text-sm font-medium text-[var(--id-text)]">Add another cycle</p>
+      {canCreate && (
+        <PmSectionCard title="Add another cycle">
+          <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <PmFormField label="Cycle Name (optional)">
                 <Input
@@ -205,14 +124,14 @@ export function ManagedPoolCyclesPanel({
               {loading ? "Creating…" : "Create Cycle"}
             </Button>
           </div>
-        )}
+        </PmSectionCard>
+      )}
 
-        {isLive && !canCreate && lastCycle && !["completed", "archived"].includes(lastCycle.status) && (
-          <p className="text-sm text-[var(--id-text-muted)]">
-            A new cycle can be added when the current cycle completes or reaches full capacity.
-          </p>
-        )}
-      </div>
-    </PmSectionCard>
+      {isLive && !canCreate && lastCycle && !["completed", "archived"].includes(lastCycle.status) && (
+        <p className="text-sm text-[var(--id-text-muted)]">
+          A new cycle can be added when the current cycle completes or reaches full capacity.
+        </p>
+      )}
+    </div>
   );
 }

@@ -3,17 +3,21 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { BookOpen, Layers, Play, Trash2, Users } from "lucide-react";
+import { BookOpen, ChevronRight, Play, Trash2 } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import type { Pool } from "@/domain/pools/types";
 import type { InvestmentCycle } from "@/domain/investment/types";
 import type { Strategy } from "@/domain/investment/types";
 import { Button } from "@/components/ui/button";
+import { cn, formatCurrency } from "@/lib/utils";
 import {
+  pmCardClass,
   pmLinkClass,
   pmPrimaryButtonClass,
   pmSecondaryButtonClass,
+  pmStatLabelClass,
 } from "@/features/pool-manager/constants/ui";
+import { ryvonxEmptyStateShellClass } from "@/lib/ui/ryvonx-tokens";
 import { PmPageHeader, PmFormMessage } from "@/features/pool-manager/components/workspace/pm-page-header";
 import { PmFundingProgress } from "@/features/pool-manager/components/workspace/pm-funding-progress";
 import { PmStatusBadge } from "@/features/pool-manager/components/workspace/pm-status-badge";
@@ -23,6 +27,7 @@ import {
   canStartTrading,
   resolveActivePoolCycle,
 } from "@/features/pool-manager/utils/pool-cycle-presentation";
+import { isCycleFundingPhase, isCycleTradingPhase } from "@/lib/investment/cycle-display-phase";
 import {
   poolBadgeStatus,
   simplifyCycleStatus,
@@ -153,41 +158,20 @@ export function ManagedPoolListClient({ items, strategies }: ManagedPoolListClie
                       )}
                     </div>
 
-                    {activeCycle ? (
-                      <div className="space-y-3">
-                        <PmFundingProgress
-                          compact
-                          raised={activeCycle.raisedCapital ?? 0}
-                          target={
-                            activeCycle.targetCapital != null && activeCycle.targetCapital > 0
-                              ? activeCycle.targetCapital
-                              : pool.targetCapital > 0
-                                ? pool.targetCapital
-                                : null
-                          }
-                          investorCount={activeCycle.investorCount ?? 0}
-                          className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] p-3.5 sm:p-4"
-                        />
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <MetricPill
-                            icon={Users}
-                            label="Investors"
-                            value={String(activeCycle.investorCount ?? 0)}
-                          />
-                          <MetricPill
-                            icon={Layers}
-                            label="Cycle"
-                            value={`#${activeCycle.cycleNumber}${activeCycle.name ? ` · ${activeCycle.name}` : ""}`}
-                          />
-                        </div>
-                      </div>
+                    {cycles.length > 0 ? (
+                      <PoolCyclesList
+                        pool={pool}
+                        cycles={cycles}
+                        loadingPoolId={loadingPoolId}
+                        onStartTrading={(cycleId) => void startTrading(pool.id, cycleId)}
+                      />
                     ) : lifecycle === "draft" ? (
                       <p className="text-sm text-[var(--id-text-muted)]">
                         Submit your pool for RyvonX review. Cycle 1 is created when approved.
                       </p>
                     ) : (
                       <p className="text-sm text-[var(--id-text-muted)]">
-                        No active cycle yet. Open the pool to manage cycles.
+                        No cycles yet. Open the pool to manage cycles.
                       </p>
                     )}
                   </div>
@@ -207,27 +191,6 @@ export function ManagedPoolListClient({ items, strategies }: ManagedPoolListClie
                           Submit for Review
                         </Button>
                       </>
-                    )}
-
-                    {lifecycle === "live" && activeCycle && canStartTrading(activeCycle) && (
-                      <Button
-                        size="sm"
-                        disabled={isLoading}
-                        className={pmPrimaryButtonClass}
-                        onClick={() => void startTrading(pool.id, activeCycle.id)}
-                      >
-                        <Play className="mr-1.5 h-3.5 w-3.5" />
-                        Start Trading
-                      </Button>
-                    )}
-
-                    {lifecycle === "live" && activeCycle && canOpenJournal(activeCycle) && (
-                      <Button size="sm" className={pmPrimaryButtonClass} asChild>
-                        <Link href={`${ROUTES.poolManagerInvestmentCycles}/${activeCycle.id}/journal`}>
-                          <BookOpen className="mr-1.5 h-3.5 w-3.5" />
-                          Open Journal
-                        </Link>
-                      </Button>
                     )}
 
                     <Button size="sm" variant="outline" className={pmSecondaryButtonClass} asChild>
@@ -264,22 +227,156 @@ export function ManagedPoolListClient({ items, strategies }: ManagedPoolListClie
   );
 }
 
-function MetricPill({
-  icon: Icon,
-  label,
-  value,
+function PoolCyclesList({
+  pool,
+  cycles,
+  loadingPoolId,
+  onStartTrading,
 }: {
-  icon: typeof Users;
-  label: string;
-  value: string;
+  pool: Pool;
+  cycles: InvestmentCycle[];
+  loadingPoolId: string | null;
+  onStartTrading: (cycleId: string) => void;
 }) {
+  const sorted = [...cycles].sort((a, b) => b.cycleNumber - a.cycleNumber);
+  const isLoading = loadingPoolId === pool.id;
+
   return (
-    <div className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] px-3 py-2.5">
-      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--id-text-faint)]">
-        <Icon className="h-3 w-3" aria-hidden />
-        {label}
-      </div>
-      <p className="mt-1 text-sm font-semibold tabular-nums text-[var(--id-text)]">{value}</p>
+    <div className="space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-wider text-[var(--id-text-faint)]">
+        Cycles ({sorted.length})
+      </p>
+      <ul className="space-y-2">
+        {sorted.map((cycle) => {
+          const detailHref = `${ROUTES.poolManagerInvestmentCycles}/${cycle.id}`;
+          const target =
+            cycle.targetCapital != null && cycle.targetCapital > 0
+              ? cycle.targetCapital
+              : pool.targetCapital > 0
+                ? pool.targetCapital
+                : null;
+          const isFunding = isCycleFundingPhase(cycle.status);
+          const isTrading = isCycleTradingPhase(cycle.status);
+          const showStartTrading = pool.lifecycleStatus === "live" && canStartTrading(cycle);
+          const showJournal = pool.lifecycleStatus === "live" && canOpenJournal(cycle);
+
+          return (
+            <li key={cycle.id}>
+              <div
+                className={cn(
+                  pmCardClass,
+                  "overflow-hidden transition-colors hover:border-[var(--pm-accent-border)]"
+                )}
+              >
+                <Link
+                  href={detailHref}
+                  className="flex items-start gap-3 p-4 transition-colors hover:bg-[var(--id-surface-hover)]"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--pm-accent-soft)] text-xs font-bold text-[var(--pm-accent-text)]">
+                    #{cycle.cycleNumber}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate font-medium text-[var(--id-text)]">
+                        {cycle.name || `Cycle ${cycle.cycleNumber}`}
+                      </p>
+                      <PmStatusBadge
+                        label={simplifyCycleStatus(cycle.status)}
+                        status={cycle.status}
+                      />
+                    </div>
+                    <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-3">
+                      <div>
+                        <dt className={pmStatLabelClass}>
+                          {isTrading ? "Capital Traded" : "Raised"}
+                        </dt>
+                        <dd className="font-semibold tabular-nums text-[var(--id-text)]">
+                          {formatCurrency(cycle.raisedCapital ?? 0)}
+                        </dd>
+                      </div>
+                      {isTrading && target != null && target > 0 && (
+                        <div>
+                          <dt className={pmStatLabelClass}>Total Capital Under Management</dt>
+                          <dd className="font-semibold tabular-nums text-[var(--id-text)]">
+                            {formatCurrency(target)}
+                          </dd>
+                        </div>
+                      )}
+                      <div>
+                        <dt className={pmStatLabelClass}>Investors</dt>
+                        <dd className="font-semibold tabular-nums text-[var(--id-text)]">
+                          {cycle.investorCount ?? 0}
+                        </dd>
+                      </div>
+                      {isTrading && (
+                        <div>
+                          <dt className={pmStatLabelClass}>Cycle P/L</dt>
+                          <dd
+                            className={cn(
+                              "font-semibold tabular-nums",
+                              (cycle.currentCycleProfit ?? 0) > 0
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : (cycle.currentCycleProfit ?? 0) < 0
+                                  ? "text-red-600 dark:text-red-400"
+                                  : "text-[var(--id-text)]"
+                            )}
+                          >
+                            {formatCurrency(cycle.currentCycleProfit ?? 0)}
+                          </dd>
+                        </div>
+                      )}
+                    </dl>
+                    {isFunding && target != null && target > 0 && (
+                      <div className="mt-3">
+                        <PmFundingProgress
+                          compact
+                          raised={cycle.raisedCapital ?? 0}
+                          target={target}
+                          investorCount={cycle.investorCount ?? 0}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <ChevronRight
+                    className="mt-1 h-5 w-5 shrink-0 text-[var(--id-text-faint)]"
+                    aria-hidden
+                  />
+                </Link>
+
+                {(showStartTrading || showJournal) && (
+                  <div className="flex flex-wrap gap-2 border-t border-[var(--id-border)] bg-[var(--id-surface-muted)] px-4 py-2.5">
+                    {showStartTrading && (
+                      <Button
+                        size="sm"
+                        disabled={isLoading}
+                        className={pmPrimaryButtonClass}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          onStartTrading(cycle.id);
+                        }}
+                      >
+                        <Play className="mr-1.5 h-3.5 w-3.5" />
+                        Start Trading
+                      </Button>
+                    )}
+                    {showJournal && (
+                      <Button size="sm" className={pmPrimaryButtonClass} asChild>
+                        <Link href={`${ROUTES.poolManagerInvestmentCycles}/${cycle.id}/journal`}>
+                          <BookOpen className="mr-1.5 h-3.5 w-3.5" />
+                          Open Journal
+                        </Link>
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" className={pmSecondaryButtonClass} asChild>
+                      <Link href={detailHref}>View details</Link>
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
@@ -292,7 +389,7 @@ function EmptyWorkspace({
   hasApprovedStrategy: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-[var(--id-border)] bg-[var(--id-surface-muted)] p-8 text-center sm:p-10">
+    <div className={cn(ryvonxEmptyStateShellClass, "sm:p-10")}>
       <p className="text-base font-semibold text-[var(--id-text)]">Get started in two steps</p>
       <p className="mx-auto mt-2 max-w-md text-sm text-[var(--id-text-muted)]">
         Record your trading strategy first, then create a pool that uses it. Your first cycle

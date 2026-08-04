@@ -46,9 +46,13 @@ export function InvestorCycleIntelligencePanel({ intelligence }: { intelligence:
 
 export function InvestorStrategyIntelligencePanel({
   intelligence,
+  managerRating,
 }: {
   intelligence: import("@/domain/performance-intelligence/types").StrategyIntelligence;
+  managerRating?: number | null;
 }) {
+  const displayRating = managerRating ?? intelligence.rating?.overallRating ?? null;
+
   return (
     <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
       <h2 className="font-semibold text-[var(--id-text)]">Strategy Intelligence</h2>
@@ -58,12 +62,8 @@ export function InvestorStrategyIntelligencePanel({
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Cell
-          label="Strategy Rating"
-          value={
-            intelligence.rating?.overallRating != null
-              ? `${intelligence.rating.overallRating.toFixed(1)} ★`
-              : "—"
-          }
+          label="Manager Rating"
+          value={displayRating != null ? `${displayRating.toFixed(1)} ★` : "—"}
         />
         <Cell label="Completion Rate" value={`${Math.round(intelligence.completionRate * 100)}%`} />
         <Cell label="Risk Class" value={intelligence.riskClassification} />

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ROUTES } from "@/constants/routes";
 import { formatPercentage } from "@/lib/utils";
 import { PmPageHeader, PmSectionCard } from "@/features/pool-manager/components/workspace/pm-page-header";
+import { RyvonxEmptyState } from "@/features/pool-manager/constants/ui";
 import { PmStatCard } from "@/features/pool-manager/components/workspace/pm-stat-card";
 import {
   RatingBreakdownPanel,
@@ -108,7 +109,11 @@ export function PmPerformanceDashboard({
 
       <PmSectionCard title="Strategy Rankings">
         {bundle.strategies.length === 0 ? (
-          <p className="text-sm text-navy-500">No strategies yet.</p>
+          <RyvonxEmptyState
+            title="No strategies yet"
+            description="Strategy rankings appear once you create and submit strategies."
+            className="py-10"
+          />
         ) : (
           <ul className="divide-y divide-white/[0.04]">
             {[...bundle.strategies]
@@ -130,7 +135,11 @@ export function PmPerformanceDashboard({
 
       <PmSectionCard title="Cycle Rankings">
         {bundle.cycles.length === 0 ? (
-          <p className="text-sm text-navy-500">No investment cycles yet.</p>
+          <RyvonxEmptyState
+            title="No investment cycles yet"
+            description="Cycle rankings appear once you launch funding or trading cycles."
+            className="py-10"
+          />
         ) : (
           <ul className="divide-y divide-white/[0.04]">
             {[...bundle.cycles]

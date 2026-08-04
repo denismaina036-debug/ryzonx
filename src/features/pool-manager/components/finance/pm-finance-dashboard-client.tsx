@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { formatCurrency } from "@/lib/utils";
 import { PROFIT_SETTLEMENT_STATUS_LABELS } from "@/constants/profit-distribution";
-import { PmPageHeader, PmSectionCard } from "@/features/pool-manager/components/workspace/pm-page-header";
+import { PmPageHeader, PmSectionCard, PmFormMessage } from "@/features/pool-manager/components/workspace/pm-page-header";
+import { RyvonxEmptyState } from "@/components/ui/ryvonx-shell";
+import { PmDashboardSkeleton } from "@/features/pool-manager/components/pm-dashboard-skeleton";
 import type { PoolManagerFinancialDashboard } from "@/domain/financial/types";
 
 export function PmFinanceDashboardClient() {
@@ -28,7 +30,7 @@ export function PmFinanceDashboardClient() {
   }
 
   if (!dashboard) {
-    return <p className="text-sm text-[var(--id-text-muted)]">Loading financial dashboard…</p>;
+    return <PmDashboardSkeleton />;
   }
 
   return (
@@ -54,7 +56,10 @@ export function PmFinanceDashboardClient() {
 
       <PmSectionCard title="Cycle Earnings" description="Settlement summaries per completed investment cycle.">
         {dashboard.cycleSummaries.length === 0 ? (
-          <p className="text-sm text-[var(--id-text-muted)]">No profit settlements yet.</p>
+          <RyvonxEmptyState
+            title="No profit settlements yet"
+            description="Cycle earnings will appear here after you distribute profits to investors."
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -91,7 +96,11 @@ export function PmFinanceDashboardClient() {
 
       <PmSectionCard title="Transaction History" description="Profit earnings, fees, and settlement records.">
         {dashboard.transactions.length === 0 ? (
-          <p className="text-sm text-[var(--id-text-muted)]">No transactions yet.</p>
+          <RyvonxEmptyState
+            title="No transactions yet"
+            description="Profit earnings, fees, and settlement records will appear here."
+            className="py-10"
+          />
         ) : (
           <ul className="divide-y divide-border">
             {dashboard.transactions.map((tx) => (

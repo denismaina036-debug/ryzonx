@@ -459,6 +459,16 @@
    ============================================================================= */
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
   button,
   a,
   [role="button"],
@@ -469,7 +479,26 @@
   }
 }
 
+:root {
+  --mobile-nav-height: 5.5rem;
+  --mobile-fab-offset: 5.5rem;
+}
+
 @layer utilities {
+  .pb-mobile-shell {
+    padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .scroll-touch {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+
+  .text-wrap-pretty {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
   .touch-target {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;

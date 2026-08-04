@@ -13,6 +13,10 @@ import {
 } from "@/features/investor/constants/ui";
 import { resolvePoolMaximumCapital } from "@/features/marketplace/utils/join-pool-presentation";
 import { LiveRoiPreview, RoiDisclaimerBlock } from "@/features/roi/components/live-roi-preview";
+import {
+  InsufficientBalanceDialog,
+  isInsufficientBalanceError,
+} from "@/features/investor/components/insufficient-balance-dialog";
 import { formatCurrency, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +25,7 @@ import type { MarketplacePoolDetail } from "@/domain/marketplace/types";
 const AGREEMENT = `By proceeding, you acknowledge that investing in trading pools involves substantial risk of loss. Past performance does not guarantee future results. RyvonX provides transparency tools but does not guarantee returns. You are investing based on your assessment of the Pool Manager's track record and RyvonX verification status.`;
 
 const MOBILE_SCROLL_FOOTER_CLASS =
-  "pb-[calc(8rem+env(safe-area-inset-bottom))] sm:pb-0";
+  "pb-[calc(var(--mobile-fab-offset)+2.5rem+env(safe-area-inset-bottom))] sm:pb-0";
 
 interface JoinPoolConfirmationProps {
   pool: MarketplacePoolDetail;
@@ -40,6 +44,8 @@ export function JoinPoolConfirmation({
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [insufficientBalanceOpen, setInsufficientBalanceOpen] = useState(false);
+  const [insufficientRequiredAmount, setInsufficientRequiredAmount] = useState(0);
 
   const loginUrl = `${ROUTES.login}?redirect=${encodeURIComponent(`${ROUTES.marketplace}/${pool.slug}/join`)}`;
 
@@ -74,6 +80,12 @@ export function JoinPoolConfirmation({
       return;
     }
 
+    if (num > availableBalance) {
+      setInsufficientRequiredAmount(num);
+      setInsufficientBalanceOpen(true);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -88,7 +100,14 @@ export function JoinPoolConfirmation({
       router.push(`${ROUTES.investments}?joined=${pool.slug}`);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not join pool");
+      const message = err instanceof Error ? err.message : "Could not join pool";
+      if (isInsufficientBalanceError(message)) {
+        setInsufficientRequiredAmount(num);
+        setInsufficientBalanceOpen(true);
+        setError(null);
+      } else {
+        setError(message);
+      }
     } finally {
       setLoading(false);
     }
@@ -196,6 +215,13 @@ export function JoinPoolConfirmation({
           </div>
         </div>
       )}
+
+      <InsufficientBalanceDialog
+        open={insufficientBalanceOpen}
+        onOpenChange={setInsufficientBalanceOpen}
+        currentBalance={availableBalance}
+        requiredAmount={insufficientRequiredAmount}
+      />
     </div>
   );
 }

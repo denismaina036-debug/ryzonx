@@ -111,7 +111,9 @@ export function StrategyDetailView({
               <p className="mt-2 text-sm">{manager.name}</p>
             )}
             {manager.rating != null && (
-              <p className="mt-1 text-xs text-[var(--id-text-muted)]">Rating ★ {manager.rating.toFixed(1)}</p>
+              <p className="mt-1 text-xs text-[var(--id-text-muted)]">
+                Manager Rating ★ {manager.rating.toFixed(1)}
+              </p>
             )}
           </section>
 
@@ -139,7 +141,12 @@ export function StrategyDetailView({
         </div>
       </div>
 
-      {intelligence && <InvestorStrategyIntelligencePanel intelligence={intelligence} />}
+      {intelligence && (
+        <InvestorStrategyIntelligencePanel
+          intelligence={intelligence}
+          managerRating={manager.rating}
+        />
+      )}
 
       <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
         <h2 className="font-semibold text-[var(--id-text)]">Frequently Asked Questions</h2>

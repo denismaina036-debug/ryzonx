@@ -1,6 +1,7 @@
-import { redirect } from "next/navigation";
-import { ROUTES } from "@/constants/routes";
+import { investmentCycleService } from "@/services/investment-cycle.service";
+import { PmCyclesClient } from "@/features/pool-manager/components/workspace/pm-cycles-client";
 
-export default function PoolManagerCyclesRedirect() {
-  redirect(ROUTES.poolManagerPools);
+export default async function PoolManagerInvestmentCyclesPage() {
+  const cycles = await investmentCycleService.listMine();
+  return <PmCyclesClient initialCycles={cycles} />;
 }

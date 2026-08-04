@@ -1,13 +1,20 @@
 /** Pool Manager workspace — blends investor platform tokens with PM amber accent. */
 
-export const pmCardClass =
-  "rounded-2xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] shadow-[var(--id-shadow)]";
+import {
+  ryvonxCardElevatedClass,
+  ryvonxCardMutedClass,
+  ryvonxPageSubtitleClass,
+  ryvonxPageTitleClass,
+  ryvonxStatLabelClass,
+  ryvonxStatValueClass,
+} from "@/lib/ui/ryvonx-tokens";
 
-export const pmCardElevatedClass =
-  "rounded-2xl border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow-lg)]";
+export const pmCardClass = ryvonxCardMutedClass;
+
+export const pmCardElevatedClass = ryvonxCardElevatedClass;
 
 export const pmHeroClass =
-  "relative overflow-hidden rounded-2xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] p-6 sm:p-8";
+  "relative overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface-muted)] p-5 sm:p-8";
 
 export const pmHeroGradientClass =
   "pointer-events-none absolute inset-0 bg-[var(--pm-hero-gradient)]";
@@ -30,14 +37,13 @@ export const pmNavIdleClass =
 export const pmEyebrowClass =
   "text-xs font-semibold uppercase tracking-[0.2em] text-[var(--pm-accent-text)]";
 
-export const pmTitleClass =
-  "text-2xl font-bold tracking-tight text-[var(--id-text)] sm:text-3xl";
+export const pmTitleClass = ryvonxPageTitleClass;
 
-export const pmSubtitleClass = "text-sm text-[var(--id-text-secondary)]";
+export const pmSubtitleClass = ryvonxPageSubtitleClass;
 
-export const pmStatValueClass = "text-2xl font-bold text-[var(--id-text)]";
+export const pmStatValueClass = ryvonxStatValueClass;
 
-export const pmStatLabelClass = "text-xs text-[var(--id-text-muted)]";
+export const pmStatLabelClass = ryvonxStatLabelClass;
 
 export const pmLinkClass =
   "text-xs font-medium text-[var(--pm-accent-text)] hover:text-[var(--pm-accent-hover)]";
@@ -81,4 +87,6 @@ export const pmFormGuideTitleClass =
 
 export const pmFormGuideListClass =
   "mt-2.5 space-y-1.5 text-xs leading-relaxed text-[var(--id-text-secondary)]";
+
+export { RyvonxEmptyState, RyvonxAlert } from "@/components/ui/ryvonx-shell";
 

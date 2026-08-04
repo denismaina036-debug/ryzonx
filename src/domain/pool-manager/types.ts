@@ -122,9 +122,13 @@ export const POOL_LIFECYCLE_STATUS = {
 export type PoolLifecycleStatus =
   (typeof POOL_LIFECYCLE_STATUS)[keyof typeof POOL_LIFECYCLE_STATUS];
 
+export type ExperienceDurationUnit = "days" | "weeks" | "months" | "years";
+
 export interface PoolManagerBasicInfo {
   tradingExperience?: string;
   yearsTrading?: number;
+  experienceDurationValue?: number;
+  experienceDurationUnit?: ExperienceDurationUnit;
   marketsTraded?: string[];
   country?: string;
   tradingStyle?: string;

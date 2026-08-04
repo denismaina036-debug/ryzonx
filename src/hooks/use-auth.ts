@@ -103,7 +103,12 @@ export function useAuthActions() {
       }
 
       try {
-        await fetch("/api/legal/register-acceptance", { method: "POST" });
+        const acceptanceRes = await fetch("/api/legal/register-acceptance", {
+          method: "POST",
+        });
+        if (!acceptanceRes.ok) {
+          // Pending gate will auto-record on first authenticated load if needed.
+        }
       } catch {
         // Acceptance can be completed after login if this request fails.
       }

@@ -343,7 +343,10 @@ export const cycleProgressService = {
     });
   },
 
-  async getInvestorViewBySlug(slug: string): Promise<InvestorCycleOperationsView | null> {
+  async getInvestorViewBySlug(
+    slug: string,
+    options?: { investorUserId?: string | null }
+  ): Promise<InvestorCycleOperationsView | null> {
     const cycle = await investmentCycleService.getPublicBySlug(slug);
     if (!cycle) return null;
     if (!["trading", "distribution", "completed", "archived"].includes(cycle.status)) {
@@ -428,6 +431,23 @@ export const cycleProgressService = {
         cycleStatus: cycle.status,
         fundingStartedAt: cycle.fundingStartedAt ?? cycle.openingDate,
       },
+      liveTrading: options?.investorUserId
+        ? await (async () => {
+            const { cycleLiveMetricsService } = await import(
+              "@/services/cycle-live-metrics.service"
+            );
+            return cycleLiveMetricsService.getInvestorLiveTrading(
+              cycle.id,
+              options.investorUserId!
+            );
+          })()
+        : {
+            currentCycleProfit: cycle.currentCycleProfit,
+            tradesRecorded: metrics.totalTrades,
+            investorInvestment: null,
+            investorOwnershipPct: null,
+            investorProjectedProfit: null,
+          },
     };
   },
 };

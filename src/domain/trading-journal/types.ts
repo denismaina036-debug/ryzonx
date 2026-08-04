@@ -135,6 +135,13 @@ export interface InvestorCycleOperationsView {
     cycleStatus: string;
     fundingStartedAt?: string | null;
   };
+  liveTrading?: {
+    currentCycleProfit: number;
+    tradesRecorded: number;
+    investorInvestment: number | null;
+    investorOwnershipPct: number | null;
+    investorProjectedProfit: number | null;
+  };
 }
 
 export interface CreateTradeEntryInput {

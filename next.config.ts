@@ -3,6 +3,8 @@ import { CANONICAL_SITE_URL, WWW_SITE_HOST } from "./src/constants/site";
 
 const nextConfig: NextConfig = {
   images: {
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 60 * 60 * 24,
     remotePatterns: [
       {
         protocol: "https",

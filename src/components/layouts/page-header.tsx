@@ -1,5 +1,12 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import {
+  ryvonxEmptyStateShellClass,
+  ryvonxPageSubtitleClass,
+  ryvonxPageTitleClass,
+  ryvonxSectionDescriptionClass,
+  ryvonxSectionTitleClass,
+} from "@/lib/ui/ryvonx-tokens";
 
 interface PageHeaderProps {
   title: string;
@@ -17,19 +24,15 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        "mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
+        "mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between",
         className
       )}
     >
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-navy-950 md:text-3xl">
-          {title}
-        </h1>
-        {description && (
-          <p className="mt-1 text-sm text-navy-500">{description}</p>
-        )}
+      <div className="min-w-0">
+        <h1 className={ryvonxPageTitleClass}>{title}</h1>
+        {description ? <p className={ryvonxPageSubtitleClass}>{description}</p> : null}
       </div>
-      {actions && <div className="flex items-center gap-3">{actions}</div>}
+      {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
     </div>
   );
 }
@@ -46,12 +49,8 @@ export function Section({ children, title, description, className }: SectionProp
     <section className={cn("space-y-6", className)}>
       {(title || description) && (
         <div>
-          {title && (
-            <h2 className="text-lg font-semibold text-navy-950">{title}</h2>
-          )}
-          {description && (
-            <p className="mt-1 text-sm text-navy-500">{description}</p>
-          )}
+          {title ? <h2 className={ryvonxSectionTitleClass}>{title}</h2> : null}
+          {description ? <p className={ryvonxSectionDescriptionClass}>{description}</p> : null}
         </div>
       )}
       {children}
@@ -66,20 +65,21 @@ interface EmptyStateProps {
   action?: ReactNode;
 }
 
-export function EmptyState({
-  icon,
-  title,
-  description,
-  action,
-}: EmptyStateProps) {
+export function EmptyState({ icon, title, description, action }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-surface-1 px-6 py-16 text-center">
-      {icon && <div className="mb-4 text-navy-400">{icon}</div>}
-      <h3 className="text-lg font-medium text-navy-950">{title}</h3>
-      {description && (
-        <p className="mt-1 max-w-sm text-sm text-navy-500">{description}</p>
-      )}
-      {action && <div className="mt-6">{action}</div>}
+    <div className={ryvonxEmptyStateShellClass} role="status">
+      {icon ? (
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--id-surface)] text-[var(--id-text-muted)] ring-1 ring-[var(--id-border)]">
+          {icon}
+        </div>
+      ) : null}
+      <h3 className="text-base font-semibold text-[var(--id-text)]">{title}</h3>
+      {description ? (
+        <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-[var(--id-text-muted)]">
+          {description}
+        </p>
+      ) : null}
+      {action ? <div className="mt-6">{action}</div> : null}
     </div>
   );
 }

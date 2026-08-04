@@ -356,6 +356,8 @@ async function insertCycleFromPoolFund(
   return cycle;
 }
 
+export type CloseInvestmentCycleAction = "reopen_funding" | "create_new_cycle";
+
 export const investmentCycleService = {
   async listMine(): Promise<InvestmentCycle[]> {
     const { managerId } = await requireManagerId();
@@ -755,7 +757,11 @@ export const investmentCycleService = {
 
     assertInvestmentCycleTransition(existing.status, nextStatus, actor);
 
-    if (actor === "manager" && nextStatus === "distribution") {
+    if (
+      actor === "manager" &&
+      (nextStatus === "funding" || nextStatus === "completed") &&
+      (existing.status === "trading" || existing.status === "distribution")
+    ) {
       const openTrades = await tradeEntryService.listOpenByCycle(id);
       if (openTrades.length > 0) {
         throw new Error("Close all active trades before closing the investment cycle.");
@@ -877,15 +883,6 @@ export const investmentCycleService = {
       }
     }
 
-    if (nextStatus === "distribution") {
-      const { profitDistributionService } = await import(
-        "@/services/profit-distribution.service"
-      );
-      await profitDistributionService.finalizeCycleProfits(id, userId);
-      const refreshed = await this.getById(id);
-      return refreshed ?? cycle;
-    }
-
     return cycle;
   },
 
@@ -955,15 +952,6 @@ export const investmentCycleService = {
       }
     }
 
-    if (nextStatus === "distribution") {
-      const { profitDistributionService } = await import(
-        "@/services/profit-distribution.service"
-      );
-      await profitDistributionService.finalizeCycleProfits(id, actorUserId);
-      const refreshed = await this.getById(id);
-      return refreshed ?? cycle;
-    }
-
     return cycle;
   },
 
@@ -1003,41 +991,87 @@ export const investmentCycleService = {
     return this.transition(id, "submitted", "manager");
   },
 
-  /** Close an active cycle and pay out profits to investors in one step. */
-  async closeAndDistribute(id: string, actor: "manager" | "admin"): Promise<InvestmentCycle> {
+  /** Distribute cycle profits without closing the cycle. */
+  async distributeProfits(id: string, actor: "manager" | "admin"): Promise<InvestmentCycle> {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Investment cycle not found.");
 
-    if (existing.status === "trading") {
-      return this.transition(id, "distribution", actor);
+    if (existing.status !== "trading" && existing.status !== "distribution") {
+      throw new Error("Profits can only be distributed while the cycle is trading.");
     }
 
-    if (existing.status === "distribution") {
-      let actorId: string;
-      if (actor === "admin") {
-        actorId = (await requireRole(USER_ROLES.ADMINISTRATOR)).id;
-      } else {
-        const user = await requireAuth();
-        if (!(await userOwnsPoolManager(user.id, existing.poolManagerId))) {
-          throw new Error("Insufficient permissions");
-        }
-        actorId = user.id;
+    let actorId: string;
+    if (actor === "admin") {
+      actorId = (await requireRole(USER_ROLES.ADMINISTRATOR)).id;
+    } else {
+      const user = await requireAuth();
+      if (!(await userOwnsPoolManager(user.id, existing.poolManagerId))) {
+        throw new Error("Insufficient permissions");
       }
-
-      const { profitDistributionService } = await import(
-        "@/services/profit-distribution.service"
-      );
-      await profitDistributionService.finalizeCycleProfits(id, actorId);
-      const refreshed = await this.getById(id);
-      if (!refreshed) throw new Error("Investment cycle not found.");
-      return refreshed;
+      actorId = user.id;
     }
 
-    if (existing.status === "completed" || existing.status === "archived") {
-      return existing;
+    const { profitDistributionService } = await import(
+      "@/services/profit-distribution.service"
+    );
+    await profitDistributionService.finalizeCycleProfits(id, actorId);
+    const refreshed = await this.getById(id);
+    if (!refreshed) throw new Error("Investment cycle not found.");
+    return refreshed;
+  },
+
+  /** Close an active cycle — reopen funding on the same cycle or start a new one. */
+  async closeCycle(
+    id: string,
+    action: CloseInvestmentCycleAction,
+    actor: "manager" | "admin"
+  ): Promise<{ cycle: InvestmentCycle; newCycle?: InvestmentCycle }> {
+    const existing = await this.getById(id);
+    if (!existing) throw new Error("Investment cycle not found.");
+
+    if (existing.status !== "trading" && existing.status !== "distribution") {
+      throw new Error("This cycle cannot be closed in its current status.");
     }
 
-    throw new Error("This cycle cannot be closed in its current status.");
+    let actorId: string;
+    if (actor === "admin") {
+      actorId = (await requireRole(USER_ROLES.ADMINISTRATOR)).id;
+    } else {
+      const user = await requireAuth();
+      if (!(await userOwnsPoolManager(user.id, existing.poolManagerId))) {
+        throw new Error("Insufficient permissions");
+      }
+      actorId = user.id;
+    }
+
+    const openTrades = await tradeEntryService.listOpenByCycle(id);
+    if (openTrades.length > 0) {
+      throw new Error("Close all active trades before closing the investment cycle.");
+    }
+
+    if (action === "reopen_funding") {
+      const cycle = await this.transition(id, "funding", actor);
+      return { cycle };
+    }
+
+    const cycle = await this.transition(id, "completed", actor);
+    if (!existing.fundId) {
+      return { cycle };
+    }
+
+    let newCycle: InvestmentCycle;
+    if (actor === "admin") {
+      newCycle = await this.createFromPoolAsSystem({
+        fundId: existing.fundId,
+        actorUserId: actorId,
+      });
+      newCycle = await this.systemActivateCycleForFunding(newCycle.id, actorId);
+    } else {
+      newCycle = await this.createFromPool({ fundId: existing.fundId });
+      newCycle = await this.activateForLivePool(newCycle.id);
+    }
+
+    return { cycle, newCycle };
   },
 
   async listPublicForInvestors(): Promise<InvestmentCycle[]> {

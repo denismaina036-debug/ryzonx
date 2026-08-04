@@ -10,6 +10,7 @@ import {
   computeCategoryScores,
   computeWeightedRating,
 } from "@/lib/performance-intelligence/scoring";
+import { mergeAdminStatistics } from "@/lib/pool-manager/merge-admin-statistics";
 import type { PoolManagerAdminStatistics } from "@/domain/pool-manager/admin-statistics";
 import type {
   AdminIntelligenceDashboard,
@@ -101,14 +102,16 @@ export const managerRatingService = {
       (item) => item.category === "consistency" || item.label === "Consistency"
     )?.score;
 
-    const ryvonxRating =
-      row.ryvonx_rating != null
-        ? Number(row.ryvonx_rating)
-        : adminStats.ryvonxRating ?? snapshot.overallRating;
+    const merged = mergeAdminStatistics(
+      {
+        ryvonxRating: row.ryvonx_rating != null ? Number(row.ryvonx_rating) : null,
+        securityRating: row.security_rating != null ? Number(row.security_rating) : null,
+      },
+      adminStats
+    );
 
-    const securityRating =
-      adminStats.securityRating ??
-      (row.security_rating != null ? Number(row.security_rating) : null);
+    const ryvonxRating = merged.ryvonxRating ?? snapshot.overallRating;
+    const securityRating = merged.securityRating ?? null;
 
     return {
       overallRating: ryvonxRating,

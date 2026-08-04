@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { RyvonxAlert } from "@/components/ui/ryvonx-shell";
 import {
   pmCardClass,
   pmEyebrowClass,
@@ -91,18 +92,7 @@ export function PmFormMessage({
   variant = "info",
 }: {
   message: string | null;
-  variant?: "info" | "success" | "error";
+  variant?: "info" | "success" | "error" | "warning";
 }) {
-  if (!message) return null;
-  const styles =
-    variant === "error"
-      ? "border-[var(--id-danger)]/30 bg-[var(--id-danger)]/10 text-[var(--id-danger)]"
-      : variant === "success"
-        ? "border-[var(--id-success)]/30 bg-[var(--id-success)]/10 text-[var(--id-success)]"
-        : "border-[var(--id-accent)]/30 bg-[var(--id-accent-soft)] text-[var(--id-accent-text)]";
-  return (
-    <p className={cn("rounded-lg border px-4 py-3 text-sm", styles)} role="status">
-      {message}
-    </p>
-  );
+  return <RyvonxAlert message={message} variant={variant} />;
 }

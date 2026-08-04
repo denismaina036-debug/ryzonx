@@ -11,10 +11,7 @@ import type { InvestorPortfolioData } from "@/domain/investment/investor-present
 import { cancelAllocation } from "@/features/investor/components/investment/investor-allocation-api";
 import { WalletHeroCard } from "@/features/investor/components/wallet-hero-card";
 import { PoolProfitActions } from "@/features/investor/components/pool-profit-actions";
-import {
-  investorPageSubtitleClass,
-  investorPageTitleClass,
-} from "@/features/investor/constants/ui";
+import { RyvonxPageHeader } from "@/features/investor/constants/ui";
 
 export function InvestorPortfolioView({ data }: { data: InvestorPortfolioData }) {
   const router = useRouter();
@@ -42,12 +39,10 @@ export function InvestorPortfolioView({ data }: { data: InvestorPortfolioData })
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className={investorPageTitleClass}>Portfolio</h1>
-        <p className={investorPageSubtitleClass}>
-          How is my money positioned? Cycle commitments and legacy pool holdings.
-        </p>
-      </header>
+      <RyvonxPageHeader
+        title="Portfolio"
+        description="How is my money positioned? Cycle commitments and legacy pool holdings."
+      />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Metric label="Wallet balance" value={formatCurrency(data.balance)} />

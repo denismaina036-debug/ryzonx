@@ -1,7 +1,11 @@
 "use client";
 
+import { TrendingUp } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InvestorTradeCard } from "@/features/investor/components/investor-trade-card";
+import { RyvonxEmptyState, RyvonxPageHeader } from "@/features/investor/constants/ui";
+import { tapTabTrigger } from "@/lib/ui/interaction";
+import { cn } from "@/lib/utils";
 import type { InvestorDashboardTrade } from "@/features/investor/types";
 
 export interface InvestorTradesPageData {
@@ -18,26 +22,28 @@ export function InvestorTradesView({ data }: InvestorTradesViewProps) {
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[960px] space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-[var(--id-text)] sm:text-[1.75rem]">
-          Pool Trades
-        </h1>
-        <p className="mt-1.5 text-sm text-[var(--id-text-secondary)]">
-          Live and closed trades published by pool managers and approved by RyvonX admin.
-        </p>
-      </div>
+      <RyvonxPageHeader
+        title="Pool Trades"
+        description="Live and closed trades published by pool managers and approved by RyvonX admin."
+      />
 
       <Tabs defaultValue="running" className="w-full">
         <TabsList className="mb-4 h-auto w-full justify-start gap-6 rounded-none border-b border-[var(--id-border)] bg-transparent p-0">
           <TabsTrigger
             value="running"
-            className="rounded-none border-b-2 border-transparent bg-transparent px-0 pb-2.5 text-sm font-medium text-[var(--id-text-muted)] shadow-none transition-colors data-[state=active]:border-[var(--id-accent)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--id-text)] data-[state=active]:shadow-none"
+            className={cn(
+              tapTabTrigger,
+              "rounded-none border-b-2 border-transparent bg-transparent px-0 pb-2.5 text-sm font-medium text-[var(--id-text-muted)] shadow-none data-[state=active]:border-[var(--id-accent)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--id-text)] data-[state=active]:shadow-none"
+            )}
           >
             Running ({runningTrades.length})
           </TabsTrigger>
           <TabsTrigger
             value="closed"
-            className="rounded-none border-b-2 border-transparent bg-transparent px-0 pb-2.5 text-sm font-medium text-[var(--id-text-muted)] shadow-none transition-colors data-[state=active]:border-[var(--id-accent)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--id-text)] data-[state=active]:shadow-none"
+            className={cn(
+              tapTabTrigger,
+              "rounded-none border-b-2 border-transparent bg-transparent px-0 pb-2.5 text-sm font-medium text-[var(--id-text-muted)] shadow-none data-[state=active]:border-[var(--id-accent)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--id-text)] data-[state=active]:shadow-none"
+            )}
           >
             Closed ({closedTrades.length})
           </TabsTrigger>
@@ -63,9 +69,11 @@ function TradesList({
 }) {
   if (trades.length === 0) {
     return (
-      <div className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] px-6 py-14 text-center shadow-[var(--id-shadow)]">
-        <p className="text-sm text-[var(--id-text-muted)]">{emptyLabel}</p>
-      </div>
+      <RyvonxEmptyState
+        icon={<TrendingUp className="h-5 w-5" />}
+        title={emptyLabel.replace(/\.$/, "")}
+        description="Published pool trades will appear here when your managers record activity."
+      />
     );
   }
 
@@ -77,4 +85,3 @@ function TradesList({
     </div>
   );
 }
-

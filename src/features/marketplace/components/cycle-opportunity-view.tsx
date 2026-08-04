@@ -8,7 +8,7 @@ import { formatCurrency } from "@/lib/utils";
 import type { InvestmentCycle, Strategy } from "@/domain/investment/types";
 import type { InvestorCycleCard } from "@/domain/investment/investor-presentation";
 import { MarketplaceCycleCard } from "@/features/marketplace/components/investment-marketplace-cards";
-import { InvestorCycleOperationsPanel } from "@/features/investor/components/investment/investor-cycle-operations-panel";
+import { InvestorCycleOperationsLivePanel } from "@/features/investor/components/investment/investor-cycle-operations-live-panel";
 import { InvestorCycleIntelligencePanel } from "@/features/investor/components/investment/investor-intelligence-panels";
 import type { InvestorCycleOperationsView } from "@/domain/trading-journal/types";
 import type { CycleIntelligence } from "@/domain/performance-intelligence/types";
@@ -19,6 +19,7 @@ import {
   marketplaceHomeCrumb,
 } from "@/features/marketplace/components/marketplace-breadcrumb";
 import { formatShortCycleLabel } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
+import { isCycleFundingPhase, isCycleTradingPhase } from "@/lib/investment/cycle-display-phase";
 
 export function CycleOpportunityView({
   cycle,
@@ -37,6 +38,12 @@ export function CycleOpportunityView({
 }) {
   const remaining = cycle.remainingCapital;
   const canAllocate = cycle.status === "funding";
+  const isFunding = isCycleFundingPhase(cycle.status);
+  const isTrading = isCycleTradingPhase(cycle.status);
+  const totalCapitalUnderManagement =
+    cycle.targetCapital != null && cycle.targetCapital > 0
+      ? cycle.targetCapital
+      : cycle.raisedCapital;
 
   const cycleLabel = formatShortCycleLabel(strategy.name, cycle);
 
@@ -76,20 +83,51 @@ export function CycleOpportunityView({
 
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5 lg:col-span-2">
-          <h2 className="font-semibold text-[var(--id-text)]">Funding Progress</h2>
-          <div className="mt-4 rounded-xl bg-navy-950 p-5">
-            <PmFundingProgress
-              raised={cycle.raisedCapital}
-              target={cycle.targetCapital}
-              investorCount={cycle.investorCount}
-            />
-          </div>
+          <h2 className="font-semibold text-[var(--id-text)]">
+            {isTrading ? "Trading Overview" : "Funding Progress"}
+          </h2>
+          {isFunding ? (
+            <div className="mt-4 rounded-xl bg-navy-950 p-5">
+              <PmFundingProgress
+                raised={cycle.raisedCapital}
+                target={cycle.targetCapital}
+                investorCount={cycle.investorCount}
+              />
+            </div>
+          ) : null}
           <dl className="mt-6 grid gap-4 sm:grid-cols-2">
-            <Detail label="Target capital" value={cycle.targetCapital != null ? formatCurrency(cycle.targetCapital) : "—"} />
-            <Detail label="Current commitments" value={formatCurrency(cycle.raisedCapital)} />
-            <Detail label="Remaining capacity" value={remaining != null ? formatCurrency(remaining) : "Open"} />
+            {isTrading ? (
+              <>
+                <Detail label="Capital Traded" value={formatCurrency(cycle.raisedCapital)} />
+                <Detail
+                  label="Total Capital Under Management"
+                  value={formatCurrency(totalCapitalUnderManagement)}
+                />
+                <Detail label="Investors" value={String(cycle.investorCount)} />
+                <Detail
+                  label="Current cycle profit"
+                  value={
+                    cycle.currentCycleProfit != null
+                      ? formatCurrency(cycle.currentCycleProfit)
+                      : "—"
+                  }
+                />
+              </>
+            ) : (
+              <>
+                <Detail
+                  label="Target capital"
+                  value={cycle.targetCapital != null ? formatCurrency(cycle.targetCapital) : "—"}
+                />
+                <Detail label="Current commitments" value={formatCurrency(cycle.raisedCapital)} />
+                <Detail label="Remaining capacity" value={remaining != null ? formatCurrency(remaining) : "Open"} />
+                <Detail label="Investors" value={String(cycle.investorCount)} />
+              </>
+            )}
             <Detail label="Minimum allocation" value={cycle.minInvestment != null ? formatCurrency(cycle.minInvestment) : "—"} />
-            <Detail label="Funding deadline" value={cycle.fundingDeadline ? new Date(cycle.fundingDeadline).toLocaleDateString() : "—"} />
+            {!isTrading ? (
+              <Detail label="Funding deadline" value={cycle.fundingDeadline ? new Date(cycle.fundingDeadline).toLocaleDateString() : "—"} />
+            ) : null}
             <Detail label="Expected trading period" value={cycle.durationDays != null ? `${cycle.durationDays} days` : "—"} />
           </dl>
         </section>
@@ -115,7 +153,7 @@ export function CycleOpportunityView({
               <p className="mt-2 text-sm text-[var(--id-text)]">{manager.name}</p>
             )}
             {manager.rating != null && (
-              <p className="mt-1 text-xs text-[var(--id-text-muted)]">Rating: ★ {manager.rating.toFixed(1)} (display only)</p>
+              <p className="mt-1 text-xs text-[var(--id-text-muted)]">Manager rating: ★ {manager.rating.toFixed(1)}</p>
             )}
           </section>
         </div>
@@ -142,7 +180,12 @@ export function CycleOpportunityView({
         </section>
       </div>
 
-      {operations && <InvestorCycleOperationsPanel operations={operations} />}
+      {operations && (
+        <InvestorCycleOperationsLivePanel
+          cycleSlug={cycle.slug}
+          initialOperations={operations}
+        />
+      )}
       {intelligence && <InvestorCycleIntelligencePanel intelligence={intelligence} />}
 
       <section className="rounded-[var(--id-radius)] border border-amber-500/20 bg-amber-500/5 p-5 text-sm text-[var(--id-text-muted)]">

@@ -171,3 +171,31 @@ export function formatPoolSecurityDisplay(value: string | null | undefined): str
   if (!value?.trim()) return null;
   return value.trim();
 }
+
+type ManagerRatingRow = {
+  ryvonx_rating?: number | string | null;
+  security_rating?: number | string | null;
+  aggressiveness_rating?: number | string | null;
+  admin_statistics?: PoolManagerAdminStatistics | Record<string, unknown> | null;
+};
+
+function toNum(value: number | string | null | undefined): number | null {
+  if (value == null) return null;
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Admin Overall Rating for public display — JSONB overrides column (same as manager profile). */
+export function resolveMergedManagerRating(row: ManagerRatingRow | null | undefined): number | null {
+  if (!row) return null;
+  const adminStats = row.admin_statistics as PoolManagerAdminStatistics | null | undefined;
+  const merged = mergeAdminStatistics(
+    {
+      ryvonxRating: toNum(row.ryvonx_rating),
+      securityRating: toNum(row.security_rating),
+      aggressivenessRating: toNum(row.aggressiveness_rating),
+    },
+    adminStats
+  );
+  return merged.ryvonxRating ?? null;
+}

@@ -57,7 +57,7 @@ export function DashboardLayoutShell({
 
         <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden lg:pl-[17rem]">
           <InvestorShellHeader unreadNotifications={unreadNotifications} />
-          <main className="flex-1 px-4 py-5 sm:px-6 sm:py-8 lg:px-10 lg:py-12">
+          <main className="flex-1 scroll-touch px-4 py-5 pb-mobile-shell sm:px-6 sm:py-8 lg:px-10 lg:py-12 lg:pb-12">
             {children}
           </main>
         </div>

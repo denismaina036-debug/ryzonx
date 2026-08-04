@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, Briefcase, Sparkles, TrendingUp } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
+import { RyvonxEmptyState } from "@/features/investor/constants/ui";
 import { formatCurrency } from "@/lib/utils";
 import type { InvestorHomeData } from "@/domain/investment/investor-presentation";
 import { MarketplaceCycleCard, MarketplaceStrategyCard } from "@/features/marketplace/components/investment-marketplace-cards";
@@ -100,9 +101,12 @@ export function InvestorHomeInvestmentPanel({ data }: { data: InvestorHomeData }
             subtitle="Analytics and ratings — coming with Trading Engine"
             icon={Sparkles}
           />
-          <div className="mt-4 rounded-[var(--id-radius)] border border-dashed border-[var(--id-border)] bg-[var(--id-surface)]/50 p-6 text-sm text-[var(--id-text-muted)]">
-            Personalized performance insights, dynamic ratings, and cycle analytics will appear here
-            once trading data is available. Explore funding opportunities in the marketplace today.
+          <div className="mt-4">
+            <RyvonxEmptyState
+              title="Insights coming soon"
+              description="Personalized performance insights, dynamic ratings, and cycle analytics will appear here once trading data is available. Explore funding opportunities in the marketplace today."
+              className="py-10"
+            />
           </div>
 
           {data.pendingAllocations.length > 0 && (

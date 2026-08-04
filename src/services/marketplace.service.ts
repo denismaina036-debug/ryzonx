@@ -8,7 +8,7 @@ import {
 import { buildProtectionIndicators } from "@/lib/governance/protection-indicators";
 import { resolvePoolManagerPublicLabel, resolvePublicManagerName, managerRowToIdentity } from "@/domain/pool-manager/public-profile";
 import { parseCoverImagePosition } from "@/domain/pools/cover-image-position";
-import { mergeAdminStatistics } from "@/lib/pool-manager/merge-admin-statistics";
+import { mergeAdminStatistics, resolveMergedManagerRating } from "@/lib/pool-manager/merge-admin-statistics";
 import { normalizeAdminStatistics } from "@/lib/pool-manager/resolve-manager-live-performance";
 import type { PoolManagerAdminStatistics } from "@/domain/pool-manager/admin-statistics";
 import { resolveYearsOnRyvonX } from "@/lib/pool-manager/public-statistics";
@@ -31,6 +31,7 @@ import type {
   PoolManagerPublicSummary,
 } from "@/domain/marketplace/types";
 import { normalizeMarketCodes } from "@/domain/reference-data/utils";
+import { investmentCycleService } from "@/services/investment-cycle.service";
 import { tradeEntryService } from "@/services/trade-entry.service";
 import { tradingSessionLabel, formatTradingScheduleLabel } from "@/domain/pools/trading-session";
 import { INVESTMENT_CYCLE_ALLOCATABLE_STATUSES } from "@/constants/investment-cycle";
@@ -278,24 +279,7 @@ async function enrichPoolCards(
       ? liveReviewCounts.get(card.managerId) ?? 0
       : 0;
     const seedReviewCount = manager?.display_review_count ?? 0;
-    // Star rating = admin Overall Rating. Never use aggressiveness (often 2.5 Balanced).
-    const managerOverallRating =
-      manager?.ryvonx_rating != null
-        ? toNumber(manager.ryvonx_rating)
-        : card.ryvonxRating;
-    const aggressiveness =
-      manager?.aggressiveness_rating != null
-        ? toNumber(manager.aggressiveness_rating)
-        : null;
-    const looksLikeAggressivenessBleed =
-      managerOverallRating != null &&
-      aggressiveness != null &&
-      managerOverallRating === aggressiveness &&
-      card.ryvonxRating != null &&
-      card.ryvonxRating !== managerOverallRating;
-    const resolvedManagerRating = looksLikeAggressivenessBleed
-      ? card.ryvonxRating
-      : managerOverallRating;
+    const resolvedManagerRating = resolveMergedManagerRating(manager);
 
     return attachRoiToPoolCard(
       {
@@ -1113,7 +1097,7 @@ export const marketplaceService = {
 
   async getManagerJournalEntries(
     poolIds: string[],
-    limitPerPool = 10
+    limitPerPool = 500
   ): Promise<MarketplaceJournalEntry[]> {
     if (poolIds.length === 0) return [];
 
@@ -1124,32 +1108,51 @@ export const marketplaceService = {
     return batches
       .flat()
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 50);
+      .slice(0, 500);
   },
 
-  async getPublicJournal(poolId: string, limit = 20): Promise<MarketplaceJournalEntry[]> {
-    const db = createAdminClient();
+  async getPublicJournal(poolId: string, limit = 500): Promise<MarketplaceJournalEntry[]> {
+    const cycles = await investmentCycleService.listByFund(poolId);
+    const cycleIds = cycles.map((cycle) => cycle.id);
+    if (cycleIds.length === 0) return [];
 
-    const { data: trades } = await db
-      .from("trades")
-      .select("id, symbol, direction, entry_price, exit_price, status, pnl_percentage, closed_at, notes")
-      .eq("fund_id", poolId)
+    const db = createAdminClient();
+    const { data: trades, error } = await db
+      .from("trade_entries")
+      .select(
+        "id, instrument, direction, entry_price, exit_price, quantity, trade_result, realized_pnl, closed_at, notes"
+      )
+      .in("investment_cycle_id", cycleIds)
       .eq("status", "closed")
-      .not("published_at", "is", null)
+      .eq("investor_visible", true)
+      .not("closed_at", "is", null)
       .order("closed_at", { ascending: false })
       .limit(limit);
 
-    return ((trades ?? []) as Array<Record<string, unknown>>).map((t) => ({
-      id: t.id as string,
-      asset: t.symbol as string,
-      direction: t.direction as string,
-      entryPrice: toNumber(t.entry_price as number),
-      exitPrice: t.exit_price != null ? toNumber(t.exit_price as number) : null,
-      status: t.status as string,
-      roiPct: t.pnl_percentage != null ? toNumber(t.pnl_percentage as number) : null,
-      date: (t.closed_at as string) ?? "",
-      notes: (t.notes as string | null) ?? null,
-    }));
+    if (error) throw new Error(error.message);
+
+    return ((trades ?? []) as Array<Record<string, unknown>>).map((t) => {
+      const entry = toNumber(t.entry_price as number);
+      const exit = t.exit_price != null ? toNumber(t.exit_price as number) : null;
+      const quantity = toNumber(t.quantity as number);
+      const notional = entry * quantity;
+      const roiPct =
+        notional > 0 && t.realized_pnl != null
+          ? (toNumber(t.realized_pnl as number) / notional) * 100
+          : null;
+
+      return {
+        id: t.id as string,
+        asset: t.instrument as string,
+        direction: t.direction as string,
+        entryPrice: entry,
+        exitPrice: exit,
+        status: "closed",
+        roiPct,
+        date: (t.closed_at as string) ?? "",
+        notes: (t.notes as string | null) ?? null,
+      };
+    });
   },
 
   async getInvestorStats(poolId: string): Promise<MarketplaceInvestorStats> {

@@ -63,7 +63,7 @@ export function PoolManagerMobileBottomNav() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--id-border)] bg-[var(--id-glass)] pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden"
+      className="touch-target fixed inset-x-0 bottom-0 z-40 border-t border-[var(--id-border)] bg-[var(--id-glass)] pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden"
       aria-label="Pool Manager mobile navigation"
     >
       <ul className="mx-auto grid max-w-lg grid-cols-5 items-stretch px-1 pt-1">
@@ -87,6 +87,7 @@ function NavButton({ item, active }: { item: MobileNavItem; active: boolean }) {
     <li>
       <Link
         href={item.href}
+        prefetch
         className={cn(
           tapNavItem,
           "flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-2 text-[10px] font-medium transition-colors",

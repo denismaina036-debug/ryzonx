@@ -20,6 +20,7 @@ export interface UserProfile {
   emailVerified: boolean;
   registrationIntent?: import("@/constants/registration").RegistrationIntent | null;
   registrationCountry?: string | null;
+  acceptedLegalAtSignup?: boolean;
   createdAt: string;
   updatedAt: string;
 }

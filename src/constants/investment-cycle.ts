@@ -43,7 +43,8 @@ export const INVESTMENT_CYCLE_MANAGER_TRANSITIONS: Partial<
   submitted: ["draft"],
   approved: ["funding", "trading"],
   funding: ["trading"],
-  trading: ["distribution"],
+  trading: ["funding", "completed"],
+  distribution: ["funding", "completed"],
   completed: ["archived"],
 };
 
@@ -55,8 +56,8 @@ export const INVESTMENT_CYCLE_ADMIN_TRANSITIONS: Partial<
   submitted: ["approved", "draft"],
   approved: ["funding", "trading"],
   funding: ["trading", "approved"],
-  trading: ["distribution"],
-  distribution: ["completed"],
+  trading: ["distribution", "funding", "completed"],
+  distribution: ["completed", "funding"],
   completed: ["archived"],
 };
 

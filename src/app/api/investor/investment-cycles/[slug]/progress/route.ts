@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth/session";
 import { cycleProgressService } from "@/services/cycle-progress.service";
 
 export async function GET(
@@ -7,7 +8,10 @@ export async function GET(
 ) {
   try {
     const { slug } = await context.params;
-    const progress = await cycleProgressService.getInvestorViewBySlug(slug);
+    const user = await getCurrentUser();
+    const progress = await cycleProgressService.getInvestorViewBySlug(slug, {
+      investorUserId: user?.id ?? null,
+    });
     if (!progress) {
       return NextResponse.json({ error: "Cycle not found" }, { status: 404 });
     }

@@ -13,6 +13,7 @@ import {
   cryptoFlowInputClass,
   cryptoFlowPrimaryButtonClass,
 } from "@/features/investor/components/crypto-flow/crypto-flow-step";
+import { RyvonxEmptyState, RyvonxPageHeader } from "@/features/investor/constants/ui";
 import { WalletQrCode } from "@/features/investor/components/crypto-flow/wallet-qr-code";
 import { cn, formatCurrency } from "@/lib/utils";
 import type {
@@ -144,15 +145,10 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
 
   return (
     <div className="mx-auto max-w-[1200px]">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight text-[var(--id-text)] sm:text-[1.85rem]">
-          Deposit Crypto
-        </h1>
-        <p className="mt-2 text-sm text-[var(--id-text-secondary)]">
-          {data.fundName} · Min investment {formatCurrency(data.minInvestment)} · Select
-          coin, network, send funds, then mark as sent.
-        </p>
-      </div>
+      <RyvonxPageHeader
+        title="Deposit Crypto"
+        description={`${data.fundName} · Min investment ${formatCurrency(data.minInvestment)} · Select coin, network, send funds, then mark as sent.`}
+      />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
         <div className="overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow-lg)]">
@@ -451,9 +447,11 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
         </div>
 
         {data.recentDeposits.length === 0 ? (
-          <p className="px-5 py-8 text-sm text-[var(--id-text-muted)] sm:px-6">
-            No deposits yet.
-          </p>
+          <RyvonxEmptyState
+            title="No deposits yet"
+            description="Complete a deposit above and it will appear in your history."
+            className="mx-5 my-6 border-none bg-transparent shadow-none sm:mx-6"
+          />
         ) : (
           <ul className="divide-y divide-[var(--id-border)]">
             {data.recentDeposits.map((dep) => (

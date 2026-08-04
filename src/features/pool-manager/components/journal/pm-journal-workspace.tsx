@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useIntervalRefresh } from "@/hooks/use-interval-refresh";
 import { ImagePlus, TrendingDown, TrendingUp } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { TRADE_ENTRY_RESULT_LABELS, TRADE_ENTRY_DIRECTION_LABELS, TRADE_ENTRY_DIRECTIONS } from "@/constants/trade-entry";
@@ -29,6 +30,7 @@ import {
   pmSelectItemClass,
   pmSelectTriggerClass,
   pmTextareaClass,
+  RyvonxEmptyState,
 } from "@/features/pool-manager/constants/ui";
 import { PmFormField } from "@/features/pool-manager/components/workspace/pm-form-field";
 import { PmPageHeader, PmFormMessage, PmSectionCard } from "../workspace/pm-page-header";
@@ -88,8 +90,8 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
   const simplifiedPhase = resolveSimplifiedCyclePhase({ cycleStatus: cycle.status });
   const isWin = form.outcome === "profit";
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) setLoading(true);
     try {
       let workspace = await fetchJournalWorkspace(cycle.id);
       if (!workspace.journal && writable) {
@@ -98,18 +100,22 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
       }
       setData(workspace);
     } catch (err) {
-      setMessage({
-        text: err instanceof Error ? err.message : "Failed to load journal",
-        variant: "error",
-      });
+      if (!options?.silent) {
+        setMessage({
+          text: err instanceof Error ? err.message : "Failed to load journal",
+          variant: "error",
+        });
+      }
     } finally {
-      setLoading(false);
+      if (!options?.silent) setLoading(false);
     }
   }, [cycle.id, writable]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useIntervalRefresh(() => load({ silent: true }), 12_000, writable);
 
   useEffect(() => {
     if (screenshotFile) {
@@ -150,7 +156,7 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
           ? form.screenshotUrl.trim()
           : undefined;
 
-      const entry = await createTradeEntry(cycle.id, {
+      await createTradeEntry(cycle.id, {
         instrument: form.instrument.trim(),
         direction: form.direction,
         amountUsd,
@@ -161,15 +167,9 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
 
       setForm(emptyForm);
       setScreenshotFile(null);
-      const distributed =
-        form.outcome === "profit" ? entry.profitAppliedAt : entry.lossAppliedAt;
       setMessage({
-        text: distributed
-          ? form.outcome === "profit"
-            ? `Win recorded — ${formatCurrency(amountUsd)} profit distributed to investors.`
-            : `Loss recorded — ${formatCurrency(amountUsd)} applied to cycle balance.`
-          : `Trade recorded — ${formatCurrency(amountUsd)}. Balance distribution is pending investor allocations.`,
-        variant: distributed ? "success" : "error",
+        text: `Trade recorded — ${formatCurrency(amountUsd)}. Projected profits updated for all investors.`,
+        variant: "success",
       });
       await load();
     } catch (err) {
@@ -360,9 +360,15 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
         }
       >
         {loading ? (
-          <p className="text-sm text-[var(--id-text-muted)]">Loading trades…</p>
+          <p className="text-sm text-[var(--id-text-muted)]" role="status">
+            Loading trades…
+          </p>
         ) : closedEntries.length === 0 ? (
-          <p className="text-sm text-[var(--id-text-muted)]">No trades recorded yet.</p>
+          <RyvonxEmptyState
+            title="No trades recorded yet"
+            description="Completed trades appear here and on the investor marketplace view."
+            className="py-10"
+          />
         ) : (
           <ul className="space-y-4">
             {closedEntries.map((entry) => (

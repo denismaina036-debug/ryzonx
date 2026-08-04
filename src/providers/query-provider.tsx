@@ -16,8 +16,10 @@ export function QueryProvider({ children }: QueryProviderProps) {
         defaultOptions: {
           queries: {
             staleTime: STALE_TIMES.standard,
+            gcTime: STALE_TIMES.standard * 2,
             retry: 1,
             refetchOnWindowFocus: false,
+            refetchOnMount: false,
           },
           mutations: {
             retry: 0,

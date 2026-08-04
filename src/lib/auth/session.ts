@@ -123,6 +123,7 @@ function mergeAuthMetadata(profile: UserProfile, authUser: User): UserProfile {
     ...profile,
     registrationIntent: parseRegistrationIntent(meta.registration_intent),
     registrationCountry: country,
+    acceptedLegalAtSignup: meta.accepted_legal_at_signup === "true",
   };
 }
 

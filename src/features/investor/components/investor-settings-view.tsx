@@ -12,9 +12,9 @@ import {
   investorCardElevatedClass,
   investorInputClass,
   investorLabelClass,
-  investorPageSubtitleClass,
-  investorPageTitleClass,
   investorReadOnlyClass,
+  investorTextareaClass,
+  RyvonxPageHeader,
 } from "@/features/investor/constants/ui";
 import { ROLE_LABELS, type UserRole } from "@/constants/roles";
 import type { InvestorSettingsData } from "@/features/investor/types/account";
@@ -58,12 +58,10 @@ export function InvestorSettingsView({
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[720px]">
-      <div className="mb-6 sm:mb-8">
-        <h1 className={investorPageTitleClass}>Settings</h1>
-        <p className={investorPageSubtitleClass}>
-          Your personal account information and preferences.
-        </p>
-      </div>
+      <RyvonxPageHeader
+        title="Settings"
+        description="Your personal account information and preferences."
+      />
 
       <div className={`${investorCardElevatedClass} mb-4 p-5 sm:p-6`}>
         <ProfileAvatarUpload

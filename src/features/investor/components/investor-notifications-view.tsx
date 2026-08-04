@@ -10,9 +10,9 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
   investorCardClass,
-  investorEmptyStateClass,
-  investorPageSubtitleClass,
-  investorPageTitleClass,
+  investorInputClass,
+  RyvonxEmptyState,
+  RyvonxPageHeader,
 } from "@/features/investor/constants/ui";
 import type { InvestorNotification } from "@/features/investor/types/account";
 
@@ -84,24 +84,22 @@ export function InvestorNotificationsView({
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[760px]">
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className={investorPageTitleClass}>Notifications</h1>
-          <p className={investorPageSubtitleClass}>
-            Your communication timeline — deposits, investments, support, and system updates.
-          </p>
-        </div>
-        {notifications.some((n) => !n.isRead) && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-[var(--id-border)] text-[var(--id-text-secondary)]"
-            onClick={markAllRead}
-          >
-            Mark all read
-          </Button>
-        )}
-      </div>
+      <RyvonxPageHeader
+        title="Notifications"
+        description="Your communication timeline — deposits, investments, support, and system updates."
+        actions={
+          notifications.some((n) => !n.isRead) ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-[var(--id-border)] text-[var(--id-text-secondary)]"
+              onClick={markAllRead}
+            >
+              Mark all read
+            </Button>
+          ) : undefined
+        }
+      />
 
       <div className="relative mb-4">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--id-text-faint)]" />
@@ -109,16 +107,20 @@ export function InvestorNotificationsView({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search notifications…"
-          className="pl-9"
+          className={cn("pl-9", investorInputClass)}
         />
       </div>
 
       {filtered.length === 0 ? (
-        <div className={`${investorEmptyStateClass} py-10`}>
-          <p className="text-sm text-[var(--id-text-muted)]">
-            {query ? "No notifications match your search." : "No notifications yet."}
-          </p>
-        </div>
+        <RyvonxEmptyState
+          icon={<Search className="h-5 w-5" />}
+          title={query ? "No matching notifications" : "No notifications yet"}
+          description={
+            query
+              ? "Try a different search term or clear the filter."
+              : "Deposits, pool updates, and support replies will appear here."
+          }
+        />
       ) : (
         <ul className="space-y-2">
           {filtered.map((n) => {

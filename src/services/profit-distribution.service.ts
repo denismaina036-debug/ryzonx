@@ -17,6 +17,7 @@ import { poolRoiService } from "@/services/pool-roi.service";
 import { platformSettingsService } from "@/services/platform-settings.service";
 import { auditService } from "@/services/audit.service";
 import { PROFIT_SETTLEMENT_ELIGIBLE_ALLOCATION_STATUSES } from "@/constants/investment-allocation";
+import { COMMITTED_ALLOCATION_STATUSES } from "@/domain/investment/cycle-metrics";
 import { investmentCycleService } from "@/services/investment-cycle.service";
 import { investmentAllocationService } from "@/services/investment-allocation.service";
 import { tradeEntryService } from "@/services/trade-entry.service";
@@ -138,11 +139,7 @@ async function readPoolRoiConfig(fundId: string | null): Promise<{
   };
 }
 
-async function syncInvestorPortfolioAfterProfitCredit(
-  investorId: string,
-  fundId: string,
-  profitBalance: number
-): Promise<void> {
+async function readInvestorFundInvested(investorId: string, fundId: string): Promise<number> {
   const db = createAdminClient();
   const { data: portfolio } = await db
     .from("investor_portfolios")
@@ -150,13 +147,63 @@ async function syncInvestorPortfolioAfterProfitCredit(
     .eq("user_id", investorId)
     .eq("fund_id", fundId)
     .maybeSingle();
-  if (!portfolio) return;
+  if (portfolio) {
+    return toNumber((portfolio as { total_invested: number | string }).total_invested);
+  }
 
-  const invested = toNumber((portfolio as { total_invested: number | string }).total_invested);
+  const { data: cycles } = await db
+    .from("investment_cycles")
+    .select("id")
+    .eq("fund_id", fundId);
+  const cycleIds = ((cycles ?? []) as Array<{ id: string }>).map((row) => row.id);
+  if (cycleIds.length === 0) return 0;
+
+  const { data: allocations } = await db
+    .from("investment_allocations")
+    .select("amount")
+    .eq("investor_id", investorId)
+    .in("investment_cycle_id", cycleIds)
+    .in("status", COMMITTED_ALLOCATION_STATUSES.filter((status) => status !== "pending"));
+
+  return ((allocations ?? []) as Array<{ amount: number | string }>).reduce(
+    (sum, row) => sum + toNumber(row.amount),
+    0
+  );
+}
+
+async function syncInvestorPortfolioAfterProfitCredit(
+  investorId: string,
+  fundId: string,
+  profitBalance: number
+): Promise<void> {
+  const db = createAdminClient();
+  const invested = await readInvestorFundInvested(investorId, fundId);
+  const currentValue = roundMoney(invested + profitBalance);
+
+  const { data: portfolio } = await db
+    .from("investor_portfolios")
+    .select("total_invested")
+    .eq("user_id", investorId)
+    .eq("fund_id", fundId)
+    .maybeSingle();
+
+  if (!portfolio) {
+    await db.from("investor_portfolios").insert({
+      user_id: investorId,
+      fund_id: fundId,
+      total_invested: invested,
+      current_value: currentValue,
+      available_balance: 0,
+      realized_pnl: 0,
+      unrealized_pnl: 0,
+    } as never);
+    return;
+  }
+
   await db
     .from("investor_portfolios")
     .update({
-      current_value: roundMoney(invested + profitBalance),
+      current_value: currentValue,
       realized_pnl: 0,
       unrealized_pnl: 0,
     } as never)
@@ -257,8 +304,8 @@ export const profitDistributionService = {
   ): Promise<ProfitSettlement> {
     const cycle = await investmentCycleService.getById(cycleId);
     if (!cycle) throw new Error("Cycle not found.");
-    if (cycle.status !== "distribution") {
-      throw new Error("Profit settlement requires a cycle in distribution status.");
+    if (cycle.status !== "trading" && cycle.status !== "distribution") {
+      throw new Error("Profit settlement requires an active trading cycle.");
     }
 
     const existing = await this.getByCycleId(cycleId);
@@ -496,8 +543,8 @@ export const profitDistributionService = {
   },
 
   /**
-   * Calculate, confirm, and pay out cycle profits in one step after a cycle enters distribution.
-   * Marks the cycle completed via the lifecycle orchestrator when payouts finish.
+   * Calculate, confirm, and pay out cycle profits without closing the cycle.
+   * The cycle remains in trading (or distribution for legacy cycles) after payout.
    */
   async finalizeCycleProfits(cycleId: string, actorId: string): Promise<ProfitSettlement> {
     const cycle = await investmentCycleService.getById(cycleId);
@@ -509,8 +556,8 @@ export const profitDistributionService = {
       if (done) return done;
     }
 
-    if (cycle.status !== "distribution") {
-      throw new Error("Cycle must be in distribution before profits can be paid out.");
+    if (cycle.status !== "trading" && cycle.status !== "distribution") {
+      throw new Error("Cycle must be in trading before profits can be paid out.");
     }
 
     let settlement = await this.getByCycleId(cycleId);

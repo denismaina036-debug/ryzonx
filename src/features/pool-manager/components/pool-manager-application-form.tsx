@@ -9,6 +9,10 @@ import { USER_ROLES } from "@/constants/roles";
 import { PM_STATUS_LABELS } from "@/features/pool-manager/constants/nav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  ExperienceDurationInput,
+  resolveExperienceDuration,
+} from "@/features/pool-manager/components/experience-duration-input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   investorCardClass,
@@ -183,19 +187,19 @@ export function PoolManagerApplicationForm({
         </Field>
 
         <div className="grid gap-6 sm:grid-cols-2">
-          <Field label="Years trading">
-            <Input
-              type="number"
-              min={0}
-              className={investorInputClass}
-              value={basicInfo.yearsTrading ?? ""}
-              onChange={(e) =>
+          <Field label="Trading experience duration">
+            <ExperienceDurationInput
+              {...resolveExperienceDuration(basicInfo)}
+              onChange={(next) =>
                 setBasicInfo({
                   ...basicInfo,
-                  yearsTrading: e.target.value ? Number(e.target.value) : undefined,
+                  experienceDurationValue: next.value,
+                  experienceDurationUnit: next.unit,
+                  yearsTrading: next.unit === "years" ? next.value : undefined,
                 })
               }
               disabled={!canEdit || loading}
+              inputClassName={investorInputClass}
             />
           </Field>
           <Field label="Country *">

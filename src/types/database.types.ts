@@ -1089,6 +1089,7 @@ export type Database = {
         Row: {
           aggressiveness_rating: number | null
           application_id: string | null
+          admin_statistics: Json
           approved_at: string | null
           approved_by: string | null
           avg_monthly_return_pct: number | null
@@ -1130,6 +1131,7 @@ export type Database = {
         Insert: {
           aggressiveness_rating?: number | null
           application_id?: string | null
+          admin_statistics?: Json
           approved_at?: string | null
           approved_by?: string | null
           avg_monthly_return_pct?: number | null
@@ -1165,6 +1167,7 @@ export type Database = {
         Update: {
           aggressiveness_rating?: number | null
           application_id?: string | null
+          admin_statistics?: Json
           approved_at?: string | null
           approved_by?: string | null
           avg_monthly_return_pct?: number | null

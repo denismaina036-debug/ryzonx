@@ -16,6 +16,7 @@ import type {
 } from "@/domain/investment/investor-presentation";
 import { INVESTMENT_ALLOCATION_STATUS_LABELS } from "@/constants/investment-allocation";
 import { computeInvestorOwnershipShare } from "@/domain/investment/cycle-metrics";
+import { resolveMergedManagerRating } from "@/lib/pool-manager/merge-admin-statistics";
 
 type ManagerRow = {
   id: string;
@@ -24,6 +25,9 @@ type ManagerRow = {
   display_name: string;
   show_full_name?: boolean | null;
   ryvonx_rating: number | null;
+  security_rating?: number | null;
+  aggressiveness_rating?: number | null;
+  admin_statistics?: Record<string, unknown> | null;
 };
 
 function managerPublicName(row: ManagerRow | undefined): string {
@@ -36,11 +40,13 @@ async function loadManagers(ids: string[]): Promise<Map<string, ManagerRow>> {
   const db = createAdminClient();
   const { data } = await db
     .from("pool_managers")
-    .select("id, username, slug, display_name, show_full_name, ryvonx_rating")
+    .select(
+      "id, username, slug, display_name, show_full_name, ryvonx_rating, security_rating, aggressiveness_rating, admin_statistics"
+    )
     .in("id", ids);
 
   const map = new Map<string, ManagerRow>();
-  for (const row of (data ?? []) as ManagerRow[]) {
+  for (const row of ((data ?? []) as unknown) as ManagerRow[]) {
     map.set(row.id, row);
   }
   return map;
@@ -76,7 +82,7 @@ function toCycleCard(
     managerId: cycle.poolManagerId,
     managerName: managerPublicName(manager),
     managerSlug: manager?.slug ?? null,
-    managerRating: manager?.ryvonx_rating ?? null,
+    managerRating: resolveMergedManagerRating(manager),
     targetCapital: cycle.targetCapital,
     raisedCapital: cycle.raisedCapital,
     minInvestment: cycle.minInvestment,
@@ -106,7 +112,7 @@ function toStrategyCard(
     managerId: strategy.poolManagerId,
     managerName: managerPublicName(manager),
     managerSlug: manager?.slug ?? null,
-    managerRating: manager?.ryvonx_rating ?? null,
+    managerRating: resolveMergedManagerRating(manager),
     activeCyclesCount,
     approvedAt: strategy.approvedAt,
   };

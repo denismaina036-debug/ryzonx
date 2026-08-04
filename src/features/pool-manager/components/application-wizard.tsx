@@ -8,6 +8,10 @@ import { ROUTES } from "@/constants/routes";
 import { PM_APPLICATION_STEPS, PM_STATUS_LABELS } from "@/features/pool-manager/constants/nav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  ExperienceDurationInput,
+  resolveExperienceDuration,
+} from "@/features/pool-manager/components/experience-duration-input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency, cn } from "@/lib/utils";
 import { investorCardClass, investorInputClass } from "@/features/investor/constants/ui";
@@ -218,17 +222,18 @@ export function PoolManagerApplicationWizard({
                 className={investorInputClass}
               />
             </Field>
-            <Field label="Years Trading">
-              <Input
-                type="number"
-                value={basicInfo.yearsTrading ?? ""}
-                onChange={(e) =>
+            <Field label="Trading experience duration">
+              <ExperienceDurationInput
+                {...resolveExperienceDuration(basicInfo)}
+                onChange={(next) =>
                   setBasicInfo((b) => ({
                     ...b,
-                    yearsTrading: Number(e.target.value) || undefined,
+                    experienceDurationValue: next.value,
+                    experienceDurationUnit: next.unit,
+                    yearsTrading: next.unit === "years" ? next.value : undefined,
                   }))
                 }
-                className={investorInputClass}
+                inputClassName={investorInputClass}
               />
             </Field>
             <Field label="Country *">

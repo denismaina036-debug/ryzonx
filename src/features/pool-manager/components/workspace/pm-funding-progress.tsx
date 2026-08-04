@@ -7,22 +7,29 @@ export function PmFundingProgress({
   investorCount,
   className,
   compact = false,
+  mode = "funding",
 }: {
   raised: number;
   target: number | null;
   investorCount?: number;
   className?: string;
   compact?: boolean;
+  mode?: "funding" | "trading";
 }) {
+  const isTrading = mode === "trading";
+  const primaryLabel = isTrading ? "Capital Traded" : "Raised";
+  const secondaryLabel = isTrading ? "Total Capital Under Management" : "Target";
   const pct =
-    target != null && target > 0 ? Math.min(100, Math.round((raised / target) * 1000) / 10) : null;
+    !isTrading && target != null && target > 0
+      ? Math.min(100, Math.round((raised / target) * 1000) / 10)
+      : null;
 
   return (
     <div className={cn("space-y-2.5", className)}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--id-text-faint)]">
-            Raised
+            {primaryLabel}
           </p>
           <p
             className={cn(
@@ -34,18 +41,23 @@ export function PmFundingProgress({
           </p>
         </div>
         {target != null && target > 0 && (
-          <div className="text-right">
+          <div className={isTrading ? "text-left sm:text-right" : "text-right"}>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--id-text-faint)]">
-              Target
+              {secondaryLabel}
             </p>
-            <p className={cn("font-semibold tabular-nums text-[var(--id-text)]", compact ? "text-base" : "text-lg")}>
+            <p
+              className={cn(
+                "font-semibold tabular-nums text-[var(--id-text)]",
+                compact ? "text-base" : "text-lg"
+              )}
+            >
               {formatCurrency(target)}
             </p>
           </div>
         )}
       </div>
 
-      {pct != null && (
+      {!isTrading && pct != null && (
         <div>
           <div className="h-2 overflow-hidden rounded-full bg-[var(--id-surface-muted)]">
             <div
@@ -62,7 +74,13 @@ export function PmFundingProgress({
         </div>
       )}
 
-      {target == null || target <= 0 ? (
+      {isTrading && investorCount != null && (
+        <p className="text-xs text-[var(--id-text-muted)]">
+          {investorCount} investor{investorCount === 1 ? "" : "s"} in this cycle
+        </p>
+      )}
+
+      {!isTrading && (target == null || target <= 0) ? (
         <p className="text-xs text-[var(--id-text-muted)]">
           {investorCount != null
             ? `${investorCount} investor${investorCount === 1 ? "" : "s"} committed`
