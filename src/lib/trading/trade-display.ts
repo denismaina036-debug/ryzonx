@@ -30,3 +30,17 @@ export function screenshotListLabel(screenshotUrl: string | null | undefined): s
 export function hasScreenshot(screenshotUrl: string | null | undefined): boolean {
   return Boolean(screenshotUrl?.trim());
 }
+
+/** Price-based ROI % for public journal display (e.g. +0.70%). */
+export function computeTradeRoiPercentage(
+  direction: TradeEntryDirection,
+  entryPrice: number,
+  exitPrice: number | null
+): number | null {
+  if (exitPrice == null || entryPrice <= 0) return null;
+  const pct =
+    direction === "long"
+      ? ((exitPrice - entryPrice) / entryPrice) * 100
+      : ((entryPrice - exitPrice) / entryPrice) * 100;
+  return Math.round(pct * 100) / 100;
+}

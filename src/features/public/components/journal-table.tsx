@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { Search, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -13,29 +12,41 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { formatPercentage } from "@/lib/utils";
-import { mockTrades } from "@/lib/mock-data";
-import type { Trade } from "@/types";
+import type { PublicJournalTrade } from "@/domain/trading-journal/types";
+import {
+  JournalTradeTableRow,
+  JournalTradesEmptyState,
+} from "@/features/public/components/journal-trade-row";
 
 const PAGE_SIZE = 10;
 
-export function JournalTable() {
+type SortKey =
+  | "symbol"
+  | "poolManagerName"
+  | "poolName"
+  | "realizedPnl"
+  | "openedAt"
+  | "closedAt";
+
+export function JournalTable({ trades }: { trades: PublicJournalTrade[] }) {
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [directionFilter, setDirectionFilter] = useState("all");
-  const [sortBy, setSortBy] = useState<keyof Trade>("closedAt");
+  const [sortBy, setSortBy] = useState<SortKey>("closedAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
 
   const filtered = useMemo(() => {
-    let result = [...mockTrades];
+    let result = [...trades];
 
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter((t) => t.symbol.toLowerCase().includes(q));
-    }
-    if (statusFilter !== "all") {
-      result = result.filter((t) => t.status === statusFilter);
+      result = result.filter(
+        (t) =>
+          t.symbol.toLowerCase().includes(q) ||
+          t.poolManagerName.toLowerCase().includes(q) ||
+          t.poolName.toLowerCase().includes(q) ||
+          t.cycleName.toLowerCase().includes(q)
+      );
     }
     if (directionFilter !== "all") {
       result = result.filter((t) => t.direction === directionFilter);
@@ -46,20 +57,21 @@ export function JournalTable() {
       const bVal = b[sortBy];
       if (aVal == null) return 1;
       if (bVal == null) return -1;
-      const cmp = String(aVal).localeCompare(String(bVal), undefined, {
-        numeric: true,
-      });
+      const cmp =
+        typeof aVal === "number" && typeof bVal === "number"
+          ? aVal - bVal
+          : String(aVal).localeCompare(String(bVal), undefined, { numeric: true });
       return sortOrder === "asc" ? cmp : -cmp;
     });
 
     return result;
-  }, [search, statusFilter, directionFilter, sortBy, sortOrder]);
+  }, [trades, search, directionFilter, sortBy, sortOrder]);
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const toggleSort = useCallback(
-    (col: keyof Trade) => {
+    (col: SortKey) => {
       if (sortBy === col) {
         setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
       } else {
@@ -70,13 +82,19 @@ export function JournalTable() {
     [sortBy]
   );
 
+  if (trades.length === 0) {
+    return (
+      <JournalTradesEmptyState message="No published pool cycle trades yet. Trades appear here when pool managers close and publish them." />
+    );
+  }
+
   return (
     <>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400" />
           <Input
-            placeholder="Search by asset..."
+            placeholder="Search asset, manager, pool, or cycle..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -85,19 +103,6 @@ export function JournalTable() {
             className="pl-10"
           />
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value);
-            setPage(1);
-          }}
-          className="h-10 rounded-xl border border-input bg-background px-4 text-sm text-navy-700"
-        >
-          <option value="all">All Status</option>
-          <option value="closed">Closed</option>
-          <option value="open">Open</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
         <select
           value={directionFilter}
           onChange={(e) => {
@@ -112,85 +117,62 @@ export function JournalTable() {
         </select>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>
-              <button type="button" onClick={() => toggleSort("symbol")}>
-                Asset {sortBy === "symbol" && (sortOrder === "asc" ? "↑" : "↓")}
-              </button>
-            </TableHead>
-            <TableHead>Direction</TableHead>
-            <TableHead>
-              <button type="button" onClick={() => toggleSort("entryPrice")}>
-                Entry {sortBy === "entryPrice" && (sortOrder === "asc" ? "↑" : "↓")}
-              </button>
-            </TableHead>
-            <TableHead>Exit</TableHead>
-            <TableHead>
-              <button type="button" onClick={() => toggleSort("pnlPercentage")}>
-                ROI {sortBy === "pnlPercentage" && (sortOrder === "asc" ? "↑" : "↓")}
-              </button>
-            </TableHead>
-            <TableHead>Open Date</TableHead>
-            <TableHead>
-              <button type="button" onClick={() => toggleSort("closedAt")}>
-                Close Date {sortBy === "closedAt" && (sortOrder === "asc" ? "↑" : "↓")}
-              </button>
-            </TableHead>
-            <TableHead>Status</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {paginated.map((trade) => (
-            <TableRow key={trade.id}>
-              <TableCell className="font-medium text-navy-950">
-                {trade.symbol}
-              </TableCell>
-              <TableCell>
-                <Badge variant={trade.direction === "long" ? "success" : "warning"}>
-                  {trade.direction === "long" ? (
-                    <ArrowUpRight className="mr-1 h-3 w-3" />
-                  ) : (
-                    <ArrowDownRight className="mr-1 h-3 w-3" />
-                  )}
-                  {trade.direction.toUpperCase()}
-                </Badge>
-              </TableCell>
-              <TableCell className="font-mono text-sm">
-                {trade.entryPrice.toLocaleString()}
-              </TableCell>
-              <TableCell className="font-mono text-sm">
-                {trade.exitPrice?.toLocaleString() ?? "—"}
-              </TableCell>
-              <TableCell
-                className={
-                  (trade.pnlPercentage ?? 0) >= 0
-                    ? "font-mono text-sm font-medium text-emerald-600"
-                    : "font-mono text-sm font-medium text-red-600"
-                }
-              >
-                {trade.pnlPercentage != null
-                  ? formatPercentage(trade.pnlPercentage)
-                  : "—"}
-              </TableCell>
-              <TableCell className="text-sm text-navy-500">
-                {new Date(trade.openedAt).toLocaleDateString()}
-              </TableCell>
-              <TableCell className="text-sm text-navy-500">
-                {trade.closedAt
-                  ? new Date(trade.closedAt).toLocaleDateString()
-                  : "—"}
-              </TableCell>
-              <TableCell>
-                <Badge variant={trade.status === "closed" ? "default" : "secondary"}>
-                  {trade.status}
-                </Badge>
-              </TableCell>
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>
+                <button type="button" onClick={() => toggleSort("symbol")}>
+                  Asset {sortBy === "symbol" && (sortOrder === "asc" ? "↑" : "↓")}
+                </button>
+              </TableHead>
+              <TableHead>
+                <button type="button" onClick={() => toggleSort("poolManagerName")}>
+                  Pool Manager{" "}
+                  {sortBy === "poolManagerName" && (sortOrder === "asc" ? "↑" : "↓")}
+                </button>
+              </TableHead>
+              <TableHead>
+                <button type="button" onClick={() => toggleSort("poolName")}>
+                  Pool {sortBy === "poolName" && (sortOrder === "asc" ? "↑" : "↓")}
+                </button>
+              </TableHead>
+              <TableHead>Cycle</TableHead>
+              <TableHead>Direction</TableHead>
+              <TableHead>
+                <button type="button" onClick={() => toggleSort("realizedPnl")}>
+                  Profit / Loss{" "}
+                  {sortBy === "realizedPnl" && (sortOrder === "asc" ? "↑" : "↓")}
+                </button>
+              </TableHead>
+              <TableHead>
+                <button type="button" onClick={() => toggleSort("openedAt")}>
+                  Open Date {sortBy === "openedAt" && (sortOrder === "asc" ? "↑" : "↓")}
+                </button>
+              </TableHead>
+              <TableHead>
+                <button type="button" onClick={() => toggleSort("closedAt")}>
+                  Close Date {sortBy === "closedAt" && (sortOrder === "asc" ? "↑" : "↓")}
+                </button>
+              </TableHead>
+              <TableHead>Status</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {paginated.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} className="p-8 text-center text-sm text-navy-500">
+                  No trades match your filters.
+                </TableCell>
+              </TableRow>
+            ) : (
+              paginated.map((trade) => (
+                <JournalTradeTableRow key={trade.id} trade={trade} variant="full" />
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
       {totalPages > 1 && (
         <div className="mt-6 flex items-center justify-between">

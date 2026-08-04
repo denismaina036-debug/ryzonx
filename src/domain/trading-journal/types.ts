@@ -63,6 +63,24 @@ export interface PublicPoolTradeView extends PublicTradeEntryView {
   cycleStatus: string;
 }
 
+/** Trade row for the public RyvonX trading journal (homepage + /journal). */
+export interface PublicJournalTrade {
+  id: string;
+  symbol: string;
+  direction: TradeEntryDirection;
+  realizedPnl: number | null;
+  status: "closed";
+  openedAt: string;
+  closedAt: string | null;
+  poolName: string;
+  poolSlug: string;
+  poolManagerName: string;
+  poolManagerSlug: string | null;
+  cycleName: string;
+  cycleNumber: number;
+  tradeReference: string;
+}
+
 export interface TradeSnapshot {
   id: string;
   journalId: string;
