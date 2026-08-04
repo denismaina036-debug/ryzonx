@@ -13,7 +13,7 @@ export async function WhyRyvonxSection() {
         description={content.copy.whyRyvonx.description}
         align="center"
       />
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {content.whyRyvonxFeatures.map((feature) => {
           const Icon = resolveLandingIcon(feature.icon);
           return (

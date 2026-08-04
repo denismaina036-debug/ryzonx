@@ -3,6 +3,10 @@
 import { useMemo, useState } from "react";
 import { Eye, EyeOff, TrendingDown, TrendingUp } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
+import {
+  computeDailyProfitPct,
+  computeInvestorPortfolioTotals,
+} from "@/lib/investor/portfolio-totals";
 import type {
   InvestorInvestmentSummary,
   InvestorPoolPerformance,
@@ -68,15 +72,10 @@ export function MobilePortfolioCard({
 }: MobilePortfolioCardProps) {
   const [hidden, setHidden] = useState(false);
 
-  const availableBalance = investment.balance;
-  const investedCapital = investment.participations.reduce(
-    (sum, p) => sum + p.amountInvested,
-    0
-  );
-  const portfolioValue = availableBalance + investedCapital;
+  const { availableBalance, investedCapital, poolProfit, portfolioValue } =
+    computeInvestorPortfolioTotals(investment);
   const todaysProfit = performance.dailyProfit ?? 0;
-  const todaysProfitPct =
-    portfolioValue > 0 ? (todaysProfit / portfolioValue) * 100 : 0;
+  const todaysProfitPct = computeDailyProfitPct(portfolioValue, todaysProfit);
   const positive = todaysProfit >= 0;
   const TrendIcon = positive ? TrendingUp : TrendingDown;
 
@@ -144,6 +143,14 @@ export function MobilePortfolioCard({
             {mask(formatCurrency(investedCapital))}
           </p>
         </div>
+        {poolProfit > 0 ? (
+          <div className="col-span-2">
+            <p className="text-xs text-[var(--id-text-muted)]">Pool Profit</p>
+            <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-[var(--id-success)]">
+              {mask(formatCurrency(poolProfit))}
+            </p>
+          </div>
+        ) : null}
       </div>
     </article>
   );

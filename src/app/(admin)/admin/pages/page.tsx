@@ -14,7 +14,7 @@ export default async function AdminLandingPage({
     <div>
       <AdminPageHeader
         title="Landing Page"
-        description="Manage homepage hero, statistics, sections, contact info, footer, social links, and SEO."
+        description="Manage homepage hero, brokers, statistics, sections, animations, contact info, footer, social links, and SEO."
       />
       <AdminLandingPageClient initial={content} activeTab={tab} />
     </div>

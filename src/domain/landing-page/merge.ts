@@ -1,5 +1,6 @@
 import type { LandingPageContent, LandingStatItem } from "@/domain/landing-page/types";
 import { DEFAULT_LANDING_PAGE_CONTENT } from "@/domain/landing-page/defaults";
+import { withResolvedBrokerLogos } from "@/domain/landing-page/broker-logos";
 import { inferFormatFromAutomaticKey } from "@/domain/landing-page/stat-format";
 
 function normalizeStatItem(stat: LandingStatItem): LandingStatItem {
@@ -14,6 +15,7 @@ function normalizeStatItem(stat: LandingStatItem): LandingStatItem {
 function normalizeLandingContent(content: LandingPageContent): LandingPageContent {
   return {
     ...content,
+    brokers: withResolvedBrokerLogos(content.brokers),
     heroStats: content.heroStats.map(normalizeStatItem),
     statistics: content.statistics.map(normalizeStatItem),
   };

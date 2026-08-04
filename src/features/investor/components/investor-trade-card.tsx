@@ -4,6 +4,7 @@ import Image from "next/image";
 import { cn, formatCurrency } from "@/lib/utils";
 import { dashboardLabelClass } from "@/features/investor/components/dashboard-card";
 import { InvestorTradeStatusBadge } from "@/features/investor/components/investor-trade-status-badge";
+import { TradeRecorderAttribution } from "@/features/investor/components/trade-recorder-attribution";
 import { investorCardClass } from "@/features/investor/constants/ui";
 import type { InvestorDashboardTrade } from "@/features/investor/types";
 
@@ -32,9 +33,10 @@ export function InvestorTradeCard({ trade }: { trade: InvestorDashboardTrade }) 
             />
             <Stat label="Invested" value={formatCurrency(trade.investedAmount)} />
           </div>
+          <TradeRecorderAttribution trade={trade} className="mt-3" />
           <p className="mt-2 text-[10px] text-[var(--id-text-faint)]">
-            Opened{" "}
-            {new Date(trade.openedAt).toLocaleDateString("en-US", {
+            {trade.isActive ? "Opened" : "Closed"}{" "}
+            {new Date(trade.isActive ? trade.openedAt : trade.closedAt ?? trade.openedAt).toLocaleDateString("en-US", {
               month: "short",
               day: "numeric",
               year: "numeric",

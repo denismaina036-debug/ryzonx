@@ -6,8 +6,9 @@ import {
   dashboardCardBodyClass,
 } from "@/features/investor/components/dashboard-card";
 import { InvestorTradeStatusBadge } from "@/features/investor/components/investor-trade-status-badge";
+import { TradeRecorderAttribution } from "@/features/investor/components/trade-recorder-attribution";
 import { ROUTES } from "@/constants/routes";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import type { InvestorDashboardTrade } from "@/features/investor/types";
 
 interface PoolTradesSectionProps {
@@ -22,7 +23,7 @@ const ASSET_ICONS: Record<string, string> = {
 };
 
 export function PoolTradesSection({ trades }: PoolTradesSectionProps) {
-  const poolTrades = trades.slice(0, 5);
+  const poolTrades = trades.slice(0, 2);
   const totalCount = trades.length;
 
   return (
@@ -39,7 +40,7 @@ export function PoolTradesSection({ trades }: PoolTradesSectionProps) {
     >
       {poolTrades.length === 0 ? (
         <p className="px-6 py-12 text-center text-sm text-[var(--id-text-muted)]">
-          No pool trades published yet. Approved trades from pool managers will appear here.
+          No pool trades recorded yet. Trades from pool manager journals will appear here.
         </p>
       ) : (
         <div className={cn(dashboardCardBodyClass, "space-y-0 pt-0")}>
@@ -54,12 +55,6 @@ export function PoolTradesSection({ trades }: PoolTradesSectionProps) {
 
 function PoolTradeRow({ trade }: { trade: InvestorDashboardTrade }) {
   const profitPositive = trade.profitLoss >= 0;
-  const pct =
-    trade.entryPrice > 0
-      ? ((trade.currentPrice - trade.entryPrice) / trade.entryPrice) *
-        100 *
-        (trade.direction === "long" ? 1 : -1)
-      : 0;
   const iconLabel = ASSET_ICONS[trade.asset.replace("/", "")] ?? trade.asset.slice(0, 2);
 
   return (
@@ -96,6 +91,7 @@ function PoolTradeRow({ trade }: { trade: InvestorDashboardTrade }) {
             </span>
           </span>
         </div>
+        <TradeRecorderAttribution trade={trade} className="mt-2" />
       </div>
 
       <div className="shrink-0 text-right">
@@ -106,7 +102,7 @@ function PoolTradeRow({ trade }: { trade: InvestorDashboardTrade }) {
           )}
         >
           {profitPositive ? "+" : ""}
-          {pct.toFixed(2)}%
+          {formatCurrency(trade.profitLoss)}
         </p>
         <div className="mt-1 flex justify-end">
           <InvestorTradeStatusBadge status={trade.status} />

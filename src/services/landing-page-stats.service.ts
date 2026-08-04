@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_FUND_ID } from "@/constants/funds";
 import { fundService } from "@/services/fund.service";
+import { platformSettingsService } from "@/services/platform-settings.service";
+import { parseLandingPageContent } from "@/domain/landing-page/merge";
 import type { LandingAutomaticStatKey, LandingStatValueFormat } from "@/domain/landing-page/types";
 import {
   formatLandingStatValue,
@@ -60,6 +62,27 @@ async function countTotalInvestors(db: ReturnType<typeof createAdminClient>): Pr
   return count ?? 0;
 }
 
+async function countSupportedBrokers(): Promise<number> {
+  const raw = await platformSettingsService.get("landing_content");
+  const content = parseLandingPageContent(raw);
+  return content.brokers.filter((broker) => broker.isEnabled).length;
+}
+
+async function countDistinctCountries(db: ReturnType<typeof createAdminClient>): Promise<number> {
+  const { data, error } = await db
+    .from("pool_managers")
+    .select("country")
+    .eq("status", "approved");
+  if (error || !data) return 0;
+
+  const countries = new Set(
+    (data as Array<{ country?: string | null }>)
+      .map((row) => row.country?.trim())
+      .filter((country): country is string => Boolean(country))
+  );
+  return countries.size;
+}
+
 function resolveValueFormat(input: {
   valueFormat?: LandingStatValueFormat;
   automaticKey?: LandingAutomaticStatKey;
@@ -78,13 +101,19 @@ export const landingPageStatsService = {
         case "verified_pool_managers":
           return await countApprovedPoolManagers(db);
         case "active_pools":
+        case "trading_pools":
           return await countActivePools(db);
         case "completed_cycles":
           return await countCompletedCycles(db);
         case "total_capital":
+        case "capital_managed":
           return await sumTotalCapital(db);
         case "total_investors":
           return await countTotalInvestors(db);
+        case "supported_brokers":
+          return await countSupportedBrokers();
+        case "countries":
+          return await countDistinctCountries(db);
         default: {
           const [stats, investorStats] = await Promise.all([
             fundService.getStats(DEFAULT_FUND_ID),

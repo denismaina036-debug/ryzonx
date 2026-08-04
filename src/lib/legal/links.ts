@@ -19,8 +19,7 @@ export async function getLegalLinksSafe(): Promise<LegalDocumentLink[]> {
     const { legalDocumentService } = await import("@/services/legal-document.service");
     const links = await legalDocumentService.getPublicLinks();
     return links.length > 0 ? links : FALLBACK_LEGAL_LINKS;
-  } catch (error) {
-    console.error("[legal-links] Failed to load public legal links:", error);
+  } catch {
     return FALLBACK_LEGAL_LINKS;
   }
 }

@@ -10,6 +10,7 @@ const PERCENTAGE_KEYS = new Set<LandingAutomaticStatKey>([
 
 const CURRENCY_KEYS = new Set<LandingAutomaticStatKey>([
   "total_capital",
+  "capital_managed",
   "total_pool_value",
   "average_investment",
   "largest_investment",

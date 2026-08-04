@@ -2,6 +2,7 @@ import type {
   MarketplaceManagerCard,
   MarketplacePoolCard,
 } from "@/domain/marketplace/types";
+import { resolveMarketplacePoolAum } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 
 function pickFeaturedOpportunity(pools: MarketplacePoolCard[]): MarketplacePoolCard | null {
   if (pools.length === 0) return null;
@@ -30,7 +31,10 @@ export function aggregatePoolsByManager(pools: MarketplacePoolCard[]): Marketpla
     const sample = managerPools[0];
     if (!sample) continue;
 
-    const assetsUnderManagement = managerPools.reduce((s, p) => s + p.assetsUnderManagement, 0);
+    const assetsUnderManagement = managerPools.reduce(
+      (sum, pool) => sum + resolveMarketplacePoolAum(pool),
+      0
+    );
     const activeInvestors = managerPools.reduce((s, p) => s + p.activeInvestors, 0);
     const ratings = managerPools
       .map((p) => p.ryvonxRating)

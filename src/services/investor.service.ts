@@ -12,11 +12,11 @@ import type {
   InvestorDashboardTrade,
   InvestorPoolActivityItem,
   InvestorPoolPerformance,
-  InvestorTradeDisplayStatus,
   TraderChallenge,
   ChallengeEnrollment,
 } from "@/features/investor/types";
 import { walletService } from "@/services/wallet.service";
+import { investorPoolTradesService } from "@/services/investor-pool-trades.service";
 import { investmentCycleService } from "@/services/investment-cycle.service";
 import {
   computeInvestorOwnershipShare,
@@ -26,68 +26,13 @@ import type { InvestmentAllocationStatus } from "@/constants/investment-allocati
 import { mapRawTransactionToActivityItem, type RawTransactionRow } from "@/lib/transaction/map";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolvePublicDisplayCount } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
-
-type TradeSnapshot = Pick<
-  Tables<"trades">,
-  | "id"
-  | "symbol"
-  | "direction"
-  | "entry_price"
-  | "exit_price"
-  | "current_price"
-  | "invested_amount"
-  | "pnl"
-  | "investor_status"
-  | "status"
-  | "chart_screenshot_url"
-  | "opened_at"
-  | "updated_at"
-  | "published_at"
->;
+import { computeLifetimePoolPerformance } from "@/lib/investor/lifetime-pool-performance";
 
 type RankSnapshot = Pick<Tables<"investor_portfolios">, "user_id" | "total_invested">;
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
   return typeof value === "number" ? value : Number(value);
-}
-
-function mapTradeStatus(raw: string | null): InvestorTradeDisplayStatus {
-  const map: Record<string, InvestorTradeDisplayStatus> = {
-    running: "running",
-    breakeven: "breakeven",
-    partials_taken: "partials_taken",
-    take_profit_hit: "take_profit_hit",
-    stop_loss_hit: "stop_loss_hit",
-    closed: "closed",
-    cancelled: "cancelled",
-    open: "running",
-    canceled: "cancelled",
-  };
-  return map[raw ?? ""] ?? "running";
-}
-
-function mapTradeRow(row: TradeSnapshot): InvestorDashboardTrade {
-  const current =
-    row.current_price != null
-      ? toNumber(row.current_price)
-      : row.exit_price != null
-        ? toNumber(row.exit_price)
-        : toNumber(row.entry_price);
-
-  return {
-    id: row.id,
-    asset: row.symbol,
-    direction: row.direction === "short" ? "short" : "long",
-    entryPrice: toNumber(row.entry_price),
-    currentPrice: current,
-    investedAmount: toNumber(row.invested_amount),
-    profitLoss: toNumber(row.pnl),
-    status: mapTradeStatus(row.investor_status ?? row.status),
-    isActive: row.status === "open",
-    chartScreenshotUrl: row.chart_screenshot_url ?? null,
-    openedAt: row.opened_at,
-  };
 }
 
 function mapPoolHealth(
@@ -161,24 +106,11 @@ async function fetchListedFundIds(
 }
 
 async function fetchPublishedPoolTrades(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  _supabase: Awaited<ReturnType<typeof createClient>>,
   fundIds: string[],
   limit = 20
 ): Promise<InvestorDashboardTrade[]> {
-  if (fundIds.length === 0) return [];
-
-  const { data } = await supabase
-    .from("trades")
-    .select(
-      "id, symbol, direction, entry_price, exit_price, current_price, invested_amount, pnl, investor_status, status, chart_screenshot_url, opened_at, updated_at, published_at"
-    )
-    .in("fund_id", fundIds)
-    .neq("status", "cancelled")
-    .or("published_at.not.is.null,status.eq.open")
-    .order("updated_at", { ascending: false })
-    .limit(limit);
-
-  return ((data ?? []) as TradeSnapshot[]).map(mapTradeRow);
+  return investorPoolTradesService.listForFunds(fundIds, limit);
 }
 
 export const investorService = {
@@ -199,7 +131,7 @@ export const investorService = {
       (sum, p) => sum + p.amountInvested,
       0
     );
-    const totalProfit = walletSummary.poolProfit;
+    const participationFundIds = walletSummary.participations.map((p) => p.fundId);
     const listedFundIds = await fetchListedFundIds(supabase);
     const tradeFundIds = [
       ...new Set([
@@ -211,7 +143,7 @@ export const investorService = {
     const [
       fundResult,
       poolResult,
-      tradesResult,
+      journalTrades,
       activityResult,
       challengeResult,
       enrollmentResult,
@@ -219,6 +151,7 @@ export const investorService = {
       rankResult,
       activeCycle,
       poolInvestedTotal,
+      lifetimeProfitRows,
     ] = await Promise.all([
       primaryFundId
         ? supabase
@@ -239,17 +172,8 @@ export const investorService = {
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
       tradeFundIds.length > 0
-        ? supabase
-            .from("trades")
-            .select(
-              "id, symbol, direction, entry_price, exit_price, current_price, invested_amount, pnl, investor_status, status, chart_screenshot_url, opened_at, updated_at, published_at"
-            )
-            .in("fund_id", tradeFundIds)
-            .neq("status", "cancelled")
-            .or("published_at.not.is.null,status.eq.open")
-            .order("updated_at", { ascending: false })
-            .limit(20)
-        : Promise.resolve({ data: [], error: null }),
+        ? investorPoolTradesService.listForFunds(tradeFundIds, 20)
+        : Promise.resolve([]),
       supabase
         .from("transactions")
         .select(
@@ -301,6 +225,19 @@ export const investorService = {
             );
           })()
         : Promise.resolve(0),
+      participationFundIds.length > 0
+        ? (async () => {
+            const admin = createAdminClient();
+            const { data } = await admin
+              .from("transactions")
+              .select("amount, created_at")
+              .eq("user_id", user.id)
+              .eq("status", "completed")
+              .in("payment_method", ["cycle_profit", "trade_profit"])
+              .in("fund_id", participationFundIds);
+            return (data ?? []) as Array<{ amount: number | string; created_at: string }>;
+          })()
+        : Promise.resolve([]),
     ]);
 
     const fund = fundResult.data as {
@@ -393,8 +330,12 @@ export const investorService = {
       sharePct = (myInvestment / poolBalance) * 100;
     }
 
-    const totalProfitPct =
-      myInvestment > 0 ? (totalProfit / myInvestment) * 100 : 0;
+    const lifetimePerformance = computeLifetimePoolPerformance(
+      lifetimeProfitRows,
+      myInvestment
+    );
+    const performanceProfit = lifetimePerformance.lifetimeProfit;
+    const performanceProfitPct = lifetimePerformance.lifetimeProfitPct;
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -421,9 +362,7 @@ export const investorService = {
         ? Number(((investorRank / rankRows.length) * 100).toFixed(2))
         : 0;
 
-    const recentTrades = ((tradesResult.data ?? []) as TradeSnapshot[])
-      .map(mapTradeRow)
-      .slice(0, 5);
+    const recentTrades = journalTrades;
 
     let recentActivity: InvestorPoolActivityItem[] = [];
     const activityRows = (activityResult.data ?? []) as RawTransactionRow[];
@@ -491,8 +430,8 @@ export const investorService = {
     const poolPerformance: InvestorPoolPerformance = primaryFundId
       ? {
           totalPoolBalance: poolBalance,
-          totalProfit,
-          totalProfitPct,
+          totalProfit: performanceProfit,
+          totalProfitPct: performanceProfitPct,
           totalContributors:
             toNumber(pool?.total_active_investors) ||
             toNumber(fund?.active_investors),
@@ -510,7 +449,9 @@ export const investorService = {
           winRate: pool?.win_rate != null ? toNumber(pool.win_rate) : null,
           profitFactor: null,
           maxDrawdownPct: null,
-          bestDayProfit: dailyProfit !== 0 ? dailyProfit : totalProfit > 0 ? totalProfit : null,
+          bestDayProfit:
+            lifetimePerformance.bestDayProfit ??
+            (dailyProfit !== 0 ? dailyProfit : performanceProfit > 0 ? performanceProfit : null),
         }
       : emptyPoolPerformance();
 

@@ -85,7 +85,7 @@ export function InvestorDashboardView({
           </div>
 
           <div className="flex flex-col gap-5">
-            <RecentActivityTimeline activity={data.recentActivity} />
+            <RecentActivityTimeline activity={data.recentActivity} maxItems={2} />
             {showManagerJourneyCard &&
             challengeDisplayStatus &&
             challengeDisplayStatus !== CHALLENGE_DISPLAY_STATUS.NONE ? (

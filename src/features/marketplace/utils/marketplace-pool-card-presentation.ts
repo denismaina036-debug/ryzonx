@@ -150,6 +150,20 @@ export function resolvePublicDisplayCount(seed: number, live: number): number {
   return safeSeed + safeLive;
 }
 
+type PoolAumInput = Pick<
+  MarketplacePoolCard,
+  "assetsUnderManagement" | "raisedCapital" | "investorCapital" | "ryvonxCapital"
+>;
+
+/** Best available public capital figure for a marketplace pool card. */
+export function resolveMarketplacePoolAum(pool: PoolAumInput): number {
+  if (pool.assetsUnderManagement > 0) return pool.assetsUnderManagement;
+  if (pool.raisedCapital > 0) return pool.raisedCapital;
+  const combined = pool.investorCapital + pool.ryvonxCapital;
+  if (combined > 0) return combined;
+  return Math.max(pool.investorCapital, 0);
+}
+
 export interface MobilePoolBannerPresentation {
   title: string;
   categoryPill: string | null;

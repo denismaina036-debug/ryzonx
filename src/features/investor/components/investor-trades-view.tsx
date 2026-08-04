@@ -24,7 +24,7 @@ export function InvestorTradesView({ data }: InvestorTradesViewProps) {
     <div className="mx-auto w-full min-w-0 max-w-[960px] space-y-6">
       <RyvonxPageHeader
         title="Pool Trades"
-        description="Live and closed trades published by pool managers and approved by RyvonX admin."
+        description="Trades recorded by pool managers in their trading journals across marketplace pools."
       />
 
       <Tabs defaultValue="running" className="w-full">
@@ -72,7 +72,7 @@ function TradesList({
       <RyvonxEmptyState
         icon={<TrendingUp className="h-5 w-5" />}
         title={emptyLabel.replace(/\.$/, "")}
-        description="Published pool trades will appear here when your managers record activity."
+        description="Published pool trades from manager journals will appear here when managers record activity."
       />
     );
   }

@@ -141,7 +141,13 @@ export const walletService = {
       const invested = toNumber(row.total_invested);
       const walletProfit = profitWalletMap.get(row.fund_id) ?? 0;
       const legacyProfit = toNumber(row.unrealized_pnl) + toNumber(row.realized_pnl);
-      const profit = walletProfit > 0 ? walletProfit : legacyProfit;
+      const storedValue = toNumber(row.current_value);
+      let profit = walletProfit > 0 ? walletProfit : legacyProfit;
+      let currentValue = roundMoney(invested + profit);
+      if (storedValue > currentValue) {
+        currentValue = roundMoney(storedValue);
+        profit = roundMoney(Math.max(profit, currentValue - invested));
+      }
       poolProfit += profit;
 
       const managed = readManagedConfig(fund?.pool_faq);
@@ -162,7 +168,7 @@ export const walletService = {
         fundId: row.fund_id,
         poolName: fund?.name ?? "Pool",
         amountInvested: invested,
-        currentValue: roundMoney(invested + profit),
+        currentValue,
         poolProfit: profit,
         projectedReturnPct: multiplierToDisplayPct(roiMultiplier),
         projectedRoiMultiplier: roiMultiplier,

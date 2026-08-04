@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ROUTES } from "@/constants/routes";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { InvestorTradeStatusBadge } from "@/features/investor/components/investor-trade-status-badge";
 import type { InvestorDashboardTrade } from "@/features/investor/types";
 
@@ -47,12 +47,12 @@ function formatPrice(value: number) {
 }
 
 export function MobileTradesPreview({ trades }: MobileTradesPreviewProps) {
-  const preview = trades.slice(0, 3);
+  const preview = trades.slice(0, 2);
 
   return (
     <section className="rounded-2xl bg-[var(--id-surface)] p-4 shadow-[var(--id-shadow)]">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-[var(--id-text)]">Open Trades</h2>
+        <h2 className="text-sm font-semibold text-[var(--id-text)]">Pool Trades</h2>
         <Link
           href={ROUTES.trades}
           className="text-xs font-medium text-[var(--id-accent-text)] hover:underline"
@@ -61,20 +61,14 @@ export function MobileTradesPreview({ trades }: MobileTradesPreviewProps) {
         </Link>
       </div>
 
-      {preview.length === 0 ? (
-        <p className="py-6 text-center text-xs text-[var(--id-text-muted)]">
-          No open trades yet.
-        </p>
-      ) : (
-        <ul className="mt-2">
-          {preview.map((trade) => {
+      <ul className="mt-2">
+        {preview.length === 0 ? (
+          <li className="py-6 text-center text-xs text-[var(--id-text-muted)]">
+            No pool trades recorded yet.
+          </li>
+        ) : (
+          preview.map((trade) => {
             const positive = trade.profitLoss >= 0;
-            const pct =
-              trade.entryPrice > 0
-                ? ((trade.currentPrice - trade.entryPrice) / trade.entryPrice) *
-                  100 *
-                  (trade.direction === "long" ? 1 : -1)
-                : 0;
 
             return (
               <li
@@ -97,8 +91,10 @@ export function MobileTradesPreview({ trades }: MobileTradesPreviewProps) {
                       {trade.direction === "long" ? "Buy" : "Sell"}
                     </span>
                   </div>
-                  <p className="mt-0.5 font-mono text-[11px] text-[var(--id-text-muted)]">
-                    {formatPrice(trade.currentPrice)}
+                  <p className="mt-0.5 truncate text-[10px] text-[var(--id-text-muted)]">
+                    {trade.poolManagerName
+                      ? `Recorded by ${trade.poolManagerName}`
+                      : trade.poolName ?? formatPrice(trade.currentPrice)}
                   </p>
                 </div>
 
@@ -112,7 +108,7 @@ export function MobileTradesPreview({ trades }: MobileTradesPreviewProps) {
                     )}
                   >
                     {positive ? "+" : ""}
-                    {pct.toFixed(2)}%
+                    {formatCurrency(trade.profitLoss)}
                   </p>
                   <div className="mt-0.5 flex justify-end">
                     <InvestorTradeStatusBadge status={trade.status} />
@@ -120,9 +116,9 @@ export function MobileTradesPreview({ trades }: MobileTradesPreviewProps) {
                 </div>
               </li>
             );
-          })}
-        </ul>
-      )}
+          })
+        )}
+      </ul>
     </section>
   );
 }

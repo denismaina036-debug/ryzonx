@@ -30,13 +30,26 @@ export const DEFAULT_LANDING_PAGE_CONTENT: LandingPageContent = {
     { id: "hs6", title: "Closed Trades", mode: "automatic", automaticKey: "closed_trades", icon: "BarChart3", valueFormat: "number" },
   ],
   statistics: [
-    { id: "s1", title: "Total Investors", mode: "automatic", automaticKey: "total_investors", icon: "Users", valueFormat: "number" },
-    { id: "s2", title: "Average Investment", mode: "automatic", automaticKey: "average_investment", icon: "Wallet", valueFormat: "currency" },
-    { id: "s3", title: "Largest Investment", mode: "automatic", automaticKey: "largest_investment", icon: "Crown", valueFormat: "currency" },
-    { id: "s4", title: "Average ROI", mode: "automatic", automaticKey: "average_roi", icon: "TrendingUp", valueFormat: "percentage" },
-    { id: "s5", title: "Total Deposits", mode: "automatic", automaticKey: "total_deposits", icon: "ArrowDownToLine", valueFormat: "currency" },
-    { id: "s6", title: "Total Withdrawals", mode: "automatic", automaticKey: "total_withdrawals", icon: "ArrowUpFromLine", valueFormat: "currency" },
+    { id: "s1", title: "Verified Pool Managers", mode: "automatic", automaticKey: "verified_pool_managers", icon: "Shield", valueFormat: "number" },
+    { id: "s2", title: "Capital Managed", mode: "automatic", automaticKey: "capital_managed", icon: "Wallet", valueFormat: "currency" },
+    { id: "s3", title: "Active Investors", mode: "automatic", automaticKey: "active_investors", icon: "Users", valueFormat: "number" },
+    { id: "s4", title: "Trading Pools", mode: "automatic", automaticKey: "trading_pools", icon: "BarChart3", valueFormat: "number" },
+    { id: "s5", title: "Supported Brokers", mode: "automatic", automaticKey: "supported_brokers", icon: "Landmark", valueFormat: "number" },
+    { id: "s6", title: "Countries", mode: "automatic", automaticKey: "countries", icon: "Target", valueFormat: "number" },
   ],
+  brokers: [
+    { id: "b1", name: "Pepperstone", logoUrl: "/images/brokers/pepperstone.svg", sortOrder: 0, isPrimary: true, isEnabled: true },
+    { id: "b2", name: "IC Markets", logoUrl: "/images/brokers/icmarkets.svg", sortOrder: 1, isPrimary: false, isEnabled: true },
+    { id: "b3", name: "XM", logoUrl: "/images/brokers/xm.svg", sortOrder: 2, isPrimary: false, isEnabled: true },
+    { id: "b4", name: "Exness", logoUrl: "/images/brokers/exness.svg", sortOrder: 3, isPrimary: false, isEnabled: true },
+    { id: "b5", name: "FP Markets", logoUrl: "/images/brokers/fpmarkets.svg", sortOrder: 4, isPrimary: false, isEnabled: true },
+    { id: "b6", name: "OANDA", logoUrl: "/images/brokers/oanda.svg", sortOrder: 5, isPrimary: false, isEnabled: true },
+  ],
+  settings: {
+    enableSectionAnimations: true,
+    brokerSliderAutoScroll: true,
+    featuredManagersAutoRotate: true,
+  },
   contact: {
     companyName: APP_NAME,
     supportEmail: "hello@ryvonx.com",
@@ -84,6 +97,8 @@ export const DEFAULT_LANDING_PAGE_CONTENT: LandingPageContent = {
   },
   sections: {
     hero: true,
+    brokerCompatibility: true,
+    featuredPoolManagers: true,
     performance: true,
     journal: true,
     recentActivity: true,
@@ -96,6 +111,19 @@ export const DEFAULT_LANDING_PAGE_CONTENT: LandingPageContent = {
     ctaBanner: false,
   },
   copy: {
+    brokerCompatibility: {
+      badge: "Broker Compatibility",
+      title: "Trusted Brokerage Infrastructure",
+      description:
+        "RyvonX partners with verified brokers to enable secure trade execution, transparent capital management, and a seamless trading experience.",
+      primaryPartnerLabel: "Primary Trading Partner",
+    },
+    featuredPoolManagers: {
+      badge: "Top Performers",
+      title: "Featured Pool Managers",
+      description:
+        "Top-ranked pool managers based on rating, capital under management, investor count, and trading consistency.",
+    },
     performance: {
       badge: "Performance",
       title: "Pool Performance History",
@@ -117,9 +145,9 @@ export const DEFAULT_LANDING_PAGE_CONTENT: LandingPageContent = {
       viewAllLabel: "View all activity",
     },
     statistics: {
-      badge: "Investors",
-      title: "Fund Statistics",
-      description: "Anonymized aggregate data about our investor community.",
+      badge: "Platform",
+      title: "Live Platform Statistics",
+      description: "Real-time metrics from the RyvonX marketplace — updated automatically.",
     },
     howItWorks: {
       badge: "How It Works",
@@ -186,13 +214,10 @@ export const DEFAULT_LANDING_PAGE_CONTENT: LandingPageContent = {
     },
   ],
   whyRyvonxFeatures: [
-    { id: "f1", icon: "BarChart3", title: "Transparent Trading Journal", description: "Every closed trade published with full details." },
-    { id: "f2", icon: "Shield", title: "Professional Fund Management", description: "Experienced team managing the pool strategy." },
-    { id: "f3", icon: "BarChart3", title: "Visible Performance History", description: "Complete historical data available to all visitors." },
-    { id: "f4", icon: "Users", title: "Community Investment Pool", description: "Join a collective of verified investors." },
-    { id: "f5", icon: "Shield", title: "Secure Investor Portal", description: "Bank-grade encryption and Row Level Security." },
-    { id: "f6", icon: "Target", title: "Manual Trade Verification", description: "All trades reviewed before publication." },
-    { id: "f7", icon: "Activity", title: "Real-Time Performance Updates", description: "Live pool value and ROI metrics." },
+    { id: "f1", icon: "Shield", title: "Verified Pool Managers", description: "Every pool manager passes rigorous verification before managing investor capital." },
+    { id: "f2", icon: "BarChart3", title: "Transparent Trading", description: "Every closed trade is published with full details for complete transparency." },
+    { id: "f3", icon: "LineChart", title: "Performance Tracking", description: "Real-time pool performance, ROI metrics, and historical data at your fingertips." },
+    { id: "f4", icon: "Landmark", title: "Secure Marketplace", description: "Bank-grade encryption, Row Level Security, and a trusted investment environment." },
   ],
   seo: {
     title: APP_NAME,

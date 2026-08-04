@@ -57,6 +57,15 @@ type LegalDocumentVersionRow = {
   published_at: string;
 };
 
+function warnPublicReadFailure(context: string, error: unknown): void {
+  if (process.env.NODE_ENV !== "development") return;
+  const message =
+    error instanceof Error
+      ? error.message.replace(/\s+/g, " ").slice(0, 160)
+      : String(error).replace(/\s+/g, " ").slice(0, 160);
+  console.warn(`[legal-document] ${context} — using fallback.`, message);
+}
+
 function parseSections(value: unknown): LegalSection[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -124,12 +133,12 @@ async function getPublicDocumentRow(documentType: LegalDocumentType): Promise<Le
       .eq("status", LEGAL_DOCUMENT_STATUSES.PUBLISHED)
       .maybeSingle();
     if (error) {
-      console.error("[legal-document] public document read failed:", error.message);
+      warnPublicReadFailure("public document read failed", error.message);
       return null;
     }
     return (data as LegalDocumentRow | null) ?? null;
   } catch (error) {
-    console.error("[legal-document] public document read failed:", error);
+    warnPublicReadFailure("public document read failed", error);
     return null;
   }
 }
@@ -144,12 +153,12 @@ async function getPublicDocumentRowBySlug(slug: string): Promise<LegalDocumentRo
       .eq("status", LEGAL_DOCUMENT_STATUSES.PUBLISHED)
       .maybeSingle();
     if (error) {
-      console.error("[legal-document] public slug read failed:", error.message);
+      warnPublicReadFailure("public slug read failed", error.message);
       return null;
     }
     return (data as LegalDocumentRow | null) ?? null;
   } catch (error) {
-    console.error("[legal-document] public slug read failed:", error);
+    warnPublicReadFailure("public slug read failed", error);
     return null;
   }
 }
@@ -169,7 +178,7 @@ async function getPublishedVersionRow(
       .maybeSingle();
     if (error) {
       if (usePublicClient) {
-        console.error("[legal-document] public version read failed:", error.message);
+        warnPublicReadFailure("public version read failed", error.message);
         return null;
       }
       throw new Error(error.message);
@@ -177,7 +186,7 @@ async function getPublishedVersionRow(
     return (data as LegalDocumentVersionRow | null) ?? null;
   } catch (error) {
     if (usePublicClient) {
-      console.error("[legal-document] public version read failed:", error);
+      warnPublicReadFailure("public version read failed", error);
       return null;
     }
     throw error;
@@ -216,7 +225,7 @@ export const legalDocumentService = {
         .eq("status", LEGAL_DOCUMENT_STATUSES.PUBLISHED)
         .not("published_version_number", "is", null);
       if (error) {
-        console.error("[legal-document] public links read failed:", error.message);
+        warnPublicReadFailure("public links read failed", error.message);
         return [];
       }
 
@@ -231,7 +240,7 @@ export const legalDocumentService = {
 
       return links.length > 0 ? links : [];
     } catch (error) {
-      console.error("[legal-document] public links read failed:", error);
+      warnPublicReadFailure("public links read failed", error);
       return [];
     }
   }),

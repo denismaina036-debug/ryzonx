@@ -8,6 +8,10 @@ export type LandingAutomaticStatKey =
   | "active_pools"
   | "completed_cycles"
   | "total_capital"
+  | "capital_managed"
+  | "trading_pools"
+  | "supported_brokers"
+  | "countries"
   | "total_pool_value"
   | "active_investors"
   | "daily_roi"
@@ -136,8 +140,25 @@ export interface LandingSeoContent {
   faviconUrl: string;
 }
 
+export interface LandingBrokerItem {
+  id: string;
+  name: string;
+  logoUrl: string;
+  sortOrder: number;
+  isPrimary: boolean;
+  isEnabled: boolean;
+}
+
+export interface LandingPageSettings {
+  enableSectionAnimations: boolean;
+  brokerSliderAutoScroll: boolean;
+  featuredManagersAutoRotate: boolean;
+}
+
 export interface LandingSectionVisibility {
   hero: boolean;
+  brokerCompatibility: boolean;
+  featuredPoolManagers: boolean;
   performance: boolean;
   journal: boolean;
   recentActivity: boolean;
@@ -151,6 +172,8 @@ export interface LandingSectionVisibility {
 }
 
 export interface LandingSectionCopy {
+  brokerCompatibility: LandingSectionHeader & { primaryPartnerLabel: string };
+  featuredPoolManagers: LandingSectionHeader;
   performance: LandingSectionHeader;
   journal: LandingSectionHeader & { viewAllLabel: string };
   recentActivity: LandingSectionHeader & {
@@ -176,6 +199,8 @@ export interface LandingPageContent {
   hero: LandingHeroContent;
   heroStats: LandingHeroFloatingStat[];
   statistics: LandingStatItem[];
+  brokers: LandingBrokerItem[];
+  settings: LandingPageSettings;
   contact: LandingContactInfo;
   social: LandingSocialLinks;
   footer: LandingFooterContent;
@@ -184,6 +209,22 @@ export interface LandingPageContent {
   howItWorksSteps: LandingHowItWorksStep[];
   whyRyvonxFeatures: LandingFeatureCard[];
   seo: LandingSeoContent;
+}
+
+export interface FeaturedLandingPoolManager {
+  id: string;
+  slug: string | null;
+  displayName: string;
+  photoUrl: string | null;
+  isVerified: boolean;
+  poolName: string;
+  strategy: string | null;
+  capitalManaged: number;
+  investorCount: number;
+  winRatePct: number | null;
+  rating: number | null;
+  poolSlug: string | null;
+  compositeScore: number;
 }
 
 export interface ResolvedLandingStat extends LandingStatItem {

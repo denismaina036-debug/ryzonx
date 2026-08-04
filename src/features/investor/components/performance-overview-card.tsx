@@ -47,7 +47,9 @@ export function PerformanceOverviewCard({
   const [period, setPeriod] = useState<(typeof PERIOD_OPTIONS)[number]>("This Month");
   const chartData = buildChartData(performance.totalProfit);
   const profitPositive = performance.totalProfit >= 0;
-  const hasActivity = performance.myInvestment != null && performance.myInvestment > 0;
+  const hasActivity =
+    (performance.myInvestment != null && performance.myInvestment > 0) ||
+    performance.totalProfit !== 0;
 
   return (
     <DashboardCard
@@ -83,12 +85,16 @@ export function PerformanceOverviewCard({
           }`}
         >
           {profitPositive && hasActivity ? "+" : ""}
-          {formatCurrency(performance.totalProfit)}{" "}
-          <span className="text-base">
-            ({formatPercentage(performance.totalProfitPct)})
-          </span>
+          {formatCurrency(performance.totalProfit)}
         </p>
-        <p className="mt-1 text-xs text-[var(--id-text-muted)]">Total Return</p>
+        <p className="mt-1 text-xs text-[var(--id-text-muted)]">
+          Total Return
+          {performance.totalProfitPct !== 0 ? (
+            <span className="ml-1 text-[var(--id-text-faint)]">
+              ({formatPercentage(performance.totalProfitPct)} on capital)
+            </span>
+          ) : null}
+        </p>
 
         <div className="mt-5 h-[160px] w-full">
           <ResponsiveContainer width="100%" height="100%">

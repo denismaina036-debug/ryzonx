@@ -49,7 +49,7 @@ export function MobileDashboardView({
   return (
     <motion.div
       variants={container}
-      initial="hidden"
+      initial={false}
       animate="show"
       className="flex flex-col gap-4"
     >

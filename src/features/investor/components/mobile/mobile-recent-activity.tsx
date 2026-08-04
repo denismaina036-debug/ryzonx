@@ -25,7 +25,7 @@ export function MobileRecentActivity({
 }: {
   activity: InvestorPoolActivityItem[];
 }) {
-  const items = activity.slice(0, 4);
+  const items = activity.slice(0, 2);
 
   return (
     <section className="rounded-2xl bg-[var(--id-surface)] p-4 shadow-[var(--id-shadow)]">
@@ -39,13 +39,13 @@ export function MobileRecentActivity({
         </Link>
       </div>
 
-      {items.length === 0 ? (
-        <p className="py-6 text-center text-xs text-[var(--id-text-muted)]">
-          No recent activity.
-        </p>
-      ) : (
-        <ul className="mt-2">
-          {items.map((item) => (
+      <ul className="mt-2">
+        {items.length === 0 ? (
+          <li className="py-6 text-center text-xs text-[var(--id-text-muted)]">
+            No recent activity.
+          </li>
+        ) : (
+          items.map((item) => (
             <li key={item.id} className="border-b border-[var(--id-border)] last:border-0">
               <Link
                 href={ROUTES.transactionDetail(item.id)}
@@ -73,16 +73,19 @@ export function MobileRecentActivity({
                     <p className="min-w-0 break-words text-xs text-[var(--id-text-muted)]">
                       {item.subtitle}
                     </p>
-                    <p className="shrink-0 text-[10px] text-[var(--id-text-faint)]">
+                    <p
+                      className="shrink-0 text-[10px] text-[var(--id-text-faint)]"
+                      suppressHydrationWarning
+                    >
                       {formatActivityTime(item.createdAt)}
                     </p>
                   </div>
                 </div>
               </Link>
             </li>
-          ))}
-        </ul>
-      )}
+          ))
+        )}
+      </ul>
     </section>
   );
 }

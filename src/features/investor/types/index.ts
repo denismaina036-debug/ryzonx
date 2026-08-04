@@ -21,6 +21,7 @@ export type {
 
 export interface InvestorPoolPerformance {
   totalPoolBalance: number;
+  /** Cumulative pool investment performance (not reduced by profit withdrawals). */
   totalProfit: number;
   totalProfitPct: number;
   totalContributors: number;
@@ -53,6 +54,14 @@ export interface InvestorDashboardTrade {
   isActive: boolean;
   chartScreenshotUrl: string | null;
   openedAt: string;
+  closedAt?: string | null;
+  tradeReference?: string | null;
+  poolId?: string | null;
+  poolName?: string | null;
+  poolManagerId?: string | null;
+  poolManagerName?: string | null;
+  poolManagerSlug?: string | null;
+  poolManagerPhotoUrl?: string | null;
 }
 
 export interface InvestorPoolActivityItem {

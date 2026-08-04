@@ -42,6 +42,7 @@ import {
   resolveTradingAssetLabel,
   stripInstrumentFromPoolName,
   resolvePublicDisplayCount,
+  resolveMarketplacePoolAum,
   attachRoiToPoolCard,
 } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 import {
@@ -280,10 +281,15 @@ async function enrichPoolCards(
       : 0;
     const seedReviewCount = manager?.display_review_count ?? 0;
     const resolvedManagerRating = resolveMergedManagerRating(manager);
+    const resolvedAum = resolveMarketplacePoolAum({
+      ...card,
+      raisedCapital,
+    });
 
     return attachRoiToPoolCard(
       {
       ...card,
+      assetsUnderManagement: resolvedAum,
       managerCountryCode: normalizeCountryCode(manager?.country) ?? card.managerCountryCode,
       name: card.name,
       displayPoolName: stripInstrumentFromPoolName(card.name, tradingAssetTag),
@@ -692,6 +698,11 @@ function enrichManagerCards(
       ) / 10
     );
 
+    const liveAum = card.activeOpportunities.reduce(
+      (sum, pool) => sum + resolveMarketplacePoolAum(pool),
+      0
+    );
+
     const merged = mergeAdminStatistics(
       {
         ryvonxRating:
@@ -709,6 +720,8 @@ function enrichManagerCards(
           row.max_drawdown_pct != null ? toNumber(row.max_drawdown_pct) : card.maxDrawdownPct,
         publicTradeCount: platformTradeCount,
         displayTradeCount: platformTradeCount,
+        assetsUnderManagement: liveAum,
+        activeInvestors: card.activeInvestors,
       },
       adminStats
     );
@@ -730,6 +743,10 @@ function enrichManagerCards(
       avgMonthlyReturnPct: merged.avgMonthlyReturnPct ?? card.avgMonthlyReturnPct,
       maxDrawdownPct: merged.maxDrawdownPct ?? card.maxDrawdownPct,
       yearsOnRyvonX: resolveYearsOnRyvonX(liveYears, adminStats),
+      assetsUnderManagement:
+        typeof merged.assetsUnderManagement === "number"
+          ? merged.assetsUnderManagement
+          : liveAum,
     };
   });
 }

@@ -17,6 +17,7 @@ import {
 import { AdminSubNav } from "@/features/admin/components/admin-sub-nav";
 import type {
   LandingAutomaticStatKey,
+  LandingBrokerItem,
   LandingPageContent,
   LandingStatIcon,
   LandingStatItem,
@@ -26,6 +27,7 @@ import { inferFormatFromAutomaticKey } from "@/domain/landing-page/stat-format";
 
 const TABS = [
   { label: "Hero", href: "/admin/pages?tab=hero", tab: "hero" },
+  { label: "Brokers", href: "/admin/pages?tab=brokers", tab: "brokers" },
   { label: "Statistics", href: "/admin/pages?tab=statistics", tab: "statistics" },
   { label: "Sections", href: "/admin/pages?tab=sections", tab: "sections" },
   { label: "Contact", href: "/admin/pages?tab=contact", tab: "contact" },
@@ -35,13 +37,17 @@ const TABS = [
 ] as const;
 
 const AUTOMATIC_KEYS: LandingAutomaticStatKey[] = [
-  "total_investors",
   "verified_pool_managers",
+  "capital_managed",
+  "active_investors",
+  "trading_pools",
+  "supported_brokers",
+  "countries",
+  "total_investors",
   "active_pools",
   "completed_cycles",
   "total_capital",
   "total_pool_value",
-  "active_investors",
   "daily_roi",
   "monthly_roi",
   "win_rate",
@@ -191,6 +197,82 @@ function StatEditor({
   );
 }
 
+function BrokerEditor({
+  broker,
+  onChange,
+  onRemove,
+  onUploadLogo,
+  uploading,
+}: {
+  broker: LandingBrokerItem;
+  onChange: (next: LandingBrokerItem) => void;
+  onRemove: () => void;
+  onUploadLogo: (file: File) => Promise<void>;
+  uploading: boolean;
+}) {
+  return (
+    <div className="grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-2">
+      <Field label="Broker Name">
+        <Input value={broker.name} onChange={(e) => onChange({ ...broker, name: e.target.value })} />
+      </Field>
+      <Field label="Sort Order">
+        <Input
+          type="number"
+          value={broker.sortOrder}
+          onChange={(e) => onChange({ ...broker, sortOrder: Number(e.target.value) || 0 })}
+        />
+      </Field>
+      <Field label="Logo URL">
+        <Input
+          value={broker.logoUrl}
+          onChange={(e) => onChange({ ...broker, logoUrl: e.target.value })}
+          placeholder="https://..."
+        />
+      </Field>
+      <Field label="Upload Logo">
+        <Input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          disabled={uploading}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void onUploadLogo(file);
+          }}
+        />
+      </Field>
+      <Field label="Primary Partner">
+        <Select
+          value={broker.isPrimary ? "yes" : "no"}
+          onValueChange={(v) => onChange({ ...broker, isPrimary: v === "yes" })}
+        >
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="yes">Primary</SelectItem>
+            <SelectItem value="no">Standard</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field label="Visibility">
+        <Select
+          value={broker.isEnabled ? "yes" : "no"}
+          onValueChange={(v) => onChange({ ...broker, isEnabled: v === "yes" })}
+        >
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="yes">Enabled</SelectItem>
+            <SelectItem value="no">Hidden</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+      <div className="sm:col-span-2 flex justify-end">
+        <Button type="button" variant="outline" size="sm" onClick={onRemove}>
+          Remove Broker
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function AdminLandingPageClient({
   initial,
   activeTab,
@@ -200,6 +282,7 @@ export function AdminLandingPageClient({
 }) {
   const [content, setContent] = useState(initial);
   const [saving, setSaving] = useState(false);
+  const [uploadingBrokerId, setUploadingBrokerId] = useState<string | null>(null);
 
   const tab = useMemo(
     () => TABS.find((t) => t.tab === activeTab)?.tab ?? "hero",
@@ -236,6 +319,35 @@ export function AdminLandingPageClient({
     }));
   }
 
+  async function uploadBrokerLogo(brokerId: string, file: File) {
+    setUploadingBrokerId(brokerId);
+    try {
+      const formData = new FormData();
+      formData.append("brokerId", brokerId);
+      formData.append("file", file);
+      const res = await fetch("/api/admin/landing-page/broker-logo", {
+        method: "POST",
+        body: formData,
+      });
+      const json = (await res.json()) as { logoUrl?: string; error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Upload failed");
+      if (!json.logoUrl) throw new Error("Upload failed");
+
+      setContent((prev) => ({
+        ...prev,
+        brokers: prev.brokers.map((broker) =>
+          broker.id === brokerId ? { ...broker, logoUrl: json.logoUrl! } : broker
+        ),
+      }));
+      toast.success("Broker logo uploaded.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploadingBrokerId(null);
+    }
+  }
+
+
   return (
     <div className="space-y-6">
       <AdminSubNav items={TABS.map(({ label, href }) => ({ label, href }))} />
@@ -270,6 +382,155 @@ export function AdminLandingPageClient({
             </Field>
           </CardContent>
         </Card>
+      )}
+
+      {tab === "brokers" && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Supported Brokers</CardTitle>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() =>
+                  setContent({
+                    ...content,
+                    brokers: [
+                      ...content.brokers,
+                      {
+                        id: `b-${Date.now()}`,
+                        name: "New Broker",
+                        logoUrl: "",
+                        sortOrder: content.brokers.length,
+                        isPrimary: content.brokers.length === 0,
+                        isEnabled: true,
+                      },
+                    ],
+                  })
+                }
+              >
+                Add Broker
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {[...content.brokers]
+                .sort((a, b) => a.sortOrder - b.sortOrder)
+                .map((broker) => {
+                  const index = content.brokers.findIndex((item) => item.id === broker.id);
+                  return (
+                    <BrokerEditor
+                      key={broker.id}
+                      broker={broker}
+                      uploading={uploadingBrokerId === broker.id}
+                      onUploadLogo={(file) => uploadBrokerLogo(broker.id, file)}
+                      onChange={(next) => {
+                        if (next.isPrimary && !broker.isPrimary) {
+                          setContent((prev) => ({
+                            ...prev,
+                            brokers: prev.brokers.map((item, i) =>
+                              i === index
+                                ? { ...next, isPrimary: true }
+                                : { ...item, isPrimary: false }
+                            ),
+                          }));
+                          return;
+                        }
+                        setContent((prev) => ({
+                          ...prev,
+                          brokers: prev.brokers.map((item, i) => (i === index ? next : item)),
+                        }));
+                      }}
+                      onRemove={() =>
+                        setContent({
+                          ...content,
+                          brokers: content.brokers.filter((_, i) => i !== index),
+                        })
+                      }
+                    />
+                  );
+                })}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Broker Section Copy</CardTitle></CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <Field label="Badge">
+                <Input
+                  value={content.copy.brokerCompatibility.badge}
+                  onChange={(e) =>
+                    setContent({
+                      ...content,
+                      copy: {
+                        ...content.copy,
+                        brokerCompatibility: {
+                          ...content.copy.brokerCompatibility,
+                          badge: e.target.value,
+                        },
+                      },
+                    })
+                  }
+                />
+              </Field>
+              <Field label="Primary Partner Label">
+                <Input
+                  value={content.copy.brokerCompatibility.primaryPartnerLabel}
+                  onChange={(e) =>
+                    setContent({
+                      ...content,
+                      copy: {
+                        ...content.copy,
+                        brokerCompatibility: {
+                          ...content.copy.brokerCompatibility,
+                          primaryPartnerLabel: e.target.value,
+                        },
+                      },
+                    })
+                  }
+                />
+              </Field>
+              <div className="sm:col-span-2">
+                <Field label="Title">
+                  <Input
+                    value={content.copy.brokerCompatibility.title}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        copy: {
+                          ...content.copy,
+                          brokerCompatibility: {
+                            ...content.copy.brokerCompatibility,
+                            title: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                  />
+                </Field>
+              </div>
+              <div className="sm:col-span-2">
+                <Field label="Description">
+                  <Textarea
+                    value={content.copy.brokerCompatibility.description}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        copy: {
+                          ...content.copy,
+                          brokerCompatibility: {
+                            ...content.copy.brokerCompatibility,
+                            description: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                    rows={3}
+                  />
+                </Field>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {tab === "statistics" && (
@@ -358,6 +619,56 @@ export function AdminLandingPageClient({
               ))}
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader><CardTitle>Statistics Section Copy</CardTitle></CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <Field label="Badge">
+                <Input
+                  value={content.copy.statistics.badge}
+                  onChange={(e) =>
+                    setContent({
+                      ...content,
+                      copy: {
+                        ...content.copy,
+                        statistics: { ...content.copy.statistics, badge: e.target.value },
+                      },
+                    })
+                  }
+                />
+              </Field>
+              <Field label="Title">
+                <Input
+                  value={content.copy.statistics.title}
+                  onChange={(e) =>
+                    setContent({
+                      ...content,
+                      copy: {
+                        ...content.copy,
+                        statistics: { ...content.copy.statistics, title: e.target.value },
+                      },
+                    })
+                  }
+                />
+              </Field>
+              <div className="sm:col-span-2">
+                <Field label="Description">
+                  <Textarea
+                    value={content.copy.statistics.description}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        copy: {
+                          ...content.copy,
+                          statistics: { ...content.copy.statistics, description: e.target.value },
+                        },
+                      })
+                    }
+                    rows={3}
+                  />
+                </Field>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -386,10 +697,142 @@ export function AdminLandingPageClient({
               </div>
             ))}
             <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Section Animations">
+                <Select
+                  value={content.settings.enableSectionAnimations ? "on" : "off"}
+                  onValueChange={(v) =>
+                    setContent({
+                      ...content,
+                      settings: {
+                        ...content.settings,
+                        enableSectionAnimations: v === "on",
+                      },
+                    })
+                  }
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="on">Enabled</SelectItem>
+                    <SelectItem value="off">Disabled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Broker Carousel Auto-Rotate">
+                <Select
+                  value={content.settings.brokerSliderAutoScroll ? "on" : "off"}
+                  onValueChange={(v) =>
+                    setContent({
+                      ...content,
+                      settings: {
+                        ...content.settings,
+                        brokerSliderAutoScroll: v === "on",
+                      },
+                    })
+                  }
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="on">Enabled</SelectItem>
+                    <SelectItem value="off">Disabled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Featured Managers Auto-Rotate">
+                <Select
+                  value={content.settings.featuredManagersAutoRotate ? "on" : "off"}
+                  onValueChange={(v) =>
+                    setContent({
+                      ...content,
+                      settings: {
+                        ...content.settings,
+                        featuredManagersAutoRotate: v === "on",
+                      },
+                    })
+                  }
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="on">Enabled</SelectItem>
+                    <SelectItem value="off">Disabled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Broker Compatibility Title">
+                <Input
+                  value={content.copy.brokerCompatibility.title}
+                  onChange={(e) =>
+                    setContent({
+                      ...content,
+                      copy: {
+                        ...content.copy,
+                        brokerCompatibility: {
+                          ...content.copy.brokerCompatibility,
+                          title: e.target.value,
+                        },
+                      },
+                    })
+                  }
+                />
+              </Field>
+              <Field label="Featured Pool Managers Title">
+                <Input
+                  value={content.copy.featuredPoolManagers.title}
+                  onChange={(e) =>
+                    setContent({
+                      ...content,
+                      copy: {
+                        ...content.copy,
+                        featuredPoolManagers: {
+                          ...content.copy.featuredPoolManagers,
+                          title: e.target.value,
+                        },
+                      },
+                    })
+                  }
+                />
+              </Field>
+              <Field label="Statistics Title">
+                <Input
+                  value={content.copy.statistics.title}
+                  onChange={(e) =>
+                    setContent({
+                      ...content,
+                      copy: {
+                        ...content.copy,
+                        statistics: { ...content.copy.statistics, title: e.target.value },
+                      },
+                    })
+                  }
+                />
+              </Field>
               <Field label="Performance Title"><Input value={content.copy.performance.title} onChange={(e) => setContent({ ...content, copy: { ...content.copy, performance: { ...content.copy.performance, title: e.target.value } } })} /></Field>
               <Field label="Recent Activity Title"><Input value={content.copy.recentActivity.title} onChange={(e) => setContent({ ...content, copy: { ...content.copy, recentActivity: { ...content.copy.recentActivity, title: e.target.value } } })} /></Field>
               <Field label="How It Works Title"><Input value={content.copy.howItWorks.title} onChange={(e) => setContent({ ...content, copy: { ...content.copy, howItWorks: { ...content.copy.howItWorks, title: e.target.value } } })} /></Field>
               <Field label="Why RyvonX Title"><Input value={content.copy.whyRyvonx.title} onChange={(e) => setContent({ ...content, copy: { ...content.copy, whyRyvonx: { ...content.copy.whyRyvonx, title: e.target.value } } })} /></Field>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <Field label="Featured Pool Managers Description">
+                  <Textarea
+                    value={content.copy.featuredPoolManagers.description}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        copy: {
+                          ...content.copy,
+                          featuredPoolManagers: {
+                            ...content.copy.featuredPoolManagers,
+                            description: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                    rows={2}
+                  />
+                </Field>
+              </div>
             </div>
 
             <div className="space-y-4">
