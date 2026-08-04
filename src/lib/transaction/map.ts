@@ -57,7 +57,7 @@ function toPresentationInput(row: RawTransactionRow, fundName: string) {
     cryptoSymbol: row.crypto_symbol ?? parsed.symbol,
     cryptoNetwork: row.crypto_network ?? parsed.network,
     cryptoAmount:
-      row.crypto_amount != null ? toNumber(row.crypto_amount) : toNumber(row.amount),
+      row.crypto_amount != null ? toNumber(row.crypto_amount) : null,
     createdAt: row.created_at,
     processedAt: row.processed_at ?? null,
     metadata: row.metadata ?? null,

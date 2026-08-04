@@ -23,7 +23,7 @@ export interface InvestorNavItem {
 export const INVESTOR_NAV_ITEMS: InvestorNavItem[] = [
   { label: "Home", href: ROUTES.dashboard, icon: LayoutDashboard },
   { label: "Marketplace", href: ROUTES.marketplace, icon: Store },
-  { label: "Portfolio", href: ROUTES.portfolio, icon: Briefcase },
+  { label: "Pool Cycles", href: ROUTES.portfolio, icon: Briefcase },
   { label: "Managers", href: `${ROUTES.marketplace}?tab=managers`, icon: Users },
   { label: "Activity", href: ROUTES.personalActivity, icon: Activity },
   { label: "Notifications", href: ROUTES.notifications, icon: Bell },

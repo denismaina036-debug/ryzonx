@@ -54,6 +54,7 @@ export interface SubmitCryptoDepositInput {
   walletId: string;
   symbol: string;
   networkCode: string;
+  /** Deposit amount in USD (credited to wallet on approval). */
   amount: number;
   txHash?: string;
 }

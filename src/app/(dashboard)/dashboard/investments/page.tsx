@@ -32,7 +32,7 @@ export default async function MyInvestmentsPage() {
           variant="outline"
           className="rounded-xl"
         >
-          <Link href={ROUTES.portfolio}>Cycle portfolio</Link>
+          <Link href={ROUTES.portfolio}>Pool Cycles</Link>
         </Button>
         <Button
           asChild

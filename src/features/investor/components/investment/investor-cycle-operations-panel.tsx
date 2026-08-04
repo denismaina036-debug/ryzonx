@@ -5,11 +5,14 @@ import type { InvestorCycleOperationsView } from "@/domain/trading-journal/types
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { InvestorCycleTradeFeed } from "./investor-cycle-trade-feed";
+import { LiveTradingBadge } from "./live-trading-badge";
 
 export function InvestorCycleOperationsPanel({
   operations,
+  live = false,
 }: {
   operations: InvestorCycleOperationsView;
+  live?: boolean;
 }) {
   const { journalSummary, portfolioProgress, publicTrades, liveTrading } = operations;
   const target = portfolioProgress.targetCapital;
@@ -35,9 +38,12 @@ export function InvestorCycleOperationsPanel({
   return (
     <div className="space-y-6">
       <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
-        <h2 className="font-semibold text-[var(--id-text)]">
-          {isTrading ? "Live Trading Activity" : "Cycle Progress"}
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-semibold text-[var(--id-text)]">
+            {isTrading ? "Live Trading Activity" : "Cycle Progress"}
+          </h2>
+          {isTrading && <LiveTradingBadge active={live} />}
+        </div>
         <div className="mt-4">
           <SimpleCyclePhaseBar cycleStatus={portfolioProgress.cycleStatus} />
         </div>
@@ -125,6 +131,7 @@ export function InvestorCycleOperationsPanel({
       <InvestorCycleTradeFeed
         trades={publicTrades}
         cycleStatus={portfolioProgress.cycleStatus}
+        live={live && isTrading}
       />
     </div>
   );

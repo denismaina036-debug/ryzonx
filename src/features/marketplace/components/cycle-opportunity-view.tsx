@@ -183,6 +183,7 @@ export function CycleOpportunityView({
       {operations && (
         <InvestorCycleOperationsLivePanel
           cycleSlug={cycle.slug}
+          cycleId={cycle.id}
           initialOperations={operations}
         />
       )}

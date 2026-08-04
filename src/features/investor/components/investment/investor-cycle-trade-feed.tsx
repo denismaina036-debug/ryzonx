@@ -9,9 +9,11 @@ import { SimpleCyclePhaseBar } from "@/features/pool-manager/components/journal/
 export function InvestorCycleTradeFeed({
   trades,
   cycleStatus,
+  live = false,
 }: {
   trades: PublicTradeEntryView[];
   cycleStatus: string;
+  live?: boolean;
 }) {
   if (trades.length === 0) return null;
 
@@ -19,7 +21,15 @@ export function InvestorCycleTradeFeed({
     <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="font-semibold text-[var(--id-text)]">Trading Journal</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-semibold text-[var(--id-text)]">Trading Journal</h2>
+            {live && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
+                Live
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-sm text-[var(--id-text-muted)]">
             Verified trades recorded by the pool manager with chart screenshots.
           </p>

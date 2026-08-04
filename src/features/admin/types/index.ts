@@ -34,7 +34,12 @@ export interface AdminDepositRequest {
   investorEmail: string;
   fundId: string;
   fundName: string;
+  /** Credited amount in USD. */
   amount: number;
+  cryptoSymbol: string | null;
+  cryptoNetwork: string | null;
+  /** Estimated crypto the investor should send (display only). */
+  cryptoAmount: number | null;
   paymentMethod: string;
   reference: string | null;
   paymentProof: string | null;

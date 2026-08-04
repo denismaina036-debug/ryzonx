@@ -37,7 +37,7 @@ export default async function AdminFinanceDepositsPage({ params }: PageProps) {
   return (
     <AdminFinanceShell
       title="Deposits"
-      description="Review and approve deposit requests. Approving credits available balance so investors can choose a pool."
+      description="Review and approve deposit requests. Amounts are in USD; crypto values are estimates of what the investor sent."
       statusNav={
         <AdminStatusNav
           basePath="/admin/finance/deposits"

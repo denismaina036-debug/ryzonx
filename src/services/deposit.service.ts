@@ -4,6 +4,8 @@ import { requireAuth } from "@/lib/auth/session";
 import { ensurePlatformFundingFund } from "@/services/platform-funding.service";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { attachTransactionReference } from "@/lib/transaction/insert";
+import { resolveCryptoDepositFields } from "@/lib/transaction/crypto-deposit-meta";
+import { cryptoPriceService } from "@/services/crypto-price.service";
 import {
   communicationTriggers,
   adminNotifyService,
@@ -106,24 +108,14 @@ function mapRecentDeposit(row: {
   created_at: string;
   notes?: string | null;
 }): RecentCryptoDeposit {
-  let symbol = row.crypto_symbol ?? "—";
-  let network = row.crypto_network ?? "—";
-
-  if (symbol === "—" && row.notes?.includes("Crypto deposit")) {
-    const match = row.notes.match(/Crypto deposit — (\w+) on (\w+)/);
-    if (match) {
-      symbol = match[1] ?? symbol;
-      network = match[2] ?? network;
-    }
-  }
+  const meta = resolveCryptoDepositFields(row);
 
   return {
     id: row.id,
-    symbol,
-    network,
-    amount: toNumber(row.amount),
-    cryptoAmount:
-      row.crypto_amount != null ? toNumber(row.crypto_amount) : toNumber(row.amount),
+    symbol: meta.cryptoSymbol ?? "—",
+    network: meta.cryptoNetwork ?? "—",
+    amount: meta.usdAmount,
+    cryptoAmount: meta.cryptoAmount,
     status: row.status,
     createdAt: row.created_at,
   };
@@ -247,20 +239,37 @@ export const depositService = {
     const user = await requireAuth();
     await ensurePlatformFundingFund();
     const supabase = await createClient();
-    const wallet = await resolveActiveWallet(supabase, input);
+    await resolveActiveWallet(supabase, input);
 
-    if (input.amount < wallet.min_deposit) {
-      throw new Error(
-        `Minimum deposit is ${wallet.min_deposit} ${wallet.symbol}.`
-      );
+    const db = createAdminClient();
+    const { data: fund } = await db
+      .from("funds")
+      .select("min_investment")
+      .eq("id", DEFAULT_FUND_ID)
+      .maybeSingle();
+
+    const minDepositUsd = toNumber(
+      (fund as { min_investment?: number } | null)?.min_investment
+    ) || 100;
+
+    const usdAmount = input.amount;
+    if (usdAmount < minDepositUsd) {
+      throw new Error(`Minimum deposit is ${formatMoney(minDepositUsd)}.`);
     }
 
-    const notes = `Crypto deposit — ${input.symbol} on ${input.networkCode}`;
+    const cryptoAmountRaw = await cryptoPriceService.convertUsdToCrypto(
+      usdAmount,
+      input.symbol
+    );
+    const cryptoAmount =
+      Math.round(cryptoAmountRaw * 1e8) / 1e8;
+
+    const notes = `Crypto deposit — ${input.symbol} on ${input.networkCode} · ${formatMoney(usdAmount)} USD`;
     const basePayload = {
       user_id: user.id,
       fund_id: DEFAULT_FUND_ID,
       type: "deposit" as const,
-      amount: input.amount,
+      amount: usdAmount,
       status: "pending" as const,
       payment_method: "crypto",
       reference: input.txHash?.trim() || null,
@@ -273,7 +282,7 @@ export const depositService = {
         ...basePayload,
         crypto_symbol: input.symbol,
         crypto_network: input.networkCode,
-        crypto_amount: input.amount,
+        crypto_amount: cryptoAmount,
       } as never)
       .select("id")
       .single()) as { data: { id: string } | null; error: { message: string } | null };
@@ -287,11 +296,11 @@ export const depositService = {
       });
       await communicationTriggers.depositSubmitted({
         userId: user.id,
-        amount: formatMoney(input.amount),
+        amount: formatMoney(usdAmount),
         transactionId: id,
       });
       await adminNotifyService.newDeposit({
-        amount: formatMoney(input.amount),
+        amount: formatMoney(usdAmount),
         userName: user.email ?? user.id,
         transactionId: id,
         triggeredBy: user.id,
@@ -328,11 +337,11 @@ export const depositService = {
     });
     await communicationTriggers.depositSubmitted({
       userId: user.id,
-      amount: formatMoney(input.amount),
+      amount: formatMoney(usdAmount),
       transactionId: id,
     });
     await adminNotifyService.newDeposit({
-      amount: formatMoney(input.amount),
+      amount: formatMoney(usdAmount),
       userName: user.email ?? user.id,
       transactionId: id,
       triggeredBy: user.id,

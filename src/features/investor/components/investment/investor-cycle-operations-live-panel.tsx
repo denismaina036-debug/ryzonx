@@ -1,36 +1,35 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import type { InvestorCycleOperationsView } from "@/domain/trading-journal/types";
-import { useIntervalRefresh } from "@/hooks/use-interval-refresh";
+import { useCycleProgressLive } from "@/hooks/use-cycle-progress-live";
 import { InvestorCycleOperationsPanel } from "./investor-cycle-operations-panel";
 
 export function InvestorCycleOperationsLivePanel({
   cycleSlug,
+  cycleId,
   initialOperations,
 }: {
   cycleSlug: string;
+  cycleId?: string;
   initialOperations: InvestorCycleOperationsView;
 }) {
-  const [operations, setOperations] = useState(initialOperations);
   const isTrading = initialOperations.simplifiedPhase === "trading";
+  const resolvedCycleId = cycleId ?? "";
 
-  const refresh = useCallback(async () => {
-    const res = await fetch(`/api/investor/investment-cycles/${cycleSlug}/progress`);
-    const data = (await res.json()) as {
-      progress?: InvestorCycleOperationsView;
-      error?: string;
-    };
-    if (res.ok && data.progress) {
-      setOperations(data.progress);
-    }
-  }, [cycleSlug]);
+  const { operations, isLive } = useCycleProgressLive({
+    cycleId: resolvedCycleId,
+    cycleSlug,
+    initialOperations,
+    enabled: isTrading && Boolean(resolvedCycleId),
+  });
 
-  useEffect(() => {
-    setOperations(initialOperations);
-  }, [initialOperations]);
+  const displayOperations =
+    isTrading && resolvedCycleId ? operations : initialOperations;
 
-  useIntervalRefresh(refresh, 12_000, isTrading);
-
-  return <InvestorCycleOperationsPanel operations={operations} />;
+  return (
+    <InvestorCycleOperationsPanel
+      operations={displayOperations}
+      live={isTrading && isLive}
+    />
+  );
 }

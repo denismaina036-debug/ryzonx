@@ -73,6 +73,52 @@ export interface InvestorPortfolioData {
   timeline: Array<{ label: string; date: string; type: "allocation" | "legacy" }>;
 }
 
+export interface InvestorPoolCycleContext {
+  poolName: string;
+  fundId: string;
+}
+
+export interface InvestorFundingCycleView {
+  cycle: InvestorCycleCard;
+  investorAmount: number | null;
+  ownershipSharePct: number | null;
+  payoutDurationLabel: string;
+  tradingScheduleLabel: string | null;
+  projectedMultiplier: number | null;
+  projectedReturnPct: number | null;
+  commitHref: string;
+}
+
+export interface InvestorTradingCycleView {
+  cycleId: string;
+  cycleSlug: string;
+  cycleName: string;
+  investorAmount: number;
+  ownershipSharePct: number | null;
+  initialOperations: import("@/domain/trading-journal/types").InvestorCycleOperationsView;
+}
+
+export interface InvestorClosedCycleView {
+  id: string;
+  slug: string;
+  name: string;
+  cycleNumber: number;
+  completedAt: string | null;
+  capitalTraded: number;
+  profitRealized: number;
+  tradeCount: number;
+  investorCount: number;
+  investorAmount: number;
+  trades: import("@/domain/trading-journal/types").PublicTradeEntryView[];
+}
+
+export interface InvestorPoolCyclesData {
+  context: InvestorPoolCycleContext | null;
+  funding: InvestorFundingCycleView | null;
+  trading: InvestorTradingCycleView | null;
+  closed: InvestorClosedCycleView[];
+}
+
 export interface InvestorHomeData {
   /** Total public cycles in funding status (not capped). */
   fundingCycleCount: number;

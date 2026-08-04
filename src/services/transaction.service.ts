@@ -12,6 +12,7 @@ import { formatMoney } from "@/services/communication/user-variables";
 import { ensurePlatformFundingFund } from "@/services/platform-funding.service";
 import { buildInvestorTransactionDetail, buildTransactionPresentation } from "@/lib/transaction/presentation";
 import { attachTransactionReference } from "@/lib/transaction/insert";
+import { resolveCryptoDepositFields } from "@/lib/transaction/crypto-deposit-meta";
 
 export type { InvestorTransaction };
 
@@ -134,6 +135,8 @@ function mapAdminDeposit(
     fund: FundRow | null;
   }
 ): AdminDepositRequest {
+  const meta = resolveCryptoDepositFields(row);
+
   return {
     id: row.id,
     investorId: row.user_id,
@@ -141,7 +144,10 @@ function mapAdminDeposit(
     investorEmail: row.profile?.email ?? "",
     fundId: row.fund_id,
     fundName: row.fund?.name ?? "—",
-    amount: toNumber(row.amount),
+    amount: meta.usdAmount,
+    cryptoSymbol: meta.cryptoSymbol,
+    cryptoNetwork: meta.cryptoNetwork,
+    cryptoAmount: meta.cryptoAmount,
     paymentMethod: row.payment_method ?? "—",
     reference: row.reference,
     paymentProof: null,
@@ -229,7 +235,7 @@ function toPresentationInput(
     cryptoSymbol: row.crypto_symbol ?? parsed.symbol,
     cryptoNetwork: row.crypto_network ?? parsed.network,
     cryptoAmount:
-      row.crypto_amount != null ? toNumber(row.crypto_amount) : toNumber(row.amount),
+      row.crypto_amount != null ? toNumber(row.crypto_amount) : null,
     createdAt: row.created_at,
     processedAt: row.processed_at,
     metadata: row.metadata ?? null,

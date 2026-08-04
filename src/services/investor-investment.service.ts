@@ -6,11 +6,24 @@ import { investmentCycleService } from "@/services/investment-cycle.service";
 import { investmentAllocationService } from "@/services/investment-allocation.service";
 import { marketplaceService } from "@/services/marketplace.service";
 import { walletService } from "@/services/wallet.service";
+import { cycleProgressService } from "@/services/cycle-progress.service";
+import { tradeEntryService } from "@/services/trade-entry.service";
+import { platformInvestmentLevelService } from "@/services/platform-investment-level.service";
+import { poolRoiService } from "@/services/pool-roi.service";
+import { ROUTES } from "@/constants/routes";
+import { formatExpectedDurationLabel } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
+import {
+  multiplierToDisplayPct,
+  resolveRoiMultiplier,
+} from "@/features/investor/types/pool-participation";
+import { isCycleFundingPhase, isCycleTradingPhase } from "@/lib/investment/cycle-display-phase";
+import type { ManagedPoolConfig } from "@/domain/pools/managed-pool";
 import type { InvestmentAllocation, InvestmentCycle, Strategy } from "@/domain/investment/types";
 import type {
   InvestorAllocationView,
   InvestorCycleCard,
   InvestorHomeData,
+  InvestorPoolCyclesData,
   InvestorPortfolioData,
   InvestorStrategyCard,
 } from "@/domain/investment/investor-presentation";
@@ -191,6 +204,39 @@ async function enrichAllocations(allocations: InvestmentAllocation[]): Promise<I
   });
 }
 
+function readManagedConfig(poolFaq: unknown): ManagedPoolConfig {
+  if (!poolFaq || typeof poolFaq !== "object" || Array.isArray(poolFaq)) return {};
+  const faq = poolFaq as { managedPool?: ManagedPoolConfig };
+  return faq.managedPool ?? {};
+}
+
+function formatTradingScheduleLabel(cycle: InvestmentCycle): string | null {
+  if (cycle.durationDays != null && cycle.durationDays > 0) {
+    return `${cycle.durationDays} Days`;
+  }
+  const snapshotDays = cycle.poolConfigSnapshot?.pool.poolDurationDays;
+  if (snapshotDays != null && snapshotDays > 0) {
+    return `${snapshotDays} Days`;
+  }
+  return null;
+}
+
+const ACTIVE_ALLOCATION_STATUSES = new Set([
+  "pending",
+  "funding_confirmed",
+  "confirmed",
+  "settled",
+  "locked",
+]);
+
+const CLOSED_ALLOCATION_STATUSES = new Set([
+  "funding_confirmed",
+  "confirmed",
+  "settled",
+  "locked",
+  "distributed",
+]);
+
 export const investorInvestmentService = {
   async buildCycleCardsFromList(cycles: InvestmentCycle[]): Promise<InvestorCycleCard[]> {
     return buildCycleCards(cycles);
@@ -335,6 +381,188 @@ export const investorInvestmentService = {
       riskExposure,
       strategyExposure,
       timeline: timeline.slice(0, 20),
+    };
+  },
+
+  async getPoolCycles(): Promise<InvestorPoolCyclesData> {
+    const user = await requireAuth();
+
+    const [wallet, allocations, investmentLevels] = await Promise.all([
+      walletService.getWalletSummary(),
+      investmentAllocationService.listMine(),
+      platformInvestmentLevelService.listActive(),
+    ]);
+
+    const allocationViews = await enrichAllocations(allocations);
+    const allocationByCycleId = new Map(allocationViews.map((a) => [a.cycleId, a]));
+
+    const fundIds = new Set<string>();
+    for (const participation of wallet.participations) {
+      fundIds.add(participation.fundId);
+    }
+
+    const investorCycleIds = [...new Set(allocations.map((a) => a.investmentCycleId))];
+    const investorCycles = (
+      await Promise.all(investorCycleIds.map((id) => investmentCycleService.getById(id)))
+    ).filter((c): c is InvestmentCycle => c != null);
+
+    for (const cycle of investorCycles) {
+      if (cycle.fundId) fundIds.add(cycle.fundId);
+    }
+
+    if (fundIds.size === 0) {
+      return { context: null, funding: null, trading: null, closed: [] };
+    }
+
+    const fundIdList = [...fundIds];
+    const [fundRows, multipliersByFund, cyclesByFund] = await Promise.all([
+      createAdminClient()
+        .from("funds")
+        .select("id, name, pool_duration_days, pool_faq, return_duration_unit")
+        .in("id", fundIdList)
+        .then(({ data, error }) => {
+          if (error) throw new Error(error.message);
+          return (data ?? []) as Array<{
+            id: string;
+            name: string;
+            pool_duration_days: number | null;
+            pool_faq: unknown;
+            return_duration_unit: string | null;
+          }>;
+        }),
+      poolRoiService.getMultipliersForFunds(fundIdList),
+      Promise.all(fundIdList.map((fundId) => investmentCycleService.listByFund(fundId))),
+    ]);
+
+    const fundMap = new Map(fundRows.map((f) => [f.id, f]));
+    const allCycles = cyclesByFund.flat();
+
+    function investorExposureInFund(fundId: string): number {
+      const legacy =
+        wallet.participations.find((p) => p.fundId === fundId)?.amountInvested ?? 0;
+      const cycleTotal = allocationViews
+        .filter((a) => {
+          const cycle = allCycles.find((c) => c.id === a.cycleId);
+          return (
+            cycle?.fundId === fundId &&
+            a.status !== "cancelled" &&
+            a.status !== "rejected"
+          );
+        })
+        .reduce((sum, a) => sum + a.amount, 0);
+      return legacy + cycleTotal;
+    }
+
+    const primaryFundId = fundIdList.reduce((best, fid) =>
+      investorExposureInFund(fid) > investorExposureInFund(best) ? fid : best
+    );
+
+    const primaryFund = fundMap.get(primaryFundId);
+    const primaryCycles = cyclesByFund[fundIdList.indexOf(primaryFundId)] ?? [];
+    const managed = readManagedConfig(primaryFund?.pool_faq);
+    const payoutDurationLabel = formatExpectedDurationLabel(
+      primaryFund?.pool_duration_days ?? null,
+      managed.durationUnit ?? primaryFund?.return_duration_unit,
+      managed.payoutDurationPreset
+    );
+
+    const primaryParticipation = wallet.participations.find((p) => p.fundId === primaryFundId);
+
+    const fundingCycle = [...primaryCycles]
+      .filter((c) => isCycleFundingPhase(c.status))
+      .sort((a, b) => b.cycleNumber - a.cycleNumber)[0];
+
+    const tradingCycle = [...primaryCycles]
+      .filter((c) => {
+        if (!isCycleTradingPhase(c.status)) return false;
+        const allocation = allocationByCycleId.get(c.id);
+        return allocation != null && ACTIVE_ALLOCATION_STATUSES.has(allocation.status);
+      })
+      .sort((a, b) => b.cycleNumber - a.cycleNumber)[0];
+
+    const closedCycles = [...primaryCycles]
+      .filter((c) => c.status === "completed" || c.status === "archived")
+      .filter((c) => {
+        const allocation = allocationByCycleId.get(c.id);
+        return allocation != null && CLOSED_ALLOCATION_STATUSES.has(allocation.status);
+      })
+      .sort((a, b) => b.cycleNumber - a.cycleNumber);
+
+    let funding: InvestorPoolCyclesData["funding"] = null;
+    if (fundingCycle) {
+      const cards = await buildCycleCards([fundingCycle]);
+      const card = cards[0];
+      if (card) {
+        const allocation = allocationByCycleId.get(fundingCycle.id);
+        const investAmount =
+          allocation?.amount ??
+          fundingCycle.minInvestment ??
+          primaryParticipation?.amountInvested ??
+          null;
+        const poolMultipliers = multipliersByFund.get(primaryFundId) ?? [];
+        const projectedMultiplier =
+          investAmount != null && investAmount > 0
+            ? resolveRoiMultiplier(investAmount, investmentLevels, poolMultipliers)
+            : primaryParticipation?.projectedRoiMultiplier ?? null;
+
+        funding = {
+          cycle: card,
+          investorAmount: investAmount,
+          ownershipSharePct: allocation?.ownershipSharePct ?? null,
+          payoutDurationLabel,
+          tradingScheduleLabel: formatTradingScheduleLabel(fundingCycle),
+          projectedMultiplier,
+          projectedReturnPct: multiplierToDisplayPct(projectedMultiplier),
+          commitHref: `${ROUTES.marketplaceCycles}/${fundingCycle.slug}/commit`,
+        };
+      }
+    }
+
+    let trading: InvestorPoolCyclesData["trading"] = null;
+    if (tradingCycle) {
+      const allocation = allocationByCycleId.get(tradingCycle.id);
+      const operations = await cycleProgressService.getInvestorViewBySlug(tradingCycle.slug, {
+        investorUserId: user.id,
+      });
+      if (operations && allocation) {
+        trading = {
+          cycleId: tradingCycle.id,
+          cycleSlug: tradingCycle.slug,
+          cycleName: tradingCycle.name,
+          investorAmount: allocation.amount,
+          ownershipSharePct: allocation.ownershipSharePct,
+          initialOperations: operations,
+        };
+      }
+    }
+
+    const closed = await Promise.all(
+      closedCycles.map(async (cycle) => {
+        const allocation = allocationByCycleId.get(cycle.id)!;
+        const trades = await tradeEntryService.listPublicClosedByCycle(cycle.id);
+        return {
+          id: cycle.id,
+          slug: cycle.slug,
+          name: cycle.name,
+          cycleNumber: cycle.cycleNumber,
+          completedAt: cycle.completedAt ?? cycle.closingDate,
+          capitalTraded: cycle.raisedCapital,
+          profitRealized: cycle.currentCycleProfit,
+          tradeCount: trades.length,
+          investorCount: cycle.investorCount,
+          investorAmount: allocation.amount,
+          trades,
+        };
+      })
+    );
+
+    return {
+      context: primaryFund
+        ? { poolName: primaryFund.name, fundId: primaryFundId }
+        : null,
+      funding,
+      trading,
+      closed,
     };
   },
 };

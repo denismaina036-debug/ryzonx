@@ -83,7 +83,7 @@ export function AllocationCommitClient({
         </dl>
         <div className="flex flex-wrap justify-center gap-3">
           <Button asChild variant="outline">
-            <Link href={ROUTES.portfolio}>View portfolio</Link>
+            <Link href={ROUTES.portfolio}>Pool cycles</Link>
           </Button>
           <Button asChild className="[background:var(--id-accent-gradient)] text-white">
             <Link href={`${ROUTES.marketplaceCycles}/${cycle.slug}`}>Back to opportunity</Link>

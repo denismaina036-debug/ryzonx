@@ -116,7 +116,7 @@ export function InvestorHomeInvestmentPanel({ data }: { data: InvestorHomeData }
                 {data.pendingAllocations.length === 1 ? "" : "s"}
               </p>
               <Link href={ROUTES.portfolio} className="mt-2 inline-block text-sm text-[var(--id-accent)] hover:underline">
-                Review portfolio →
+                Pool cycles →
               </Link>
             </div>
           )}

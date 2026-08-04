@@ -16,6 +16,8 @@ import {
 import { RyvonxEmptyState, RyvonxPageHeader } from "@/features/investor/constants/ui";
 import { WalletQrCode } from "@/features/investor/components/crypto-flow/wallet-qr-code";
 import { cn, formatCurrency } from "@/lib/utils";
+import { formatCryptoAmount } from "@/lib/crypto/usd-conversion";
+import { useCryptoUsdPrices } from "@/hooks/use-crypto-usd-prices";
 import type {
   CryptoDepositAsset,
   CryptoDepositNetwork,
@@ -60,12 +62,22 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
     [data.assets]
   );
 
-  const minDeposit = selectedNetwork?.minDeposit ?? data.minInvestment;
+  const minDepositUsd = data.minInvestment;
   const parsedAmount = Number(amount);
   const amountValid =
     amount.trim() !== "" &&
     Number.isFinite(parsedAmount) &&
-    parsedAmount >= minDeposit;
+    parsedAmount >= minDepositUsd;
+
+  const priceSymbols = useMemo(
+    () => (selectedAsset ? [selectedAsset.symbol] : []),
+    [selectedAsset]
+  );
+  const { cryptoEquivalent } = useCryptoUsdPrices(priceSymbols);
+  const cryptoToSend =
+    selectedAsset && amountValid
+      ? cryptoEquivalent(parsedAmount, selectedAsset.symbol)
+      : null;
 
   function selectAsset(asset: CryptoDepositAsset) {
     setSelectedAsset(asset);
@@ -108,8 +120,8 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
       toast.error("Enter a valid deposit amount");
       return;
     }
-    if (parsed < minDeposit) {
-      toast.error(`Minimum deposit is ${minDeposit} ${selectedAsset.symbol}`);
+    if (parsed < minDepositUsd) {
+      toast.error(`Minimum deposit is ${formatCurrency(minDepositUsd)}`);
       return;
     }
 
@@ -147,7 +159,7 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
     <div className="mx-auto max-w-[1200px]">
       <RyvonxPageHeader
         title="Deposit Crypto"
-        description={`${data.fundName} · Min investment ${formatCurrency(data.minInvestment)} · Select coin, network, send funds, then mark as sent.`}
+        description={`${data.fundName} · Min deposit ${formatCurrency(data.minInvestment)} · Enter USD amount, send crypto, then mark as sent.`}
       />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
@@ -287,7 +299,7 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
                       {network.networkLabel}
                     </span>
                     <span className="text-xs text-[var(--id-text-muted)]">
-                      Min {network.minDeposit} {selectedAsset.symbol}
+                      Min {formatCurrency(minDepositUsd)}
                     </span>
                   </button>
                 ))}
@@ -336,7 +348,17 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
                       </Button>
                     </div>
                     <p className="text-xs text-[var(--id-text-muted)]">
-                      Minimum deposit: more than {minDeposit} {selectedAsset.symbol}
+                      Minimum deposit: {formatCurrency(minDepositUsd)} USD
+                      {cryptoToSend != null && (
+                        <>
+                          {" "}
+                          · Send approximately{" "}
+                          <span className="font-medium text-[var(--id-text)]">
+                            {formatCryptoAmount(cryptoToSend, selectedAsset.symbol)}{" "}
+                            {selectedAsset.symbol}
+                          </span>
+                        </>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -354,17 +376,31 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
           >
             {selectedAsset && selectedNetwork && (
               <div className="space-y-3">
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder={`Enter amount in ${selectedAsset.symbol}`}
-                  className={cryptoFlowInputClass}
-                />
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-medium text-[var(--id-text-muted)]">
+                    $
+                  </span>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="Enter amount in USD"
+                    className={cn(cryptoFlowInputClass, "pl-8")}
+                  />
+                </div>
+                {amountValid && cryptoToSend != null && (
+                  <p className="text-xs text-[var(--id-text-muted)]">
+                    Send approximately{" "}
+                    <span className="font-semibold text-[var(--id-text)]">
+                      {formatCryptoAmount(cryptoToSend, selectedAsset.symbol)} {selectedAsset.symbol}
+                    </span>{" "}
+                    ({formatCurrency(parsedAmount)} USD)
+                  </p>
+                )}
                 {amount.trim() !== "" && !amountValid && (
                   <p className="text-xs text-amber-500">
-                    Enter at least {minDeposit} {selectedAsset.symbol}
+                    Enter at least {formatCurrency(minDepositUsd)}
                   </p>
                 )}
               </div>
@@ -475,8 +511,13 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
                   </div>
                   <div className="text-right">
                     <p className="font-mono text-sm font-semibold tabular-nums text-[var(--id-success)]">
-                      +{dep.cryptoAmount ?? dep.amount} {dep.symbol}
+                      +{formatCurrency(dep.amount)}
                     </p>
+                    {dep.cryptoAmount != null && dep.cryptoAmount > 0 && (
+                      <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">
+                        ≈ {formatCryptoAmount(dep.cryptoAmount, dep.symbol)} {dep.symbol}
+                      </p>
+                    )}
                     <StatusPill status={dep.status} />
                   </div>
                 </Link>

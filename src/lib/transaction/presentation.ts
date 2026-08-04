@@ -9,6 +9,7 @@ import type {
   InvestorTransactionDetail,
 } from "@/domain/transaction/types";
 import { formatCurrency } from "@/lib/utils";
+import { formatCryptoAmount } from "@/lib/crypto/usd-conversion";
 
 const FUNDING_WALLET_LABEL = "RyvonX Funding Wallet";
 
@@ -140,6 +141,7 @@ function resolveAmountPresentation(
 
   switch (category) {
     case "deposit":
+      return { prefix: "+", suffix: "USD", isCredit: true };
     case "profit_distribution":
     case "pool_profit":
     case "refund":
@@ -304,11 +306,22 @@ export function buildTransactionDetailFields(
       )
     );
     fields.push(
-      { label: "Currency", value: currency },
+      { label: "Currency", value: "USD" },
       { label: "Date", value: date },
       { label: "Time", value: time },
       { label: "Status", value: normalizeStatus(input.status) }
     );
+    if (
+      input.cryptoSymbol &&
+      input.cryptoAmount != null &&
+      input.cryptoAmount > 0 &&
+      input.cryptoSymbol !== "USD"
+    ) {
+      fields.splice(fields.length - 3, 0, {
+        label: "Crypto to send (estimate)",
+        value: `${formatCryptoAmount(input.cryptoAmount, input.cryptoSymbol)} ${input.cryptoSymbol}`,
+      });
+    }
     return fields;
   }
 
