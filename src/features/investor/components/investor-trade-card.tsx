@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { investorTradeShowsPriceDetails } from "@/lib/trading/trade-display";
 import { cn, formatCurrency } from "@/lib/utils";
 import { dashboardLabelClass } from "@/features/investor/components/dashboard-card";
 import { InvestorTradeStatusBadge } from "@/features/investor/components/investor-trade-status-badge";
@@ -10,6 +11,7 @@ import type { InvestorDashboardTrade } from "@/features/investor/types";
 
 export function InvestorTradeCard({ trade }: { trade: InvestorDashboardTrade }) {
   const profitPositive = trade.profitLoss >= 0;
+  const showPriceDetails = investorTradeShowsPriceDetails(trade);
 
   return (
     <article
@@ -25,14 +27,16 @@ export function InvestorTradeCard({ trade }: { trade: InvestorDashboardTrade }) 
             <DirectionPill direction={trade.direction} />
             <InvestorTradeStatusBadge status={trade.status} />
           </div>
-          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
-            <Stat label="Entry" value={formatPrice(trade.entryPrice)} />
-            <Stat
-              label={trade.isActive ? "Current" : "Exit"}
-              value={formatPrice(trade.currentPrice)}
-            />
-            <Stat label="Invested" value={formatCurrency(trade.investedAmount)} />
-          </div>
+          {showPriceDetails ? (
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
+              <Stat label="Entry" value={formatPrice(trade.entryPrice)} />
+              <Stat
+                label={trade.isActive ? "Current" : "Exit"}
+                value={formatPrice(trade.currentPrice)}
+              />
+              <Stat label="Invested" value={formatCurrency(trade.investedAmount)} />
+            </div>
+          ) : null}
           <TradeRecorderAttribution trade={trade} className="mt-3" />
           <p className="mt-2 text-[10px] text-[var(--id-text-faint)]">
             {trade.isActive ? "Opened" : "Closed"}{" "}

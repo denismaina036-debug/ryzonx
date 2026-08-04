@@ -39,13 +39,6 @@ function TradeSparkline({ positive }: { positive: boolean }) {
   );
 }
 
-function formatPrice(value: number) {
-  return value.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 5,
-  });
-}
-
 export function MobileTradesPreview({ trades }: MobileTradesPreviewProps) {
   const preview = trades.slice(0, 2);
 
@@ -94,7 +87,7 @@ export function MobileTradesPreview({ trades }: MobileTradesPreviewProps) {
                   <p className="mt-0.5 truncate text-[10px] text-[var(--id-text-muted)]">
                     {trade.poolManagerName
                       ? `Recorded by ${trade.poolManagerName}`
-                      : trade.poolName ?? formatPrice(trade.currentPrice)}
+                      : (trade.poolName ?? "Pool trade")}
                   </p>
                 </div>
 

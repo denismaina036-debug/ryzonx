@@ -31,6 +31,32 @@ export function hasScreenshot(screenshotUrl: string | null | undefined): boolean
   return Boolean(screenshotUrl?.trim());
 }
 
+/** True when entry/exit/quantity were actually recorded (not USD-only 1/1/1 placeholders). */
+export function hasMeaningfulTradePrices(
+  entryPrice: number,
+  exitPrice: number | null,
+  quantity: number
+): boolean {
+  const isUsdOnlyPlaceholder =
+    entryPrice === 1 && quantity === 1 && (exitPrice == null || exitPrice === 1);
+  if (isUsdOnlyPlaceholder) return false;
+  return entryPrice > 0 && quantity > 0;
+}
+
+export function investorTradeShowsPriceDetails(trade: {
+  entryPrice: number;
+  currentPrice: number;
+  investedAmount: number;
+  isActive: boolean;
+  showPriceDetails?: boolean;
+}): boolean {
+  if (trade.showPriceDetails != null) return trade.showPriceDetails;
+  const exitPrice = trade.isActive ? null : trade.currentPrice;
+  const quantity =
+    trade.entryPrice > 0 ? trade.investedAmount / trade.entryPrice : 0;
+  return hasMeaningfulTradePrices(trade.entryPrice, exitPrice, quantity);
+}
+
 /** Price-based ROI % for public journal display (e.g. +0.70%). */
 export function computeTradeRoiPercentage(
   direction: TradeEntryDirection,

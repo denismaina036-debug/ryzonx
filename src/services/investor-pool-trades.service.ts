@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { hasMeaningfulTradePrices } from "@/lib/trading/trade-display";
 import {
   resolvePoolManagerPublicLabel,
   managerRowToIdentity,
@@ -80,6 +81,11 @@ function mapJournalTradeRow(
   const isActive = row.status === "open" || row.status === "partially_closed";
   const currentPrice = exitPrice ?? entryPrice;
   const managerPhotoUrl = manager?.profile_photo_url ?? manager?.icon_url ?? null;
+  const showPriceDetails = hasMeaningfulTradePrices(
+    entryPrice,
+    exitPrice,
+    quantity
+  );
 
   return {
     id: row.id,
@@ -103,6 +109,7 @@ function mapJournalTradeRow(
       : null,
     poolManagerSlug: manager?.slug ?? null,
     poolManagerPhotoUrl: managerPhotoUrl,
+    showPriceDetails,
   };
 }
 

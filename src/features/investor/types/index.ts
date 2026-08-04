@@ -62,6 +62,8 @@ export interface InvestorDashboardTrade {
   poolManagerName?: string | null;
   poolManagerSlug?: string | null;
   poolManagerPhotoUrl?: string | null;
+  /** False for USD-only journal entries without recorded entry/exit prices. */
+  showPriceDetails?: boolean;
 }
 
 export interface InvestorPoolActivityItem {

@@ -8,6 +8,7 @@ import {
 import { InvestorTradeStatusBadge } from "@/features/investor/components/investor-trade-status-badge";
 import { TradeRecorderAttribution } from "@/features/investor/components/trade-recorder-attribution";
 import { ROUTES } from "@/constants/routes";
+import { investorTradeShowsPriceDetails } from "@/lib/trading/trade-display";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { InvestorDashboardTrade } from "@/features/investor/types";
 
@@ -55,6 +56,7 @@ export function PoolTradesSection({ trades }: PoolTradesSectionProps) {
 
 function PoolTradeRow({ trade }: { trade: InvestorDashboardTrade }) {
   const profitPositive = trade.profitLoss >= 0;
+  const showPriceDetails = investorTradeShowsPriceDetails(trade);
   const iconLabel = ASSET_ICONS[trade.asset.replace("/", "")] ?? trade.asset.slice(0, 2);
 
   return (
@@ -77,20 +79,22 @@ function PoolTradeRow({ trade }: { trade: InvestorDashboardTrade }) {
             {trade.direction === "long" ? "Buy" : "Sell"}
           </span>
         </div>
-        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
-          <span className="text-[var(--id-text-muted)]">
-            Entry{" "}
-            <span className="font-mono text-[var(--id-text)]">
-              {formatPrice(trade.entryPrice)}
+        {showPriceDetails ? (
+          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
+            <span className="text-[var(--id-text-muted)]">
+              Entry{" "}
+              <span className="font-mono text-[var(--id-text)]">
+                {formatPrice(trade.entryPrice)}
+              </span>
             </span>
-          </span>
-          <span className="text-[var(--id-text-muted)]">
-            {trade.isActive ? "Current" : "Exit"}{" "}
-            <span className="font-mono text-[var(--id-text)]">
-              {formatPrice(trade.currentPrice)}
+            <span className="text-[var(--id-text-muted)]">
+              {trade.isActive ? "Current" : "Exit"}{" "}
+              <span className="font-mono text-[var(--id-text)]">
+                {formatPrice(trade.currentPrice)}
+              </span>
             </span>
-          </span>
-        </div>
+          </div>
+        ) : null}
         <TradeRecorderAttribution trade={trade} className="mt-2" />
       </div>
 

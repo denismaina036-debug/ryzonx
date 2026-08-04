@@ -1,3 +1,4 @@
+import { hasMeaningfulTradePrices } from "@/lib/trading/trade-display";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeCountryCode } from "@/constants/countries";
 import {
@@ -1152,9 +1153,10 @@ export const marketplaceService = {
       const entry = toNumber(t.entry_price as number);
       const exit = t.exit_price != null ? toNumber(t.exit_price as number) : null;
       const quantity = toNumber(t.quantity as number);
+      const showPriceDetails = hasMeaningfulTradePrices(entry, exit, quantity);
       const notional = entry * quantity;
       const roiPct =
-        notional > 0 && t.realized_pnl != null
+        showPriceDetails && notional > 0 && t.realized_pnl != null
           ? (toNumber(t.realized_pnl as number) / notional) * 100
           : null;
 
