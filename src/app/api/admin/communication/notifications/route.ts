@@ -6,10 +6,10 @@ import { communicationCenterService } from "@/services/communication";
 export async function GET() {
   try {
     await requireRole(USER_ROLES.ADMINISTRATOR);
-    const stats = await communicationCenterService.getOperationalDashboard();
-    return NextResponse.json(stats);
+    const notifications = await communicationCenterService.listNotificationHistory(100);
+    return NextResponse.json({ notifications });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load dashboard";
+    const message = error instanceof Error ? error.message : "Failed to load notifications";
     return NextResponse.json({ error: message }, { status: 403 });
   }
 }

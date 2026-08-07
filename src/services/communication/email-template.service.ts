@@ -277,6 +277,87 @@ export const emailTemplateService = {
     return { synced, skipped };
   },
 
+  async ensureCatalogTemplate(slug: string): Promise<void> {
+    const admin = await requireRole(USER_ROLES.ADMINISTRATOR);
+    const entry = EMAIL_TEMPLATE_CATALOG.find((item) => item.slug === slug);
+    if (!entry) {
+      throw new Error(`Template not found in catalog: ${slug}`);
+    }
+
+    const db = createAdminClient();
+    const mapped = catalogEntryToCommunicationTemplate(entry);
+    const { data: existing } = await db
+      .from("communication_templates")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
+
+    if (existing) {
+      await db
+        .from("communication_templates")
+        .update({
+          name: mapped.name,
+          category: mapped.category,
+          description: mapped.description,
+          subject_template: mapped.subjectTemplate,
+          body_template: mapped.bodyTemplate,
+          email_spec: mapped.emailSpec as never,
+          in_app_title_template: mapped.inAppTitleTemplate,
+          in_app_body_template: mapped.inAppBodyTemplate,
+          variables_schema: mapped.variablesSchema as never,
+          default_channels: mapped.defaultChannels as never,
+          is_active: true,
+          updated_at: new Date().toISOString(),
+          last_edited_by: admin.id,
+        } as never)
+        .eq("id", (existing as { id: string }).id);
+      return;
+    }
+
+    const { data: inserted, error } = await db
+      .from("communication_templates")
+      .insert({
+        slug: mapped.slug,
+        name: mapped.name,
+        category: mapped.category,
+        description: mapped.description,
+        subject_template: mapped.subjectTemplate,
+        body_template: mapped.bodyTemplate,
+        email_spec: mapped.emailSpec as never,
+        in_app_title_template: mapped.inAppTitleTemplate,
+        in_app_body_template: mapped.inAppBodyTemplate,
+        variables_schema: mapped.variablesSchema as never,
+        default_channels: mapped.defaultChannels as never,
+        is_active: true,
+        version: 1,
+        last_edited_by: admin.id,
+      } as never)
+      .select("id")
+      .single();
+
+    if (error || !inserted) {
+      throw new Error(error?.message ?? `Could not sync template: ${slug}`);
+    }
+
+    await db.from("communication_template_versions").insert({
+      template_id: (inserted as { id: string }).id,
+      version_number: 1,
+      slug: mapped.slug,
+      name: mapped.name,
+      category: mapped.category,
+      description: mapped.description,
+      subject_template: mapped.subjectTemplate,
+      body_template: mapped.bodyTemplate,
+      email_spec: mapped.emailSpec as never,
+      in_app_title_template: mapped.inAppTitleTemplate,
+      in_app_body_template: mapped.inAppBodyTemplate,
+      variables_schema: mapped.variablesSchema as never,
+      default_channels: mapped.defaultChannels as never,
+      change_notes: "Initial catalog sync",
+      edited_by: admin.id,
+    } as never);
+  },
+
   async updateTemplate(
     slug: string,
     patch: {

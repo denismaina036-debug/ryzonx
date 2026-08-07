@@ -79,3 +79,6 @@ export const INBOX_CATEGORIES: CommunicationCategory[] = [
   "pool_manager",
   "security",
 ];
+
+/** Single template for manual admin messages to investors and traders (not system automations). */
+export const ADMIN_ANNOUNCEMENT_TEMPLATE_SLUG = "admin_announcement";

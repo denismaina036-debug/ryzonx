@@ -16,6 +16,7 @@ import type {
 } from "@/domain/capital-allocation/types";
 import { auditService } from "@/services/audit.service";
 import { notificationService } from "@/services/notification.service";
+import { communicationTriggers } from "@/services/communication/communication-triggers.service";
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
@@ -35,6 +36,102 @@ async function getManagerUserId(poolManagerId: string): Promise<string | null> {
     .eq("id", poolManagerId)
     .maybeSingle();
   return (data as { user_id?: string } | null)?.user_id ?? null;
+}
+
+async function resolveContentInvestorUserIds(
+  fundId: string | null,
+  poolManagerId: string
+): Promise<string[]> {
+  const db = createAdminClient();
+  let fundIds: string[] = [];
+
+  if (fundId) {
+    fundIds = [fundId];
+  } else {
+    const { data: funds } = await db
+      .from("funds")
+      .select("id")
+      .eq("pool_manager_id", poolManagerId);
+    fundIds = ((funds ?? []) as Array<{ id: string }>).map((row) => row.id);
+  }
+
+  if (fundIds.length === 0) return [];
+
+  const { data: portfolios } = await db
+    .from("investor_portfolios")
+    .select("user_id")
+    .in("fund_id", fundIds)
+    .gt("total_invested", 0);
+
+  return [...new Set(((portfolios ?? []) as Array<{ user_id: string }>).map((row) => row.user_id))];
+}
+
+async function contentInvestorNotificationsSent(contentId: string): Promise<boolean> {
+  const db = createAdminClient();
+  const { count } = await db
+    .from("communications")
+    .select("id", { count: "exact", head: true })
+    .eq("related_entity_type", "pool_manager_content")
+    .eq("related_entity_id", contentId);
+  return (count ?? 0) > 0;
+}
+
+function mapContentRows(
+  data: unknown[],
+  managerMap: Map<string, string>,
+  fundMap: Map<string, string>
+): ManagerContentItem[] {
+  return data.map((c) => {
+    const r = c as Record<string, unknown>;
+    const fundId = (r.fund_id as string | null) ?? null;
+    return {
+      id: r.id as string,
+      poolManagerId: r.pool_manager_id as string,
+      managerName: managerMap.get(r.pool_manager_id as string) ?? null,
+      fundId,
+      fundName: fundId ? fundMap.get(fundId) ?? null : null,
+      contentType: r.content_type as string,
+      title: r.title as string,
+      body: r.body as string,
+      status: r.status as string,
+      submittedAt: (r.submitted_at as string | null) ?? null,
+      publishedAt: (r.published_at as string | null) ?? null,
+      reviewNotes: (r.review_notes as string | null) ?? null,
+      createdAt: r.created_at as string,
+    };
+  });
+}
+
+async function loadContentMaps(
+  rows: Array<{ pool_manager_id: string; fund_id?: string | null }>
+): Promise<{ managerMap: Map<string, string>; fundMap: Map<string, string> }> {
+  const db = createAdminClient();
+  const managerIds = [...new Set(rows.map((row) => row.pool_manager_id))];
+  const fundIds = [
+    ...new Set(rows.map((row) => row.fund_id).filter((id): id is string => Boolean(id))),
+  ];
+
+  const managerMap = new Map<string, string>();
+  const fundMap = new Map<string, string>();
+
+  if (managerIds.length > 0) {
+    const { data: mgrs } = await db
+      .from("pool_managers")
+      .select("id, display_name")
+      .in("id", managerIds);
+    for (const m of mgrs ?? []) {
+      managerMap.set((m as { id: string }).id, (m as { display_name: string }).display_name);
+    }
+  }
+
+  if (fundIds.length > 0) {
+    const { data: funds } = await db.from("funds").select("id, name").in("id", fundIds);
+    for (const f of funds ?? []) {
+      fundMap.set((f as { id: string }).id, (f as { name: string }).name);
+    }
+  }
+
+  return { managerMap, fundMap };
 }
 
 export const poolManagerGrowthService = {
@@ -286,58 +383,62 @@ export const poolManagerGrowthService = {
   },
 
   async listContentQueue(status = "submitted"): Promise<ManagerContentItem[]> {
+    return this.listContentByStatus(status);
+  },
+
+  async listContentByStatus(status: string): Promise<ManagerContentItem[]> {
     await requireRole(USER_ROLES.ADMINISTRATOR);
     const db = createAdminClient();
     const { data } = await db
       .from("pool_manager_content")
       .select("*")
       .eq("status", status)
-      .order("submitted_at", { ascending: false });
+      .order("submitted_at", { ascending: false, nullsFirst: false });
 
-    const managerIds = [...new Set((data ?? []).map((c) => (c as { pool_manager_id: string }).pool_manager_id))];
-    const managerMap = new Map<string, string>();
-    if (managerIds.length > 0) {
-      const { data: mgrs } = await db.from("pool_managers").select("id, display_name").in("id", managerIds);
-      for (const m of mgrs ?? []) {
-        managerMap.set((m as { id: string }).id, (m as { display_name: string }).display_name);
-      }
-    }
+    const rows = (data ?? []) as Array<{ pool_manager_id: string; fund_id?: string | null }>;
+    if (rows.length === 0) return [];
 
-    return (data ?? []).map((c) => {
-      const r = c as Record<string, unknown>;
-      return {
-        id: r.id as string,
-        poolManagerId: r.pool_manager_id as string,
-        managerName: managerMap.get(r.pool_manager_id as string) ?? null,
-        fundId: (r.fund_id as string | null) ?? null,
-        fundName: null,
-        contentType: r.content_type as string,
-        title: r.title as string,
-        body: r.body as string,
-        status: r.status as string,
-        submittedAt: (r.submitted_at as string | null) ?? null,
-        publishedAt: (r.published_at as string | null) ?? null,
-        reviewNotes: (r.review_notes as string | null) ?? null,
-        createdAt: r.created_at as string,
-      };
-    });
+    const { managerMap, fundMap } = await loadContentMaps(rows);
+    return mapContentRows(data ?? [], managerMap, fundMap);
+  },
+
+  async getContentById(contentId: string): Promise<ManagerContentItem | null> {
+    await requireRole(USER_ROLES.ADMINISTRATOR);
+    const db = createAdminClient();
+    const { data } = await db.from("pool_manager_content").select("*").eq("id", contentId).maybeSingle();
+    if (!data) return null;
+
+    const row = data as { pool_manager_id: string; fund_id?: string | null };
+    const { managerMap, fundMap } = await loadContentMaps([row]);
+    return mapContentRows([data], managerMap, fundMap)[0] ?? null;
   },
 
   async reviewContent(input: {
     contentId: string;
     approve: boolean;
     reviewNotes?: string;
-  }): Promise<void> {
+  }): Promise<{ investorsNotified: number }> {
     const actorId = await getActorId();
     const db = createAdminClient();
 
     const { data: content } = await db
       .from("pool_manager_content")
-      .select("pool_manager_id, title")
+      .select("pool_manager_id, fund_id, title, body, status, content_type")
       .eq("id", input.contentId)
       .single();
     if (!content) throw new Error("Content not found.");
-    const row = content as { pool_manager_id: string; title: string };
+    const row = content as {
+      pool_manager_id: string;
+      fund_id: string | null;
+      title: string;
+      body: string;
+      status: string;
+      content_type: string;
+    };
+
+    if (row.status === "published" && input.approve) {
+      return { investorsNotified: 0 };
+    }
 
     const updates: Record<string, unknown> = {
       reviewed_by: actorId,
@@ -358,6 +459,46 @@ export const poolManagerGrowthService = {
           : `"${row.title}" was not approved. ${input.reviewNotes ?? ""}`.trim(),
       });
     }
+
+    let investorsNotified = 0;
+    if (input.approve) {
+      const alreadySent = await contentInvestorNotificationsSent(input.contentId);
+      if (!alreadySent) {
+        const investorIds = await resolveContentInvestorUserIds(row.fund_id, row.pool_manager_id);
+        let poolName = "your pool";
+        if (row.fund_id) {
+          const { data: fund } = await db.from("funds").select("name").eq("id", row.fund_id).maybeSingle();
+          poolName = (fund as { name?: string } | null)?.name ?? poolName;
+        }
+
+        if (investorIds.length > 0) {
+          await communicationTriggers.notifyMany(investorIds, {
+            templateSlug: "announcement_broadcast",
+            variables: {
+              announcement_title: row.title,
+              announcement_preview: row.body.slice(0, 160),
+              announcement_body: row.body,
+              pool_name: poolName,
+            },
+            category: "announcements",
+            priority: "normal",
+            channels: ["email", "in_app"],
+            relatedEntityType: "pool_manager_content",
+            relatedEntityId: input.contentId,
+            triggeredBy: actorId,
+            metadata: {
+              content_type: row.content_type,
+              fund_id: row.fund_id,
+            },
+            actionUrl: row.fund_id ? `/marketplace/${row.fund_id}` : "/dashboard/notifications",
+            actionLabel: "View update",
+          });
+          investorsNotified = investorIds.length;
+        }
+      }
+    }
+
+    return { investorsNotified };
   },
 
   async submitContent(input: {

@@ -25,6 +25,8 @@ import {
   History,
   Radio,
   Inbox,
+  Mail,
+  Bell,
   ArrowDownToLine,
   ArrowUpFromLine,
   Bitcoin,
@@ -258,20 +260,27 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
     entries: [
       {
         type: "link",
-        link: { label: "Dashboard", href: ROUTES.adminCommunicationDashboard, icon: Radio },
+        link: { label: "Overview", href: ROUTES.adminCommunicationDashboard, icon: Radio },
       },
-      { type: "link", link: { label: "Inbox", href: ROUTES.adminCommunicationInbox, icon: Inbox } },
       {
         type: "link",
-        link: { label: "Support", href: ROUTES.adminCommunicationSupport, icon: Headphones },
+        link: { label: "Messages", href: ROUTES.adminCommunicationMessages, icon: Mail },
+      },
+      {
+        type: "link",
+        link: { label: "Campaigns", href: ROUTES.adminCommunicationCampaigns, icon: Megaphone },
       },
       {
         type: "link",
         link: {
-          label: "Announcements",
-          href: ROUTES.adminCommunicationAnnouncements,
-          icon: Megaphone,
+          label: "Notifications",
+          href: ROUTES.adminCommunicationNotifications,
+          icon: Bell,
         },
+      },
+      {
+        type: "link",
+        link: { label: "Support", href: ROUTES.adminCommunicationSupport, icon: Headphones },
       },
     ],
   },

@@ -8,12 +8,12 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    await poolManagerGrowthService.reviewContent({
+    const result = await poolManagerGrowthService.reviewContent({
       contentId: id,
       approve: body.approve,
       reviewNotes: body.reviewNotes,
     });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
   }

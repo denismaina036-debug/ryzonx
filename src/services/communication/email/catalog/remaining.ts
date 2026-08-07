@@ -267,6 +267,36 @@ export const PLATFORM_TEMPLATES = [
     inAppBodyTemplate: "{{announcement_body}}",
   }),
   defineEmailTemplate({
+    slug: "admin_announcement",
+    name: "Admin Announcement",
+    category: "announcements",
+    description: "Manual RyvonX announcement composed by an administrator.",
+    subjectTemplate: "{{announcement_title}}",
+    emailSpec: {
+      title: "{{announcement_title}}",
+      intro: "",
+      blocks: [{ type: "html", content: "{{announcement_body}}" }],
+      primaryAction: dashboardCta("Open RyvonX"),
+      showUnsubscribe: true,
+    },
+    variablesSchema: baseVars([
+      { key: "announcement_title", label: "Heading", sample: "Important update from RyvonX" },
+      {
+        key: "announcement_body",
+        label: "Content",
+        sample: "<p>Share your announcement content here.</p>",
+      },
+      {
+        key: "announcement_body_plain",
+        label: "Plain text content",
+        sample: "Share your announcement content here.",
+      },
+    ]),
+    defaultChannels: ["email", "in_app"],
+    inAppTitleTemplate: "{{announcement_title}}",
+    inAppBodyTemplate: "{{announcement_body_plain}}",
+  }),
+  defineEmailTemplate({
     slug: "announcement_broadcast",
     name: "Platform Announcement",
     category: "announcements",

@@ -2,38 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Radio,
-  Inbox,
-  Send,
-  Mail,
-  Megaphone,
-  RadioTower,
-  Headphones,
-  Target,
-  History,
-  BarChart3,
-  Settings,
-  Search,
-  LayoutTemplate,
-} from "lucide-react";
+import { Mail, Megaphone, Bell, Headphones, Radio } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { label: "Dashboard", href: ROUTES.adminCommunicationDashboard, icon: Radio },
-  { label: "Inbox", href: ROUTES.adminCommunicationInbox, icon: Inbox },
-  { label: "Outbox", href: ROUTES.adminCommunicationOutbox, icon: Send },
-  { label: "Templates", href: ROUTES.adminCommunicationTemplates, icon: Mail },
-  { label: "Builder", href: ROUTES.adminCommunicationBuilder, icon: LayoutTemplate },
-  { label: "Broadcasts", href: ROUTES.adminCommunicationBroadcasts, icon: RadioTower },
-  { label: "Announcements", href: ROUTES.adminCommunicationAnnouncements, icon: Megaphone },
+  { label: "Overview", href: ROUTES.adminCommunicationDashboard, icon: Radio },
+  { label: "Messages", href: ROUTES.adminCommunicationMessages, icon: Mail },
+  { label: "Campaigns", href: ROUTES.adminCommunicationCampaigns, icon: Megaphone },
+  { label: "Notifications", href: ROUTES.adminCommunicationNotifications, icon: Bell },
   { label: "Support", href: ROUTES.adminCommunicationSupport, icon: Headphones },
-  { label: "Campaigns", href: ROUTES.adminCommunicationCampaigns, icon: Target },
-  { label: "History", href: ROUTES.adminCommunicationHistory, icon: History },
-  { label: "Analytics", href: ROUTES.adminCommunicationAnalytics, icon: BarChart3 },
-  { label: "Settings", href: ROUTES.adminCommunicationSettings, icon: Settings },
-  { label: "Search", href: ROUTES.adminCommunicationSearch, icon: Search },
 ] as const;
 
 export function CommunicationCenterShell({
@@ -53,7 +31,7 @@ export function CommunicationCenterShell({
     <div className="space-y-6">
       <div className="rounded-2xl border border-border bg-gradient-to-br from-white to-royal-50/30 p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-widest text-royal-600">
-          Communication Center
+          Communication
         </p>
         <div className="mt-2 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>

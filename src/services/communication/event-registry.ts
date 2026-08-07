@@ -63,6 +63,7 @@ export const TEMPLATE_NOTIFICATION_TYPE: Record<string, string> = {
   support_resolved: "support_reply",
   support_closed: "support_reply",
   announcement_broadcast: "announcement",
+  admin_announcement: "announcement",
   maintenance_notice: "announcement",
   scheduled_downtime: "announcement",
   security_notice: "admin_message",

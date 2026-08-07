@@ -1,13 +1,6 @@
-import { CommunicationCenterShell } from "@/features/admin/components/communication-center/communication-center-shell";
-import { EmailBuilderView } from "@/features/admin/components/communication-center/email-builder";
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/constants/routes";
 
-export default function AdminCommunicationBuilderPage() {
-  return (
-    <CommunicationCenterShell
-      title="Visual Email Builder"
-      description="Assemble emails from reusable content blocks with drag-and-drop, variables, and live preview."
-    >
-      <EmailBuilderView />
-    </CommunicationCenterShell>
-  );
+export default function AdminCommunicationBuilderRedirectPage() {
+  redirect(ROUTES.adminCommunicationMessages);
 }

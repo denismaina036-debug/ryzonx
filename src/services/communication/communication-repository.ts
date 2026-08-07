@@ -69,16 +69,7 @@ function enrichFromCatalog(template: CommunicationTemplate): CommunicationTempla
     lastEditedBy: template.lastEditedBy ?? null,
   });
 
-  if (template.emailSpec) {
-    return {
-      ...template,
-      variablesSchema:
-        template.variablesSchema.length > 0
-          ? template.variablesSchema
-          : fromCatalog.variablesSchema,
-    };
-  }
-
+  // Catalog entries are the source of truth for layout/spec; DB stores metadata and sync state.
   return {
     ...fromCatalog,
     id: template.id,

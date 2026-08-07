@@ -24,11 +24,18 @@ import { requireRole } from "@/lib/auth/session";
 import { USER_ROLES } from "@/constants/roles";
 
 const RETRY_DELAY_MS = 5 * 60 * 1000;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 import {
   resolveNotificationType,
 } from "@/services/communication/event-registry";
 import { emailQueueService } from "@/services/communication/email/email-queue.service";
+
+function resolveTemplateDbId(templateId: string | null | undefined): string | null {
+  if (!templateId) return null;
+  return UUID_PATTERN.test(templateId) ? templateId : null;
+}
 
 function aggregateStatus(
   deliveryStatuses: CommunicationStatus[]
@@ -72,7 +79,7 @@ export const communicationService = {
 
     const communicationId = await communicationRepository.createCommunication({
       recipientUserId: input.recipientUserId,
-      templateId: template.id,
+      templateId: resolveTemplateDbId(template.id),
       templateSlug: template.slug,
       category,
       priority,

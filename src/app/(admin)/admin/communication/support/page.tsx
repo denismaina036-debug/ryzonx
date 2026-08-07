@@ -7,8 +7,8 @@ export default async function AdminCommunicationSupportPage() {
 
   return (
     <CommunicationCenterShell
-      title="Support Center"
-      description="Enterprise-grade ticketing — manage open, pending, resolved, and closed tickets with full conversation history."
+      title="Support"
+      description="Manage investor support tickets and conversations."
     >
       <AdminSupportInbox tickets={tickets} />
     </CommunicationCenterShell>

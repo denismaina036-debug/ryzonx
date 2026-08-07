@@ -7,6 +7,7 @@ import { emailStatusBadge } from "./components/badge";
 import { emailContentCard } from "./components/content";
 import { renderEmailBlocks, type EmailTemplateSpec } from "./types";
 import { interpolateTemplate } from "../template-engine";
+import { adminMessageHtmlToPlainText } from "./admin-message-html";
 
 export interface RenderPremiumEmailInput {
   spec: EmailTemplateSpec;
@@ -80,8 +81,11 @@ export function renderPremiumEmail(input: RenderPremiumEmailInput): RenderPremiu
   const sections: string[] = [
     emailHeader(spec.title),
     emailGreeting(firstName),
-    emailIntro(spec.intro),
   ];
+
+  if (spec.intro.trim()) {
+    sections.push(emailIntro(spec.intro));
+  }
 
   if (spec.badge) {
     sections.push(
@@ -159,9 +163,22 @@ function buildPlainText(
     "",
     `Hello ${variablesFirstName(variables)},`,
     "",
-    spec.intro,
-    "",
   ];
+
+  if (spec.intro.trim()) {
+    lines.push(spec.intro, "");
+  }
+
+  if (spec.blocks?.length) {
+    for (const block of spec.blocks) {
+      if (block.type === "paragraph" && block.text.trim()) {
+        lines.push(block.text, "");
+      }
+      if (block.type === "html" && block.content.trim()) {
+        lines.push(adminMessageHtmlToPlainText(block.content), "");
+      }
+    }
+  }
   if (spec.primaryAction) {
     const url = variables[spec.primaryAction.urlKey] ?? "";
     lines.push(`${spec.primaryAction.label}: ${url}`);
