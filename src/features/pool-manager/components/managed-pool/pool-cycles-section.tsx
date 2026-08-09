@@ -146,7 +146,9 @@ export function ManagedPoolCyclesPanel({
         ) : (
           <ul className="space-y-3">
             {sortedCycles.map((cycle) => (
-              <PoolCycleRow key={cycle.id} cycle={cycle} poolName={poolName} />
+              <li key={cycle.id}>
+                <PoolCycleRow cycle={cycle} poolName={poolName} />
+              </li>
             ))}
           </ul>
         )}
@@ -197,14 +199,13 @@ export function PoolCycleRow({
   const isCompleted = cycle.status === "completed" || cycle.status === "archived";
 
   return (
-    <li>
-      <div
-        className={cn(
-          pmCardClass,
-          "overflow-hidden transition-colors hover:border-[var(--pm-accent-border)]",
-          isCompleted && "opacity-90"
-        )}
-      >
+    <div
+      className={cn(
+        pmCardClass,
+        "overflow-hidden transition-colors hover:border-[var(--pm-accent-border)]",
+        isCompleted && "opacity-90"
+      )}
+    >
         <Link
           href={detailHref}
           className={cn(
@@ -272,8 +273,7 @@ export function PoolCycleRow({
           </div>
           <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-[var(--id-text-faint)]" aria-hidden />
         </Link>
-      </div>
-    </li>
+    </div>
   );
 }
 
