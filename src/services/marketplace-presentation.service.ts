@@ -60,9 +60,7 @@ export const marketplacePresentationService = {
     const journalEntries = await marketplaceService.getManagerJournalEntries(
       managedPools.map((p) => p.id)
     );
-    const rawStrategies = (await strategyService.listPublic()).filter(
-      (s) => s.poolManagerId === profile.id
-    );
+    const rawStrategies = await strategyService.listApprovedForManagerProfile(profile.id);
     const rawCycles = (await investmentCycleService.listPublic()).filter(
       (c) => c.poolManagerId === profile.id
     );
@@ -81,7 +79,7 @@ export const marketplacePresentationService = {
     manager: { id: string; name: string; slug: string | null; rating: number | null };
     relatedStrategies: InvestorStrategyCard[];
   } | null> {
-    const strategy = await strategyService.getPublicBySlug(slug);
+    const strategy = await strategyService.getApprovedBySlugForMarketplace(slug);
     if (!strategy) return null;
 
     const db = createAdminClient();
@@ -95,9 +93,9 @@ export const marketplacePresentationService = {
     const strategyCycles = allCycles.filter((c) => c.strategyId === strategy.id);
     const cycles = await investorInvestmentService.buildCycleCardsFromList(strategyCycles);
 
-    const related = await strategyService.listPublic();
+    const related = await strategyService.listApprovedForManagerProfile(strategy.poolManagerId);
     const relatedStrategies = await investorInvestmentService.buildStrategyCardsFromList(
-      related.filter((s) => s.id !== strategy.id && s.poolManagerId === strategy.poolManagerId).slice(0, 3)
+      related.filter((s) => s.id !== strategy.id).slice(0, 3)
     );
 
     const mgr = manager as {

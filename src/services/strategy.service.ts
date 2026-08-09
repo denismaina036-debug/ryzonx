@@ -415,6 +415,20 @@ export const strategyService = {
     return ((data ?? []) as StrategyRow[]).map(mapStrategy);
   },
 
+  /** All admin-approved strategies for a manager's public profile. */
+  async listApprovedForManagerProfile(managerId: string): Promise<Strategy[]> {
+    const db = createAdminClient();
+    const { data, error } = await db
+      .from("strategies")
+      .select("*")
+      .eq("pool_manager_id", managerId)
+      .in("status", ["approved", "available", "operating", "paused", "archived"])
+      .order("approved_at", { ascending: false, nullsFirst: false });
+
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as StrategyRow[]).map(mapStrategy);
+  },
+
   async getPublicBySlug(slug: string): Promise<Strategy | null> {
     const db = createAdminClient();
     const { data, error } = await db
@@ -428,6 +442,32 @@ export const strategyService = {
     if (error) throw new Error(error.message);
     if (!data) return null;
     return mapStrategy(data as StrategyRow);
+  },
+
+  /** Approved strategy detail pages — visible when admin approved, regardless of visibility flag. */
+  async getApprovedBySlugForMarketplace(slug: string): Promise<Strategy | null> {
+    const db = createAdminClient();
+    const { data, error } = await db
+      .from("strategies")
+      .select("*")
+      .eq("slug", slug)
+      .in("status", ["approved", "available", "operating", "paused", "archived"])
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    if (!data) return null;
+
+    const strategy = mapStrategy(data as StrategyRow);
+
+    const { data: manager } = await db
+      .from("pool_managers")
+      .select("status")
+      .eq("id", strategy.poolManagerId)
+      .maybeSingle();
+
+    if ((manager as { status?: string } | null)?.status !== "approved") return null;
+
+    return strategy;
   },
 
   async deleteForManager(id: string): Promise<void> {

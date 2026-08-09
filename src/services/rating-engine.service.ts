@@ -85,7 +85,8 @@ export const ratingEngineService = {
         (managerRow as { ryvonx_rating?: number | null } | null)?.ryvonx_rating ?? null;
 
       const ratingPatch: Record<string, unknown> = {};
-      if (hasSufficientData || adminRating == null) {
+      // Never overwrite an admin-set overall rating; auto-rating only fills empty values.
+      if (adminRating == null && hasSufficientData) {
         ratingPatch.ryvonx_rating = overallRating;
       }
 
@@ -97,9 +98,13 @@ export const ratingEngineService = {
       }
 
       const publishedRating =
-        hasSufficientData || adminRating == null ? overallRating : Number(adminRating);
+        adminRating != null ? Number(adminRating) : overallRating;
       const previousRating = existing?.overallRating ?? null;
-      if (previousRating !== publishedRating && (hasSufficientData || adminRating == null)) {
+      if (
+        previousRating !== publishedRating &&
+        adminRating == null &&
+        hasSufficientData
+      ) {
         const poolManagerUserId = await resolvePoolManagerUserId(entityId);
         publishPlatformEvent({
           eventType: PLATFORM_EVENT_TYPES.RATING_CHANGED,

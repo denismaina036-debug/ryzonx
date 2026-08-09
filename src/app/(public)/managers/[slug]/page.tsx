@@ -6,7 +6,6 @@ import { BRAND_NAME } from "@/constants/brand";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 import { marketplacePresentationService } from "@/services/marketplace-presentation.service";
 import { managerRatingService } from "@/services/manager-rating.service";
-import { poolManagerReviewService } from "@/services/pool-manager-review.service";
 
 export async function generateMetadata({
   params,
@@ -51,10 +50,7 @@ export default async function ManagerPublicProfilePage({
   const data = await marketplacePresentationService.getManagerProfilePageData(slug);
   if (!data) notFound();
 
-  const [investorRating, reviewSummary] = await Promise.all([
-    managerRatingService.getInvestorView(data.profile.id),
-    poolManagerReviewService.getSummary(data.profile.id),
-  ]);
+  const investorRating = await managerRatingService.getInvestorView(data.profile.id);
 
   return (
     <InvestorPageContent wide>
@@ -65,7 +61,6 @@ export default async function ManagerPublicProfilePage({
         strategies={data.strategies}
         cycles={data.cycles}
         investorRating={investorRating}
-        reviewSummary={reviewSummary}
       />
     </InvestorPageContent>
   );

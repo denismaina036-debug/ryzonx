@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Award,
@@ -33,20 +33,18 @@ import { InvestorRatingPanel } from "@/features/performance-intelligence/compone
 import type { InvestorRatingView } from "@/domain/performance-intelligence/types";
 import { MarketplaceStrategyCard } from "@/features/marketplace/components/investment-marketplace-cards";
 import type { PoolManagerPublicProfile } from "@/domain/pool-manager/types";
-import type { PoolManagerReviewSummary } from "@/services/pool-manager-review.service";
 import { PM_SOCIAL_PLATFORMS } from "@/domain/pool-manager/public-profile";
 
-const PROFILE_TABS = [
+const BASE_PROFILE_TABS = [
   { id: "overview", label: "Overview" },
   { id: "strategies", label: "Strategies" },
   { id: "cycles", label: "Active Pools" },
   { id: "ratings", label: "Ratings" },
   { id: "opportunities", label: "Legacy Pools" },
   { id: "journal", label: "Journal" },
-  { id: "reviews", label: "Reviews" },
 ] as const;
 
-type ProfileTab = (typeof PROFILE_TABS)[number]["id"];
+type ProfileTab = (typeof BASE_PROFILE_TABS)[number]["id"];
 
 interface ManagerProfileViewProps {
   profile: PoolManagerPublicProfile;
@@ -55,7 +53,6 @@ interface ManagerProfileViewProps {
   strategies: InvestorStrategyCard[];
   cycles: InvestorCycleCard[];
   investorRating?: InvestorRatingView | null;
-  reviewSummary?: PoolManagerReviewSummary | null;
 }
 
 export function ManagerProfileView({
@@ -63,11 +60,22 @@ export function ManagerProfileView({
   managedPools,
   journalEntries,
   strategies,
-  cycles: _cycles,
+  cycles,
   investorRating,
-  reviewSummary,
 }: ManagerProfileViewProps) {
+  const visibleTabs = useMemo(
+    () =>
+      BASE_PROFILE_TABS.filter(
+        (tab) => tab.id !== "journal" || journalEntries.length > 0
+      ),
+    [journalEntries.length]
+  );
+
   const [activeTab, setActiveTab] = useState<ProfileTab>("overview");
+
+  const resolvedTab = visibleTabs.some((tab) => tab.id === activeTab)
+    ? activeTab
+    : "overview";
 
   const stats = [
     {
@@ -86,17 +94,10 @@ export function ManagerProfileView({
       value:
         profile.maxDrawdownPct != null ? formatDrawdownPct(profile.maxDrawdownPct) : "—",
     },
-    { label: "Verified Trades", value: String(profile.publicTradeCount) },
-    { label: "Reviews", value: String(profile.publicReviewCount) },
     { label: "Capital", value: formatCurrency(profile.assetsUnderManagement) },
     { label: "Active Investors", value: String(profile.activeInvestors) },
     { label: "Opportunities", value: String(profile.poolsManaged) },
   ];
-
-  const positiveReviews =
-    (reviewSummary?.distribution[4] ?? 0) + (reviewSummary?.distribution[5] ?? 0);
-  const negativeReviews =
-    (reviewSummary?.distribution[1] ?? 0) + (reviewSummary?.distribution[2] ?? 0);
 
   const governanceIndicators = [
     ...new Set(managedPools.flatMap((p) => p.protectionIndicators)),
@@ -235,14 +236,14 @@ export function ManagerProfileView({
       </div>
 
       <div className="flex flex-wrap gap-2 border-b border-[var(--id-border)] pb-3">
-        {PROFILE_TABS.map((tab) => (
+        {visibleTabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
             className={cn(
               "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-              activeTab === tab.id
+              resolvedTab === tab.id
                 ? "bg-[var(--id-accent)] text-white"
                 : "text-[var(--id-text-muted)] hover:bg-[var(--id-surface-muted)]"
             )}
@@ -252,7 +253,7 @@ export function ManagerProfileView({
         ))}
       </div>
 
-      {activeTab === "overview" && (
+      {resolvedTab === "overview" && (
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
             <Section title="Biography">
@@ -337,7 +338,7 @@ export function ManagerProfileView({
         </div>
       )}
 
-      {activeTab === "ratings" && (
+      {resolvedTab === "ratings" && (
         <div className="space-y-6">
           {investorRating ? (
             <InvestorRatingPanel rating={investorRating} />
@@ -356,13 +357,13 @@ export function ManagerProfileView({
         </div>
       )}
 
-      {activeTab === "strategies" && (
+      {resolvedTab === "strategies" && (
         <div>
           <p className="mb-4 text-sm text-[var(--id-text-muted)]">
-            Investment strategies defined by {profile.publicDisplayName}.
+            Approved strategies submitted by {profile.publicDisplayName}.
           </p>
           {strategies.length === 0 ? (
-            <p className="text-sm text-[var(--id-text-muted)]">No public strategies yet.</p>
+            <p className="text-sm text-[var(--id-text-muted)]">No approved strategies yet.</p>
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
               {strategies.map((strategy) => (
@@ -373,24 +374,33 @@ export function ManagerProfileView({
         </div>
       )}
 
-      {activeTab === "cycles" && (
+      {resolvedTab === "cycles" && (
         <div>
           <p className="mb-4 text-sm text-[var(--id-text-muted)]">
-            Live pools managed by {profile.publicDisplayName}.
+            Live investment cycles managed by {profile.publicDisplayName}.
           </p>
-          {managedPools.length === 0 ? (
-            <p className="text-sm text-[var(--id-text-muted)]">No live pools yet.</p>
+          {cycles.length === 0 ? (
+            <p className="text-sm text-[var(--id-text-muted)]">No active cycles yet.</p>
           ) : (
             <div className="grid gap-3.5 md:gap-6 sm:grid-cols-2 xl:grid-cols-3">
-              {managedPools.map((pool) => (
-                <MarketplacePoolCardView key={pool.id} pool={pool} />
+              {cycles.map((cycle) => (
+                <Link
+                  key={cycle.id}
+                  href={`${ROUTES.marketplaceCycles}/${cycle.slug}`}
+                  className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5 shadow-[var(--id-shadow)] transition hover:border-[var(--id-accent)]"
+                >
+                  <p className="font-semibold text-[var(--id-text)]">{cycle.name}</p>
+                  <p className="mt-1 text-xs capitalize text-[var(--id-text-muted)]">
+                    {cycle.status.replace(/_/g, " ")}
+                  </p>
+                </Link>
               ))}
             </div>
           )}
         </div>
       )}
 
-      {activeTab === "opportunities" && (
+      {resolvedTab === "opportunities" && (
         <div>
           <p className="mb-4 text-sm text-[var(--id-text-muted)]">
             Legacy pool opportunities managed by {profile.publicDisplayName}.
@@ -409,133 +419,47 @@ export function ManagerProfileView({
         </div>
       )}
 
-      {activeTab === "journal" && (
+      {resolvedTab === "journal" && journalEntries.length > 0 && (
         <div>
           <p className="mb-4 text-sm text-[var(--id-text-muted)]">
             Public trading journal entries from this manager&apos;s listed opportunities.
           </p>
-          {journalEntries.length === 0 ? (
-            <p className="text-sm text-[var(--id-text-muted)]">No published journal entries yet.</p>
-          ) : (
-            <div className="overflow-x-auto rounded-xl border border-[var(--id-border)]">
-              <table className="w-full min-w-[640px] text-sm">
-                <thead>
-                  <tr className="border-b border-[var(--id-border)] bg-[var(--id-surface-muted)] text-left text-xs uppercase tracking-wide text-[var(--id-text-muted)]">
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Asset</th>
-                    <th className="px-4 py-3">Direction</th>
-                    <th className="px-4 py-3">Result</th>
-                    <th className="px-4 py-3">Notes</th>
+          <div className="overflow-x-auto rounded-xl border border-[var(--id-border)]">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead>
+                <tr className="border-b border-[var(--id-border)] bg-[var(--id-surface-muted)] text-left text-xs uppercase tracking-wide text-[var(--id-text-muted)]">
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">Asset</th>
+                  <th className="px-4 py-3">Direction</th>
+                  <th className="px-4 py-3">Result</th>
+                  <th className="px-4 py-3">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {journalEntries.map((entry) => (
+                  <tr key={entry.id} className="border-b border-[var(--id-border)] last:border-0">
+                    <td className="px-4 py-3 text-[var(--id-text-secondary)]">
+                      {entry.date
+                        ? new Date(entry.date).toLocaleDateString("en-GB")
+                        : "—"}
+                    </td>
+                    <td className="px-4 py-3 font-medium text-[var(--id-text)]">{entry.asset}</td>
+                    <td className="px-4 py-3 capitalize text-[var(--id-text-secondary)]">
+                      {entry.direction}
+                    </td>
+                    <td className="px-4 py-3">
+                      {entry.roiPct != null ? formatPercentage(entry.roiPct) : "—"}
+                    </td>
+                    <td className="max-w-xs truncate px-4 py-3 text-[var(--id-text-muted)]">
+                      {entry.notes ?? "—"}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {journalEntries.map((entry) => (
-                    <tr key={entry.id} className="border-b border-[var(--id-border)] last:border-0">
-                      <td className="px-4 py-3 text-[var(--id-text-secondary)]">
-                        {entry.date
-                          ? new Date(entry.date).toLocaleDateString("en-GB")
-                          : "—"}
-                      </td>
-                      <td className="px-4 py-3 font-medium text-[var(--id-text)]">{entry.asset}</td>
-                      <td className="px-4 py-3 capitalize text-[var(--id-text-secondary)]">
-                        {entry.direction}
-                      </td>
-                      <td className="px-4 py-3">
-                        {entry.roiPct != null ? formatPercentage(entry.roiPct) : "—"}
-                      </td>
-                      <td className="max-w-xs truncate px-4 py-3 text-[var(--id-text-muted)]">
-                        {entry.notes ?? "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
-
-      {activeTab === "reviews" && (
-        <div className="space-y-6">
-          {reviewSummary && reviewSummary.totalReviews > 0 ? (
-            <>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <ReviewStatCard
-                  label="Average Rating"
-                  value={
-                    reviewSummary.averageRating > 0
-                      ? `${reviewSummary.averageRating.toFixed(1)} / 5`
-                      : "—"
-                  }
-                />
-                <ReviewStatCard
-                  label="Positive Reviews"
-                  value={String(positiveReviews)}
-                  hint="4–5 stars"
-                />
-                <ReviewStatCard
-                  label="Negative Reviews"
-                  value={String(negativeReviews)}
-                  hint="1–2 stars"
-                />
-              </div>
-
-              <Section title="Recent Reviews">
-                <ul className="space-y-4">
-                  {reviewSummary.recentReviews.map((review) => (
-                    <li
-                      key={review.id}
-                      className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] px-4 py-3"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-sm font-medium text-[var(--id-text)]">
-                          {review.investorName}
-                        </p>
-                        <p className="inline-flex items-center gap-1 text-sm text-[var(--id-text-secondary)]">
-                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                          {review.rating} / 5
-                        </p>
-                      </div>
-                      <p className="mt-2 text-sm leading-relaxed text-[var(--id-text-secondary)]">
-                        {review.message}
-                      </p>
-                      <p className="mt-2 text-xs text-[var(--id-text-muted)]">
-                        {new Date(review.createdAt).toLocaleDateString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </Section>
-            </>
-          ) : (
-            <div className="rounded-[var(--id-radius)] border border-dashed border-[var(--id-border)] p-8 text-center text-sm text-[var(--id-text-muted)]">
-              No published investor reviews yet.
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ReviewStatCard({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <div className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] px-4 py-4 text-center shadow-[var(--id-shadow)]">
-      <p className="text-[10px] uppercase tracking-wider text-[var(--id-text-muted)]">{label}</p>
-      <p className="mt-1.5 text-lg font-semibold tabular-nums text-[var(--id-text)]">{value}</p>
-      {hint && <p className="mt-1 text-xs text-[var(--id-text-muted)]">{hint}</p>}
     </div>
   );
 }

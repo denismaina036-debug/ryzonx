@@ -56,7 +56,7 @@ export const strategyIntelligenceService = {
   },
 
   async getForStrategySlug(slug: string): Promise<StrategyIntelligence | null> {
-    const strategy = await strategyService.getPublicBySlug(slug);
+    const strategy = await strategyService.getApprovedBySlugForMarketplace(slug);
     if (!strategy) return null;
     return this.getForStrategy(strategy.id);
   },
