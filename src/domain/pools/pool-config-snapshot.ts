@@ -100,3 +100,33 @@ export function buildPoolConfigSnapshot(
     managedPool,
   };
 }
+
+export interface CycleSnapshotOverrides {
+  minInvestment?: number | null;
+  targetCapital?: number | null;
+  maxCapacity?: number | null;
+  maxInvestorsCap?: number | null;
+  poolDurationDays?: number | null;
+  roiMultipliers?: PoolConfigSnapshotRoiMultiplier[];
+}
+
+/** Apply cycle-specific funding terms onto a pool snapshot at cycle creation. */
+export function applyCycleSnapshotOverrides(
+  snapshot: PoolConfigSnapshot,
+  overrides: CycleSnapshotOverrides
+): PoolConfigSnapshot {
+  return {
+    ...snapshot,
+    pool: {
+      ...snapshot.pool,
+      minInvestment: overrides.minInvestment ?? snapshot.pool.minInvestment,
+      targetCapital: overrides.targetCapital ?? snapshot.pool.targetCapital,
+      maxInvestorsCap: overrides.maxInvestorsCap ?? snapshot.pool.maxInvestorsCap,
+      poolDurationDays: overrides.poolDurationDays ?? snapshot.pool.poolDurationDays,
+      roiMultipliers:
+        overrides.roiMultipliers && overrides.roiMultipliers.length > 0
+          ? overrides.roiMultipliers
+          : snapshot.pool.roiMultipliers,
+    },
+  };
+}

@@ -2425,6 +2425,7 @@ export type Database = {
           fund_id: string
           id: string
           investor_id: string
+          source_cycle_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2432,6 +2433,7 @@ export type Database = {
           fund_id: string
           id?: string
           investor_id: string
+          source_cycle_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2439,9 +2441,88 @@ export type Database = {
           fund_id?: string
           id?: string
           investor_id?: string
+          source_cycle_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "investor_profit_wallets_source_cycle_id_fkey"
+            columns: ["source_cycle_id"]
+            isOneToOne: false
+            referencedRelation: "investment_cycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cycle_investor_settlements: {
+        Row: {
+          capital_resolved: boolean
+          capital_withdrawal_transaction_id: string | null
+          created_at: string
+          fund_id: string
+          id: string
+          investment_cycle_id: string
+          investor_id: string
+          notes: string | null
+          principal_amount: number
+          profit_amount: number
+          profit_resolved: boolean
+          status: Database["public"]["Enums"]["cycle_investor_settlement_status"]
+          updated_at: string
+        }
+        Insert: {
+          capital_resolved?: boolean
+          capital_withdrawal_transaction_id?: string | null
+          created_at?: string
+          fund_id: string
+          id?: string
+          investment_cycle_id: string
+          investor_id: string
+          notes?: string | null
+          principal_amount?: number
+          profit_amount?: number
+          profit_resolved?: boolean
+          status?: Database["public"]["Enums"]["cycle_investor_settlement_status"]
+          updated_at?: string
+        }
+        Update: {
+          capital_resolved?: boolean
+          capital_withdrawal_transaction_id?: string | null
+          created_at?: string
+          fund_id?: string
+          id?: string
+          investment_cycle_id?: string
+          investor_id?: string
+          notes?: string | null
+          principal_amount?: number
+          profit_amount?: number
+          profit_resolved?: boolean
+          status?: Database["public"]["Enums"]["cycle_investor_settlement_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cycle_investor_settlements_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
+            referencedRelation: "funds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cycle_investor_settlements_investment_cycle_id_fkey"
+            columns: ["investment_cycle_id"]
+            isOneToOne: false
+            referencedRelation: "investment_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cycle_investor_settlements_investor_id_fkey"
+            columns: ["investor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       journal_entries: {
         Row: {
@@ -4237,6 +4318,14 @@ export type Database = {
         | "distribution"
         | "completed"
         | "archived"
+      cycle_investor_settlement_status:
+        | "pending_choice"
+        | "profit_transferred"
+        | "profit_reinvested"
+        | "capital_reinvested"
+        | "capital_withdrawal_requested"
+        | "capital_withdrawn"
+        | "closed"
       strategy_risk_profile:
         | "conservative"
         | "balanced"

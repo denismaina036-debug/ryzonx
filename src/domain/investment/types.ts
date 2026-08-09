@@ -38,6 +38,7 @@ export interface InvestmentCycle {
   targetCapital: number | null;
   minInvestment: number | null;
   maxCapacity: number | null;
+  targetInvestors: number | null;
   raisedCapital: number;
   remainingCapital?: number | null;
   fundingProgressPct?: number | null;
@@ -122,7 +123,13 @@ export interface CreateInvestmentCycleInput {
 
 export interface CreatePoolInvestmentCycleInput {
   fundId: string;
-  name?: string;
+  name: string;
+  durationDays: number;
+  minInvestment: number;
+  targetCapital: number;
+  targetInvestors: number;
+  maxCapacity?: number | null;
+  roiMultipliers?: Array<{ investmentLevelId: string; multiplier: number }>;
   openingDate?: string;
   closingDate?: string;
 }

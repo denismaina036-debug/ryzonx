@@ -9,13 +9,18 @@ import {
   investorPageTitleClass,
 } from "@/features/investor/constants/ui";
 import { PoolProfitActions } from "@/features/investor/components/pool-profit-actions";
+import { CycleSettlementChoices } from "@/features/investor/components/cycle-settlement-choices";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants/routes";
 import { formatCurrency } from "@/lib/utils";
+import { cycleInvestorSettlementService } from "@/services/investment-engine/cycle-investor-settlement.service";
 
 export default async function MyInvestmentsPage() {
-  await requireAuth();
-  const data = await investorService.getDashboardPageData();
+  const user = await requireAuth();
+  const [data, pendingSettlements] = await Promise.all([
+    investorService.getDashboardPageData(),
+    cycleInvestorSettlementService.listPendingForInvestor(user.id),
+  ]);
   const { participations } = data.investment;
 
   return (
@@ -43,6 +48,7 @@ export default async function MyInvestmentsPage() {
       </header>
 
       <WalletHeroCard investment={data.investment} />
+      <CycleSettlementChoices settlements={pendingSettlements} />
       <CurrentInvestmentCard
         performance={data.poolPerformance}
         investment={data.investment}

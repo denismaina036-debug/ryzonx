@@ -109,7 +109,7 @@ export function ManagedPoolListClient({ items, strategies }: ManagedPoolListClie
         hero
         eyebrow="Pool Manager"
         title="My Pools"
-        description="Create a strategy, launch a pool, and manage investment cycles from one place."
+        description="Your pool is the long-term product. Each cycle is a separate short-term funding round with its own capital target, investors, and profit settlement."
         actions={
           hasApprovedStrategy ? (
             <Button asChild className={pmPrimaryButtonClass}>

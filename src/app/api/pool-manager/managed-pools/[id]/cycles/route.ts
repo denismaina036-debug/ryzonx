@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { managedPoolService } from "@/services/managed-pool.service";
+import type { CreatePoolInvestmentCycleInput } from "@/domain/investment/types";
 
 export async function GET(
   _request: Request,
@@ -23,12 +24,11 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const body = (await request.json()) as {
-      name?: string;
-      openingDate?: string;
-      closingDate?: string;
-    };
-    const cycle = await managedPoolService.createCycle(id, body);
+    const body = (await request.json()) as CreatePoolInvestmentCycleInput;
+    const cycle = await managedPoolService.createCycle(id, {
+      ...body,
+      fundId: id,
+    });
     return NextResponse.json({ cycle });
   } catch (err) {
     return NextResponse.json(

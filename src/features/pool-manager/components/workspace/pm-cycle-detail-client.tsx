@@ -19,7 +19,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { CycleParticipantView, InvestmentCycle, Strategy } from "@/domain/investment/types";
-import type { CloseInvestmentCycleAction } from "@/services/investment-cycle.service";
 import type { CycleLiveMetrics } from "@/services/cycle-live-metrics.service";
 import {
   pmAccentButtonClass,
@@ -165,27 +164,19 @@ export function PmCycleDetailClient({
     [router]
   );
 
-  const runCloseCycle = useCallback(
-    async (action: CloseInvestmentCycleAction) => {
+  const runCloseCycle = useCallback(async () => {
       setLoading(true);
       setMessage(null);
       try {
-        const result = await closeCycle(cycle.id, action);
+        const result = await closeCycle(cycle.id);
         setCycle(result.cycle);
         setCloseDialogOpen(false);
         setMessage({
           text:
-            action === "reopen_funding"
-              ? "Cycle reopened for funding"
-              : result.newCycle
-                ? `Cycle completed — new funding cycle ${result.newCycle.name} is open`
-                : "Cycle completed — new funding cycle created",
+            "Cycle closed. Investors can reinvest in the next funding round, move to another pool, or request capital return to their Funding Wallet.",
           variant: "success",
         });
         router.refresh();
-        if (action === "create_new_cycle" && result.newCycle) {
-          router.push(`${ROUTES.poolManagerInvestmentCycles}/${result.newCycle.id}`);
-        }
       } catch (err) {
         setMessage({
           text: err instanceof Error ? err.message : "Action failed",
@@ -308,26 +299,23 @@ export function PmCycleDetailClient({
           <DialogHeader>
             <DialogTitle>Close cycle</DialogTitle>
             <DialogDescription className="text-[var(--id-text-secondary)]">
-              Choose what happens after this trading cycle ends. Profit distribution is separate
-              and can be done at any time while trading.
+              Distribute profits first, then close this cycle. Capital is not reinvested automatically.
+              Open the next funding round separately from the pool page when you are ready.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
             <Button
-              disabled={loading}
+              disabled={loading || !profitDistributed}
               className="w-full"
-              onClick={() => void runCloseCycle("reopen_funding")}
+              onClick={() => void runCloseCycle()}
             >
-              Reopen Funding
+              Close cycle
             </Button>
-            <Button
-              disabled={loading}
-              variant="outline"
-              className="w-full"
-              onClick={() => void runCloseCycle("create_new_cycle")}
-            >
-              Create New Cycle
-            </Button>
+            {!profitDistributed && (
+              <p className="text-xs text-[var(--id-text-muted)]">
+                Distribute profits before closing this cycle.
+              </p>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

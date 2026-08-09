@@ -5,6 +5,7 @@ import { strategyService } from "@/services/strategy.service";
 import { investmentCycleService } from "@/services/investment-cycle.service";
 import { poolManagerDashboardService } from "@/services/pool-manager-dashboard.service";
 import type { Pool } from "@/domain/pools/types";
+import type { CreatePoolInvestmentCycleInput } from "@/domain/investment/types";
 import type {
   ManagedPoolConfig,
   ManagedPoolFormInput,
@@ -860,15 +861,9 @@ export const managedPoolService = {
     return investmentCycleService.listByFundForManager(poolId);
   },
 
-  async createCycle(
-    poolId: string,
-    input: { name?: string; openingDate?: string; closingDate?: string }
-  ) {
+  async createCycle(poolId: string, input: CreatePoolInvestmentCycleInput) {
     await this.getForManager(poolId);
-    const cycle = await investmentCycleService.createFromPool({
-      fundId: poolId,
-      ...input,
-    });
+    const cycle = await investmentCycleService.createFromPool(input);
     return investmentCycleService.activateForLivePool(cycle.id);
   },
 

@@ -29,6 +29,7 @@ import {
   Bell,
   ArrowDownToLine,
   ArrowUpFromLine,
+  RefreshCw,
   Bitcoin,
   Briefcase,
   Trophy,
@@ -98,6 +99,12 @@ export const ADMIN_DEPARTMENTS: AdminNavDepartment[] = [
         icon: ArrowUpFromLine,
         badgeKey: "pendingWithdrawals",
         matchPrefix: "/admin/finance/withdrawals",
+      },
+      {
+        label: "Cycle Capital Returns",
+        href: ROUTES.adminFinanceCycleSettlements,
+        icon: RefreshCw,
+        matchPrefix: "/admin/finance/cycle-settlements",
       },
       {
         label: "Crypto Wallets",

@@ -41,4 +41,5 @@ export interface InvestorProfitWallet {
   investorId: string;
   fundId: string;
   balance: number;
+  sourceCycleId?: string | null;
 }

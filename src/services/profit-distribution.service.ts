@@ -808,7 +808,8 @@ export const profitDistributionService = {
         const wallet = await investorProfitWalletService.credit(
           alloc.investorId,
           settlement.fundId,
-          alloc.profitShare
+          alloc.profitShare,
+          cycle.id
         );
 
         const poolProfitAccount = await ledgerAccountService.ensureInvestorPoolProfitAccount(

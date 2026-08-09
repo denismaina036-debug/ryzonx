@@ -3,8 +3,6 @@
 import type { CycleParticipantView, InvestmentCycle, Strategy } from "@/domain/investment/types";
 import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 import type { StrategyStatus } from "@/constants/strategy";
-import type { CloseInvestmentCycleAction } from "@/services/investment-cycle.service";
-
 async function parseJson<T>(res: Response): Promise<T> {
   const data = (await res.json()) as T & { error?: string };
   if (!res.ok) throw new Error(data.error ?? "Request failed");
@@ -149,15 +147,10 @@ export async function distributeCycleProfit(id: string): Promise<InvestmentCycle
   return data.cycle;
 }
 
-export async function closeCycle(
-  id: string,
-  action: CloseInvestmentCycleAction
-): Promise<{ cycle: InvestmentCycle; newCycle?: InvestmentCycle }> {
-  const data = await parseJson<{ cycle: InvestmentCycle; newCycle?: InvestmentCycle }>(
+export async function closeCycle(id: string): Promise<{ cycle: InvestmentCycle }> {
+  const data = await parseJson<{ cycle: InvestmentCycle }>(
     await fetch(`/api/pool-manager/investment-cycles/${id}/close`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
     })
   );
   return data;

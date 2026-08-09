@@ -25,6 +25,7 @@ import type {
   UpdateInvestmentCycleInput,
 } from "@/domain/investment/types";
 import {
+  applyCycleSnapshotOverrides,
   buildPoolConfigSnapshot,
   type PoolConfigSnapshot,
 } from "@/domain/pools/pool-config-snapshot";
@@ -51,6 +52,7 @@ type CycleRow = {
   target_capital: number | null;
   min_investment: number | null;
   max_capacity: number | null;
+  target_investors: number | null;
   raised_capital: number;
   current_cycle_profit: number | null;
   investor_count: number;
@@ -96,6 +98,7 @@ function mapCycle(row: CycleRow): InvestmentCycle {
     targetCapital: row.target_capital != null ? toNumber(row.target_capital) : null,
     minInvestment: row.min_investment != null ? toNumber(row.min_investment) : null,
     maxCapacity: row.max_capacity != null ? toNumber(row.max_capacity) : null,
+    targetInvestors: row.target_investors != null ? toNumber(row.target_investors) : null,
     raisedCapital: toNumber(row.raised_capital),
     currentCycleProfit: toNumber(row.current_cycle_profit),
     investorCount: row.investor_count,
@@ -218,6 +221,44 @@ function readStrategyIdFromFund(fund: Record<string, unknown>): string | null {
   return managedPool.strategyId ?? managedPool.internalStrategyId ?? null;
 }
 
+function buildCycleInputFromPool(
+  fund: Record<string, unknown>,
+  fundId: string,
+  cycleNumber: number,
+  partial: CreatePoolInvestmentCycleInput
+): CreatePoolInvestmentCycleInput {
+  const poolName = (fund.name as string) ?? "Pool";
+  const targetCapital =
+    partial.targetCapital ??
+    (fund.target_capital != null ? toNumber(fund.target_capital as number) : null);
+  return {
+    fundId,
+    name: partial.name?.trim() || `${poolName} — Cycle ${cycleNumber}`,
+    durationDays:
+      partial.durationDays ??
+      (fund.pool_duration_days != null ? toNumber(fund.pool_duration_days as number) : 30),
+    minInvestment:
+      partial.minInvestment ??
+      (fund.min_investment != null ? toNumber(fund.min_investment as number) : 100),
+    targetCapital: targetCapital ?? 1000,
+    targetInvestors:
+      partial.targetInvestors ??
+      (fund.target_investors != null
+        ? toNumber(fund.target_investors as number)
+        : fund.max_investors_cap != null
+          ? toNumber(fund.max_investors_cap as number)
+          : 10),
+    maxCapacity:
+      partial.maxCapacity ??
+      (fund.max_aum != null
+        ? toNumber(fund.max_aum as number)
+        : targetCapital),
+    roiMultipliers: partial.roiMultipliers,
+    openingDate: partial.openingDate,
+    closingDate: partial.closingDate,
+  };
+}
+
 async function insertCycleFromPoolFund(
   fund: Record<string, unknown>,
   fundId: string,
@@ -281,38 +322,56 @@ async function insertCycleFromPoolFund(
   }
 
   const cycleNumber = (lastCycle?.cycle_number ?? 0) + 1;
+  const resolvedInput = buildCycleInputFromPool(fund, fundId, cycleNumber, input);
   const poolVersion = (fund.pool_config_version as number | undefined) ?? 1;
   const poolFundId = fund.id as string;
-  const roiMultipliers = (await poolRoiService.getCompleteMultipliers(poolFundId)).map((m) => ({
+
+  const defaultMultipliers = (await poolRoiService.getCompleteMultipliers(poolFundId)).map((m) => ({
     investmentLevelId: m.investmentLevelId,
     multiplier: m.multiplier,
   }));
-  const snapshot = buildPoolConfigSnapshot(fund, strategyId, poolVersion, roiMultipliers);
-
-  const poolName = (fund.name as string) ?? "Pool";
-  const cycleName = input.name?.trim() || `${poolName} — Cycle ${cycleNumber}`;
-  const slug = `${(fund.slug as string) ?? "pool"}-cycle-${cycleNumber}`;
 
   const capacity = sanitizeCycleCapacityFields({
-    targetCapital:
-      fund.target_capital != null ? toNumber(fund.target_capital as number) : null,
-    minInvestment:
-      fund.min_investment != null ? toNumber(fund.min_investment as number) : null,
-    maxCapacity:
-      fund.max_aum != null
-        ? toNumber(fund.max_aum as number)
-        : fund.target_capital != null
-          ? toNumber(fund.target_capital as number)
-          : null,
-    durationDays:
-      fund.pool_duration_days != null ? toNumber(fund.pool_duration_days as number) : null,
+    targetCapital: resolvedInput.targetCapital,
+    minInvestment: resolvedInput.minInvestment,
+    maxCapacity: resolvedInput.maxCapacity ?? resolvedInput.targetCapital,
+    durationDays: resolvedInput.durationDays,
   });
 
-  const openingDate = input.openingDate
-    ? new Date(input.openingDate).toISOString()
+  const validationError = validateCycleCapacityFields({
+    ...capacity,
+  });
+  if (validationError) throw new Error(validationError);
+
+  if (!resolvedInput.name?.trim()) throw new Error("Cycle name is required.");
+  if (!Number.isFinite(resolvedInput.targetInvestors) || resolvedInput.targetInvestors <= 0) {
+    throw new Error("Target investors must be greater than zero.");
+  }
+
+  const roiMultipliers =
+    resolvedInput.roiMultipliers && resolvedInput.roiMultipliers.length > 0
+      ? resolvedInput.roiMultipliers
+      : defaultMultipliers;
+
+  const baseSnapshot = buildPoolConfigSnapshot(fund, strategyId, poolVersion, defaultMultipliers);
+  const snapshot = applyCycleSnapshotOverrides(baseSnapshot, {
+    minInvestment: capacity.minInvestment,
+    targetCapital: capacity.targetCapital,
+    maxCapacity: capacity.maxCapacity,
+    maxInvestorsCap: resolvedInput.targetInvestors,
+    poolDurationDays: capacity.durationDays,
+    roiMultipliers,
+  });
+
+  const poolName = (fund.name as string) ?? "Pool";
+  const cycleName = resolvedInput.name.trim() || `${poolName} — Cycle ${cycleNumber}`;
+  const slug = `${(fund.slug as string) ?? "pool"}-cycle-${cycleNumber}`;
+
+  const openingDate = resolvedInput.openingDate
+    ? new Date(resolvedInput.openingDate).toISOString()
     : null;
-  const closingDate = input.closingDate
-    ? new Date(input.closingDate).toISOString()
+  const closingDate = resolvedInput.closingDate
+    ? new Date(resolvedInput.closingDate).toISOString()
     : null;
   const fundingDeadline = computeFundingDeadline(fund, closingDate);
 
@@ -331,6 +390,7 @@ async function insertCycleFromPoolFund(
       target_capital: capacity.targetCapital,
       min_investment: capacity.minInvestment,
       max_capacity: capacity.maxCapacity,
+      target_investors: Math.floor(resolvedInput.targetInvestors),
       duration_days: capacity.durationDays,
       opening_date: openingDate,
       closing_date: closingDate,
@@ -356,7 +416,7 @@ async function insertCycleFromPoolFund(
   return cycle;
 }
 
-export type CloseInvestmentCycleAction = "reopen_funding" | "create_new_cycle";
+export type CloseInvestmentCycleAction = "create_new_cycle";
 
 export const investmentCycleService = {
   async listMine(): Promise<InvestmentCycle[]> {
@@ -474,7 +534,16 @@ export const investmentCycleService = {
       fund,
       fundId,
       managerId,
-      { fundId, openingDate, closingDate },
+      {
+        fundId,
+        name: "",
+        durationDays: 0,
+        minInvestment: 0,
+        targetCapital: 0,
+        targetInvestors: 0,
+        openingDate,
+        closingDate,
+      },
       actorUserId
     );
   },
@@ -499,13 +568,9 @@ export const investmentCycleService = {
   },
 
   /** System/admin auto-create next cycle without manager session. */
-  async createFromPoolAsSystem(input: {
-    fundId: string;
-    actorUserId: string;
-    name?: string;
-    openingDate?: string;
-    closingDate?: string;
-  }): Promise<InvestmentCycle> {
+  async createFromPoolAsSystem(
+    input: CreatePoolInvestmentCycleInput & { actorUserId: string }
+  ): Promise<InvestmentCycle> {
     const db = createAdminClient();
     const { data: fundRow, error: fundError } = await db
       .from("funds")
@@ -517,24 +582,14 @@ export const investmentCycleService = {
     const managerId = fund.pool_manager_id as string;
     if (!managerId) throw new Error("Pool has no assigned manager.");
 
-    return insertCycleFromPoolFund(
-      fund,
-      input.fundId,
-      managerId,
-      {
-        fundId: input.fundId,
-        name: input.name,
-        openingDate: input.openingDate,
-        closingDate: input.closingDate,
-      },
-      input.actorUserId
-    );
+    const { actorUserId, ...cycleInput } = input;
+    return insertCycleFromPoolFund(fund, input.fundId, managerId, cycleInput, actorUserId);
   },
 
   async createFirstCycleForApprovedPool(
     fundId: string,
     actorUserId: string,
-    options?: { name?: string; openingDate?: string; closingDate?: string }
+    options?: Partial<Omit<CreatePoolInvestmentCycleInput, "fundId">>
   ): Promise<InvestmentCycle> {
     const existing = await this.listByFund(fundId);
     if (existing.length > 0) {
@@ -562,7 +617,13 @@ export const investmentCycleService = {
       managerId,
       {
         fundId,
-        name: options?.name,
+        name: options?.name ?? "",
+        durationDays: options?.durationDays ?? 0,
+        minInvestment: options?.minInvestment ?? 0,
+        targetCapital: options?.targetCapital ?? 0,
+        targetInvestors: options?.targetInvestors ?? 0,
+        maxCapacity: options?.maxCapacity,
+        roiMultipliers: options?.roiMultipliers,
         openingDate: options?.openingDate,
         closingDate: options?.closingDate,
       },
@@ -1020,12 +1081,11 @@ export const investmentCycleService = {
     return refreshed;
   },
 
-  /** Close an active cycle — reopen funding on the same cycle or start a new one. */
+  /** Mark a cycle completed after profits are distributed. Investors then choose reinvest, withdraw, or move capital. */
   async closeCycle(
     id: string,
-    action: CloseInvestmentCycleAction,
     actor: "manager" | "admin"
-  ): Promise<{ cycle: InvestmentCycle; newCycle?: InvestmentCycle }> {
+  ): Promise<{ cycle: InvestmentCycle }> {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Investment cycle not found.");
 
@@ -1049,29 +1109,22 @@ export const investmentCycleService = {
       throw new Error("Close all active trades before closing the investment cycle.");
     }
 
-    if (action === "reopen_funding") {
-      const cycle = await this.transition(id, "funding", actor);
-      return { cycle };
+    const { profitDistributionService } = await import("@/services/profit-distribution.service");
+    const settlement = await profitDistributionService.getByCycleId(id);
+    if (!settlement || settlement.status !== "completed") {
+      throw new Error("Distribute cycle profits before closing this cycle.");
     }
 
     const cycle = await this.transition(id, "completed", actor);
-    if (!existing.fundId) {
-      return { cycle };
+
+    if (existing.fundId) {
+      const { cycleInvestorSettlementService } = await import(
+        "@/services/investment-engine/cycle-investor-settlement.service"
+      );
+      await cycleInvestorSettlementService.createPendingChoicesForCycle(id, existing.fundId);
     }
 
-    let newCycle: InvestmentCycle;
-    if (actor === "admin") {
-      newCycle = await this.createFromPoolAsSystem({
-        fundId: existing.fundId,
-        actorUserId: actorId,
-      });
-      newCycle = await this.systemActivateCycleForFunding(newCycle.id, actorId);
-    } else {
-      newCycle = await this.createFromPool({ fundId: existing.fundId });
-      newCycle = await this.activateForLivePool(newCycle.id);
-    }
-
-    return { cycle, newCycle };
+    return { cycle };
   },
 
   async listPublicForInvestors(): Promise<InvestmentCycle[]> {

@@ -156,6 +156,7 @@ export function ManagedPoolEditClient({
         poolName={pool.name}
         lifecycleStatus={lifecycle}
         initialCycles={cycles}
+        investmentLevels={investmentLevels}
       />
       {editable && <PmFormMessage message={error} variant="error" />}
       <Button variant="outline" className={pmSecondaryButtonClass} asChild>
