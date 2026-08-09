@@ -24,7 +24,7 @@ export function PmCyclesClient({ initialCycles }: { initialCycles: InvestmentCyc
         description="Funding and trading cycles across your pools."
         actions={
           <Button asChild className="bg-amber-500 text-black hover:bg-amber-400">
-            <Link href={`${ROUTES.poolManagerInvestmentCycles}/new`}>
+            <Link href={ROUTES.poolManagerNewCycle}>
               <Plus className="mr-2 h-4 w-4" />
               New Cycle
             </Link>

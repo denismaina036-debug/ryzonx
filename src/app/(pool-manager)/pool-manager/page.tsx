@@ -4,7 +4,6 @@ import { ROUTES } from "@/constants/routes";
 import { getCurrentUser } from "@/lib/auth/session";
 import { managedPoolService } from "@/services/managed-pool.service";
 import { strategyService } from "@/services/strategy.service";
-import { platformInvestmentLevelService } from "@/services/platform-investment-level.service";
 import {
   ManagedPoolListClient,
   type ManagedPoolListItem,
@@ -16,10 +15,9 @@ export default async function PoolManagerDashboardPage() {
     redirect(ROUTES.applyPoolManager);
   }
 
-  const [pools, strategies, investmentLevels] = await Promise.all([
+  const [pools, strategies] = await Promise.all([
     managedPoolService.listMine(),
     strategyService.listMine(),
-    platformInvestmentLevelService.listActive(),
   ]);
 
   const items: ManagedPoolListItem[] = await Promise.all(
@@ -29,11 +27,5 @@ export default async function PoolManagerDashboardPage() {
     }))
   );
 
-  return (
-    <ManagedPoolListClient
-      items={items}
-      strategies={strategies}
-      investmentLevels={investmentLevels}
-    />
-  );
+  return <ManagedPoolListClient items={items} strategies={strategies} />;
 }

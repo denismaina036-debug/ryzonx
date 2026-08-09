@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { BookOpen, ChevronDown, Play, Plus, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { BookOpen, Play, Plus, Trash2 } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import type { Pool } from "@/domain/pools/types";
 import type { InvestmentCycle } from "@/domain/investment/types";
 import type { Strategy } from "@/domain/investment/types";
-import type { PlatformInvestmentLevel } from "@/domain/roi";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -30,17 +29,10 @@ import {
   simplifyPoolLifecycleStatus,
 } from "@/features/pool-manager/utils/pm-status-presentation";
 import {
-  CreateCycleForm,
-  buildCreateCyclePayload,
-  validateCreateCycleForm,
-  type CreateCycleFormValues,
-} from "./create-cycle-form";
-import {
   PoolCycleRow,
   resolveCanCreateCycle,
   sortCyclesChronologically,
 } from "./pool-cycles-section";
-import type { RoiMultiplierEntry } from "./pm-roi-multiplier-editor";
 
 export interface ManagedPoolListItem {
   pool: Pool;
@@ -50,14 +42,9 @@ export interface ManagedPoolListItem {
 interface ManagedPoolListClientProps {
   items: ManagedPoolListItem[];
   strategies: Strategy[];
-  investmentLevels?: PlatformInvestmentLevel[];
 }
 
-export function ManagedPoolListClient({
-  items,
-  strategies,
-  investmentLevels = [],
-}: ManagedPoolListClientProps) {
+export function ManagedPoolListClient({ items, strategies }: ManagedPoolListClientProps) {
   const router = useRouter();
   const [loadingPoolId, setLoadingPoolId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -147,7 +134,6 @@ export function ManagedPoolListClient({
               key={pool.id}
               pool={pool}
               cycles={cycles}
-              investmentLevels={investmentLevels}
               loadingPoolId={loadingPoolId}
               onSubmitPool={() => void submitPool(pool.id)}
               onDeletePool={() => void deletePool(pool.id, pool.name)}
@@ -163,7 +149,6 @@ export function ManagedPoolListClient({
 function PoolContainer({
   pool,
   cycles,
-  investmentLevels,
   loadingPoolId,
   onSubmitPool,
   onDeletePool,
@@ -171,13 +156,11 @@ function PoolContainer({
 }: {
   pool: Pool;
   cycles: InvestmentCycle[];
-  investmentLevels: PlatformInvestmentLevel[];
   loadingPoolId: string | null;
   onSubmitPool: () => void;
   onDeletePool: () => void;
   onStartTrading: (cycleId: string) => void;
 }) {
-  const router = useRouter();
   const lifecycle = pool.lifecycleStatus ?? "draft";
   const label = simplifyPoolLifecycleStatus(lifecycle);
   const activeCycle = resolveActivePoolCycle(cycles);
@@ -185,66 +168,6 @@ function PoolContainer({
   const sortedCycles = useMemo(() => sortCyclesChronologically(cycles), [cycles]);
   const canCreate = resolveCanCreateCycle(cycles, lifecycle === "live");
   const nextCycleNumber = (sortedCycles[sortedCycles.length - 1]?.cycleNumber ?? 0) + 1;
-  const [showCreateCycle, setShowCreateCycle] = useState(false);
-  const [formValues, setFormValues] = useState<CreateCycleFormValues>({
-    name: "",
-    durationDays: "",
-    minInvestment: "",
-    targetCapital: "",
-    targetInvestors: "",
-    multipliers: [],
-  });
-  const [createLoading, setCreateLoading] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!showCreateCycle || formValues.multipliers.length > 0) return;
-    void fetch(`/api/pool-manager/managed-pools/${pool.id}/roi`)
-      .then((res) => res.json())
-      .then((data: { multipliers?: RoiMultiplierEntry[] }) => {
-        if (data.multipliers?.length) {
-          setFormValues((prev) => ({ ...prev, multipliers: data.multipliers! }));
-        }
-      })
-      .catch(() => undefined);
-  }, [showCreateCycle, formValues.multipliers.length, pool.id]);
-
-  async function createCycle() {
-    const validationError = validateCreateCycleForm(formValues);
-    if (validationError) {
-      setCreateError(validationError);
-      return;
-    }
-
-    setCreateLoading(true);
-    setCreateError(null);
-    try {
-      const res = await fetch(`/api/pool-manager/managed-pools/${pool.id}/cycles`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fundId: pool.id,
-          ...buildCreateCyclePayload(formValues),
-        }),
-      });
-      const data = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Could not create cycle.");
-      setShowCreateCycle(false);
-      setFormValues({
-        name: "",
-        durationDays: "",
-        minInvestment: "",
-        targetCapital: "",
-        targetInvestors: "",
-        multipliers: formValues.multipliers,
-      });
-      router.refresh();
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : "Could not create cycle.");
-    } finally {
-      setCreateLoading(false);
-    }
-  }
 
   return (
     <article className="overflow-hidden rounded-2xl border border-[var(--id-border)] bg-[var(--id-surface)] shadow-sm">
@@ -326,43 +249,14 @@ function PoolContainer({
             </p>
           </div>
           {canCreate && (
-            <Button
-              size="sm"
-              variant={showCreateCycle ? "outline" : "default"}
-              className={showCreateCycle ? pmSecondaryButtonClass : pmPrimaryButtonClass}
-              onClick={() => setShowCreateCycle((open) => !open)}
-            >
-              {showCreateCycle ? (
-                <>
-                  <ChevronDown className="mr-1.5 h-3.5 w-3.5" />
-                  Hide form
-                </>
-              ) : (
-                <>
-                  <Plus className="mr-1.5 h-3.5 w-3.5" />
-                  Open cycle {nextCycleNumber}
-                </>
-              )}
+            <Button size="sm" className={pmPrimaryButtonClass} asChild>
+              <Link href={`${ROUTES.poolManagerNewCycle}?poolId=${pool.id}`}>
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Open cycle {nextCycleNumber}
+              </Link>
             </Button>
           )}
         </div>
-
-        {showCreateCycle && canCreate && (
-          <div className="mt-5 rounded-xl border border-[var(--id-border)] bg-[var(--id-bg)] p-4 sm:p-5">
-            <CreateCycleForm
-              poolId={pool.id}
-              poolName={pool.name}
-              cycleNumber={nextCycleNumber}
-              investmentLevels={investmentLevels}
-              values={formValues}
-              onChange={setFormValues}
-              onSubmit={createCycle}
-              loading={createLoading}
-              error={createError}
-              submitLabel={`Create cycle ${nextCycleNumber}`}
-            />
-          </div>
-        )}
 
         {sortedCycles.length > 0 ? (
           <ul className="mt-5 space-y-3">

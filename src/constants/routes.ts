@@ -57,6 +57,7 @@ export const ROUTES = {
   poolManager: "/pool-manager",
   poolManagerStrategies: "/pool-manager/strategies",
   poolManagerInvestmentCycles: "/pool-manager/investment-cycles",
+  poolManagerNewCycle: "/pool-manager/investment-cycles/new",
   poolManagerPerformance: "/pool-manager/performance",
   poolManagerPools: "/pool-manager/pools",
   poolManagerInvestors: "/pool-manager/investors",
