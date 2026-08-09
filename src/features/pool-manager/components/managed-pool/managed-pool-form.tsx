@@ -20,8 +20,6 @@ import {
 } from "@/domain/pools/managed-pool";
 import {
   TRADING_SESSION_OPTIONS,
-  TRADING_TIME_ZONE_LABEL,
-  toTradingDateTimeLocalValue,
 } from "@/domain/pools/trading-session";
 import { normalizeMarketCodes } from "@/domain/reference-data/utils";
 import { ReferenceMultiSelect } from "@/components/reference-data/reference-multi-select";
@@ -37,10 +35,7 @@ import {
 import { PmFormField } from "@/features/pool-manager/components/workspace/pm-form-field";
 import { PmSectionCard } from "@/features/pool-manager/components/workspace/pm-page-header";
 import { PoolImageUpload } from "./pool-image-upload";
-import { PmReturnDurationEditor } from "./pm-return-duration-editor";
-import { PmRoiMultiplierEditor } from "./pm-roi-multiplier-editor";
 import { PmTradingScheduleEditor } from "./pm-trading-schedule-editor";
-import type { PlatformInvestmentLevel } from "@/domain/roi";
 
 function buildStrategyReturnUrl(poolId?: string): string {
   const returnTo = poolId
@@ -55,14 +50,14 @@ export function ManagedPoolForm({
   editable = true,
   poolId,
   approvedStrategies = [],
-  investmentLevels = [],
+  showParticipationLimits = false,
 }: {
   values: ManagedPoolFormInput;
   onChange: (values: ManagedPoolFormInput) => void;
   editable?: boolean;
   poolId?: string;
   approvedStrategies?: { id: string; name: string }[];
-  investmentLevels?: PlatformInvestmentLevel[];
+  showParticipationLimits?: boolean;
 }) {
   const { items: marketOptions, loading: marketsLoading } = useReferenceData(
     REFERENCE_SET_KEYS.FINANCIAL_MARKETS
@@ -267,20 +262,8 @@ export function ManagedPoolForm({
         </div>
       </PmSectionCard>
 
-      <PmSectionCard title="Investment Rules" description="Participation requirements for the investment cycle.">
+      <PmSectionCard title="Marketplace Presentation" description="Optional display seeds for your pool card. Live totals replace these once higher.">
         <div className="grid gap-6 sm:grid-cols-2">
-          <PmFormField label="Minimum Investment" hint="Must not exceed maximum investment when submitting.">
-            <Input type="number" min={0} value={values.minInvestment} onChange={(e) => patch("minInvestment", e.target.value)} disabled={!editable} className={pmInputClass} />
-          </PmFormField>
-          <PmFormField label="Maximum Investment">
-            <Input type="number" min={0} value={values.maxInvestment} onChange={(e) => patch("maxInvestment", e.target.value)} disabled={!editable} className={pmInputClass} />
-          </PmFormField>
-          <PmFormField label="Target Capital" hint="Target capital to raise for this cycle.">
-            <Input type="number" min={0} value={values.maxPoolSize} onChange={(e) => patch("maxPoolSize", e.target.value)} disabled={!editable} className={pmInputClass} />
-          </PmFormField>
-          <PmFormField label="Target Investors" hint="Max participants shown on the marketplace (e.g. 0 / 200).">
-            <Input type="number" min={1} value={values.maxInvestors} onChange={(e) => patch("maxInvestors", e.target.value)} disabled={!editable} className={pmInputClass} />
-          </PmFormField>
           <PmFormField
             label="Display Participants"
             hint="Manual participant count seed. Live investors replace this once higher."
@@ -311,106 +294,25 @@ export function ManagedPoolForm({
         </div>
       </PmSectionCard>
 
-      <PmSectionCard title="Schedule" description="Opening and closing dates, or leave open until manually closed.">
-        <div className="space-y-6">
-          <PmFormField label="Schedule">
-            <Select
-              value={values.scheduleOpenEnded ? "open" : "fixed"}
-              onValueChange={(v) => patch("scheduleOpenEnded", v === "open")}
-              disabled={!editable}
-            >
-              <SelectTrigger className={pmSelectTriggerClass}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className={pmSelectContentClass}>
-                <SelectItem value="fixed" className={pmSelectItemClass}>Fixed opening and closing dates</SelectItem>
-                <SelectItem value="open" className={pmSelectItemClass}>Open until manually closed</SelectItem>
-              </SelectContent>
-            </Select>
-          </PmFormField>
-          {!values.scheduleOpenEnded && (
-            <div className="grid gap-6 sm:grid-cols-2">
-              <PmFormField
-                label="Funding Start Date & Time"
-                hint={`When funding opens — ${TRADING_TIME_ZONE_LABEL}.`}
-              >
-                <Input
-                  type="datetime-local"
-                  value={toTradingDateTimeLocalValue(values.openingDate)}
-                  onChange={(e) => patch("openingDate", e.target.value)}
-                  disabled={!editable}
-                  className={pmInputClass}
-                />
-              </PmFormField>
-              <PmFormField
-                label="Funding End Date & Time"
-                hint={`When funding closes — ${TRADING_TIME_ZONE_LABEL}.`}
-              >
-                <Input
-                  type="datetime-local"
-                  value={toTradingDateTimeLocalValue(values.closingDate)}
-                  onChange={(e) => patch("closingDate", e.target.value)}
-                  disabled={!editable}
-                  className={pmInputClass}
-                />
-              </PmFormField>
-            </div>
-          )}
+      {showParticipationLimits && (
+        <PmSectionCard
+          title="Participation Limits"
+          description="Optional pool-wide cap. Cycle funding terms are set under the Cycles tab."
+        >
           <div className="grid gap-6 sm:grid-cols-2">
-            <PmFormField label="Funding Period (days)" hint="How long investors can join before trading starts.">
+            <PmFormField label="Maximum Investment">
               <Input
                 type="number"
-                min={1}
-                value={values.fundingPeriodDays}
-                onChange={(e) => patch("fundingPeriodDays", e.target.value)}
+                min={0}
+                value={values.maxInvestment}
+                onChange={(e) => patch("maxInvestment", e.target.value)}
                 disabled={!editable}
                 className={pmInputClass}
               />
             </PmFormField>
           </div>
-        </div>
-      </PmSectionCard>
-
-      <PmSectionCard
-        title="Return Duration"
-        description="Step 1 — Select the investment cycle duration investors will see."
-      >
-        <PmReturnDurationEditor
-          preset={values.returnDurationPreset}
-          value={values.returnDurationValue}
-          unit={values.returnDurationUnit}
-          onPresetChange={(preset) => {
-            if (preset === "hourly") {
-              onChange({
-                ...values,
-                returnDurationPreset: preset,
-                returnDurationUnit: "hours",
-                returnDurationValue:
-                  values.returnDurationUnit === "hours" && values.returnDurationValue.trim()
-                    ? values.returnDurationValue
-                    : "4",
-              });
-              return;
-            }
-            patch("returnDurationPreset", preset);
-          }}
-          onValueChange={(v) => patch("returnDurationValue", v)}
-          onUnitChange={(unit) => patch("returnDurationUnit", unit)}
-          disabled={!editable}
-        />
-      </PmSectionCard>
-
-      <PmSectionCard
-        title="ROI Multipliers"
-        description="Step 2 — Set the projected ROI multiplier for each platform investment level."
-      >
-        <PmRoiMultiplierEditor
-          levels={investmentLevels}
-          multipliers={values.roiMultipliers}
-          onChange={(roiMultipliers) => patch("roiMultipliers", roiMultipliers)}
-          disabled={!editable}
-        />
-      </PmSectionCard>
+        </PmSectionCard>
+      )}
 
       <PmSectionCard title="Risk Configuration" description="Risk profile for this pool.">
         <div className="grid gap-6 sm:grid-cols-2">

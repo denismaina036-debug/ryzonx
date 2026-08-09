@@ -14,6 +14,7 @@ import { pmPrimaryButtonClass, pmSecondaryButtonClass } from "@/features/pool-ma
 import { PmFormGuide } from "@/features/pool-manager/components/workspace/pm-form-field";
 import { PmPageHeader, PmFormMessage } from "@/features/pool-manager/components/workspace/pm-page-header";
 import { ManagedPoolForm } from "./managed-pool-form";
+import { DraftCycleDefaultsForm } from "./draft-cycle-defaults-form";
 import { defaultRoiMultipliers } from "./pm-roi-multiplier-editor";
 import type { PlatformInvestmentLevel } from "@/domain/roi";
 
@@ -74,21 +75,28 @@ export function ManagedPoolCreateClient({
         hero
         eyebrow="Pool Management"
         title="Create New Pool"
-        description="Configure your pool using an approved strategy. Administrators review submitted pools before they go live."
+        description="Set up the long-term pool profile first. Cycle 1 funding terms are configured separately below — cycles never create new pools."
       />
       <PmFormGuide
         title="Before you submit"
         items={[
           "Select an approved strategy — create strategies separately under Strategies.",
-          "Complete pool info, trading session, investment rules, schedule, and risk.",
-          "Once approved, your pool goes live in the Marketplace automatically.",
+          "Complete pool branding, trading session, markets, and risk settings.",
+          "Set Cycle 1 defaults — these apply when RyvonX approves your pool.",
+          "After approval, open Cycle 2, Cycle 3, and so on inside the same pool.",
         ]}
       />
       <ManagedPoolForm
         values={values}
         onChange={setValues}
         approvedStrategies={approvedStrategies}
+        showParticipationLimits
+      />
+      <DraftCycleDefaultsForm
+        values={values}
+        onChange={setValues}
         investmentLevels={investmentLevels}
+        editable
       />
       <div className="space-y-3">
         <PmFormMessage message={error} variant="error" />

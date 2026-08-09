@@ -12,10 +12,12 @@ import {
 } from "@/domain/pools/managed-pool-validation";
 import type { Pool } from "@/domain/pools/types";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { pmPrimaryButtonClass, pmSecondaryButtonClass } from "@/features/pool-manager/constants/ui";
 import { PmPageHeader, PmFormMessage } from "@/features/pool-manager/components/workspace/pm-page-header";
 import { ManagedPoolForm } from "./managed-pool-form";
 import { ManagedPoolCyclesPanel } from "./managed-pool-cycles-panel";
+import { DraftCycleDefaultsForm } from "./draft-cycle-defaults-form";
 import type { InvestmentCycle } from "@/domain/investment/types";
 import type { PlatformInvestmentLevel } from "@/domain/roi";
 
@@ -44,6 +46,7 @@ export function ManagedPoolEditClient({
   const lifecycle = pool.lifecycleStatus ?? "draft";
   const statusLabel = MANAGED_POOL_STATUS_LABELS[lifecycle] ?? lifecycle;
   const isDraft = lifecycle === "draft";
+  const isLive = lifecycle === "live";
 
   async function saveChanges() {
     const normalized = normalizeManagedPoolForm(values);
@@ -111,9 +114,9 @@ export function ManagedPoolEditClient({
   return (
     <div className="space-y-8">
       <PmPageHeader
-        eyebrow="Pool Management"
+        eyebrow="Pool"
         title={pool.name}
-        description={`Status: ${statusLabel}`}
+        description={`Long-term pool profile · ${statusLabel}. Funding rounds are managed under Cycles.`}
         actions={
           editable ? (
             <div className="flex flex-wrap gap-2">
@@ -122,11 +125,7 @@ export function ManagedPoolEditClient({
                 className={pmPrimaryButtonClass}
                 onClick={() => void saveChanges()}
               >
-                {loading === "draft"
-                  ? "Saving…"
-                  : isDraft
-                    ? "Save Draft"
-                    : "Save Changes"}
+                {loading === "draft" ? "Saving…" : isDraft ? "Save Draft" : "Save Changes"}
               </Button>
               {canSubmit && (
                 <Button
@@ -142,22 +141,49 @@ export function ManagedPoolEditClient({
           ) : undefined
         }
       />
+
       {editable && <PmFormMessage message={error} variant="error" />}
-      <ManagedPoolForm
-        values={values}
-        onChange={setValues}
-        poolId={pool.id}
-        editable={editable}
-        approvedStrategies={approvedStrategies}
-        investmentLevels={investmentLevels}
-      />
-      <ManagedPoolCyclesPanel
-        poolId={pool.id}
-        poolName={pool.name}
-        lifecycleStatus={lifecycle}
-        initialCycles={cycles}
-        investmentLevels={investmentLevels}
-      />
+
+      <Tabs defaultValue={isLive ? "cycles" : "pool"} className="space-y-2">
+        <TabsList className="h-auto flex-wrap gap-1 bg-[var(--id-surface-muted)] p-1">
+          <TabsTrigger value="pool" className="rounded-lg px-4 py-2 text-sm">
+            Pool profile
+          </TabsTrigger>
+          <TabsTrigger value="cycles" className="rounded-lg px-4 py-2 text-sm">
+            Cycles ({cycles.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pool" className="space-y-8">
+          <ManagedPoolForm
+            values={values}
+            onChange={setValues}
+            poolId={pool.id}
+            editable={editable}
+            approvedStrategies={approvedStrategies}
+            showParticipationLimits
+          />
+        </TabsContent>
+
+        <TabsContent value="cycles" className="space-y-6">
+          {isDraft && (
+            <DraftCycleDefaultsForm
+              values={values}
+              onChange={setValues}
+              investmentLevels={investmentLevels}
+              editable={editable}
+            />
+          )}
+          <ManagedPoolCyclesPanel
+            poolId={pool.id}
+            poolName={pool.name}
+            lifecycleStatus={lifecycle}
+            initialCycles={cycles}
+            investmentLevels={investmentLevels}
+          />
+        </TabsContent>
+      </Tabs>
+
       {editable && <PmFormMessage message={error} variant="error" />}
       <Button variant="outline" className={pmSecondaryButtonClass} asChild>
         <Link href={ROUTES.poolManagerPools}>← Back to My Pools</Link>
