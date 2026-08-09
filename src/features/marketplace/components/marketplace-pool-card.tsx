@@ -22,7 +22,7 @@ import { ManagerCountryBadge } from "@/features/marketplace/components/manager-c
 import { MobileMarketplacePoolCard } from "@/features/marketplace/components/mobile-marketplace-pool-card";
 import { Button } from "@/components/ui/button";
 import type { MarketplacePoolCard } from "@/domain/marketplace/types";
-import { formatRaisedCapitalPct } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
+import { formatRaisedCapitalPct, shouldShowPoolTagline } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 import { isCycleTradingPhase } from "@/lib/investment/cycle-display-phase";
 import { PoolCardRoiPreview } from "@/features/marketplace/components/pool-card-roi-preview";
 import { formatTradingDateTimeLabel } from "@/domain/pools/trading-session";
@@ -296,9 +296,9 @@ function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
             className="h-10 bg-[var(--id-accent)] text-white hover:bg-[var(--id-accent)]/90 disabled:opacity-50"
           >
             {participateDisabled ? (
-              <span>Participate in Cycle</span>
+              <span>Invest in Pool</span>
             ) : (
-              <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Participate in Cycle</Link>
+              <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Invest in Pool</Link>
             )}
           </Button>
         </div>
@@ -362,6 +362,7 @@ export function PoolCardDescription({
 }) {
   const text = pool.tagline?.trim();
   if (!text) return null;
+  if (!shouldShowPoolTagline(text, pool.displayPoolName || pool.name, pool.name)) return null;
   return (
     <p
       className={cn(

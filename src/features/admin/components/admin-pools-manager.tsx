@@ -436,5 +436,6 @@ function fundToMarketplaceFields(fund: AdminFund): MarketplaceAdminFields {
     maxInvestorsCap: fund.maxInvestorsCap != null ? String(fund.maxInvestorsCap) : "",
     displayActiveInvestors: String(fund.displayActiveInvestors ?? 0),
     displayRaisedCapital: String(fund.displayRaisedCapital ?? 0),
+    displayRecordedProfit: String(fund.displayRecordedProfit ?? 0),
   };
 }

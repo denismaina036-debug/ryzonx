@@ -901,6 +901,7 @@ export type Database = {
           active_investors: number
           display_active_investors: number
           display_raised_capital: number
+          display_recorded_profit: number
           admin_comments: string | null
           admin_ranking: number
           aggressiveness_level: string | null
@@ -994,6 +995,7 @@ export type Database = {
           active_investors?: number
           display_active_investors?: number
           display_raised_capital?: number
+          display_recorded_profit?: number
           assets_under_management?: number
           approved_at?: string | null
           card_background_color?: string | null
@@ -1037,6 +1039,7 @@ export type Database = {
           active_investors?: number
           display_active_investors?: number
           display_raised_capital?: number
+          display_recorded_profit?: number
           assets_under_management?: number
           approved_at?: string | null
           card_background_color?: string | null

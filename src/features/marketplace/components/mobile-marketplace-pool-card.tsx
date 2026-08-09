@@ -196,9 +196,9 @@ export function MobileMarketplacePoolCard({ pool }: MobileMarketplacePoolCardPro
           )}
         >
           {participateDisabled ? (
-            <span>Participate in Pool</span>
+            <span>Invest in Pool</span>
           ) : (
-            <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Participate in Pool</Link>
+            <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Invest in Pool</Link>
           )}
         </Button>
       </div>

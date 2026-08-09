@@ -1,5 +1,6 @@
 import { ScoreBadge, TrendIndicator } from "@/features/performance-intelligence/components/rating-display";
 import type { CycleIntelligence } from "@/domain/performance-intelligence/types";
+import { formatPercentage } from "@/lib/utils";
 
 export function InvestorCycleIntelligencePanel({ intelligence }: { intelligence: CycleIntelligence }) {
   return (
@@ -47,9 +48,11 @@ export function InvestorCycleIntelligencePanel({ intelligence }: { intelligence:
 export function InvestorStrategyIntelligencePanel({
   intelligence,
   managerRating,
+  managerWinRatePct,
 }: {
   intelligence: import("@/domain/performance-intelligence/types").StrategyIntelligence;
   managerRating?: number | null;
+  managerWinRatePct?: number | null;
 }) {
   const displayRating = managerRating ?? intelligence.rating?.overallRating ?? null;
 
@@ -57,23 +60,20 @@ export function InvestorStrategyIntelligencePanel({
     <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
       <h2 className="font-semibold text-[var(--id-text)]">Strategy Intelligence</h2>
       <p className="mt-1 text-sm text-[var(--id-text-muted)]">
-        Historical performance indicators from completed cycles and operational records.
+        Key metrics from the pool manager&apos;s verified track record.
       </p>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <Cell
           label="Manager Rating"
           value={displayRating != null ? `${displayRating.toFixed(1)} ★` : "—"}
         />
-        <Cell label="Completion Rate" value={`${Math.round(intelligence.completionRate * 100)}%`} />
+        <Cell
+          label="Winning Rate"
+          value={managerWinRatePct != null ? formatPercentage(managerWinRatePct) : "—"}
+        />
         <Cell label="Risk Class" value={intelligence.riskClassification} />
-        <Cell label="Operational Health" value={<ScoreBadge score={intelligence.operationalHealth} size="sm" />} />
       </div>
-
-      <p className="mt-4 text-xs text-[var(--id-text-muted)]">
-        {intelligence.activeCycles} active · {intelligence.completedCycles} completed cycles ·{" "}
-        {intelligence.benchmarkComparison}
-      </p>
     </section>
   );
 }

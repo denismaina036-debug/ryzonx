@@ -42,6 +42,7 @@ export interface MarketplaceAdminFields {
   maxInvestorsCap: string;
   displayActiveInvestors: string;
   displayRaisedCapital: string;
+  displayRecordedProfit: string;
 }
 
 export function AdminMarketplacePanel({
@@ -86,6 +87,9 @@ export function AdminMarketplacePanel({
             : 0,
           displayRaisedCapital: form.displayRaisedCapital
             ? Number(form.displayRaisedCapital)
+            : 0,
+          displayRecordedProfit: form.displayRecordedProfit
+            ? Number(form.displayRecordedProfit)
             : 0,
         }),
       });
@@ -257,6 +261,11 @@ export function AdminMarketplacePanel({
         placeholder="Initial displayed raised capital (marketplace baseline)"
         value={form.displayRaisedCapital}
         onChange={(e) => setForm({ ...form, displayRaisedCapital: e.target.value })}
+      />
+      <Input
+        placeholder="Initial recorded profit / loss (marketplace baseline, use negative for losses)"
+        value={form.displayRecordedProfit}
+        onChange={(e) => setForm({ ...form, displayRecordedProfit: e.target.value })}
       />
 
       <Input

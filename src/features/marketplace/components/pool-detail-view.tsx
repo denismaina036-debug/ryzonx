@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { ArrowLeft, BadgeCheck, ShieldCheck } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatSignedCurrency, cn } from "@/lib/utils";
 import { PoolCoverBanner } from "@/features/marketplace/components/pool-cover-banner";
 import { ManagerCountryBadge } from "@/features/marketplace/components/manager-country-badge";
 import { Button } from "@/components/ui/button";
@@ -12,12 +12,11 @@ import type { MarketplacePoolDetail } from "@/domain/marketplace/types";
 import { formatInstrumentTicker } from "@/domain/reference-data/instrument-display";
 import { formatMultiplier } from "@/domain/roi/calculator";
 import { formatInvestmentLevelRange } from "@/features/pool-manager/components/managed-pool/pm-roi-multiplier-editor";
-import { shouldShowPoolTagline } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
+import { shouldShowPoolTagline, resolvePoolAboutText } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 import { isCycleFundingPhase, isCycleTradingPhase } from "@/lib/investment/cycle-display-phase";
 import { LiveRoiPreview, RoiDisclaimerBlock } from "@/features/roi/components/live-roi-preview";
 import { InvestorCycleTradeFeed } from "@/features/investor/components/investment/investor-cycle-trade-feed";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 
 interface PoolDetailViewProps {
   pool: MarketplacePoolDetail;
@@ -42,6 +41,13 @@ export function PoolDetailView({ pool }: PoolDetailViewProps) {
 
   const displayName = pool.displayPoolName || pool.name;
   const tradedLabel = formatTradedInstruments(pool);
+  const aboutText = resolvePoolAboutText({
+    poolDescription: pool.poolDescription,
+    description: pool.description,
+    tagline: pool.tagline,
+    displayName,
+    poolName: pool.name,
+  });
   const isHealthy = pool.poolHealth === "healthy";
   const showActiveSignal = Boolean(pool.activeCycle && pool.canParticipate);
   const isTrading =
@@ -155,7 +161,7 @@ export function PoolDetailView({ pool }: PoolDetailViewProps) {
                   ) : null}
                   <DetailItem
                     label={isTrading ? "Capital Traded" : "Total Capital"}
-                    value={formatCurrency(pool.currentCapital ?? pool.raisedCapital)}
+                    value={formatCurrency(pool.raisedCapital)}
                   />
                   {isTrading && pool.targetCapital > 0 ? (
                     <DetailItem
@@ -175,7 +181,7 @@ export function PoolDetailView({ pool }: PoolDetailViewProps) {
               <div className="flex flex-col gap-2 sm:mt-1 sm:shrink-0 sm:items-stretch">
                 {pool.canParticipate && (
                   <Button asChild size="lg" className="h-11 px-8">
-                    <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Invest</Link>
+                    <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Invest in Pool</Link>
                   </Button>
                 )}
                 <Button asChild variant="outline" size="lg" className="h-11 px-8">
@@ -200,20 +206,25 @@ export function PoolDetailView({ pool }: PoolDetailViewProps) {
         )}
       </section>
 
-      {/* Cycle performance */}
-      {pool.activeCycle && (
-        <section className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5 sm:p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--id-text-faint)]">
-            Cycle Performance
-          </p>
-          <p className="mt-3 text-2xl font-semibold tabular-nums text-[var(--id-text)] sm:text-3xl">
-            {formatCurrency(pool.cycleRealizedProfit)}
-          </p>
-          <p className="mt-1 text-sm text-[var(--id-text-muted)]">
-            Total profits realized in this cycle
-          </p>
-        </section>
-      )}
+      {/* Pool performance */}
+      <section className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5 sm:p-6">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--id-text-faint)]">
+          Pool Performance
+        </p>
+        <p
+          className={cn(
+            "mt-3 text-2xl font-semibold tabular-nums sm:text-3xl",
+            pool.poolRealizedProfit > 0 && "text-emerald-600 dark:text-emerald-400",
+            pool.poolRealizedProfit < 0 && "text-rose-600 dark:text-rose-400",
+            pool.poolRealizedProfit === 0 && "text-[var(--id-text)]"
+          )}
+        >
+          {formatSignedCurrency(pool.poolRealizedProfit)}
+        </p>
+        <p className="mt-1 text-sm text-[var(--id-text-muted)]">
+          Total profit realized in this pool
+        </p>
+      </section>
 
       {pool.publicTrades.length > 0 && pool.activeCycle && (
         <InvestorCycleTradeFeed
@@ -307,11 +318,11 @@ export function PoolDetailView({ pool }: PoolDetailViewProps) {
         </section>
       )}
 
-      {(pool.poolDescription || pool.description) && (
+      {aboutText && (
         <section className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5 sm:p-6">
           <h2 className="text-sm font-semibold text-[var(--id-text)]">About this pool</h2>
           <p className="mt-3 whitespace-pre-wrap text-wrap-pretty text-sm leading-relaxed text-[var(--id-text-secondary)]">
-            {pool.poolDescription || pool.description}
+            {aboutText}
           </p>
         </section>
       )}

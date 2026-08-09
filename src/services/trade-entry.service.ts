@@ -200,6 +200,50 @@ export const tradeEntryService = {
     );
   },
 
+  /** Sum closed-trade realized P/L across all cycles in a marketplace-listed pool. */
+  async sumRealizedProfitForPoolPublic(fundId: string): Promise<number> {
+    const db = createAdminClient();
+    const { data: fundRow, error: fundError } = await db
+      .from("funds")
+      .select("is_marketplace_listed, lifecycle_status, display_recorded_profit")
+      .eq("id", fundId)
+      .maybeSingle();
+    if (fundError) throw new Error(fundError.message);
+
+    const fund = fundRow as {
+      is_marketplace_listed?: boolean;
+      lifecycle_status?: string;
+      display_recorded_profit?: number | string | null;
+    } | null;
+    if (!fund?.is_marketplace_listed || fund.lifecycle_status !== "live") return 0;
+
+    const adminBaseline = toNumber(fund.display_recorded_profit);
+
+    const { data: cycles, error: cycleError } = await db
+      .from("investment_cycles")
+      .select("id")
+      .eq("fund_id", fundId);
+    if (cycleError) throw new Error(cycleError.message);
+
+    const cycleIds = ((cycles ?? []) as Array<{ id: string }>).map((row) => row.id);
+    if (cycleIds.length === 0) return adminBaseline;
+
+    const { data, error } = await db
+      .from("trade_entries")
+      .select("realized_pnl")
+      .in("investment_cycle_id", cycleIds)
+      .eq("status", "closed");
+
+    if (error) throw new Error(error.message);
+
+    const journalProfit = ((data ?? []) as Array<{ realized_pnl: string | number | null }>).reduce(
+      (sum, row) => sum + toNumber(row.realized_pnl),
+      0
+    );
+
+    return adminBaseline + journalProfit;
+  },
+
   /** Public open trades for marketplace display during trading status. */
   async listOpenTradesPublic(
     cycleId: string

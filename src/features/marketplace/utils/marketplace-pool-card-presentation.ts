@@ -294,6 +294,53 @@ function normalizeLabelForComparison(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+/** Remove exact duplicate halves often pasted into pool descriptions. */
+export function dedupeRepeatedText(text: string): string {
+  const trimmed = text.trim();
+  if (trimmed.length < 2) return trimmed;
+
+  if (trimmed.length % 2 === 0) {
+    const half = trimmed.slice(0, trimmed.length / 2).trim();
+    const secondHalf = trimmed.slice(trimmed.length / 2).trim();
+    if (normalizeLabelForComparison(half) === normalizeLabelForComparison(secondHalf)) {
+      return half;
+    }
+  }
+
+  return trimmed;
+}
+
+/** Best single about blurb for pool detail — no tagline/name repeats. */
+export function resolvePoolAboutText(input: {
+  poolDescription?: string | null;
+  description?: string | null;
+  tagline?: string | null;
+  displayName: string;
+  poolName?: string;
+}): string | null {
+  const poolDescription = input.poolDescription?.trim();
+  const description = input.description?.trim();
+
+  let text = poolDescription || description || null;
+  if (!text) return null;
+
+  if (
+    poolDescription &&
+    description &&
+    normalizeLabelForComparison(poolDescription) === normalizeLabelForComparison(description)
+  ) {
+    text = poolDescription;
+  }
+
+  text = dedupeRepeatedText(text);
+
+  const normalizedText = normalizeLabelForComparison(text);
+  const normalizedTagline = normalizeLabelForComparison(input.tagline ?? "");
+  if (normalizedTagline && normalizedText === normalizedTagline) return null;
+
+  return text;
+}
+
 export function shouldShowPoolTagline(
   tagline: string | null | undefined,
   displayName: string,

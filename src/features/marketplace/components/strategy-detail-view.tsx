@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { ROUTES } from "@/constants/routes";
 import type { Strategy } from "@/domain/investment/types";
-import type { InvestorCycleCard, InvestorStrategyCard } from "@/domain/investment/investor-presentation";
-import { MarketplaceCycleCard, MarketplaceStrategyCard } from "@/features/marketplace/components/investment-marketplace-cards";
+import type { InvestorStrategyCard } from "@/domain/investment/investor-presentation";
+import { MarketplaceStrategyCard } from "@/features/marketplace/components/investment-marketplace-cards";
 import {
   MarketplaceBreadcrumb,
   marketplaceHomeCrumb,
@@ -30,19 +30,21 @@ const FAQ = [
 
 export function StrategyDetailView({
   strategy,
-  cycles,
   manager,
   relatedStrategies,
   intelligence,
 }: {
   strategy: Strategy;
-  cycles: InvestorCycleCard[];
-  manager: { id: string; name: string; slug: string | null; rating: number | null };
+  manager: {
+    id: string;
+    name: string;
+    slug: string | null;
+    rating: number | null;
+    winRatePct: number | null;
+  };
   relatedStrategies: InvestorStrategyCard[];
   intelligence?: StrategyIntelligence | null;
 }) {
-  const fundingCycles = cycles.filter((c) => c.status === "funding");
-
   return (
     <div className="space-y-8 pb-10">
       <MarketplaceBreadcrumb items={[marketplaceHomeCrumb()]} />
@@ -85,19 +87,6 @@ export function StrategyDetailView({
               <Detail label="Expected holding period" value="Defined per cycle" />
             </dl>
           </div>
-
-          <div className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
-            <h2 className="font-semibold text-[var(--id-text)]">Active Investment Cycles</h2>
-            {cycles.length === 0 ? (
-              <p className="mt-3 text-sm text-[var(--id-text-muted)]">No public cycles under this strategy yet.</p>
-            ) : (
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                {cycles.map((cycle) => (
-                  <MarketplaceCycleCard key={cycle.id} cycle={cycle} />
-                ))}
-              </div>
-            )}
-          </div>
         </section>
 
         <div className="space-y-6">
@@ -123,21 +112,6 @@ export function StrategyDetailView({
               <PmStrategyLifecycleTimeline currentStatus={strategy.status} />
             </div>
           </section>
-
-          {fundingCycles.length > 0 && (
-            <section className="rounded-[var(--id-radius)] border border-[var(--id-accent)]/30 bg-[var(--id-accent)]/5 p-5">
-              <h2 className="font-semibold text-[var(--id-text)]">Open for funding</h2>
-              <p className="mt-2 text-sm text-[var(--id-text-muted)]">
-                {fundingCycles.length} cycle{fundingCycles.length === 1 ? "" : "s"} accepting commitments.
-              </p>
-              <Link
-                href={`${ROUTES.marketplaceCycles}/${fundingCycles[0]!.slug}`}
-                className="mt-3 inline-block text-sm font-medium text-[var(--id-accent)] hover:underline"
-              >
-                View opportunity →
-              </Link>
-            </section>
-          )}
         </div>
       </div>
 
@@ -145,6 +119,7 @@ export function StrategyDetailView({
         <InvestorStrategyIntelligencePanel
           intelligence={intelligence}
           managerRating={manager.rating}
+          managerWinRatePct={manager.winRatePct}
         />
       )}
 

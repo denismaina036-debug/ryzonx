@@ -25,6 +25,13 @@ export function formatCurrency(
   }).format(amount);
 }
 
+/** Currency with explicit + / − prefix for profit and loss display. */
+export function formatSignedCurrency(amount: number): string {
+  if (amount === 0) return formatCurrency(0);
+  const formatted = formatCurrency(Math.abs(amount));
+  return amount > 0 ? `+${formatted}` : `-${formatted}`;
+}
+
 /**
  * Format percentage values with consistent precision.
  */

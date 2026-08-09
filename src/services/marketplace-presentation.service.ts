@@ -7,6 +7,7 @@ import type {
 } from "@/domain/marketplace/types";
 import type { InvestorCycleCard, InvestorStrategyCard } from "@/domain/investment/investor-presentation";
 import type { InvestmentCycle, Strategy } from "@/domain/investment/types";
+import type { PoolManagerAdminStatistics } from "@/domain/pool-manager/admin-statistics";
 import type { PoolManagerPublicProfile } from "@/domain/pool-manager/types";
 import { poolManagerDashboardService } from "@/services/pool-manager-dashboard.service";
 import { marketplaceService } from "@/services/marketplace.service";
@@ -15,7 +16,7 @@ import { investmentCycleService } from "@/services/investment-cycle.service";
 import { investorInvestmentService } from "@/services/investor-investment.service";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolvePoolManagerPublicLabel, managerRowToIdentity } from "@/domain/pool-manager/public-profile";
-import { resolveMergedManagerRating } from "@/lib/pool-manager/merge-admin-statistics";
+import { mergeAdminStatistics, resolveMergedManagerRating } from "@/lib/pool-manager/merge-admin-statistics";
 
 /**
  * Orchestrates marketplace pages — presentation and navigation data only.
@@ -75,8 +76,13 @@ export const marketplacePresentationService = {
 
   async getStrategyPageData(slug: string): Promise<{
     strategy: Strategy;
-    cycles: InvestorCycleCard[];
-    manager: { id: string; name: string; slug: string | null; rating: number | null };
+    manager: {
+      id: string;
+      name: string;
+      slug: string | null;
+      rating: number | null;
+      winRatePct: number | null;
+    };
     relatedStrategies: InvestorStrategyCard[];
   } | null> {
     const strategy = await strategyService.getApprovedBySlugForMarketplace(slug);
@@ -85,13 +91,9 @@ export const marketplacePresentationService = {
     const db = createAdminClient();
     const { data: manager } = await db
       .from("pool_managers")
-      .select("id, username, slug, display_name, show_full_name, ryvonx_rating, security_rating, aggressiveness_rating, admin_statistics")
+      .select("id, username, slug, display_name, show_full_name, ryvonx_rating, security_rating, aggressiveness_rating, win_rate_pct, admin_statistics")
       .eq("id", strategy.poolManagerId)
       .maybeSingle();
-
-    const allCycles = await investmentCycleService.listPublic();
-    const strategyCycles = allCycles.filter((c) => c.strategyId === strategy.id);
-    const cycles = await investorInvestmentService.buildCycleCardsFromList(strategyCycles);
 
     const related = await strategyService.listApprovedForManagerProfile(strategy.poolManagerId);
     const relatedStrategies = await investorInvestmentService.buildStrategyCardsFromList(
@@ -105,11 +107,17 @@ export const marketplacePresentationService = {
       display_name: string;
       show_full_name?: boolean | null;
       ryvonx_rating: number | null;
+      win_rate_pct: number | null;
+      admin_statistics: Record<string, unknown> | null;
     } | null;
+
+    const mergedStats = mergeAdminStatistics(
+      { winRatePct: mgr?.win_rate_pct != null ? Number(mgr.win_rate_pct) : null },
+      (mgr?.admin_statistics ?? null) as PoolManagerAdminStatistics | null
+    );
 
     return {
       strategy,
-      cycles,
       manager: {
         id: mgr?.id ?? strategy.poolManagerId,
         name: mgr ? resolvePoolManagerPublicLabel(managerRowToIdentity(mgr)) : "Pool Manager",
@@ -122,6 +130,7 @@ export const marketplacePresentationService = {
             admin_statistics?: Record<string, unknown> | null;
           } | null
         ),
+        winRatePct: mergedStats.winRatePct ?? null,
       },
       relatedStrategies,
     };

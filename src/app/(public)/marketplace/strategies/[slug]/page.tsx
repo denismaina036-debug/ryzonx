@@ -54,7 +54,6 @@ export default async function MarketplaceStrategyPage({
     <InvestorPageContent wide>
       <StrategyDetailView
         strategy={data.strategy}
-        cycles={data.cycles}
         manager={data.manager}
         relatedStrategies={data.relatedStrategies}
         intelligence={intelligence}

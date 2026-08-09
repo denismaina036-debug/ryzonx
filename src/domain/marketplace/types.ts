@@ -129,7 +129,7 @@ export interface MarketplacePoolDetail extends MarketplacePoolCard {
   tradingInstrumentCodes: string[];
   activeOpenTrades: Array<{ instrument: string; direction: string }>;
   /** Sum of closed-trade realized P/L for the active cycle. */
-  cycleRealizedProfit: number;
+  poolRealizedProfit: number;
   manager: PoolManagerPublicSummary | null;
   faq: Array<{ question: string; answer: string }>;
   publicTrades: PublicTradeEntryView[];

@@ -66,6 +66,7 @@ type FundRow = {
   max_investors_cap?: number | null;
   display_active_investors?: number;
   display_raised_capital?: number;
+  display_recorded_profit?: number;
 };
 
 function mapFund(row: FundRow, canDelete = false): AdminFund {
@@ -115,6 +116,7 @@ function mapFund(row: FundRow, canDelete = false): AdminFund {
     maxInvestorsCap: row.max_investors_cap != null ? toNumber(row.max_investors_cap) : null,
     displayActiveInvestors: toNumber(row.display_active_investors),
     displayRaisedCapital: toNumber(row.display_raised_capital),
+    displayRecordedProfit: toNumber(row.display_recorded_profit),
   };
 }
 
@@ -434,6 +436,7 @@ export const poolAdminService = {
       maxInvestorsCap?: number | null;
       displayActiveInvestors?: number;
       displayRaisedCapital?: number;
+      displayRecordedProfit?: number;
     }
   ): Promise<AdminFund> {
     const admin = await requireRole("administrator");
@@ -481,6 +484,10 @@ export const poolAdminService = {
     }
     if (input.displayRaisedCapital !== undefined) {
       updates.display_raised_capital = Math.max(0, Number(input.displayRaisedCapital) || 0);
+    }
+    if (input.displayRecordedProfit !== undefined) {
+      const parsed = Number(input.displayRecordedProfit);
+      updates.display_recorded_profit = Number.isFinite(parsed) ? parsed : 0;
     }
 
     if (input.lifecycleStatus != null) {

@@ -129,6 +129,7 @@ export interface AdminFund {
   maxInvestorsCap: number | null;
   displayActiveInvestors: number;
   displayRaisedCapital: number;
+  displayRecordedProfit: number;
 }
 
 export interface AdminTrade {

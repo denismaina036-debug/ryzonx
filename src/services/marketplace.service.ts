@@ -873,13 +873,11 @@ export const marketplaceService = {
       ? (faqRaw as Array<{ question: string; answer: string }>)
       : [];
     const managedConfig = readManagedPoolConfig(row.pool_faq);
-    const [activeOpenTrades, cycleRealizedProfit] = await Promise.all([
+    const [activeOpenTrades, poolRealizedProfit] = await Promise.all([
       enrichedCard.activeCycle?.status === "trading" && enrichedCard.activeCycle.id
         ? tradeEntryService.listOpenTradesPublic(enrichedCard.activeCycle.id)
         : Promise.resolve([]),
-      enrichedCard.activeCycle?.id
-        ? tradeEntryService.sumRealizedProfitForCyclePublic(enrichedCard.activeCycle.id)
-        : Promise.resolve(0),
+      tradeEntryService.sumRealizedProfitForPoolPublic(row.id as string),
     ]);
 
     const [investmentLevels, roiMultipliers] = await Promise.all([
@@ -901,7 +899,7 @@ export const marketplaceService = {
         enrichedCard.targetCapital > 0
           ? enrichedCard.targetCapital
           : toNumber(row.target_capital as number),
-      currentCapital: toNumber(row.current_capital as number),
+      currentCapital: enrichedCard.raisedCapital,
       maxAum: row.max_aum != null ? toNumber(row.max_aum as number) : null,
       maxInvestorsCap:
         row.target_investors != null
@@ -942,7 +940,7 @@ export const marketplaceService = {
           ? [managedConfig.tradingInstrumentCode]
           : [],
       activeOpenTrades,
-      cycleRealizedProfit,
+      poolRealizedProfit,
       roiMultipliers,
       investmentLevels,
   manager: mapManagerSummary(manager),
