@@ -497,73 +497,11 @@ export const investmentAllocationService = {
   },
 
   /**
-   * Repair path: copy fund portfolio investments onto the cycle when join historically
-   * skipped allocation rows (so Raised Capital stayed $0).
+   * Disabled: investors must explicitly join each funding cycle or reinvest after closure.
+   * Returns live raised capital from confirmed cycle allocations only.
    */
-  async syncPortfolioInvestmentsToCycle(fundId: string, cycleId: string): Promise<number> {
-    const db = createAdminClient();
-    const raised = await investmentCycleMetricsService.sumRaisedCapitalForCycle(cycleId);
-    if (raised > 0) return raised;
-
-    const { data: fund } = await db
-      .from("funds")
-      .select("current_capital")
-      .eq("id", fundId)
-      .maybeSingle();
-    if (toNumber((fund as { current_capital?: number } | null)?.current_capital) <= 0) {
-      return 0;
-    }
-
-    const { data: portfolios, error } = await db
-      .from("investor_portfolios")
-      .select("user_id, total_invested")
-      .eq("fund_id", fundId)
-      .gt("total_invested", 0);
-
-    if (error) throw new Error(error.message);
-    const rows = (portfolios ?? []) as Array<{ user_id: string; total_invested: number }>;
-    if (rows.length === 0) return 0;
-
-    const now = new Date().toISOString();
-    for (const row of rows) {
-      const amount = toNumber(row.total_invested);
-      if (amount <= 0) continue;
-
-      const { data: existingRow } = await db
-        .from("investment_allocations")
-        .select("id, status")
-        .eq("investment_cycle_id", cycleId)
-        .eq("investor_id", row.user_id)
-        .maybeSingle();
-
-      const existing = existingRow as { id: string; status: string } | null;
-      if (existing && existing.status !== "cancelled" && existing.status !== "rejected") {
-        await db
-          .from("investment_allocations")
-          .update({
-            amount,
-            status: "funding_confirmed",
-            funding_confirmed_at: now,
-          } as never)
-          .eq("id", existing.id);
-      } else {
-        const roiFields = await resolveAllocationRoiFields(fundId, amount);
-        await db.from("investment_allocations").insert({
-          investment_cycle_id: cycleId,
-          investor_id: row.user_id,
-          amount,
-          currency: "USD",
-          status: "funding_confirmed",
-          funding_confirmed_at: now,
-          reference_number: generateAllocationReference(),
-          investment_level_id: roiFields.investmentLevelId,
-          roi_multiplier: roiFields.roiMultiplier,
-          projected_payout: roiFields.projectedPayout,
-        } as never);
-      }
-    }
-
-    return investmentCycleMetricsService.recalculateCycleRaisedCapital(cycleId);
+  async syncPortfolioInvestmentsToCycle(_fundId: string, cycleId: string): Promise<number> {
+    return investmentCycleMetricsService.sumRaisedCapitalForCycle(cycleId);
   },
 
   /** Clear cycle allocation when an investor fully exits a pool. */

@@ -2,7 +2,7 @@
 
 import { formatCurrency } from "@/lib/utils";
 import type { CycleInvestorSettlement } from "@/services/investment-engine/cycle-investor-settlement.service";
-import { PoolPostCycleChoices } from "@/features/investor/components/pool-post-cycle-choices";
+import { PoolPostCycleChoicesFromView } from "@/features/investor/components/pool-post-cycle-choices";
 
 interface CycleSettlementChoicesProps {
   settlements: CycleInvestorSettlement[];
@@ -57,7 +57,16 @@ export function CycleSettlementChoices({ settlements }: CycleSettlementChoicesPr
               </div>
             </div>
 
-            <PoolPostCycleChoices settlement={settlement} compact />
+            <PoolPostCycleChoicesFromView
+              pool={{
+                fundId: settlement.fundId,
+                poolName: settlement.poolName,
+                displayCapitalInvested: settlement.principalAmount,
+                poolProfit: settlement.profitAmount,
+                pendingSettlement: settlement,
+              }}
+              compact
+            />
           </li>
         ))}
       </ul>

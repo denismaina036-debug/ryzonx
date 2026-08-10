@@ -9,7 +9,7 @@ import {
   investorPageTitleClass,
 } from "@/features/investor/constants/ui";
 import { PoolProfitActions } from "@/features/investor/components/pool-profit-actions";
-import { PoolPostCycleChoices } from "@/features/investor/components/pool-post-cycle-choices";
+import { PoolPostCycleChoicesFromView } from "@/features/investor/components/pool-post-cycle-choices";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants/routes";
 import { formatCurrency } from "@/lib/utils";
@@ -98,8 +98,8 @@ export default async function MyInvestmentsPage() {
                   </div>
                 </div>
 
-                {pool.showPostCycleChoices && pool.pendingSettlement ? (
-                  <PoolPostCycleChoices settlement={pool.pendingSettlement} compact />
+                {pool.showPostCycleChoices ? (
+                  <PoolPostCycleChoicesFromView pool={pool} compact />
                 ) : pool.hasActiveTradingCycle ? (
                   <PoolProfitActions
                     fundId={pool.fundId}

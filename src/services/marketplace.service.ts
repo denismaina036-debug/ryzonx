@@ -150,46 +150,6 @@ async function enrichPoolCards(
   ];
   const raisedByCycle = await investmentCycleMetricsService.sumRaisedCapitalForCycles(activeCycleIds);
 
-  // Repair historical joins that updated fund capital but never created cycle allocations.
-  const repairTargets = rows
-    .map((row) => {
-      const cycle = pickActiveCycleForFund(cycles, row.id as string);
-      if (!cycle) return null;
-      const live = raisedByCycle.get(cycle.id) ?? 0;
-      const fundCapital = toNumber(row.current_capital as number | null);
-      if (live <= 0 && fundCapital > 0) {
-        return { fundId: row.id as string, cycleId: cycle.id };
-      }
-      return null;
-    })
-    .filter((v): v is { fundId: string; cycleId: string } => v != null);
-
-  const repairedInvestorCounts = new Map<string, number>();
-  if (repairTargets.length > 0) {
-    const { investmentAllocationService } = await import(
-      "@/services/investment-allocation.service"
-    );
-    await Promise.all(
-      repairTargets.map(({ fundId, cycleId }) =>
-        investmentAllocationService.syncPortfolioInvestmentsToCycle(fundId, cycleId)
-      )
-    );
-    const repaired = await investmentCycleMetricsService.sumRaisedCapitalForCycles(activeCycleIds);
-    for (const [cycleId, amount] of repaired) {
-      raisedByCycle.set(cycleId, amount);
-    }
-    const { data: repairedCycles } = await db
-      .from("investment_cycles")
-      .select("id, investor_count")
-      .in(
-        "id",
-        repairTargets.map((t) => t.cycleId)
-      );
-    for (const row of (repairedCycles ?? []) as Array<{ id: string; investor_count: number }>) {
-      repairedInvestorCounts.set(row.id, toNumber(row.investor_count));
-    }
-  }
-
   const managerIdsForReviews = [
     ...new Set(cards.map((c) => c.managerId).filter(Boolean)),
   ] as string[];
@@ -264,11 +224,9 @@ async function enrichPoolCards(
           ? toNumber(row.max_investors_cap as number)
           : null;
     const liveParticipantCount =
-      cycle != null && repairedInvestorCounts.has(cycle.id)
-        ? (repairedInvestorCounts.get(cycle.id) ?? 0)
-        : cycle?.investor_count != null
-          ? toNumber(cycle.investor_count)
-          : liveInvestors;
+      cycle?.investor_count != null
+        ? toNumber(cycle.investor_count)
+        : liveInvestors;
     const cycleParticipantCount = resolvePublicDisplayCount(seedInvestors, liveParticipantCount);
     const fundingPeriodEndsAt =
       cycle?.funding_deadline ?? cycle?.closing_date ?? null;

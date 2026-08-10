@@ -3,6 +3,7 @@ import type { CycleInvestorSettlement } from "@/services/investment-engine/cycle
 
 export interface InvestorPoolParticipationView extends WalletPoolParticipation {
   hasActiveTradingCycle: boolean;
+  hasActiveFundingCycle: boolean;
   pendingSettlement: CycleInvestorSettlement | null;
   /** Capital figure shown on the investments page for this pool. */
   displayCapitalInvested: number;
@@ -36,14 +37,54 @@ export function resolveInvestorDisplayCapital(input: {
 
 export function shouldShowPostCycleChoices(input: {
   hasActiveTradingCycle: boolean;
+  hasActiveFundingCycle?: boolean;
   pendingSettlement: CycleInvestorSettlement | null;
+  displayCapitalInvested: number;
+  poolProfit?: number;
 }): boolean {
-  if (input.hasActiveTradingCycle || !input.pendingSettlement) return false;
+  if (input.hasActiveTradingCycle || input.hasActiveFundingCycle) return false;
 
-  const { pendingSettlement } = input;
-  const profitPending = pendingSettlement.profitAmount > 0 && !pendingSettlement.profitResolved;
-  const capitalPending =
-    pendingSettlement.principalAmount > 0 && !pendingSettlement.capitalResolved;
+  if (input.pendingSettlement) {
+    const profitPending =
+      input.pendingSettlement.profitAmount > 0 && !input.pendingSettlement.profitResolved;
+    const capitalPending =
+      input.pendingSettlement.principalAmount > 0 && !input.pendingSettlement.capitalResolved;
+    if (
+      profitPending ||
+      capitalPending ||
+      input.pendingSettlement.status === "capital_withdrawal_requested"
+    ) {
+      return true;
+    }
+  }
 
-  return profitPending || capitalPending;
+  return input.displayCapitalInvested > 0 || (input.poolProfit ?? 0) > 0;
+}
+
+export function resolvePostCycleCapitalAmount(input: {
+  pendingSettlement: CycleInvestorSettlement | null;
+  displayCapitalInvested: number;
+}): number {
+  if (
+    input.pendingSettlement &&
+    !input.pendingSettlement.capitalResolved &&
+    input.pendingSettlement.principalAmount > 0
+  ) {
+    return input.pendingSettlement.principalAmount;
+  }
+  return input.displayCapitalInvested;
+}
+
+export function resolvePostCycleProfitAmount(input: {
+  pendingSettlement: CycleInvestorSettlement | null;
+  poolProfit: number;
+}): number {
+  if (
+    input.pendingSettlement &&
+    !input.pendingSettlement.profitResolved &&
+    input.pendingSettlement.profitAmount > 0
+  ) {
+    return input.pendingSettlement.profitAmount;
+  }
+  return input.poolProfit;
 }

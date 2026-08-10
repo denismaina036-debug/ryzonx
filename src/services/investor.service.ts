@@ -31,6 +31,8 @@ import { computeLifetimePoolPerformance } from "@/lib/investor/lifetime-pool-per
 import type { InvestorPoolParticipationView } from "@/domain/investment/investor-pool-participation";
 import {
   resolveInvestorDisplayCapital,
+  resolvePostCycleCapitalAmount,
+  resolvePostCycleProfitAmount,
   shouldShowPostCycleChoices,
 } from "@/domain/investment/investor-pool-participation";
 import type { CycleInvestorSettlement } from "@/services/investment-engine/cycle-investor-settlement.service";
@@ -481,20 +483,31 @@ export const investorService = {
     actionableSettlements: CycleInvestorSettlement[];
   }> {
     const user = await requireAuth();
-    const [dashboard, pendingSettlements] = await Promise.all([
-      this.getDashboardPageData(),
-      cycleInvestorSettlementService.listPendingForInvestor(user.id),
-    ]);
+    const dashboard = await this.getDashboardPageData();
 
     const participations = dashboard.investment.participations;
-    const fundIds = [
+    const fundIds = [...new Set(participations.map((pool) => pool.fundId))];
+
+    const tradingFundIds = await investmentCycleService.listTradingCycleFundIds(fundIds);
+
+    await cycleInvestorSettlementService.syncPendingSettlementsForEligiblePools(
+      user.id,
+      fundIds.filter((fundId) => !tradingFundIds.has(fundId)),
+      tradingFundIds
+    );
+
+    const pendingSettlements =
+      await cycleInvestorSettlementService.listPendingForInvestor(user.id);
+
+    const allFundIds = [
       ...new Set([
         ...participations.map((pool) => pool.fundId),
         ...pendingSettlements.map((settlement) => settlement.fundId),
       ]),
     ];
 
-    const tradingFundIds = await investmentCycleService.listTradingCycleFundIds(fundIds);
+    const fundingFundIds = await investmentCycleService.listFundingCycleFundIds(allFundIds);
+
     const settlementByFund = new Map<string, CycleInvestorSettlement>();
     for (const settlement of pendingSettlements) {
       if (!settlementByFund.has(settlement.fundId)) {
@@ -545,11 +558,12 @@ export const investorService = {
       }
     }
 
-    const poolViews: InvestorPoolParticipationView[] = fundIds
+    const poolViews: InvestorPoolParticipationView[] = allFundIds
       .map((fundId) => {
         const participation = participationByFund.get(fundId);
         const pendingSettlement = settlementByFund.get(fundId) ?? null;
         const hasActiveTradingCycle = tradingFundIds.has(fundId);
+        const hasActiveFundingCycle = fundingFundIds.has(fundId);
 
         if (!participation && !pendingSettlement) return null;
 
@@ -581,11 +595,15 @@ export const investorService = {
         return {
           ...baseParticipation,
           hasActiveTradingCycle,
+          hasActiveFundingCycle,
           pendingSettlement,
           displayCapitalInvested,
           showPostCycleChoices: shouldShowPostCycleChoices({
             hasActiveTradingCycle,
+            hasActiveFundingCycle,
             pendingSettlement,
+            displayCapitalInvested,
+            poolProfit: baseParticipation.poolProfit,
           }),
         };
       })

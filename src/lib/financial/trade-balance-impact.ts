@@ -1,6 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { RAISED_CAPITAL_ALLOCATION_STATUSES } from "@/domain/investment/cycle-metrics";
-import { investmentAllocationService } from "@/services/investment-allocation.service";
 import { investmentCycleMetricsService } from "@/services/investment-cycle-metrics.service";
 
 function roundMoney(value: number): number {
@@ -18,22 +17,9 @@ export type CycleAllocationRow = {
   amount: number;
 };
 
-/** Ensure cycle allocations exist (sync from fund portfolios when legacy data is missing). */
-export async function ensureCycleInvestorAllocations(cycleId: string): Promise<void> {
-  const raised = await investmentCycleMetricsService.sumRaisedCapitalForCycle(cycleId);
-  if (raised > 0) return;
-
-  const db = createAdminClient();
-  const { data: cycleRow } = await db
-    .from("investment_cycles")
-    .select("fund_id")
-    .eq("id", cycleId)
-    .maybeSingle();
-
-  const fundId = (cycleRow as { fund_id?: string | null } | null)?.fund_id;
-  if (!fundId) return;
-
-  await investmentAllocationService.syncPortfolioInvestmentsToCycle(fundId, cycleId);
+/** Cycle allocations must come from explicit investor actions — never auto-sync portfolios. */
+export async function ensureCycleInvestorAllocations(_cycleId: string): Promise<void> {
+  return;
 }
 
 export async function loadCycleAllocations(cycleId: string): Promise<CycleAllocationRow[]> {

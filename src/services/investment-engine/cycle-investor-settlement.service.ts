@@ -181,6 +181,81 @@ async function updateSettlement(
   if (error) throw new Error(error.message);
 }
 
+async function investorHasAllocation(
+  db: ReturnType<typeof createAdminClient>,
+  cycleId: string,
+  investorId: string
+): Promise<boolean> {
+  const { count, error } = await db
+    .from("investment_allocations")
+    .select("id", { count: "exact", head: true })
+    .eq("investment_cycle_id", cycleId)
+    .eq("investor_id", investorId)
+    .in("status", ["confirmed", "locked", "settled"]);
+
+  if (error) throw new Error(error.message);
+  return (count ?? 0) > 0;
+}
+
+async function resolveSettlementCycleMeta(
+  db: ReturnType<typeof createAdminClient>,
+  fundId: string,
+  investorId: string
+): Promise<{ cycleId: string; cycleName: string; cycleNumber: number | null } | null> {
+  const { data, error } = await db
+    .from("investment_cycles")
+    .select("id, name, cycle_number, status")
+    .eq("fund_id", fundId)
+    .neq("status", "draft")
+    .order("cycle_number", { ascending: false });
+
+  if (error) throw new Error(error.message);
+
+  const cycles = (data ?? []) as Array<{
+    id: string;
+    name: string;
+    cycle_number: number | null;
+    status: string;
+  }>;
+
+  if (cycles.length === 0) return null;
+
+  const completedLike = cycles.filter((cycle) =>
+    ["completed", "archived"].includes(cycle.status)
+  );
+
+  for (const cycle of completedLike) {
+    if (await investorHasAllocation(db, cycle.id, investorId)) {
+      return {
+        cycleId: cycle.id,
+        cycleName: cycle.name,
+        cycleNumber: cycle.cycle_number,
+      };
+    }
+  }
+
+  const latestCompleted = completedLike[0];
+  if (latestCompleted) {
+    return {
+      cycleId: latestCompleted.id,
+      cycleName: latestCompleted.name,
+      cycleNumber: latestCompleted.cycle_number,
+    };
+  }
+
+  const idleCycle = cycles.find(
+    (cycle) => !["trading", "distribution"].includes(cycle.status)
+  );
+  const fallback = idleCycle ?? cycles[0];
+  if (!fallback) return null;
+
+  return {
+    cycleId: fallback.id,
+    cycleName: fallback.name,
+    cycleNumber: fallback.cycle_number,
+  };
+}
+
 export const cycleInvestorSettlementService = {
   async createPendingChoicesForCycle(cycleId: string, fundId: string): Promise<void> {
     const db = createAdminClient();
@@ -264,9 +339,151 @@ export const cycleInvestorSettlementService = {
     return all.filter(
       (s) =>
         s.status !== "closed" &&
-        ((!s.profitResolved && s.profitAmount > 0) ||
+        (s.status === "capital_withdrawal_requested" ||
+          (!s.profitResolved && s.profitAmount > 0) ||
           (!s.capitalResolved && s.principalAmount > 0))
     );
+  },
+
+  /**
+   * Backfill pending post-cycle settlements for pools that are not trading but still
+   * hold investor capital from a completed (or idle) cycle.
+   */
+  async syncPendingSettlementsForEligiblePools(
+    investorId: string,
+    fundIds: string[],
+    tradingFundIds: Set<string>
+  ): Promise<void> {
+    const db = createAdminClient();
+    const fundingFundIds = await investmentCycleService.listFundingCycleFundIds(fundIds);
+    const eligibleFundIds = [
+      ...new Set(
+        fundIds.filter(
+          (fundId) => !tradingFundIds.has(fundId) && !fundingFundIds.has(fundId)
+        )
+      ),
+    ];
+    if (eligibleFundIds.length === 0) return;
+
+    const [portfoliosResult, profitWallets, positionsResult] = await Promise.all([
+      db
+        .from("investor_portfolios")
+        .select("fund_id, total_invested, unrealized_pnl, realized_pnl")
+        .eq("user_id", investorId)
+        .in("fund_id", eligibleFundIds),
+      investorProfitWalletService.listForInvestor(investorId),
+      db
+        .from("pool_investor_positions")
+        .select("fund_id, capital")
+        .eq("investor_id", investorId)
+        .eq("is_virtual", false)
+        .in("fund_id", eligibleFundIds),
+    ]);
+
+    const portfolioByFund = new Map(
+      (
+        (portfoliosResult.data ?? []) as Array<{
+          fund_id: string;
+          total_invested: number | string;
+          unrealized_pnl: number | string;
+          realized_pnl: number | string;
+        }>
+      ).map((row) => [row.fund_id, row])
+    );
+
+    const positionByFund = new Map(
+      (
+        (positionsResult.data ?? []) as Array<{ fund_id: string; capital: number | string }>
+      ).map((row) => [row.fund_id, toNumber(row.capital)])
+    );
+
+    const profitByFund = new Map<string, number>();
+    for (const wallet of profitWallets) {
+      if (!eligibleFundIds.includes(wallet.fundId)) continue;
+      profitByFund.set(
+        wallet.fundId,
+        roundMoney((profitByFund.get(wallet.fundId) ?? 0) + wallet.balance)
+      );
+    }
+
+    for (const fundId of eligibleFundIds) {
+      const portfolio = portfolioByFund.get(fundId);
+      const portfolioInvested = toNumber(portfolio?.total_invested);
+      const legacyProfit = toNumber(portfolio?.unrealized_pnl) + toNumber(portfolio?.realized_pnl);
+      const positionCapital = positionByFund.get(fundId) ?? 0;
+      const principal = roundMoney(Math.max(portfolioInvested, positionCapital));
+      const profit = roundMoney(Math.max(profitByFund.get(fundId) ?? 0, legacyProfit));
+
+      if (principal <= 0 && profit <= 0) continue;
+
+      const cycleMeta = await resolveSettlementCycleMeta(db, fundId, investorId);
+      if (!cycleMeta) continue;
+
+      const { data: existing } = await settlementsTable(db)
+        .select("*")
+        .eq("investment_cycle_id", cycleMeta.cycleId)
+        .eq("investor_id", investorId)
+        .maybeSingle();
+
+      const existingRow = existing as SettlementRow | null;
+      if (existingRow) {
+        const capitalResolved = Boolean(existingRow.capital_resolved);
+        const profitResolved = Boolean(existingRow.profit_resolved);
+        const status = existingRow.status as CycleInvestorSettlementStatus;
+
+        if (status === "capital_withdrawal_requested") {
+          continue;
+        }
+
+        const hasOpenCapital =
+          !capitalResolved && toNumber(existingRow.principal_amount as number | string | null) > 0;
+        const hasOpenProfit =
+          !profitResolved && toNumber(existingRow.profit_amount as number | string | null) > 0;
+
+        if (hasOpenCapital || hasOpenProfit) {
+          await settlementsTable(db)
+            .update({
+              principal_amount: Math.max(
+                toNumber(existingRow.principal_amount as number | string | null),
+                principal
+              ),
+              profit_amount: Math.max(
+                toNumber(existingRow.profit_amount as number | string | null),
+                profit
+              ),
+              updated_at: new Date().toISOString(),
+            } as never)
+            .eq("id", String(existingRow.id));
+          continue;
+        }
+      }
+
+      await settlementsTable(db).upsert(
+        {
+          investment_cycle_id: cycleMeta.cycleId,
+          fund_id: fundId,
+          investor_id: investorId,
+          principal_amount: principal,
+          profit_amount: profit,
+          status: "pending_choice",
+          profit_resolved: profit <= 0,
+          capital_resolved: false,
+        },
+        { onConflict: "investment_cycle_id,investor_id" }
+      );
+    }
+  },
+
+  async ensureSettlementForFund(
+    investorId: string,
+    fundId: string
+  ): Promise<CycleInvestorSettlement | null> {
+    const tradingFundIds = await investmentCycleService.listTradingCycleFundIds([fundId]);
+    if (tradingFundIds.has(fundId)) return null;
+
+    await this.syncPendingSettlementsForEligiblePools(investorId, [fundId], tradingFundIds);
+    const pending = await this.listPendingForInvestor(investorId);
+    return pending.find((settlement) => settlement.fundId === fundId) ?? null;
   },
 
   async listPendingCapitalReturns(): Promise<

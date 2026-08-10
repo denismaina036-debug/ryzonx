@@ -524,6 +524,24 @@ export const investmentCycleService = {
     );
   },
 
+  /** Pools currently accepting new funding round investments. */
+  async listFundingCycleFundIds(fundIds: string[]): Promise<Set<string>> {
+    if (fundIds.length === 0) return new Set();
+
+    const db = createAdminClient();
+    const { data, error } = await db
+      .from("investment_cycles")
+      .select("fund_id")
+      .in("fund_id", fundIds)
+      .in("status", ["funding", "approved"]);
+
+    if (error) throw new Error(error.message);
+
+    return new Set(
+      ((data ?? []) as Array<{ fund_id: string }>).map((row) => row.fund_id)
+    );
+  },
+
   /** First investment cycle for a draft pool — stays in draft until go-live. */
   async createDraftCycleForPool(
     fundId: string,

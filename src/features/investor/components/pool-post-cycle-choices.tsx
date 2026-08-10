@@ -9,22 +9,50 @@ import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants/routes";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { CycleInvestorSettlement } from "@/services/investment-engine/cycle-investor-settlement.service";
+import {
+  resolvePostCycleCapitalAmount,
+  resolvePostCycleProfitAmount,
+} from "@/domain/investment/investor-pool-participation";
 
 interface PoolPostCycleChoicesProps {
-  settlement: CycleInvestorSettlement;
+  fundId: string;
+  poolName: string;
+  capitalAmount: number;
+  profitAmount: number;
+  settlement: CycleInvestorSettlement | null;
   compact?: boolean;
 }
 
-export function PoolPostCycleChoices({ settlement, compact = false }: PoolPostCycleChoicesProps) {
+export function PoolPostCycleChoices({
+  fundId,
+  poolName,
+  capitalAmount,
+  profitAmount,
+  settlement,
+  compact = false,
+}: PoolPostCycleChoicesProps) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
 
-  const profitPending = settlement.profitAmount > 0 && !settlement.profitResolved;
-  const capitalPending = settlement.principalAmount > 0 && !settlement.capitalResolved;
-  const capitalAwaitingAdmin = settlement.status === "capital_withdrawal_requested";
+  const capitalPending = capitalAmount > 0 && !(settlement?.capitalResolved ?? false);
+  const profitPending = profitAmount > 0 && !(settlement?.profitResolved ?? false);
+  const capitalAwaitingAdmin = settlement?.status === "capital_withdrawal_requested";
 
-  if (!profitPending && !capitalPending && !capitalAwaitingAdmin) {
+  if (!capitalPending && !profitPending && !capitalAwaitingAdmin) {
     return null;
+  }
+
+  async function resolveSettlementId(): Promise<string> {
+    if (settlement?.id) return settlement.id;
+
+    const res = await fetch(`/api/investor/pools/${fundId}/ensure-post-cycle-settlement`, {
+      method: "POST",
+    });
+    const data = await res.json();
+    if (!res.ok || !data.settlement?.id) {
+      throw new Error(data.error ?? "Could not prepare your post-cycle options.");
+    }
+    return data.settlement.id as string;
   }
 
   async function runAction(
@@ -33,7 +61,8 @@ export function PoolPostCycleChoices({ settlement, compact = false }: PoolPostCy
   ) {
     setLoading(action);
     try {
-      const res = await fetch(`/api/investor/cycle-settlements/${settlement.id}/${action}`, {
+      const settlementId = await resolveSettlementId();
+      const res = await fetch(`/api/investor/cycle-settlements/${settlementId}/${action}`, {
         method: "POST",
       });
       const data = await res.json();
@@ -50,9 +79,11 @@ export function PoolPostCycleChoices({ settlement, compact = false }: PoolPostCy
   async function transferToFundingWallet() {
     setLoading("transfer-wallet");
     try {
+      const settlementId = await resolveSettlementId();
+
       if (profitPending) {
         const profitRes = await fetch(
-          `/api/investor/cycle-settlements/${settlement.id}/transfer-profit`,
+          `/api/investor/cycle-settlements/${settlementId}/transfer-profit`,
           { method: "POST" }
         );
         const profitData = await profitRes.json();
@@ -63,7 +94,7 @@ export function PoolPostCycleChoices({ settlement, compact = false }: PoolPostCy
 
       if (capitalPending) {
         const capitalRes = await fetch(
-          `/api/investor/cycle-settlements/${settlement.id}/request-capital-return`,
+          `/api/investor/cycle-settlements/${settlementId}/request-capital-return`,
           { method: "POST" }
         );
         const capitalData = await capitalRes.json();
@@ -72,9 +103,7 @@ export function PoolPostCycleChoices({ settlement, compact = false }: PoolPostCy
         }
         toast.success("Capital return submitted for admin approval.");
       } else if (profitPending) {
-        toast.success(
-          `${formatCurrency(settlement.profitAmount)} moved to your Funding Wallet.`
-        );
+        toast.success(`${formatCurrency(profitAmount)} moved to your Funding Wallet.`);
       }
 
       router.refresh();
@@ -94,34 +123,32 @@ export function PoolPostCycleChoices({ settlement, compact = false }: PoolPostCy
     >
       <div className="space-y-1">
         <p className="text-xs font-semibold uppercase tracking-widest text-amber-800 dark:text-amber-300">
-          Cycle completed
+          No active trading cycle
         </p>
         <p className="text-sm text-[var(--id-text-muted)]">
-          This pool is not in an active trading cycle. Choose what to do with your capital
-          {profitPending ? " and profit" : ""}.
+          Choose what to do with your invested capital in {poolName}
+          {profitPending ? " and any profit" : ""}.
         </p>
       </div>
 
-      {(profitPending || capitalPending) && (
-        <div className="mt-4 flex flex-wrap gap-4 text-sm">
-          {capitalPending && (
-            <div>
-              <p className="font-mono font-semibold tabular-nums text-[var(--id-text)]">
-                {formatCurrency(settlement.principalAmount)}
-              </p>
-              <p className="text-xs text-[var(--id-text-muted)]">Capital</p>
-            </div>
-          )}
-          {profitPending && (
-            <div>
-              <p className="font-mono font-semibold tabular-nums text-[var(--id-success)]">
-                +{formatCurrency(settlement.profitAmount)}
-              </p>
-              <p className="text-xs text-[var(--id-text-muted)]">Profit</p>
-            </div>
-          )}
-        </div>
-      )}
+      <div className="mt-4 flex flex-wrap gap-4 text-sm">
+        {capitalPending && (
+          <div>
+            <p className="font-mono font-semibold tabular-nums text-[var(--id-text)]">
+              {formatCurrency(capitalAmount)}
+            </p>
+            <p className="text-xs text-[var(--id-text-muted)]">Capital</p>
+          </div>
+        )}
+        {profitPending && (
+          <div>
+            <p className="font-mono font-semibold tabular-nums text-[var(--id-success)]">
+              +{formatCurrency(profitAmount)}
+            </p>
+            <p className="text-xs text-[var(--id-text-muted)]">Profit</p>
+          </div>
+        )}
+      </div>
 
       {capitalAwaitingAdmin && (
         <div className="mt-4 flex items-start gap-2 rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] px-4 py-3 text-sm text-[var(--id-text-muted)]">
@@ -141,7 +168,7 @@ export function PoolPostCycleChoices({ settlement, compact = false }: PoolPostCy
               onClick={() =>
                 runAction(
                   "reinvest-capital",
-                  `${formatCurrency(settlement.principalAmount)} reinvested in ${settlement.poolName}.`
+                  `${formatCurrency(capitalAmount)} reinvested in ${poolName}.`
                 )
               }
             />
@@ -178,6 +205,37 @@ export function PoolPostCycleChoices({ settlement, compact = false }: PoolPostCy
         </div>
       )}
     </div>
+  );
+}
+
+export function PoolPostCycleChoicesFromView({
+  pool,
+  compact = false,
+}: {
+  pool: {
+    fundId: string;
+    poolName: string;
+    displayCapitalInvested: number;
+    poolProfit: number;
+    pendingSettlement: CycleInvestorSettlement | null;
+  };
+  compact?: boolean;
+}) {
+  return (
+    <PoolPostCycleChoices
+      fundId={pool.fundId}
+      poolName={pool.poolName}
+      capitalAmount={resolvePostCycleCapitalAmount({
+        pendingSettlement: pool.pendingSettlement,
+        displayCapitalInvested: pool.displayCapitalInvested,
+      })}
+      profitAmount={resolvePostCycleProfitAmount({
+        pendingSettlement: pool.pendingSettlement,
+        poolProfit: pool.poolProfit,
+      })}
+      settlement={pool.pendingSettlement}
+      compact={compact}
+    />
   );
 }
 

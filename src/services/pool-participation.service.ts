@@ -480,16 +480,13 @@ export const poolParticipationService = {
       "Could not update pool statistics."
     );
 
-    // Wire the wallet investment to the Active Investment Cycle so Raised Capital
-    // updates on the PM cycle page and marketplace cards.
+    // Only attach explicit marketplace joins during an open funding cycle.
     if (activeCycle && (activeCycle.status === "funding" || activeCycle.status === "approved")) {
       await investmentAllocationService.recordMarketplaceJoin({
         cycleId: activeCycle.id,
         investorId: user.id,
         amount,
       });
-    } else if (activeCycle) {
-      await investmentAllocationService.syncPortfolioInvestmentsToCycle(poolId, activeCycle.id);
     }
 
     const { data: txData, error: txError } = await db.from("transactions").insert({

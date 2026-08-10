@@ -12,7 +12,7 @@ import { PoolProfitActions } from "@/features/investor/components/pool-profit-ac
 import { ROUTES } from "@/constants/routes";
 import type { InvestorInvestmentSummary, InvestorPoolPerformance } from "@/features/investor/types";
 import type { InvestorPoolParticipationView } from "@/domain/investment/investor-pool-participation";
-import { PoolPostCycleChoices } from "@/features/investor/components/pool-post-cycle-choices";
+import { PoolPostCycleChoicesFromView } from "@/features/investor/components/pool-post-cycle-choices";
 
 interface CurrentInvestmentCardProps {
   performance: InvestorPoolPerformance;
@@ -95,8 +95,8 @@ export function CurrentInvestmentCard({
             </div>
 
             <div className="mt-6">
-              {primaryPoolView?.showPostCycleChoices && primaryPoolView.pendingSettlement ? (
-                <PoolPostCycleChoices settlement={primaryPoolView.pendingSettlement} />
+              {primaryPoolView?.showPostCycleChoices ? (
+                <PoolPostCycleChoicesFromView pool={primaryPoolView} />
               ) : !primaryPoolView || primaryPoolView.hasActiveTradingCycle ? (
                 <PoolProfitActions
                   fundId={primary!.fundId}
