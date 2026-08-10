@@ -9,6 +9,10 @@ import { investmentCycleService } from "@/services/investment-cycle.service";
 import { investmentAllocationService } from "@/services/investment-allocation.service";
 import { attachTransactionReference } from "@/lib/transaction/insert";
 import { roundMoney } from "@/lib/investment-engine/ownership";
+import {
+  normalizeProfitTransferAmount,
+  resolveAvailablePoolProfit,
+} from "@/lib/investor/pool-profit";
 import { auditService } from "@/services/audit.service";
 import type {
   ParticipatablePool,
@@ -70,14 +74,6 @@ type PortfolioRow = {
   investment_start_date?: string | null;
   investment_maturity_date?: string | null;
 };
-
-function poolProfitAmount(row: PortfolioRow): number {
-  const realized = toNumber(row.realized_pnl);
-  const unrealized = toNumber(row.unrealized_pnl);
-  const fromPnL = realized + unrealized;
-  const fromValue = toNumber(row.current_value) - toNumber(row.total_invested);
-  return Math.max(0, fromPnL > 0 ? fromPnL : fromValue);
-}
 
 function applyProfitReduction(
   realized: number,
@@ -724,34 +720,34 @@ export const poolParticipationService = {
     const { investorProfitWalletService } = await import(
       "@/services/investment-engine/investor-profit-wallet.service"
     );
+    const { ledgerAccountService } = await import("@/services/ledger-account.service");
+    const { ledgerService } = await import("@/services/ledger.service");
 
     const { data: fund } = await db.from("funds").select("name").eq("id", fundId).maybeSingle();
     const poolName = (fund as { name?: string } | null)?.name ?? "Pool";
 
-    const profitWallet = await investorProfitWalletService.getOrCreate(user.id, fundId);
-    let availableProfit = profitWallet.balance;
-    if (availableProfit <= 0) {
-      const poolRow = await getPoolParticipation(db, user.id, fundId);
-      availableProfit = poolProfitAmount(poolRow);
-    }
+    const poolRow = await getPoolParticipation(db, user.id, fundId);
+    const profitWalletBalance = await investorProfitWalletService.getTotalBalanceForFund(
+      user.id,
+      fundId
+    );
+    const availableProfit = resolveAvailablePoolProfit({
+      invested: toNumber(poolRow.total_invested),
+      currentValue: toNumber(poolRow.current_value),
+      realizedPnl: toNumber(poolRow.realized_pnl),
+      unrealizedPnl: toNumber(poolRow.unrealized_pnl),
+      profitWalletBalance,
+    });
 
     if (availableProfit <= 0) {
       throw new Error("No pool profit available to transfer.");
     }
 
-    const transferAmount =
-      amount != null && Number.isFinite(amount) ? amount : availableProfit;
-    if (transferAmount > availableProfit) {
-      throw new Error("Amount exceeds available pool profit.");
-    }
+    const applied = normalizeProfitTransferAmount(amount, availableProfit);
+    const walletDebit = await investorProfitWalletService.debitFromFund(user.id, fundId, applied);
+    const portfolioDebit = roundMoney(applied - walletDebit);
 
-    const applied = transferAmount;
-    const usesProfitWallet = profitWallet.balance >= applied;
-
-    if (usesProfitWallet) {
-      await investorProfitWalletService.debit(user.id, fundId, applied);
-      const { ledgerAccountService } = await import("@/services/ledger-account.service");
-      const { ledgerService } = await import("@/services/ledger.service");
+    if (walletDebit > 0) {
       const poolProfitAccount = await ledgerAccountService.ensureInvestorPoolProfitAccount(
         user.id,
         fundId,
@@ -768,19 +764,79 @@ export const poolParticipationService = {
           {
             accountId: poolProfitAccount.id,
             entrySide: "debit",
-            amount: applied,
+            amount: walletDebit,
             memo: "Pool profit released to Funding Wallet",
           },
           {
             accountId: investorAccounts.available.id,
             entrySide: "credit",
-            amount: applied,
+            amount: walletDebit,
             memo: "Pool profit transferred to Funding Wallet",
           },
         ],
       });
+    }
+
+    const invested = toNumber(poolRow.total_invested);
+    const realized = toNumber(poolRow.realized_pnl);
+    const unrealized = toNumber(poolRow.unrealized_pnl);
+    let newRealized = realized;
+    let newUnrealized = unrealized;
+
+    if (portfolioDebit > 0) {
+      const legacyAvailable = Math.max(0, realized + unrealized);
+      if (portfolioDebit <= legacyAvailable + 0.004) {
+        const reduced = applyProfitReduction(realized, unrealized, portfolioDebit);
+        newRealized = reduced.newRealized;
+        newUnrealized = reduced.newUnrealized;
+      } else {
+        newRealized = 0;
+        newUnrealized = 0;
+      }
+    }
+
+    const remainingWallet = await investorProfitWalletService.getTotalBalanceForFund(
+      user.id,
+      fundId
+    );
+    const nextPoolValue = roundMoney(
+      Math.max(invested + remainingWallet, toNumber(poolRow.current_value) - applied)
+    );
+
+    if (fundId === DEFAULT_FUND_ID) {
+      const walletBalance = toNumber(poolRow.available_balance);
+      assertDb(
+        await db
+          .from("investor_portfolios")
+          .update({
+            current_value: nextPoolValue,
+            realized_pnl: newRealized,
+            unrealized_pnl: newUnrealized,
+            available_balance: walletBalance + applied,
+          } as never)
+          .eq("user_id", user.id)
+          .eq("fund_id", DEFAULT_FUND_ID)
+          .select("user_id")
+          .single(),
+        "Could not transfer pool profit to Funding Wallet."
+      );
+    } else {
       const walletPortfolio = await ensureWalletPortfolio(db, user.id);
       const walletBalance = toNumber(walletPortfolio.available_balance);
+      assertDb(
+        await db
+          .from("investor_portfolios")
+          .update({
+            current_value: nextPoolValue,
+            realized_pnl: newRealized,
+            unrealized_pnl: newUnrealized,
+          } as never)
+          .eq("user_id", user.id)
+          .eq("fund_id", fundId)
+          .select("user_id")
+          .single(),
+        "Could not update pool profit."
+      );
       assertDb(
         await db
           .from("investor_portfolios")
@@ -791,77 +847,6 @@ export const poolParticipationService = {
           .single(),
         "Could not credit Funding Wallet."
       );
-      const poolRow = await getPoolParticipation(db, user.id, fundId);
-      if (poolRow) {
-        const invested = toNumber(poolRow.total_invested);
-        const remainingProfit = (await investorProfitWalletService.getOrCreate(user.id, fundId))
-          .balance;
-        await db
-          .from("investor_portfolios")
-          .update({
-            current_value: roundMoney(invested + remainingProfit),
-            realized_pnl: 0,
-            unrealized_pnl: 0,
-          } as never)
-          .eq("user_id", user.id)
-          .eq("fund_id", fundId);
-      }
-    } else {
-      const poolRow = await getPoolParticipation(db, user.id, fundId);
-      const realized = toNumber(poolRow.realized_pnl);
-      const unrealized = toNumber(poolRow.unrealized_pnl);
-      const { newRealized, newUnrealized, applied: legacyApplied } = applyProfitReduction(
-        realized,
-        unrealized,
-        transferAmount
-      );
-      const nextPoolValue = toNumber(poolRow.current_value) - legacyApplied;
-
-      if (fundId === DEFAULT_FUND_ID) {
-        const walletBalance = toNumber(poolRow.available_balance);
-        assertDb(
-          await db
-            .from("investor_portfolios")
-            .update({
-              current_value: nextPoolValue,
-              realized_pnl: newRealized,
-              unrealized_pnl: newUnrealized,
-              available_balance: walletBalance + legacyApplied,
-            } as never)
-            .eq("user_id", user.id)
-            .eq("fund_id", DEFAULT_FUND_ID)
-            .select("user_id")
-            .single(),
-          "Could not transfer pool profit to Funding Wallet."
-        );
-      } else {
-        const walletPortfolio = await ensureWalletPortfolio(db, user.id);
-        const walletBalance = toNumber(walletPortfolio.available_balance);
-        assertDb(
-          await db
-            .from("investor_portfolios")
-            .update({
-              current_value: nextPoolValue,
-              realized_pnl: newRealized,
-              unrealized_pnl: newUnrealized,
-            } as never)
-            .eq("user_id", user.id)
-            .eq("fund_id", fundId)
-            .select("user_id")
-            .single(),
-          "Could not update pool profit."
-        );
-        assertDb(
-          await db
-            .from("investor_portfolios")
-            .update({ available_balance: walletBalance + legacyApplied } as never)
-            .eq("user_id", user.id)
-            .eq("fund_id", DEFAULT_FUND_ID)
-            .select("user_id")
-            .single(),
-          "Could not credit Funding Wallet."
-        );
-      }
     }
 
     const profitNotes = `Pool profit transferred to Funding Wallet — ${poolName}`;
@@ -930,22 +915,24 @@ export const poolParticipationService = {
     } | null;
 
     const poolName = fundRow?.name ?? "Pool";
-    const profitWallet = await investorProfitWalletService.getOrCreate(user.id, fundId);
-    let availableProfit = profitWallet.balance;
-    if (availableProfit <= 0) {
-      const poolRow = await getPoolParticipation(db, user.id, fundId);
-      availableProfit = poolProfitAmount(poolRow);
-    }
+    const poolRow = await getPoolParticipation(db, user.id, fundId);
+    const profitWalletBalance = await investorProfitWalletService.getTotalBalanceForFund(
+      user.id,
+      fundId
+    );
+    const availableProfit = resolveAvailablePoolProfit({
+      invested: toNumber(poolRow.total_invested),
+      currentValue: toNumber(poolRow.current_value),
+      realizedPnl: toNumber(poolRow.realized_pnl),
+      unrealizedPnl: toNumber(poolRow.unrealized_pnl),
+      profitWalletBalance,
+    });
 
     if (availableProfit <= 0) {
       throw new Error("No pool profit available to reinvest.");
     }
 
-    const reinvestAmount =
-      amount != null && Number.isFinite(amount) ? amount : availableProfit;
-    if (reinvestAmount > availableProfit) {
-      throw new Error("Amount exceeds available pool profit.");
-    }
+    const reinvestAmount = normalizeProfitTransferAmount(amount, availableProfit);
 
     const activeCycle = await investmentCycleService.getActiveForFund(fundId);
     const queueDuringTrading =
@@ -961,8 +948,8 @@ export const poolParticipationService = {
         amount: reinvestAmount,
         targetCycleId: activeCycle.id,
       });
-    } else if (profitWallet.balance >= reinvestAmount) {
-      await investorProfitWalletService.debit(user.id, fundId, reinvestAmount);
+    } else if (profitWalletBalance >= reinvestAmount - 0.004) {
+      await investorProfitWalletService.debitFromFund(user.id, fundId, reinvestAmount);
       await poolCapitalService.applyReinvestment(fundId, user.id, reinvestAmount);
       const poolCapitalTotal = await poolCapitalService.getPoolCapitalTotal(fundId);
       const poolRow = await getPoolParticipation(db, user.id, fundId);

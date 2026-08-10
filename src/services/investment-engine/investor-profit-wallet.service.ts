@@ -145,6 +145,28 @@ export const investorProfitWalletService = {
     );
   },
 
+  async debitFromFund(investorId: string, fundId: string, amount: number): Promise<number> {
+    if (amount <= 0) return 0;
+
+    const wallets = (await this.listForInvestor(investorId))
+      .filter((wallet) => wallet.fundId === fundId && wallet.balance > 0)
+      .sort((a, b) => b.balance - a.balance);
+
+    let remaining = roundMoney(amount);
+    let debited = 0;
+
+    for (const wallet of wallets) {
+      if (remaining <= 0) break;
+      const take = roundMoney(Math.min(remaining, wallet.balance));
+      if (take <= 0) continue;
+      await this.debit(investorId, fundId, take, wallet.sourceCycleId);
+      remaining = roundMoney(remaining - take);
+      debited = roundMoney(debited + take);
+    }
+
+    return debited;
+  },
+
   async listForFund(fundId: string): Promise<InvestorProfitWallet[]> {
     const db = createAdminClient();
     const { data, error } = await db

@@ -16,6 +16,7 @@ import type {
   WalletPoolParticipation,
 } from "@/features/investor/types/wallet";
 import { roundMoney } from "@/lib/investment-engine/ownership";
+import { resolveAvailablePoolProfit } from "@/lib/investor/pool-profit";
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
@@ -133,21 +134,27 @@ export const walletService = {
       ).map((s) => [s.fund_id, toNumber(s.win_rate)])
     );
 
-    const profitWalletMap = new Map(profitWallets.map((wallet) => [wallet.fundId, wallet.balance]));
+    const profitWalletTotals = new Map<string, number>();
+    for (const wallet of profitWallets) {
+      profitWalletTotals.set(
+        wallet.fundId,
+        roundMoney((profitWalletTotals.get(wallet.fundId) ?? 0) + wallet.balance)
+      );
+    }
 
     let poolProfit = 0;
     const participations: WalletPoolParticipation[] = participationRows.map((row) => {
       const fund = fundMap.get(row.fund_id);
       const invested = toNumber(row.total_invested);
-      const walletProfit = profitWalletMap.get(row.fund_id) ?? 0;
-      const legacyProfit = toNumber(row.unrealized_pnl) + toNumber(row.realized_pnl);
-      const storedValue = toNumber(row.current_value);
-      let profit = walletProfit > 0 ? walletProfit : legacyProfit;
-      let currentValue = roundMoney(invested + profit);
-      if (storedValue > currentValue) {
-        currentValue = roundMoney(storedValue);
-        profit = roundMoney(Math.max(profit, currentValue - invested));
-      }
+      const walletProfit = profitWalletTotals.get(row.fund_id) ?? 0;
+      const profit = resolveAvailablePoolProfit({
+        invested,
+        currentValue: toNumber(row.current_value),
+        realizedPnl: toNumber(row.realized_pnl),
+        unrealizedPnl: toNumber(row.unrealized_pnl),
+        profitWalletBalance: walletProfit,
+      });
+      const currentValue = roundMoney(invested + profit);
       poolProfit += profit;
 
       const managed = readManagedConfig(fund?.pool_faq);

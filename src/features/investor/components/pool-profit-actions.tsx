@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { investorInputClass } from "@/features/investor/constants/ui";
 import { cn, formatCurrency } from "@/lib/utils";
+import { roundMoney } from "@/lib/investment-engine/ownership";
 
 type ProfitAction = "transfer" | "reinvest";
 
@@ -54,13 +55,14 @@ export function PoolProfitActions({
   }
 
   async function handleConfirm() {
-    const num = Number(amount);
+    const num = roundMoney(Number(amount));
     if (!Number.isFinite(num) || num <= 0) {
       toast.error("Enter a valid amount.");
       return;
     }
-    if (num > availableProfit + 0.005) {
-      toast.error(`Maximum available profit is ${formatCurrency(availableProfit)}.`);
+    const maxAvailable = roundMoney(availableProfit);
+    if (num > maxAvailable + 0.004) {
+      toast.error(`Maximum available profit is ${formatCurrency(maxAvailable)}.`);
       return;
     }
 
@@ -74,7 +76,9 @@ export function PoolProfitActions({
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: num }),
+        body: JSON.stringify({
+          amount: Math.abs(num - maxAvailable) <= 0.004 ? maxAvailable : num,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Request failed");
