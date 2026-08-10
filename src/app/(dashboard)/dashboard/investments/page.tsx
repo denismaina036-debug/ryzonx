@@ -62,40 +62,40 @@ export default async function MyInvestmentsPage() {
                   <div>
                     <p className="font-semibold text-[var(--id-text)]">{pool.poolName}</p>
                     <p className="mt-1 text-xs text-[var(--id-text-muted)]">
-                      {pool.showPostCycleChoices
-                        ? "Cycle completed — choose your next step"
-                        : pool.hasActiveTradingCycle
-                          ? "Trading cycle active"
+                      {pool.hasActiveTradingCycle
+                        ? "Trading cycle active"
+                        : pool.showPostCycleChoices
+                          ? "Cycle completed"
                           : pool.payoutDurationLabel && pool.payoutDurationLabel !== "—"
                             ? pool.payoutDurationLabel
                             : "Investment active"}
                     </p>
                   </div>
-                  <div className="flex gap-6 text-left sm:text-right">
-                    <div>
-                      <p className="font-mono text-sm font-semibold tabular-nums text-[var(--id-text)]">
-                        {formatCurrency(pool.displayCapitalInvested)}
-                      </p>
-                      <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">
-                        {pool.showPostCycleChoices ? "Capital after cycle" : "Capital invested"}
-                      </p>
-                    </div>
-                    {!pool.showPostCycleChoices && (
+                  {!pool.showPostCycleChoices && (
+                    <div className="flex gap-6 text-left sm:text-right">
                       <div>
-                        <p
-                          className={`font-mono text-sm font-semibold tabular-nums ${
-                            pool.poolProfit >= 0
-                              ? "text-[var(--id-success)]"
-                              : "text-[var(--id-danger)]"
-                          }`}
-                        >
-                          {pool.poolProfit > 0 ? "+" : ""}
-                          {formatCurrency(pool.poolProfit)}
+                        <p className="font-mono text-sm font-semibold tabular-nums text-[var(--id-text)]">
+                          {formatCurrency(pool.displayCapitalInvested)}
                         </p>
-                        <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">Pool profit</p>
+                        <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">Capital</p>
                       </div>
-                    )}
-                  </div>
+                      {pool.poolProfit !== 0 && (
+                        <div>
+                          <p
+                            className={`font-mono text-sm font-semibold tabular-nums ${
+                              pool.poolProfit >= 0
+                                ? "text-[var(--id-success)]"
+                                : "text-[var(--id-danger)]"
+                            }`}
+                          >
+                            {pool.poolProfit > 0 ? "+" : ""}
+                            {formatCurrency(pool.poolProfit)}
+                          </p>
+                          <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">Profit</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {pool.showPostCycleChoices ? (

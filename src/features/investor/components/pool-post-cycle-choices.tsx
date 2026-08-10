@@ -1,12 +1,10 @@
 "use client";
 
-import { useState, type ComponentType } from "react";
-import Link from "next/link";
+import { useState, type ComponentType, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRightLeft, Clock3, RefreshCw, Wallet } from "lucide-react";
+import { ArrowDownToLine, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { ROUTES } from "@/constants/routes";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { CycleInvestorSettlement } from "@/services/investment-engine/cycle-investor-settlement.service";
 import {
@@ -50,24 +48,22 @@ export function PoolPostCycleChoices({
     });
     const data = await res.json();
     if (!res.ok || !data.settlement?.id) {
-      throw new Error(data.error ?? "Could not prepare your post-cycle options.");
+      throw new Error(data.error ?? "Request failed");
     }
     return data.settlement.id as string;
   }
 
-  async function runAction(
-    action: "transfer-profit" | "reinvest-capital" | "request-capital-return",
-    successMessage: string
-  ) {
-    setLoading(action);
+  async function reinvestCapital() {
+    setLoading("reinvest-capital");
     try {
       const settlementId = await resolveSettlementId();
-      const res = await fetch(`/api/investor/cycle-settlements/${settlementId}/${action}`, {
-        method: "POST",
-      });
+      const res = await fetch(
+        `/api/investor/cycle-settlements/${settlementId}/reinvest-capital`,
+        { method: "POST" }
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Request failed");
-      toast.success(successMessage);
+      toast.success(`${formatCurrency(capitalAmount)} reinvested in ${poolName}.`);
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
@@ -76,36 +72,55 @@ export function PoolPostCycleChoices({
     }
   }
 
-  async function transferToFundingWallet() {
-    setLoading("transfer-wallet");
+  async function requestCapitalReturn() {
+    setLoading("request-capital-return");
     try {
       const settlementId = await resolveSettlementId();
+      const res = await fetch(
+        `/api/investor/cycle-settlements/${settlementId}/request-capital-return`,
+        { method: "POST" }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Request failed");
+      toast.success("Submitted for admin approval.");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setLoading(null);
+    }
+  }
 
-      if (profitPending) {
-        const profitRes = await fetch(
-          `/api/investor/cycle-settlements/${settlementId}/transfer-profit`,
-          { method: "POST" }
-        );
-        const profitData = await profitRes.json();
-        if (!profitRes.ok) {
-          throw new Error(profitData.error ?? "Profit transfer failed");
-        }
-      }
+  async function transferProfit() {
+    setLoading("transfer-profit");
+    try {
+      const settlementId = await resolveSettlementId();
+      const res = await fetch(
+        `/api/investor/cycle-settlements/${settlementId}/transfer-profit`,
+        { method: "POST" }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Request failed");
+      toast.success(`${formatCurrency(profitAmount)} moved to your Funding Wallet.`);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setLoading(null);
+    }
+  }
 
-      if (capitalPending) {
-        const capitalRes = await fetch(
-          `/api/investor/cycle-settlements/${settlementId}/request-capital-return`,
-          { method: "POST" }
-        );
-        const capitalData = await capitalRes.json();
-        if (!capitalRes.ok) {
-          throw new Error(capitalData.error ?? "Capital return request failed");
-        }
-        toast.success("Capital return submitted for admin approval.");
-      } else if (profitPending) {
-        toast.success(`${formatCurrency(profitAmount)} moved to your Funding Wallet.`);
-      }
-
+  async function reinvestProfit() {
+    setLoading("reinvest-profit");
+    try {
+      const res = await fetch(`/api/investor/pools/${fundId}/reinvest-profit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: profitAmount }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Request failed");
+      toast.success(`${formatCurrency(data.reinvested ?? profitAmount)} reinvested in ${poolName}.`);
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
@@ -115,94 +130,62 @@ export function PoolPostCycleChoices({
   }
 
   return (
-    <div
-      className={cn(
-        "rounded-xl border border-amber-200/80 bg-amber-50/60 dark:border-amber-900/50 dark:bg-amber-950/20",
-        compact ? "p-4" : "p-5"
-      )}
-    >
-      <div className="space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-widest text-amber-800 dark:text-amber-300">
-          No active trading cycle
-        </p>
-        <p className="text-sm text-[var(--id-text-muted)]">
-          Choose what to do with your invested capital in {poolName}
-          {profitPending ? " and any profit" : ""}.
-        </p>
-      </div>
-
-      <div className="mt-4 flex flex-wrap gap-4 text-sm">
-        {capitalPending && (
-          <div>
-            <p className="font-mono font-semibold tabular-nums text-[var(--id-text)]">
-              {formatCurrency(capitalAmount)}
-            </p>
-            <p className="text-xs text-[var(--id-text-muted)]">Capital</p>
-          </div>
-        )}
-        {profitPending && (
-          <div>
-            <p className="font-mono font-semibold tabular-nums text-[var(--id-success)]">
-              +{formatCurrency(profitAmount)}
-            </p>
-            <p className="text-xs text-[var(--id-text-muted)]">Profit</p>
-          </div>
-        )}
-      </div>
-
-      {capitalAwaitingAdmin && (
-        <div className="mt-4 flex items-start gap-2 rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] px-4 py-3 text-sm text-[var(--id-text-muted)]">
-          <Clock3 className="mt-0.5 h-4 w-4 shrink-0" />
-          Capital return is pending admin approval.
-        </div>
+    <div className={cn("space-y-3", compact ? "" : "mt-4")}>
+      {(capitalPending || capitalAwaitingAdmin) && (
+        <PostCycleRow
+          label="Capital"
+          amount={capitalAmount}
+          amountClassName="text-[var(--id-text)]"
+          actions={
+            capitalAwaitingAdmin ? (
+              <span className="text-xs font-medium text-[var(--id-text-muted)]">
+                Transfer pending approval
+              </span>
+            ) : (
+              <>
+                <SimpleButton
+                  label="Reinvest in Pool"
+                  icon={RefreshCw}
+                  loading={loading === "reinvest-capital"}
+                  onClick={reinvestCapital}
+                />
+                <SimpleButton
+                  label="Transfer to Funding Wallet"
+                  icon={ArrowDownToLine}
+                  variant="outline"
+                  loading={loading === "request-capital-return"}
+                  onClick={requestCapitalReturn}
+                />
+              </>
+            )
+          }
+        />
       )}
 
-      {!capitalAwaitingAdmin && (capitalPending || profitPending) && (
-        <div className="mt-4 grid gap-2 sm:grid-cols-3">
-          {capitalPending && (
-            <ActionButton
-              icon={RefreshCw}
-              label="Reinvest in this pool"
-              hint="Next funding round"
-              loading={loading === "reinvest-capital"}
-              onClick={() =>
-                runAction(
-                  "reinvest-capital",
-                  `${formatCurrency(capitalAmount)} reinvested in ${poolName}.`
-                )
-              }
-            />
-          )}
-          <Button
-            asChild
-            variant="outline"
-            className="h-auto min-h-16 flex-col items-start gap-1 rounded-xl border-[var(--id-border)] px-4 py-3 text-left"
-          >
-            <Link href={ROUTES.marketplace}>
-              <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--id-text)]">
-                <ArrowRightLeft className="h-4 w-4" />
-                Invest in another pool
-              </span>
-              <span className="text-xs font-normal text-[var(--id-text-muted)]">
-                Browse marketplace
-              </span>
-            </Link>
-          </Button>
-          <ActionButton
-            icon={Wallet}
-            label="Transfer to Funding Wallet"
-            hint={
-              capitalPending
-                ? profitPending
-                  ? "Profit now, capital after approval"
-                  : "Admin approval required"
-                : "Immediate"
-            }
-            variant="outline"
-            loading={loading === "transfer-wallet"}
-            onClick={transferToFundingWallet}
-          />
-        </div>
+      {profitPending && (
+        <PostCycleRow
+          label="Profit"
+          amount={profitAmount}
+          prefix="+"
+          amountClassName="text-[var(--id-success)]"
+          actions={
+            <>
+              <SimpleButton
+                label="Transfer to Funding Wallet"
+                icon={ArrowDownToLine}
+                loading={loading === "transfer-profit"}
+                onClick={transferProfit}
+              />
+              <SimpleButton
+                label="Reinvest in Pool"
+                icon={RefreshCw}
+                variant="outline"
+                loading={loading === "reinvest-profit"}
+                onClick={reinvestProfit}
+              />
+            </>
+          }
+        />
       )}
     </div>
   );
@@ -239,17 +222,46 @@ export function PoolPostCycleChoicesFromView({
   );
 }
 
-function ActionButton({
-  icon: Icon,
+function PostCycleRow({
   label,
-  hint,
+  amount,
+  prefix = "",
+  amountClassName,
+  actions,
+}: {
+  label: string;
+  amount: number;
+  prefix?: string;
+  amountClassName: string;
+  actions: ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--id-text-muted)]">
+            {label}
+          </p>
+          <p className={cn("mt-1 font-mono text-lg font-semibold tabular-nums", amountClassName)}>
+            {prefix}
+            {formatCurrency(amount)}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">{actions}</div>
+      </div>
+    </div>
+  );
+}
+
+function SimpleButton({
+  label,
+  icon: Icon,
   loading,
   onClick,
   variant = "default",
 }: {
-  icon: ComponentType<{ className?: string }>;
   label: string;
-  hint: string;
+  icon: ComponentType<{ className?: string }>;
   loading: boolean;
   onClick: () => void;
   variant?: "default" | "outline";
@@ -257,27 +269,19 @@ function ActionButton({
   return (
     <Button
       type="button"
+      size="sm"
       variant={variant}
       disabled={loading}
       onClick={onClick}
       className={cn(
-        "h-auto min-h-16 flex-col items-start gap-1 rounded-xl px-4 py-3 text-left",
+        "h-9 rounded-xl text-xs font-semibold",
         variant === "default" &&
-          "text-white [background:var(--id-accent-gradient)] hover:opacity-95"
+          "text-white [background:var(--id-accent-gradient)] hover:opacity-95",
+        variant === "outline" && "border-[var(--id-border)] bg-[var(--id-surface)]"
       )}
     >
-      <span className="inline-flex items-center gap-2 text-sm font-semibold">
-        <Icon className="h-4 w-4" />
-        {loading ? "Processing…" : label}
-      </span>
-      <span
-        className={cn(
-          "text-xs font-normal",
-          variant === "default" ? "text-white/85" : "text-[var(--id-text-muted)]"
-        )}
-      >
-        {hint}
-      </span>
+      <Icon className="mr-1.5 h-3.5 w-3.5" />
+      {loading ? "Processing…" : label}
     </Button>
   );
 }
