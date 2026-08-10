@@ -13,10 +13,7 @@ export function MarketplaceCycleCard({ cycle }: { cycle: InvestorCycleCard }) {
   const href = `${ROUTES.marketplaceCycles}/${cycle.slug}`;
   const isFunding = isCycleFundingPhase(cycle.status);
   const isTrading = isCycleTradingPhase(cycle.status);
-  const totalCapitalUnderManagement =
-    cycle.targetCapital != null && cycle.targetCapital > 0
-      ? cycle.targetCapital
-      : cycle.raisedCapital;
+  const totalCapitalUnderManagement = cycle.raisedCapital;
 
   return (
     <Link

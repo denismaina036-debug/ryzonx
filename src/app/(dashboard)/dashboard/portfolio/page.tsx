@@ -3,18 +3,18 @@ import { InvestorPageContent } from "@/components/layouts/investor-page-content"
 import { InvestorPoolCyclesView } from "@/features/investor/components/investment/investor-pool-cycles-view";
 import { CycleSettlementChoices } from "@/features/investor/components/cycle-settlement-choices";
 import { investorInvestmentService } from "@/services/investor-investment.service";
-import { cycleInvestorSettlementService } from "@/services/investment-engine/cycle-investor-settlement.service";
+import { investorService } from "@/services/investor.service";
 
 export default async function InvestorPortfolioPage() {
-  const user = await requireAuth();
-  const [cycles, pendingSettlements] = await Promise.all([
+  await requireAuth();
+  const [cycles, investmentsPage] = await Promise.all([
     investorInvestmentService.getPoolCycles(),
-    cycleInvestorSettlementService.listPendingForInvestor(user.id),
+    investorService.getInvestmentsPageData(),
   ]);
 
   return (
     <InvestorPageContent className="space-y-8">
-      <CycleSettlementChoices settlements={pendingSettlements} />
+      <CycleSettlementChoices settlements={investmentsPage.actionableSettlements} />
       <InvestorPoolCyclesView data={cycles} />
     </InvestorPageContent>
   );

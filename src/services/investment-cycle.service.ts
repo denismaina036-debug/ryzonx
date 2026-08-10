@@ -501,6 +501,29 @@ export const investmentCycleService = {
     return null;
   },
 
+  /** Whether the pool currently has capital deployed in an active trading cycle. */
+  async hasTradingCycleForFund(fundId: string): Promise<boolean> {
+    const tradingFundIds = await this.listTradingCycleFundIds([fundId]);
+    return tradingFundIds.has(fundId);
+  },
+
+  async listTradingCycleFundIds(fundIds: string[]): Promise<Set<string>> {
+    if (fundIds.length === 0) return new Set();
+
+    const db = createAdminClient();
+    const { data, error } = await db
+      .from("investment_cycles")
+      .select("fund_id")
+      .in("fund_id", fundIds)
+      .in("status", ["trading", "distribution"]);
+
+    if (error) throw new Error(error.message);
+
+    return new Set(
+      ((data ?? []) as Array<{ fund_id: string }>).map((row) => row.fund_id)
+    );
+  },
+
   /** First investment cycle for a draft pool — stays in draft until go-live. */
   async createDraftCycleForPool(
     fundId: string,

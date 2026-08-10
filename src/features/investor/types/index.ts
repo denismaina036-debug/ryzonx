@@ -118,3 +118,5 @@ export interface InvestorDashboardPageData {
   challengeEnrollment: ChallengeEnrollment | null;
   unreadNotifications: number;
 }
+
+export type { InvestorPoolParticipationView } from "@/domain/investment/investor-pool-participation";

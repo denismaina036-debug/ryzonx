@@ -40,10 +40,7 @@ export function CycleOpportunityView({
   const canAllocate = cycle.status === "funding";
   const isFunding = isCycleFundingPhase(cycle.status);
   const isTrading = isCycleTradingPhase(cycle.status);
-  const totalCapitalUnderManagement =
-    cycle.targetCapital != null && cycle.targetCapital > 0
-      ? cycle.targetCapital
-      : cycle.raisedCapital;
+  const totalCapitalUnderManagement = cycle.raisedCapital;
 
   const cycleLabel = formatShortCycleLabel(strategy.name, cycle);
 

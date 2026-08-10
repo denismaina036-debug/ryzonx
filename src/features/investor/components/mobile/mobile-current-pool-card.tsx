@@ -52,8 +52,7 @@ export function MobileCurrentPoolCard({
 
   const poolName = performance.poolName ?? primary?.poolName ?? "Active Pool";
   const myInvestment =
-    performance.myInvestment ??
-    investment.participations.reduce((sum, p) => sum + p.amountInvested, 0);
+    performance.myInvestment ?? primary?.amountInvested ?? 0;
   const health = performance.poolHealth;
   const managerName = performance.managerName;
   const managerPhotoUrl = performance.managerPhotoUrl;

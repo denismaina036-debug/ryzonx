@@ -40,7 +40,7 @@ export function PmFundingProgress({
             {formatCurrency(raised)}
           </p>
         </div>
-        {target != null && target > 0 && (
+        {(isTrading || (target != null && target > 0)) && (
           <div className={isTrading ? "text-left sm:text-right" : "text-right"}>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--id-text-faint)]">
               {secondaryLabel}
@@ -51,7 +51,7 @@ export function PmFundingProgress({
                 compact ? "text-base" : "text-lg"
               )}
             >
-              {formatCurrency(target)}
+              {formatCurrency(isTrading ? raised : target!)}
             </p>
           </div>
         )}

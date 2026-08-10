@@ -11,10 +11,13 @@ import {
 import { PoolProfitActions } from "@/features/investor/components/pool-profit-actions";
 import { ROUTES } from "@/constants/routes";
 import type { InvestorInvestmentSummary, InvestorPoolPerformance } from "@/features/investor/types";
+import type { InvestorPoolParticipationView } from "@/domain/investment/investor-pool-participation";
+import { PoolPostCycleChoices } from "@/features/investor/components/pool-post-cycle-choices";
 
 interface CurrentInvestmentCardProps {
   performance: InvestorPoolPerformance;
   investment: InvestorInvestmentSummary;
+  primaryPoolView?: InvestorPoolParticipationView | null;
 }
 
 const healthLabels = {
@@ -26,6 +29,7 @@ const healthLabels = {
 export function CurrentInvestmentCard({
   performance,
   investment,
+  primaryPoolView = null,
 }: CurrentInvestmentCardProps) {
   const primary = investment.participations[0];
   const hasPool = Boolean(primary);
@@ -33,8 +37,10 @@ export function CurrentInvestmentCard({
     ? (performance.poolName ?? primary?.poolName ?? "Active Pool")
     : "No active pool";
   const myInvestment =
+    primaryPoolView?.displayCapitalInvested ??
     performance.myInvestment ??
-    investment.participations.reduce((s, p) => s + p.amountInvested, 0);
+    primary?.amountInvested ??
+    0;
   const health = performance.poolHealth;
   const managerName = performance.managerName;
   const managerPhotoUrl = performance.managerPhotoUrl;
@@ -89,11 +95,15 @@ export function CurrentInvestmentCard({
             </div>
 
             <div className="mt-6">
-              <PoolProfitActions
-                fundId={primary!.fundId}
-                poolName={poolName}
-                availableProfit={primary!.poolProfit}
-              />
+              {primaryPoolView?.showPostCycleChoices && primaryPoolView.pendingSettlement ? (
+                <PoolPostCycleChoices settlement={primaryPoolView.pendingSettlement} />
+              ) : !primaryPoolView || primaryPoolView.hasActiveTradingCycle ? (
+                <PoolProfitActions
+                  fundId={primary!.fundId}
+                  poolName={poolName}
+                  availableProfit={primary!.poolProfit}
+                />
+              ) : null}
             </div>
 
             {primary?.payoutDurationLabel && primary.payoutDurationLabel !== "—" && (

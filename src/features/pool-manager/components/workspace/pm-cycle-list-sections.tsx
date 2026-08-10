@@ -162,10 +162,7 @@ function TradingCycleCard({
   const profit = summary?.currentCycleProfit ?? cycle.currentCycleProfit;
   const capital = summary?.currentCapital ?? cycle.raisedCapital;
   const trades = summary?.tradesRecorded ?? 0;
-  const totalCapital =
-    cycle.targetCapital != null && cycle.targetCapital > 0
-      ? cycle.targetCapital
-      : capital;
+  const totalCapital = capital;
   const profitTone =
     profit > 0
       ? "text-emerald-600 dark:text-emerald-400"

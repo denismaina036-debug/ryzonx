@@ -6,6 +6,7 @@ import {
   RAISED_CAPITAL_ALLOCATION_STATUSES,
 } from "@/domain/investment/cycle-metrics";
 import type { InvestmentCycle } from "@/domain/investment/types";
+import { loadFundRaisedCapitalSeeds, mergePublicRaisedCapital } from "@/lib/pools/public-raised-capital";
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
@@ -113,9 +114,13 @@ export const investmentCycleMetricsService = {
       cycles.map(async (cycle) => [cycle.id, await countActiveInvestors(cycle.id)] as const)
     );
     const investorByCycle = new Map(investorCounts);
+    const fundIds = [...new Set(cycles.map((cycle) => cycle.fundId).filter(Boolean))] as string[];
+    const seedsByFund = await loadFundRaisedCapitalSeeds(fundIds);
 
     return cycles.map((cycle) => {
-      const raised = raisedByCycle.get(cycle.id) ?? 0;
+      const liveRaised = raisedByCycle.get(cycle.id) ?? 0;
+      const seed = cycle.fundId ? seedsByFund.get(cycle.fundId) ?? 0 : 0;
+      const raised = mergePublicRaisedCapital(seed, liveRaised);
       const enriched = applyCycleFundingMetrics(cycle, raised);
       return {
         ...enriched,

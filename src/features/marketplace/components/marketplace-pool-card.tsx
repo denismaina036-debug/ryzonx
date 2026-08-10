@@ -223,7 +223,13 @@ function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
               <CycleStat
                 icon={Building2}
                 label={isTrading ? "Total Capital Under Management" : "Target Capital"}
-                value={pool.targetCapital > 0 ? formatCurrency(pool.targetCapital) : "—"}
+                value={
+                  isTrading
+                    ? formatCurrency(pool.raisedCapital)
+                    : pool.targetCapital > 0
+                      ? formatCurrency(pool.targetCapital)
+                      : "—"
+                }
               />
             </div>
             <div className="space-y-3">

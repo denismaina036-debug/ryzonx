@@ -15,6 +15,7 @@ import type {
   TraderChallenge,
   ChallengeEnrollment,
 } from "@/features/investor/types";
+import type { WalletPoolParticipation } from "@/features/investor/types/wallet";
 import { walletService } from "@/services/wallet.service";
 import { investorPoolTradesService } from "@/services/investor-pool-trades.service";
 import { investmentCycleService } from "@/services/investment-cycle.service";
@@ -27,6 +28,13 @@ import { mapRawTransactionToActivityItem, type RawTransactionRow } from "@/lib/t
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolvePublicDisplayCount } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 import { computeLifetimePoolPerformance } from "@/lib/investor/lifetime-pool-performance";
+import type { InvestorPoolParticipationView } from "@/domain/investment/investor-pool-participation";
+import {
+  resolveInvestorDisplayCapital,
+  shouldShowPostCycleChoices,
+} from "@/domain/investment/investor-pool-participation";
+import type { CycleInvestorSettlement } from "@/services/investment-engine/cycle-investor-settlement.service";
+import { cycleInvestorSettlementService } from "@/services/investment-engine/cycle-investor-settlement.service";
 
 type RankSnapshot = Pick<Tables<"investor_portfolios">, "user_id" | "total_invested">;
 
@@ -127,7 +135,8 @@ export const investorService = {
 
     const primary = walletSummary.participations[0] ?? null;
     const primaryFundId = primary?.fundId ?? null;
-    const myInvestment = walletSummary.participations.reduce(
+    const primaryMyInvestment = primary?.amountInvested ?? 0;
+    const totalInvestedAcrossPools = walletSummary.participations.reduce(
       (sum, p) => sum + p.amountInvested,
       0
     );
@@ -303,8 +312,8 @@ export const investorService = {
 
     let sharePct = 0;
     if (primaryFundId) {
-      if (poolBalance > 0 && myInvestment > 0) {
-        sharePct = (myInvestment / poolBalance) * 100;
+      if (poolBalance > 0 && primaryMyInvestment > 0) {
+        sharePct = (primaryMyInvestment / poolBalance) * 100;
       } else if (activeCycle?.targetCapital && activeCycle.targetCapital > 0) {
         const { data: allocationRow } = await supabase
           .from("investment_allocations")
@@ -322,17 +331,17 @@ export const investorService = {
             ? toNumber(allocation.amount)
             : null;
 
-        const investmentBasis = confirmedAllocation ?? myInvestment;
+        const investmentBasis = confirmedAllocation ?? primaryMyInvestment;
         sharePct =
           computeInvestorOwnershipShare(investmentBasis, activeCycle.targetCapital) ?? 0;
       }
-    } else if (poolBalance > 0 && myInvestment > 0) {
-      sharePct = (myInvestment / poolBalance) * 100;
+    } else if (poolBalance > 0 && primaryMyInvestment > 0) {
+      sharePct = (primaryMyInvestment / poolBalance) * 100;
     }
 
     const lifetimePerformance = computeLifetimePoolPerformance(
       lifetimeProfitRows,
-      myInvestment
+      totalInvestedAcrossPools
     );
     const performanceProfit = lifetimePerformance.lifetimeProfit;
     const performanceProfitPct = lifetimePerformance.lifetimeProfitPct;
@@ -444,7 +453,7 @@ export const investorService = {
           managerRating:
             fund?.ryvonx_rating != null ? toNumber(fund.ryvonx_rating) : null,
           poolHealth: mapPoolHealth(fund?.pool_health),
-          myInvestment,
+          myInvestment: primaryMyInvestment,
           dailyProfit,
           winRate: pool?.win_rate != null ? toNumber(pool.win_rate) : null,
           profitFactor: null,
@@ -464,6 +473,135 @@ export const investorService = {
       challengeEnrollment,
       unreadNotifications: notificationsResult.count ?? 0,
     };
+  },
+
+  async getInvestmentsPageData(): Promise<{
+    dashboard: InvestorDashboardPageData;
+    poolViews: InvestorPoolParticipationView[];
+    actionableSettlements: CycleInvestorSettlement[];
+  }> {
+    const user = await requireAuth();
+    const [dashboard, pendingSettlements] = await Promise.all([
+      this.getDashboardPageData(),
+      cycleInvestorSettlementService.listPendingForInvestor(user.id),
+    ]);
+
+    const participations = dashboard.investment.participations;
+    const fundIds = [
+      ...new Set([
+        ...participations.map((pool) => pool.fundId),
+        ...pendingSettlements.map((settlement) => settlement.fundId),
+      ]),
+    ];
+
+    const tradingFundIds = await investmentCycleService.listTradingCycleFundIds(fundIds);
+    const settlementByFund = new Map<string, CycleInvestorSettlement>();
+    for (const settlement of pendingSettlements) {
+      if (!settlementByFund.has(settlement.fundId)) {
+        settlementByFund.set(settlement.fundId, settlement);
+      }
+    }
+
+    const participationByFund = new Map(
+      participations.map((participation) => [participation.fundId, participation])
+    );
+
+    const admin = createAdminClient();
+    const { data: tradingCycles } = await admin
+      .from("investment_cycles")
+      .select("id, fund_id")
+      .in("fund_id", [...tradingFundIds])
+      .in("status", ["trading", "distribution"]);
+
+    const cycleIdByFund = new Map(
+      ((tradingCycles ?? []) as Array<{ id: string; fund_id: string }>).map((row) => [
+        row.fund_id,
+        row.id,
+      ])
+    );
+
+    const allocationByFund = new Map<string, number>();
+    const cycleIds = [...cycleIdByFund.values()];
+    if (cycleIds.length > 0) {
+      const { data: allocationRows } = await admin
+        .from("investment_allocations")
+        .select("investment_cycle_id, amount, status")
+        .eq("investor_id", user.id)
+        .in("investment_cycle_id", cycleIds)
+        .in("status", RAISED_CAPITAL_ALLOCATION_STATUSES);
+
+      for (const row of (allocationRows ?? []) as Array<{
+        investment_cycle_id: string;
+        amount: number | string;
+      }>) {
+        const fundId = [...cycleIdByFund.entries()].find(
+          ([, cycleId]) => cycleId === row.investment_cycle_id
+        )?.[0];
+        if (!fundId) continue;
+        allocationByFund.set(
+          fundId,
+          (allocationByFund.get(fundId) ?? 0) + toNumber(row.amount)
+        );
+      }
+    }
+
+    const poolViews: InvestorPoolParticipationView[] = fundIds
+      .map((fundId) => {
+        const participation = participationByFund.get(fundId);
+        const pendingSettlement = settlementByFund.get(fundId) ?? null;
+        const hasActiveTradingCycle = tradingFundIds.has(fundId);
+
+        if (!participation && !pendingSettlement) return null;
+
+        const baseParticipation =
+          participation ??
+          ({
+            fundId,
+            poolName: pendingSettlement?.poolName ?? "Pool",
+            amountInvested: 0,
+            currentValue: pendingSettlement?.principalAmount ?? 0,
+            poolProfit: pendingSettlement?.profitAmount ?? 0,
+            projectedReturnPct: null,
+            projectedRoiMultiplier: null,
+            poolWinRate: 0,
+            investmentStartDate: null,
+            termEndDate: null,
+            termEnded: false,
+            poolDurationDays: null,
+            payoutDurationLabel: "—",
+          } satisfies WalletPoolParticipation);
+
+        const displayCapitalInvested = resolveInvestorDisplayCapital({
+          hasActiveTradingCycle,
+          portfolioInvested: baseParticipation.amountInvested,
+          pendingSettlement,
+          cycleAllocationAmount: allocationByFund.get(fundId) ?? null,
+        });
+
+        return {
+          ...baseParticipation,
+          hasActiveTradingCycle,
+          pendingSettlement,
+          displayCapitalInvested,
+          showPostCycleChoices: shouldShowPostCycleChoices({
+            hasActiveTradingCycle,
+            pendingSettlement,
+          }),
+        };
+      })
+      .filter((view): view is InvestorPoolParticipationView => view != null)
+      .sort((a, b) => {
+        if (a.showPostCycleChoices !== b.showPostCycleChoices) {
+          return a.showPostCycleChoices ? -1 : 1;
+        }
+        return b.amountInvested - a.amountInvested;
+      });
+
+    const actionableSettlements = pendingSettlements.filter(
+      (settlement) => !tradingFundIds.has(settlement.fundId)
+    );
+
+    return { dashboard, poolViews, actionableSettlements };
   },
 
   async getTradesPageData(): Promise<{
@@ -521,3 +659,4 @@ export const investorService = {
 };
 
 export type { InvestorDashboardPageData };
+export type { InvestorPoolParticipationView } from "@/domain/investment/investor-pool-participation";

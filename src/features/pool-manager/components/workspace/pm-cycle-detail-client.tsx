@@ -355,11 +355,7 @@ export function PmCycleDetailClient({
             <StatCard label="Capital Traded" value={formatCurrency(currentCapital)} />
             <StatCard
               label="Total Capital Under Management"
-              value={
-                cycle.targetCapital != null && cycle.targetCapital > 0
-                  ? formatCurrency(cycle.targetCapital)
-                  : formatCurrency(currentCapital)
-              }
+              value={formatCurrency(currentCapital)}
             />
             <StatCard label="Investors" value={String(cycle.investorCount)} />
             <StatCard

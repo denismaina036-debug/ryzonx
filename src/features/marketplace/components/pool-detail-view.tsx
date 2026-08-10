@@ -165,7 +165,7 @@ export function PoolDetailView({ pool }: PoolDetailViewProps) {
                   />
                   {isTrading && pool.targetCapital > 0 ? (
                     <DetailItem
-                      label="Total Capital Under Management"
+                      label="Target Capital"
                       value={formatCurrency(pool.targetCapital)}
                     />
                   ) : null}

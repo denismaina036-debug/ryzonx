@@ -9,19 +9,15 @@ import {
   investorPageTitleClass,
 } from "@/features/investor/constants/ui";
 import { PoolProfitActions } from "@/features/investor/components/pool-profit-actions";
-import { CycleSettlementChoices } from "@/features/investor/components/cycle-settlement-choices";
+import { PoolPostCycleChoices } from "@/features/investor/components/pool-post-cycle-choices";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants/routes";
 import { formatCurrency } from "@/lib/utils";
-import { cycleInvestorSettlementService } from "@/services/investment-engine/cycle-investor-settlement.service";
 
 export default async function MyInvestmentsPage() {
-  const user = await requireAuth();
-  const [data, pendingSettlements] = await Promise.all([
-    investorService.getDashboardPageData(),
-    cycleInvestorSettlementService.listPendingForInvestor(user.id),
-  ]);
-  const { participations } = data.investment;
+  await requireAuth();
+  const { dashboard, poolViews } = await investorService.getInvestmentsPageData();
+  const primaryPoolView = poolViews[0] ?? null;
 
   return (
     <InvestorPageContent className="space-y-8">
@@ -47,58 +43,71 @@ export default async function MyInvestmentsPage() {
         </Button>
       </header>
 
-      <WalletHeroCard investment={data.investment} />
-      <CycleSettlementChoices settlements={pendingSettlements} />
+      <WalletHeroCard investment={dashboard.investment} />
       <CurrentInvestmentCard
-        performance={data.poolPerformance}
-        investment={data.investment}
+        performance={dashboard.poolPerformance}
+        investment={dashboard.investment}
+        primaryPoolView={primaryPoolView}
       />
 
-      {participations.length > 0 && (
+      {poolViews.length > 0 && (
         <section className="overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow)]">
           <div className="border-b border-[var(--id-border)] px-5 py-4 sm:px-6">
             <h2 className="text-sm font-semibold text-[var(--id-text)]">Active Pools</h2>
           </div>
           <ul className="divide-y divide-[var(--id-border)]">
-            {participations.map((pool) => (
+            {poolViews.map((pool) => (
               <li key={pool.fundId} className="space-y-4 px-5 py-5 sm:px-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="font-semibold text-[var(--id-text)]">{pool.poolName}</p>
                     <p className="mt-1 text-xs text-[var(--id-text-muted)]">
-                      {pool.payoutDurationLabel && pool.payoutDurationLabel !== "—"
-                        ? pool.payoutDurationLabel
-                        : "Investment active"}
+                      {pool.showPostCycleChoices
+                        ? "Cycle completed — choose your next step"
+                        : pool.hasActiveTradingCycle
+                          ? "Trading cycle active"
+                          : pool.payoutDurationLabel && pool.payoutDurationLabel !== "—"
+                            ? pool.payoutDurationLabel
+                            : "Investment active"}
                     </p>
                   </div>
                   <div className="flex gap-6 text-left sm:text-right">
                     <div>
                       <p className="font-mono text-sm font-semibold tabular-nums text-[var(--id-text)]">
-                        {formatCurrency(pool.amountInvested)}
+                        {formatCurrency(pool.displayCapitalInvested)}
                       </p>
-                      <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">Capital invested</p>
-                    </div>
-                    <div>
-                      <p
-                        className={`font-mono text-sm font-semibold tabular-nums ${
-                          pool.poolProfit >= 0
-                            ? "text-[var(--id-success)]"
-                            : "text-[var(--id-danger)]"
-                        }`}
-                      >
-                        {pool.poolProfit > 0 ? "+" : ""}
-                        {formatCurrency(pool.poolProfit)}
+                      <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">
+                        {pool.showPostCycleChoices ? "Capital after cycle" : "Capital invested"}
                       </p>
-                      <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">Pool profit</p>
                     </div>
+                    {!pool.showPostCycleChoices && (
+                      <div>
+                        <p
+                          className={`font-mono text-sm font-semibold tabular-nums ${
+                            pool.poolProfit >= 0
+                              ? "text-[var(--id-success)]"
+                              : "text-[var(--id-danger)]"
+                          }`}
+                        >
+                          {pool.poolProfit > 0 ? "+" : ""}
+                          {formatCurrency(pool.poolProfit)}
+                        </p>
+                        <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">Pool profit</p>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <PoolProfitActions
-                  fundId={pool.fundId}
-                  poolName={pool.poolName}
-                  availableProfit={pool.poolProfit}
-                  compact
-                />
+
+                {pool.showPostCycleChoices && pool.pendingSettlement ? (
+                  <PoolPostCycleChoices settlement={pool.pendingSettlement} compact />
+                ) : pool.hasActiveTradingCycle ? (
+                  <PoolProfitActions
+                    fundId={pool.fundId}
+                    poolName={pool.poolName}
+                    availableProfit={pool.poolProfit}
+                    compact
+                  />
+                ) : null}
               </li>
             ))}
           </ul>
