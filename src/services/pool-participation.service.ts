@@ -169,22 +169,16 @@ export const poolParticipationService = {
   async getPageData(): Promise<PoolParticipationPageData> {
     const user = await requireAuth();
     const db = createAdminClient();
+    const { walletProjectionService } = await import("@/services/wallet-projection.service");
 
-    const [portfolioResult, fundsResult, invitesResult] = await Promise.all([
-      db
-        .from("investor_portfolios")
-        .select("available_balance")
-        .eq("user_id", user.id)
-        .eq("fund_id", DEFAULT_FUND_ID)
-        .maybeSingle(),
+    const [projection, fundsResult, invitesResult] = await Promise.all([
+      walletProjectionService.getForInvestor(user.id),
       db.from("funds").select("*").eq("status", "active").order("name"),
       db
         .from("pool_invitations")
         .select("fund_id, status")
         .eq("user_id", user.id),
     ]);
-
-    const portfolio = portfolioResult.data as { available_balance?: number } | null;
     const fundRows = (fundsResult.data ?? []) as FundRow[];
     const invites = new Set(
       ((invitesResult.data ?? []) as Array<{ fund_id: string }>).map((i) => i.fund_id)
@@ -215,7 +209,7 @@ export const poolParticipationService = {
       }));
 
     return {
-      availableBalance: toNumber(portfolio?.available_balance),
+      availableBalance: projection.available,
       pools,
     };
   },
@@ -281,12 +275,15 @@ export const poolParticipationService = {
       );
     }
 
-    const walletPortfolio = await ensureWalletPortfolio(db, user.id);
-    const available = toNumber(walletPortfolio.available_balance);
+    const { walletProjectionService } = await import("@/services/wallet-projection.service");
+    const projection = await walletProjectionService.getForInvestor(user.id);
+    const available = projection.available;
 
-    if (amount > available) {
+    if (amount > available + 0.004) {
       throw new Error("Insufficient available balance. Deposit and wait for approval first.");
     }
+
+    const walletPortfolio = await ensureWalletPortfolio(db, user.id);
 
     const now = new Date().toISOString();
     const startDate = new Date().toISOString().slice(0, 10);

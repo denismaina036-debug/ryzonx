@@ -9,6 +9,7 @@ import type {
   TraderChallenge,
 } from "@/features/investor/types";
 import { attachTransactionReference } from "@/lib/transaction/insert";
+import { walletProjectionService } from "@/services/wallet-projection.service";
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
@@ -88,7 +89,7 @@ export const challengeService = {
     const supabase = await createClient();
     const db = createAdminClient();
 
-    const [challengeResult, enrollmentResult, portfolioResult] = await Promise.all([
+    const [challengeResult, enrollmentResult, projection] = await Promise.all([
       supabase
         .from("trader_challenges")
         .select("*")
@@ -102,12 +103,7 @@ export const challengeService = {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
-      db
-        .from("investor_portfolios")
-        .select("available_balance")
-        .eq("user_id", user.id)
-        .eq("fund_id", DEFAULT_FUND_ID)
-        .maybeSingle(),
+      walletProjectionService.getForInvestor(user.id),
     ]);
 
     const challengeRow = challengeResult.data as Parameters<typeof mapChallenge>[0] | null;
@@ -116,9 +112,7 @@ export const challengeService = {
     return {
       challenge: challengeRow ? mapChallenge(challengeRow) : null,
       enrollment: enrollmentRow ? mapEnrollment(enrollmentRow) : null,
-      availableBalance: toNumber(
-        (portfolioResult.data as { available_balance?: number } | null)?.available_balance
-      ),
+      availableBalance: projection.available,
     };
   },
 

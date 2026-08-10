@@ -7,6 +7,7 @@ import { ChevronRight, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ROUTES } from "@/constants/routes";
 import {
   CryptoFlowStep,
   cryptoFlowInputClass,
@@ -28,6 +29,7 @@ export function InvestorWithdrawalsView({
   const [submitting, setSubmitting] = useState(false);
 
   const parsed = Number(amount);
+  const hasFunds = availableBalance > 0;
   const amountValid =
     amount.trim() !== "" && Number.isFinite(parsed) && parsed > 0 && parsed <= availableBalance;
   const destinationValid = destination.trim().length >= 8;
@@ -80,29 +82,46 @@ export function InvestorWithdrawalsView({
         <CryptoFlowStep
           step={1}
           title="Funding Wallet"
-          active={false}
-          done
+          active={!hasFunds}
+          done={hasFunds}
           summary={
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--id-accent-soft)]">
-                <Wallet className="h-5 w-5 text-[var(--id-accent-text)]" />
-              </span>
-              <div>
-                <p className="font-mono text-lg font-semibold tabular-nums text-[var(--id-text)]">
-                  {formatCurrency(availableBalance)}
-                </p>
-                <p className="text-xs text-[var(--id-text-muted)]">Ready to withdraw</p>
+            hasFunds ? (
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--id-accent-soft)]">
+                  <Wallet className="h-5 w-5 text-[var(--id-accent-text)]" />
+                </span>
+                <div>
+                  <p className="font-mono text-lg font-semibold tabular-nums text-[var(--id-text)]">
+                    {formatCurrency(availableBalance)}
+                  </p>
+                  <p className="text-xs text-[var(--id-text-muted)]">Ready to withdraw</p>
+                </div>
               </div>
-            </div>
+            ) : undefined
           }
-        />
+        >
+          {!hasFunds && (
+            <div className="space-y-3">
+              <p className="font-mono text-lg font-semibold tabular-nums text-[var(--id-text)]">
+                {formatCurrency(0)}
+              </p>
+              <p className="text-sm text-[var(--id-text-muted)]">
+                Your Funding Wallet is empty. Transfer pool profit or deposit funds before
+                requesting a withdrawal.
+              </p>
+              <Button asChild variant="outline" size="sm" className="rounded-xl">
+                <Link href={ROUTES.deposits}>Add funds</Link>
+              </Button>
+            </div>
+          )}
+        </CryptoFlowStep>
 
         <CryptoFlowStep
           step={2}
           title="Withdrawal Amount"
-          active={availableBalance > 0}
-          done={amountValid}
-          disabled={availableBalance <= 0}
+          active={hasFunds}
+          done={hasFunds && amountValid}
+          disabled={!hasFunds}
           summary={
             amountValid && (
               <p className="font-mono text-sm font-semibold text-[var(--id-text)]">
@@ -131,9 +150,9 @@ export function InvestorWithdrawalsView({
         <CryptoFlowStep
           step={3}
           title="Destination Address"
-          active={availableBalance > 0 && amountValid}
+          active={hasFunds && amountValid}
           done={destinationValid}
-          disabled={!amountValid || availableBalance <= 0}
+          disabled={!amountValid || !hasFunds}
           summary={
             destinationValid && (
               <p className="truncate font-mono text-xs text-[var(--id-text-secondary)]">
