@@ -9,6 +9,16 @@ import { TransactionIcon } from "@/features/investor/components/transactions/tra
 import { TransactionStatusPill } from "@/features/investor/components/transactions/transaction-status-pill";
 import { cn } from "@/lib/utils";
 
+function maskWalletAddress(address: string): string {
+  const trimmed = address.trim();
+  if (trimmed.length <= 8) return trimmed;
+  return `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`;
+}
+
+function detailStatusLabel(status: string): string {
+  return status.toLowerCase() === "approved" ? "Completed" : status;
+}
+
 export function InvestorTransactionDetailView({
   transaction,
 }: {
@@ -44,7 +54,7 @@ export function InvestorTransactionDetailView({
               {transaction.displayAmount}
             </p>
             <div className="mt-4">
-              <TransactionStatusPill status={transaction.statusLabel} />
+              <TransactionStatusPill status={detailStatusLabel(transaction.statusLabel)} />
             </div>
             <p className="mt-3 text-sm text-[var(--id-text-muted)]">{transaction.subtitle}</p>
           </div>
@@ -54,7 +64,15 @@ export function InvestorTransactionDetailView({
           {transaction.detailFields.map((field) => (
             <div key={field.label} className="py-4">
               {field.copyable ? (
-                <TransactionCopyField label={field.label} value={field.value} mono={field.mono} />
+                field.label === "Wallet Address" ? (
+                  <TransactionCopyField
+                    label={field.label}
+                    value={maskWalletAddress(field.value)}
+                    mono={field.mono}
+                  />
+                ) : (
+                  <TransactionCopyField label={field.label} value={field.value} mono={field.mono} />
+                )
               ) : (
                 <>
                   <dt className="text-xs font-medium text-[var(--id-text-muted)]">
@@ -66,7 +84,9 @@ export function InvestorTransactionDetailView({
                       field.mono && "font-mono break-all"
                     )}
                   >
-                    {field.value}
+                    {field.label === "Status"
+                      ? detailStatusLabel(field.value)
+                      : field.value}
                   </dd>
                 </>
               )}
