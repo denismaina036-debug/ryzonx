@@ -1,4 +1,6 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
+import { ROUTES } from "@/constants/routes";
 import { transactionService } from "@/services/transaction.service";
 
 export async function PATCH(
@@ -21,6 +23,11 @@ export async function PATCH(
     } else {
       await transactionService.rejectWithdrawal(id, body.adminNotes);
     }
+
+    revalidatePath(ROUTES.dashboard);
+    revalidatePath(ROUTES.investments);
+    revalidatePath(ROUTES.transactions);
+    revalidatePath(ROUTES.withdrawals);
 
     return NextResponse.json({ ok: true });
   } catch (err) {

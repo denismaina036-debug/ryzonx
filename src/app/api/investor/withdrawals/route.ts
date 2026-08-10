@@ -1,4 +1,6 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
+import { ROUTES } from "@/constants/routes";
 import { transactionService } from "@/services/transaction.service";
 
 export async function POST(request: Request) {
@@ -17,6 +19,10 @@ export async function POST(request: Request) {
     }
 
     const result = await transactionService.submitWithdrawal(body);
+    revalidatePath(ROUTES.dashboard);
+    revalidatePath(ROUTES.investments);
+    revalidatePath(ROUTES.transactions);
+    revalidatePath(ROUTES.withdrawals);
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Withdrawal submission failed.";

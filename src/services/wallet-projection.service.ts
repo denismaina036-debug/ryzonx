@@ -31,19 +31,57 @@ async function getPendingAllocationTotal(investorId: string): Promise<number> {
   return ((data ?? []) as Array<{ amount: number }>).reduce((s, r) => s + toNumber(r.amount), 0);
 }
 
+async function getLegacyFundedWithdrawalTotal(investorId: string): Promise<number> {
+  const db = createAdminClient();
+  const { data: withdrawals } = await db
+    .from("transactions")
+    .select("id, amount")
+    .eq("user_id", investorId)
+    .eq("type", "withdrawal")
+    .in("status", ["pending", "approved"]);
+
+  const rows = (withdrawals ?? []) as Array<{ id: string; amount: number | string }>;
+  if (rows.length === 0) return 0;
+
+  const { data: ledgerRows } = await db
+    .from("ledger_transactions")
+    .select("source_id")
+    .eq("source_type", "withdrawal")
+    .in(
+      "source_id",
+      rows.map((row) => row.id)
+    );
+
+  const ledgerBacked = new Set(
+    ((ledgerRows ?? []) as Array<{ source_id: string | null }>)
+      .map((row) => row.source_id)
+      .filter(Boolean)
+  );
+
+  return Math.round(
+    rows
+      .filter((row) => !ledgerBacked.has(row.id))
+      .reduce((sum, row) => sum + toNumber(row.amount), 0) * 100
+  ) / 100;
+}
+
 export const walletProjectionService = {
   async getForInvestor(investorId: string): Promise<WalletProjection> {
     const accounts = await ledgerAccountService.ensureInvestorAccounts(investorId);
-    const [availableLedger, reserved, settled, pending, legacyAvailable] = await Promise.all([
+    const [availableLedger, reserved, settled, pending, legacyAvailable, legacyWithdrawals] =
+      await Promise.all([
       ledgerAccountService.getBalance(accounts.available.id),
       ledgerAccountService.getBalance(accounts.reserved.id),
       ledgerAccountService.getBalance(accounts.settled.id),
       getPendingAllocationTotal(investorId),
       getLegacyAvailableBalance(investorId),
+      getLegacyFundedWithdrawalTotal(investorId),
     ]);
 
     const hasLedgerActivity = availableLedger !== 0 || reserved !== 0 || settled !== 0;
-    const available = hasLedgerActivity ? availableLedger : legacyAvailable;
+    const available = hasLedgerActivity
+      ? Math.max(0, Math.round((availableLedger - legacyWithdrawals) * 100) / 100)
+      : legacyAvailable;
     const source: WalletProjection["source"] = hasLedgerActivity ? "ledger" : "legacy";
 
     return {

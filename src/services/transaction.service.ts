@@ -13,6 +13,147 @@ import { ensurePlatformFundingFund } from "@/services/platform-funding.service";
 import { buildInvestorTransactionDetail, buildTransactionPresentation } from "@/lib/transaction/presentation";
 import { attachTransactionReference } from "@/lib/transaction/insert";
 import { resolveCryptoDepositFields } from "@/lib/transaction/crypto-deposit-meta";
+import { roundMoney } from "@/lib/investment-engine/ownership";
+import { walletProjectionService } from "@/services/wallet-projection.service";
+
+async function hasLedgerWithdrawalReservation(transactionId: string): Promise<boolean> {
+  const db = createAdminClient();
+  const { data } = await db
+    .from("ledger_transactions")
+    .select("id")
+    .eq("source_type", "withdrawal")
+    .eq("source_id", transactionId)
+    .limit(1);
+
+  return Boolean(data && data.length > 0);
+}
+
+async function reserveWithdrawalOnLedger(
+  userId: string,
+  amount: number,
+  transactionId: string
+): Promise<void> {
+  const { ledgerAccountService } = await import("@/services/ledger-account.service");
+  const { ledgerService } = await import("@/services/ledger.service");
+  const accounts = await ledgerAccountService.ensureInvestorAccounts(userId);
+
+  await ledgerService.postTransaction({
+    description: `Withdrawal reserved — ${transactionId}`,
+    transactionType: "transfer",
+    sourceType: "withdrawal",
+    sourceId: transactionId,
+    actorId: userId,
+    entries: [
+      {
+        accountId: accounts.available.id,
+        entrySide: "debit",
+        amount,
+        memo: "Withdrawal request",
+      },
+      {
+        accountId: accounts.reserved.id,
+        entrySide: "credit",
+        amount,
+        memo: "Withdrawal reserved",
+      },
+    ],
+  });
+}
+
+async function releaseWithdrawalOnLedger(
+  userId: string,
+  amount: number,
+  transactionId: string,
+  actorId: string
+): Promise<void> {
+  const { ledgerAccountService } = await import("@/services/ledger-account.service");
+  const { ledgerService } = await import("@/services/ledger.service");
+  const accounts = await ledgerAccountService.ensureInvestorAccounts(userId);
+
+  await ledgerService.postTransaction({
+    description: `Withdrawal rejected — ${transactionId}`,
+    transactionType: "transfer",
+    sourceType: "withdrawal",
+    sourceId: transactionId,
+    actorId,
+    entries: [
+      {
+        accountId: accounts.reserved.id,
+        entrySide: "debit",
+        amount,
+        memo: "Release reserved withdrawal",
+      },
+      {
+        accountId: accounts.available.id,
+        entrySide: "credit",
+        amount,
+        memo: "Return to available balance",
+      },
+    ],
+  });
+}
+
+async function finalizeWithdrawalOnLedger(
+  userId: string,
+  amount: number,
+  transactionId: string,
+  actorId: string
+): Promise<void> {
+  const { ledgerAccountService } = await import("@/services/ledger-account.service");
+  const { ledgerService } = await import("@/services/ledger.service");
+  const accounts = await ledgerAccountService.ensureInvestorAccounts(userId);
+
+  await ledgerService.postTransaction({
+    description: `Withdrawal completed — ${transactionId}`,
+    transactionType: "transfer",
+    sourceType: "withdrawal",
+    sourceId: transactionId,
+    actorId,
+    entries: [
+      {
+        accountId: accounts.reserved.id,
+        entrySide: "debit",
+        amount,
+        memo: "Withdrawal paid out",
+      },
+      {
+        accountId: accounts.settled.id,
+        entrySide: "credit",
+        amount,
+        memo: "Withdrawal settled",
+      },
+    ],
+  });
+}
+
+async function adjustLegacyAvailableBalance(
+  db: ReturnType<typeof createAdminClient>,
+  userId: string,
+  fundId: string,
+  delta: number
+): Promise<void> {
+  const { data: portfolio } = await db
+    .from("investor_portfolios")
+    .select("available_balance")
+    .eq("user_id", userId)
+    .eq("fund_id", fundId)
+    .maybeSingle();
+
+  const available = toNumber(
+    (portfolio as { available_balance?: number } | null)?.available_balance
+  );
+  const nextBalance = roundMoney(Math.max(0, available + delta));
+
+  const { error } = await db
+    .from("investor_portfolios")
+    .update({ available_balance: nextBalance } as never)
+    .eq("user_id", userId)
+    .eq("fund_id", fundId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
 
 export type { InvestorTransaction };
 
@@ -469,29 +610,20 @@ export const transactionService = {
     }
 
     const db = createAdminClient();
-    const { data: portfolio } = await db
-      .from("investor_portfolios")
-      .select("available_balance")
-      .eq("user_id", user.id)
-      .eq("fund_id", fundId)
-      .maybeSingle();
+    const amount = roundMoney(input.amount);
+    if (amount <= 0) {
+      throw new Error("Amount must be greater than zero.");
+    }
 
-    const available = toNumber(
-      (portfolio as { available_balance?: number } | null)?.available_balance
-    );
+    const projection = await walletProjectionService.getForInvestor(user.id);
+    const usesLedger = projection.source === "ledger";
 
-    if (input.amount > available) {
+    if (amount > projection.available + 0.004) {
       throw new Error("Insufficient available balance.");
     }
 
-    const { error: reserveError } = await db
-      .from("investor_portfolios")
-      .update({ available_balance: available - input.amount } as never)
-      .eq("user_id", user.id)
-      .eq("fund_id", fundId);
-
-    if (reserveError) {
-      throw new Error(reserveError.message);
+    if (!usesLedger) {
+      await adjustLegacyAvailableBalance(db, user.id, fundId, -amount);
     }
 
     const { data, error } = await supabase
@@ -500,7 +632,7 @@ export const transactionService = {
         user_id: user.id,
         fund_id: fundId,
         type: "withdrawal",
-        amount: input.amount,
+        amount,
         status: "pending",
         payment_method: "bank",
         destination: input.destination.trim(),
@@ -510,15 +642,26 @@ export const transactionService = {
       .single();
 
     if (error || !data) {
-      await db
-        .from("investor_portfolios")
-        .update({ available_balance: available } as never)
-        .eq("user_id", user.id)
-        .eq("fund_id", fundId);
+      if (!usesLedger) {
+        await adjustLegacyAvailableBalance(db, user.id, fundId, amount);
+      }
       throw new Error(error?.message ?? "Failed to submit withdrawal.");
     }
 
     const txId = (data as { id: string }).id;
+
+    try {
+      if (usesLedger) {
+        await reserveWithdrawalOnLedger(user.id, amount, txId);
+      }
+    } catch (ledgerError) {
+      await db.from("transactions").delete().eq("id", txId);
+      if (!usesLedger) {
+        await adjustLegacyAvailableBalance(db, user.id, fundId, amount);
+      }
+      throw ledgerError instanceof Error ? ledgerError : new Error("Could not reserve withdrawal balance.");
+    }
+
     await attachTransactionReference(db, txId, {
       type: "withdrawal",
       payment_method: "bank",
@@ -526,11 +669,11 @@ export const transactionService = {
     });
     await communicationTriggers.withdrawalRequested({
       userId: user.id,
-      amount: formatMoney(input.amount),
+      amount: formatMoney(amount),
       transactionId: txId,
     });
     await adminNotifyService.newWithdrawal({
-      amount: formatMoney(input.amount),
+      amount: formatMoney(amount),
       userName: user.email ?? user.id,
       transactionId: txId,
       triggeredBy: user.id,
@@ -753,8 +896,9 @@ export const transactionService = {
       throw new Error("Only pending withdrawals can be approved.");
     }
 
-    const amount = toNumber(row.amount);
+    const amount = roundMoney(toNumber(row.amount));
     const now = new Date().toISOString();
+    const usesLedger = await hasLedgerWithdrawalReservation(transactionId);
 
     const { data: portfolio } = await db
       .from("investor_portfolios")
@@ -777,6 +921,10 @@ export const transactionService = {
 
     if (updateError) {
       throw new Error(updateError.message);
+    }
+
+    if (usesLedger) {
+      await finalizeWithdrawalOnLedger(row.user_id, amount, transactionId, admin.id);
     }
 
     if (portfolioRow) {
@@ -826,7 +974,8 @@ export const transactionService = {
       throw new Error("Only pending withdrawals can be rejected.");
     }
 
-    const amount = toNumber(row.amount);
+    const amount = roundMoney(toNumber(row.amount));
+    const usesLedger = await hasLedgerWithdrawalReservation(transactionId);
     const now = new Date().toISOString();
     const { error } = await db
       .from("transactions")
@@ -842,22 +991,11 @@ export const transactionService = {
       throw new Error(error.message);
     }
 
-    const { data: portfolio } = await db
-      .from("investor_portfolios")
-      .select("available_balance")
-      .eq("user_id", row.user_id)
-      .eq("fund_id", row.fund_id)
-      .maybeSingle();
-
-    const available = toNumber(
-      (portfolio as { available_balance?: number } | null)?.available_balance
-    );
-
-    await db
-      .from("investor_portfolios")
-      .update({ available_balance: available + amount } as never)
-      .eq("user_id", row.user_id)
-      .eq("fund_id", row.fund_id);
+    if (usesLedger) {
+      await releaseWithdrawalOnLedger(row.user_id, amount, transactionId, admin.id);
+    } else {
+      await adjustLegacyAvailableBalance(db, row.user_id, row.fund_id, amount);
+    }
 
     await communicationTriggers.withdrawalRejected({
       userId: row.user_id,
