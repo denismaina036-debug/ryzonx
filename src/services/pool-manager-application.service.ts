@@ -134,30 +134,13 @@ async function chargeAdmissionFee(input: {
 }): Promise<void> {
   const db = createAdminClient();
   const { ensurePlatformFundingFund } = await import("@/services/platform-funding.service");
+  const { fundingWalletService } = await import("@/services/funding-wallet.service");
   await ensurePlatformFundingFund();
 
-  const { data: portfolio } = await db
-    .from("investor_portfolios")
-    .select("available_balance")
-    .eq("user_id", input.userId)
-    .eq("fund_id", DEFAULT_FUND_ID)
-    .maybeSingle();
-
-  const available = Number(
-    (portfolio as { available_balance?: number } | null)?.available_balance ?? 0
-  );
-
-  if (available < input.amount) {
-    throw new AdmissionInsufficientBalanceError(available, input.amount);
+  const projection = await fundingWalletService.getProjection(input.userId);
+  if (input.amount > projection.available + 0.004) {
+    throw new AdmissionInsufficientBalanceError(projection.available, input.amount);
   }
-
-  const { error: deductError } = await db
-    .from("investor_portfolios")
-    .update({ available_balance: available - input.amount } as never)
-    .eq("user_id", input.userId)
-    .eq("fund_id", DEFAULT_FUND_ID);
-
-  if (deductError) throw new Error(deductError.message);
 
   const pathLabel =
     input.admissionPath === PM_ADMISSION_PATH.TRADING_CHALLENGE
@@ -180,7 +163,18 @@ async function chargeAdmissionFee(input: {
     throw new Error(admissionTxError?.message ?? "Failed to record admission fee.");
   }
 
-  await attachTransactionReference(db, (admissionTx as { id: string }).id, {
+  const txId = (admissionTx as { id: string }).id;
+
+  await fundingWalletService.debitAvailable({
+    investorId: input.userId,
+    amount: input.amount,
+    description: admissionNotes,
+    sourceType: "pm_admission_fee",
+    sourceId: txId,
+    actorId: input.userId,
+  });
+
+  await attachTransactionReference(db, txId, {
     type: "adjustment",
     payment_method: "pm_admission_fee",
     notes: admissionNotes,
@@ -257,6 +251,60 @@ export const poolManagerApplicationService = {
       .single();
 
     if (error || !data) throw new Error(error?.message ?? "Could not start application.");
+
+    await ensureApplicantRole(user.id);
+    return mapApplication(data as ApplicationRow);
+  },
+
+  async restartApplication(): Promise<PoolManagerApplication> {
+    const user = await requireAuth();
+    const db = createAdminClient();
+
+    const { data: existing, error: fetchError } = await db
+      .from("pool_manager_applications")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (fetchError) throw new Error(fetchError.message);
+    if (!existing) throw new Error("No application found.");
+
+    const row = existing as ApplicationRow;
+    if (row.status !== PM_APPLICATION_STATUS.REJECTED) {
+      throw new Error("Only rejected applications can be restarted.");
+    }
+
+    const now = new Date().toISOString();
+    const initialApplicationData =
+      user.registrationCountry
+        ? {
+            professionalBackground: {
+              countryOfResidence: user.registrationCountry,
+            },
+          }
+        : {};
+
+    const { data, error } = await db
+      .from("pool_manager_applications")
+      .update({
+        status: PM_APPLICATION_STATUS.DRAFT,
+        current_stage: PM_APPLICATION_STAGES.PROFESSIONAL_BACKGROUND,
+        application_data: initialApplicationData,
+        basic_info: {},
+        strategy_data: {},
+        submitted_at: null,
+        rejected_at: null,
+        reviewed_at: null,
+        admin_notes: null,
+        updated_at: now,
+      } as never)
+      .eq("user_id", user.id)
+      .select("*")
+      .single();
+
+    if (error || !data) {
+      throw new Error(error?.message ?? "Could not restart application.");
+    }
 
     await ensureApplicantRole(user.id);
     return mapApplication(data as ApplicationRow);
@@ -417,21 +465,9 @@ export const poolManagerApplicationService = {
     }
 
     const db = createAdminClient();
-    const { ensurePlatformFundingFund } = await import(
-      "@/services/platform-funding.service"
-    );
-    await ensurePlatformFundingFund();
-
-    const { data: portfolio } = await db
-      .from("investor_portfolios")
-      .select("available_balance")
-      .eq("user_id", user.id)
-      .eq("fund_id", DEFAULT_FUND_ID)
-      .maybeSingle();
-
-    const availableBalance = Number(
-      (portfolio as { available_balance?: number } | null)?.available_balance ?? 0
-    );
+    const { walletProjectionService } = await import("@/services/wallet-projection.service");
+    const projection = await walletProjectionService.getForInvestor(user.id);
+    const availableBalance = projection.available;
 
     return {
       availableBalance,
@@ -1002,6 +1038,10 @@ export const poolManagerAdminService = {
     }
     if (input.newStatus === PM_APPLICATION_STATUS.REJECTED) {
       updates.rejected_at = now;
+      await db
+        .from("profiles")
+        .update({ role: USER_ROLES.INVESTOR } as never)
+        .eq("id", row.user_id);
     }
     if (input.newStatus === PM_APPLICATION_STATUS.REQUIRES_CHANGES) {
       updates.current_stage = PM_APPLICATION_STAGES.ADMIN_REVIEW;

@@ -68,7 +68,7 @@ export function getPostAuthRedirect(role: UserRole): string {
 
     case USER_ROLES.POOL_MANAGER_APPLICANT:
 
-      return ROUTES.applyPoolManager;
+      return ROUTES.dashboard;
 
     case USER_ROLES.INVESTOR:
 

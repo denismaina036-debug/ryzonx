@@ -160,10 +160,28 @@ export function PoolManagerAdmissionWizard({
   }, [registrationCountry]);
 
   useEffect(() => {
-    if (!application && !isPoolManager) {
+    if (!application && !isPoolManager && !isRejected) {
       void startApplication();
     }
-  }, [application, isPoolManager, startApplication]);
+  }, [application, isPoolManager, isRejected, startApplication]);
+
+  async function restartApplication() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/pool-manager/application/restart", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setApplication(data.application);
+      setFormData(data.application.applicationData ?? EMPTY_DATA);
+      setStep(PM_APPLICATION_SECTIONS.PROFESSIONAL_BACKGROUND);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not restart application");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const loadPaymentState = useCallback(async () => {
     try {
@@ -281,7 +299,16 @@ export function PoolManagerAdmissionWizard({
             </p>
             <p className="mt-4 text-sm leading-relaxed text-[var(--id-text-secondary)]">
               Our team is reviewing your application. You will be notified when there is an update.
+              Deposits and withdrawals remain available from your investor dashboard while you wait.
             </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Button asChild variant="outline">
+                <Link href={ROUTES.dashboard}>Go to Dashboard</Link>
+              </Button>
+              <Button asChild>
+                <Link href={ROUTES.deposits}>Add Funds</Link>
+              </Button>
+            </div>
             {application?.basicInfo.challengeAccountInfo && (
               <div className="mt-6 rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)]/50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-[var(--id-text-muted)]">
@@ -301,10 +328,21 @@ export function PoolManagerAdmissionWizard({
   if (isRejected) {
     return (
       <div className={`${investorCardClass} max-w-2xl p-8`}>
-        <h1 className={investorPageTitleClass}>Application not approved</h1>
+        <h1 className={investorPageTitleClass}>Application rejected</h1>
         <p className={`${investorPageSubtitleClass} mt-2`}>
-          {application?.adminNotes ?? "Please contact support if you have questions."}
+          {application?.adminNotes?.trim()
+            ? application.adminNotes
+            : "Your Pool Manager application was not approved at this time."}
         </p>
+        {error && <p className="mt-4 text-sm text-rose-600">{error}</p>}
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Button onClick={() => void restartApplication()} disabled={loading}>
+            {loading ? "Starting…" : "Apply again"}
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={ROUTES.dashboard}>Back to Dashboard</Link>
+          </Button>
+        </div>
       </div>
     );
   }

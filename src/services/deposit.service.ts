@@ -160,11 +160,9 @@ async function resolveActiveWallet(
   throw new Error("Invalid or inactive deposit wallet.");
 }
 
-async function fetchRecentDeposits(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string
-) {
-  const withCrypto = await supabase
+async function fetchRecentDeposits(userId: string) {
+  const db = createAdminClient();
+  const withCrypto = await db
     .from("transactions")
     .select(
       "id, amount, crypto_symbol, crypto_network, crypto_amount, status, created_at, notes"
@@ -178,7 +176,7 @@ async function fetchRecentDeposits(
     return withCrypto.data;
   }
 
-  const basic = await supabase
+  const basic = await db
     .from("transactions")
     .select("id, amount, status, created_at, notes, payment_method")
     .eq("user_id", userId)
@@ -193,19 +191,21 @@ export const depositService = {
   async getCryptoDepositPageData(): Promise<CryptoDepositPageData> {
     const user = await requireAuth();
     const supabase = await createClient();
+    const { walletProjectionService } = await import("@/services/wallet-projection.service");
 
-    const [walletsResult, recentRows, fundResult] = await Promise.all([
+    const [walletsResult, recentRows, fundResult, projection] = await Promise.all([
       supabase
         .from("crypto_deposit_wallets")
         .select("*")
         .eq("is_active", true)
         .order("sort_order", { ascending: true }),
-      fetchRecentDeposits(supabase, user.id),
+      fetchRecentDeposits(user.id),
       supabase
         .from("funds")
         .select("name, min_investment")
         .eq("id", DEFAULT_FUND_ID)
         .maybeSingle(),
+      walletProjectionService.getForInvestor(user.id),
     ]);
 
     const walletRows = (walletsResult.data ?? []) as WalletRow[];
@@ -230,6 +230,7 @@ export const depositService = {
       faqItems: MOCK_DEPOSIT_FAQ,
       minInvestment: toNumber(fund?.min_investment) || 100,
       fundName: fund?.name ?? DEFAULT_FUND_NAME,
+      fundingWalletBalance: projection.available,
     };
   },
 

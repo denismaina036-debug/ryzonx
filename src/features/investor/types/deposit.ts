@@ -48,6 +48,7 @@ export interface CryptoDepositPageData {
   faqItems: DepositFaqItem[];
   minInvestment: number;
   fundName: string;
+  fundingWalletBalance: number;
 }
 
 export interface SubmitCryptoDepositInput {

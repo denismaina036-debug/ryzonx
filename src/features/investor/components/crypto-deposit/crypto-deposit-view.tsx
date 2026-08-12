@@ -162,6 +162,18 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
         description={`${data.fundName} · Min deposit ${formatCurrency(data.minInvestment)} · Enter USD amount, send crypto, then mark as sent.`}
       />
 
+      <div className="mb-6 rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] px-5 py-4 shadow-[var(--id-shadow)]">
+        <p className="text-xs font-medium uppercase tracking-wide text-[var(--id-text-muted)]">
+          Funding Wallet balance
+        </p>
+        <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-[var(--id-text)]">
+          {formatCurrency(data.fundingWalletBalance)}
+        </p>
+        <p className="mt-1 text-xs text-[var(--id-text-secondary)]">
+          Approved deposits credit this balance. Pending deposits appear below once submitted.
+        </p>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
         <div className="overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow-lg)]">
           {/* Step 1 — Select Coin */}

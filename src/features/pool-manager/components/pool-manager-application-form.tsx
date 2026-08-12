@@ -144,10 +144,40 @@ export function PoolManagerApplicationForm({
   if (isRejected) {
     return (
       <div className={`${investorCardClass} max-w-2xl p-8`}>
-        <h1 className={investorPageTitleClass}>Application not approved</h1>
+        <h1 className={investorPageTitleClass}>Application rejected</h1>
         <p className={`${investorPageSubtitleClass} mt-2`}>
-          {application?.adminNotes ?? "Please contact support if you have questions."}
+          {application?.adminNotes?.trim()
+            ? application.adminNotes
+            : "Your Pool Manager application was not approved at this time."}
         </p>
+        {error && <p className="mt-4 text-sm text-rose-600">{error}</p>}
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Button
+            disabled={loading}
+            onClick={async () => {
+              setLoading(true);
+              setError(null);
+              try {
+                const res = await fetch("/api/pool-manager/application/restart", {
+                  method: "POST",
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                setApplication(data.application);
+                router.refresh();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Could not restart application");
+              } finally {
+                setLoading(false);
+              }
+            }}
+          >
+            {loading ? "Starting…" : "Apply again"}
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={ROUTES.dashboard}>Back to Dashboard</Link>
+          </Button>
+        </div>
       </div>
     );
   }

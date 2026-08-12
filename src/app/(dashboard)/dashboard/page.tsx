@@ -16,15 +16,17 @@ export default async function InvestorDashboardPage() {
     challengeCenterService.getChallengeCenterState(user.id).catch(() => null),
     admin
       .from("pool_manager_applications")
-      .select("id")
+      .select("id, status")
       .eq("user_id", user.id)
       .maybeSingle(),
   ]);
 
+  const applicationRow = applicationResult.data as { id: string; status: string } | null;
   const pmJourneyVariant = resolvePmJourneyCardVariant({
     role: user.role,
     registrationIntent: user.registrationIntent,
-    hasStartedApplication: Boolean(applicationResult.data),
+    hasStartedApplication: Boolean(applicationRow),
+    applicationStatus: applicationRow?.status ?? null,
   });
 
   return (

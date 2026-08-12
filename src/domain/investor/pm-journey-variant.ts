@@ -4,6 +4,10 @@ import {
   isRegistrationIntent,
   type RegistrationIntent,
 } from "@/constants/registration";
+import {
+  PM_APPLICATION_STATUS,
+  type PoolManagerApplicationStatus,
+} from "@/domain/pool-manager/types";
 
 export type PmJourneyCardVariant = "hidden" | "become" | "continue";
 
@@ -11,6 +15,7 @@ export function resolvePmJourneyCardVariant(input: {
   role: UserRole;
   registrationIntent?: RegistrationIntent | string | null;
   hasStartedApplication?: boolean;
+  applicationStatus?: PoolManagerApplicationStatus | string | null;
 }): PmJourneyCardVariant {
   if (
     input.role === USER_ROLES.POOL_MANAGER ||
@@ -19,7 +24,22 @@ export function resolvePmJourneyCardVariant(input: {
     return "hidden";
   }
 
-  if (input.role === USER_ROLES.POOL_MANAGER_APPLICANT || input.hasStartedApplication) {
+  if (input.applicationStatus === PM_APPLICATION_STATUS.REJECTED) {
+    return "hidden";
+  }
+
+  const inProgressApplication =
+    input.applicationStatus === PM_APPLICATION_STATUS.DRAFT ||
+    input.applicationStatus === PM_APPLICATION_STATUS.REQUIRES_CHANGES ||
+    input.applicationStatus === PM_APPLICATION_STATUS.PENDING ||
+    input.applicationStatus === PM_APPLICATION_STATUS.UNDER_REVIEW ||
+    input.applicationStatus === PM_APPLICATION_STATUS.INTERVIEW_REQUIRED;
+
+  if (input.role === USER_ROLES.POOL_MANAGER_APPLICANT || inProgressApplication) {
+    return "continue";
+  }
+
+  if (input.hasStartedApplication && input.applicationStatus !== PM_APPLICATION_STATUS.APPROVED) {
     return "continue";
   }
 

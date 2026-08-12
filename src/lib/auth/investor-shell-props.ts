@@ -59,7 +59,7 @@ async function loadInvestorShellProps(): Promise<InvestorShellProps> {
         challengeCenterService.getChallengeCenterState(user.id).catch(() => null),
         admin
           .from("pool_manager_applications")
-          .select("id")
+          .select("id, status")
           .eq("user_id", user.id)
           .maybeSingle(),
       ]);
@@ -68,10 +68,12 @@ async function loadInvestorShellProps(): Promise<InvestorShellProps> {
       hasActivePool = (poolResult.count ?? 0) > 0;
       challengeDisplayStatus =
         challengeState?.displayStatus ?? CHALLENGE_DISPLAY_STATUS.NONE;
+      const applicationRow = applicationResult.data as { id: string; status: string } | null;
       pmJourneyVariant = resolvePmJourneyCardVariant({
         role: user.role,
         registrationIntent: user.registrationIntent,
-        hasStartedApplication: Boolean(applicationResult.data),
+        hasStartedApplication: Boolean(applicationRow),
+        applicationStatus: applicationRow?.status ?? null,
       });
     } catch {
       unreadNotifications = 0;

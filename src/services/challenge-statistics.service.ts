@@ -44,7 +44,7 @@ export function resolveChallengeDisplayStatus(
   enrollment: ChallengeEnrollmentRecord | null,
   applicationRejected?: boolean
 ): ChallengeDisplayStatus {
-  if (applicationRejected) return CHALLENGE_DISPLAY_STATUS.REJECTED;
+  if (applicationRejected) return CHALLENGE_DISPLAY_STATUS.NONE;
   if (!enrollment) return CHALLENGE_DISPLAY_STATUS.NONE;
 
   switch (enrollment.status) {
