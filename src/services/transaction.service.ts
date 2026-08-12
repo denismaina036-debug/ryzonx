@@ -132,27 +132,8 @@ async function adjustLegacyAvailableBalance(
   fundId: string,
   delta: number
 ): Promise<void> {
-  const { data: portfolio } = await db
-    .from("investor_portfolios")
-    .select("available_balance")
-    .eq("user_id", userId)
-    .eq("fund_id", fundId)
-    .maybeSingle();
-
-  const available = toNumber(
-    (portfolio as { available_balance?: number } | null)?.available_balance
-  );
-  const nextBalance = roundMoney(Math.max(0, available + delta));
-
-  const { error } = await db
-    .from("investor_portfolios")
-    .update({ available_balance: nextBalance } as never)
-    .eq("user_id", userId)
-    .eq("fund_id", fundId);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  const { fundingWalletService } = await import("@/services/funding-wallet.service");
+  await fundingWalletService.adjustLegacyAvailableBalance(userId, delta, fundId);
 }
 
 export type { InvestorTransaction };
@@ -758,37 +739,45 @@ export const transactionService = {
       total_deposits?: number;
     } | null;
 
-    const newBalance = toNumber(portfolioRow?.available_balance) + balanceCredit;
     const newTotalDeposits = toNumber(portfolioRow?.total_deposits) + amount;
 
-    if (portfolioRow) {
-      const { error: portfolioError } = await db
-        .from("investor_portfolios")
-        .update({
-          available_balance: newBalance,
-          total_deposits: newTotalDeposits,
-          last_deposit_at: now,
-        } as never)
-        .eq("user_id", row.user_id)
-        .eq("fund_id", DEFAULT_FUND_ID);
-
-      if (portfolioError) {
-        throw new Error(portfolioError.message);
-      }
-    } else {
+    if (!portfolioRow) {
       const { error: insertError } = await db
         .from("investor_portfolios")
         .insert({
           user_id: row.user_id,
           fund_id: DEFAULT_FUND_ID,
-          available_balance: amount,
-          total_deposits: amount,
-          last_deposit_at: now,
+          available_balance: 0,
+          total_deposits: 0,
         } as never);
 
       if (insertError) {
         throw new Error(insertError.message);
       }
+    }
+
+    const { fundingWalletService } = await import("@/services/funding-wallet.service");
+    await fundingWalletService.creditAvailable({
+      investorId: row.user_id,
+      amount: balanceCredit,
+      description: `Deposit approved — ${transactionId}`,
+      transactionType: "deposit_credit",
+      sourceType: "deposit",
+      sourceId: transactionId,
+      actorId: admin.id,
+    });
+
+    const { error: portfolioError } = await db
+      .from("investor_portfolios")
+      .update({
+        total_deposits: newTotalDeposits,
+        last_deposit_at: now,
+      } as never)
+      .eq("user_id", row.user_id)
+      .eq("fund_id", DEFAULT_FUND_ID);
+
+    if (portfolioError) {
+      throw new Error(portfolioError.message);
     }
 
     await communicationTriggers.depositApproved({

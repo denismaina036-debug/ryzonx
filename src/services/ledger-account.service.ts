@@ -236,6 +236,16 @@ export const ledgerAccountService = {
     });
   },
 
+  async ensurePlatformSuspenseAccount(): Promise<LedgerAccount> {
+    const { PLATFORM_ACCOUNT_CODES } = await import("@/constants/ledger");
+    return this.getOrCreate({
+      code: PLATFORM_ACCOUNT_CODES.SUSPENSE,
+      name: "RyvonX Platform Suspense",
+      accountType: "asset",
+      ownerType: "platform",
+    });
+  },
+
   async ensureCycleProfitPayableAccount(cycleId: string, cycleName: string): Promise<LedgerAccount> {
     const { cycleProfitPayableAccountCode } = await import("@/constants/ledger");
     return this.getOrCreate({

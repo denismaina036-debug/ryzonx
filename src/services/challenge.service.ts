@@ -173,28 +173,14 @@ export const challengeService = {
       };
     }
 
-    const { data: portfolio } = await db
-      .from("investor_portfolios")
-      .select("available_balance")
-      .eq("user_id", user.id)
-      .eq("fund_id", DEFAULT_FUND_ID)
-      .maybeSingle();
+    const { fundingWalletService } = await import("@/services/funding-wallet.service");
+    const projection = await walletProjectionService.getForInvestor(user.id);
 
-    const available = toNumber(
-      (portfolio as { available_balance?: number } | null)?.available_balance
-    );
-
-    if (available < price) {
+    if (projection.available < price) {
       throw new Error(
         `Insufficient balance. You need $${price.toLocaleString()} — deposit first or pay via crypto.`
       );
     }
-
-    await db
-      .from("investor_portfolios")
-      .update({ available_balance: available - price } as never)
-      .eq("user_id", user.id)
-      .eq("fund_id", DEFAULT_FUND_ID);
 
     const { data: enrollment, error } = await db
       .from("trader_challenge_enrollments")
@@ -213,6 +199,17 @@ export const challengeService = {
       .single();
 
     if (error || !enrollment) throw new Error(error?.message ?? "Enrollment failed.");
+
+    const enrollmentId = (enrollment as { id: string }).id;
+
+    await fundingWalletService.debitAvailable({
+      investorId: user.id,
+      amount: price,
+      description: `Trader challenge enrollment — ${challengeRow.title}`,
+      sourceType: "challenge_enrollment",
+      sourceId: enrollmentId,
+      actorId: user.id,
+    });
 
     const challengeNotes = `Trader challenge enrollment — ${challengeRow.title}`;
 

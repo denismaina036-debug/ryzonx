@@ -276,10 +276,10 @@ export const poolParticipationService = {
     }
 
     const { walletProjectionService } = await import("@/services/wallet-projection.service");
+    const { fundingWalletService } = await import("@/services/funding-wallet.service");
     const projection = await walletProjectionService.getForInvestor(user.id);
-    const available = projection.available;
 
-    if (amount > available + 0.004) {
+    if (amount > projection.available + 0.004) {
       throw new Error("Insufficient available balance. Deposit and wait for approval first.");
     }
 
@@ -312,12 +312,53 @@ export const poolParticipationService = {
     const nextInvested = toNumber(poolRow?.total_invested) + amount;
     const nextValue = toNumber(poolRow?.current_value) + amount;
 
+    const activeCycle = await investmentCycleService.getActiveForFund(poolId);
+    const queueDuringTrading =
+      activeCycle &&
+      (activeCycle.status === "trading" || activeCycle.status === "distribution");
+    const fundingCycleActive =
+      activeCycle &&
+      (activeCycle.status === "funding" || activeCycle.status === "approved");
+
+    const txNotes = queueDuringTrading
+      ? `Queued investment in ${fundRow.name} (cycle ${activeCycle!.name})`
+      : `Allocated to ${fundRow.name}`;
+
+    const { data: txData, error: txError } = await db
+      .from("transactions")
+      .insert({
+        user_id: user.id,
+        fund_id: poolId,
+        type: "adjustment",
+        amount,
+        status: queueDuringTrading ? "pending" : "completed",
+        payment_method: "pool_allocation",
+        notes: txNotes,
+      } as never)
+      .select("id")
+      .single();
+
+    if (txError || !txData) {
+      throw new Error(txError?.message ?? "Failed to record allocation.");
+    }
+
+    const txId = (txData as { id: string }).id;
+
+    await fundingWalletService.debitForPoolInvestment({
+      investorId: user.id,
+      amount,
+      sourceType: "pool_allocation",
+      sourceId: txId,
+      actorId: user.id,
+      cycleId: fundingCycleActive ? activeCycle!.id : null,
+      cycleName: fundingCycleActive ? activeCycle!.name : null,
+    });
+
     if (poolId === DEFAULT_FUND_ID) {
       assertDb(
         await db
           .from("investor_portfolios")
           .update({
-            available_balance: available - amount,
             total_invested: nextInvested,
             current_value: nextValue,
             total_deposits: toNumber(walletPortfolio.total_deposits) + amount,
@@ -332,57 +373,44 @@ export const poolParticipationService = {
           .single(),
         "Could not allocate investment to pool."
       );
+    } else if (poolRow) {
+      assertDb(
+        await db
+          .from("investor_portfolios")
+          .update({
+            total_invested: nextInvested,
+            current_value: nextValue,
+            total_deposits: toNumber(poolRow.total_deposits) + amount,
+            investment_start_date: poolRow.investment_start_date ?? startDate,
+            investment_maturity_date: poolRow.investment_maturity_date ?? maturityDate,
+            investment_duration_days: fundRow.pool_duration_days,
+            last_deposit_at: now,
+          } as never)
+          .eq("user_id", user.id)
+          .eq("fund_id", poolId)
+          .select("user_id")
+          .single(),
+        "Could not update pool allocation."
+      );
     } else {
       assertDb(
         await db
           .from("investor_portfolios")
-          .update({ available_balance: available - amount } as never)
-          .eq("user_id", user.id)
-          .eq("fund_id", DEFAULT_FUND_ID)
+          .insert({
+            user_id: user.id,
+            fund_id: poolId,
+            total_invested: amount,
+            current_value: amount,
+            total_deposits: amount,
+            investment_start_date: startDate,
+            investment_maturity_date: maturityDate,
+            investment_duration_days: fundRow.pool_duration_days,
+            last_deposit_at: now,
+          } as never)
           .select("user_id")
           .single(),
-        "Could not deduct wallet balance."
+        "Could not create pool allocation."
       );
-
-      if (poolRow) {
-        assertDb(
-          await db
-            .from("investor_portfolios")
-            .update({
-              total_invested: nextInvested,
-              current_value: nextValue,
-              total_deposits: toNumber(poolRow.total_deposits) + amount,
-              investment_start_date: poolRow.investment_start_date ?? startDate,
-              investment_maturity_date: poolRow.investment_maturity_date ?? maturityDate,
-              investment_duration_days: fundRow.pool_duration_days,
-              last_deposit_at: now,
-            } as never)
-            .eq("user_id", user.id)
-            .eq("fund_id", poolId)
-            .select("user_id")
-            .single(),
-          "Could not update pool allocation."
-        );
-      } else {
-        assertDb(
-          await db
-            .from("investor_portfolios")
-            .insert({
-              user_id: user.id,
-              fund_id: poolId,
-              total_invested: amount,
-              current_value: amount,
-              total_deposits: amount,
-              investment_start_date: startDate,
-              investment_maturity_date: maturityDate,
-              investment_duration_days: fundRow.pool_duration_days,
-              last_deposit_at: now,
-            } as never)
-            .select("user_id")
-            .single(),
-          "Could not create pool allocation."
-        );
-      }
     }
 
     const { data: fundBeforeJoin } = await db
@@ -397,11 +425,6 @@ export const poolParticipationService = {
       investor_capital?: number;
     } | null;
 
-    const activeCycle = await investmentCycleService.getActiveForFund(poolId);
-    const queueDuringTrading =
-      activeCycle &&
-      (activeCycle.status === "trading" || activeCycle.status === "distribution");
-
     if (queueDuringTrading) {
       const { investmentQueueService } = await import(
         "@/services/investment-engine/investment-queue.service"
@@ -415,26 +438,10 @@ export const poolParticipationService = {
         notes: `Queued during ${activeCycle.status}`,
       });
 
-      const { data: txData, error: txError } = await db.from("transactions").insert({
-        user_id: user.id,
-        fund_id: poolId,
-        type: "adjustment",
-        amount,
-        status: "pending",
-        payment_method: "pool_allocation",
-        notes: `Queued investment in ${fundRow.name} (cycle ${activeCycle.name})`,
-      } as never)
-        .select("id")
-        .single();
-
-      if (txError || !txData) {
-        throw new Error(txError?.message ?? "Failed to record queued allocation.");
-      }
-
-      await attachTransactionReference(db, (txData as { id: string }).id, {
+      await attachTransactionReference(db, txId, {
         type: "adjustment",
         payment_method: "pool_allocation",
-        notes: `Queued investment in ${fundRow.name}`,
+        notes: txNotes,
       });
 
       await communicationTriggers.poolInvestmentConfirmed({
@@ -473,33 +480,18 @@ export const poolParticipationService = {
       "Could not update pool statistics."
     );
 
-    // Only attach explicit marketplace joins during an open funding cycle.
-    if (activeCycle && (activeCycle.status === "funding" || activeCycle.status === "approved")) {
+    if (fundingCycleActive) {
       await investmentAllocationService.recordMarketplaceJoin({
-        cycleId: activeCycle.id,
+        cycleId: activeCycle!.id,
         investorId: user.id,
         amount,
       });
     }
 
-    const { data: txData, error: txError } = await db.from("transactions").insert({
-      user_id: user.id,
-      fund_id: poolId,
-      type: "adjustment",
-      amount,
-      status: "completed",
-      payment_method: "pool_allocation",
-      notes: `Allocated to ${fundRow.name}`,
-    } as never).select("id").single();
-
-    if (txError || !txData) {
-      throw new Error(txError?.message ?? "Failed to record allocation.");
-    }
-
-    await attachTransactionReference(db, (txData as { id: string }).id, {
+    await attachTransactionReference(db, txId, {
       type: "adjustment",
       payment_method: "pool_allocation",
-      notes: `Allocated to ${fundRow.name}`,
+      notes: txNotes,
     });
 
     await communicationTriggers.poolInvestmentConfirmed({
@@ -592,19 +584,16 @@ export const poolParticipationService = {
     const principal = invested;
     const profitReturned = Math.max(0, returnAmount - principal);
 
-    const walletPortfolio = await ensureWalletPortfolio(db, user.id);
-    const walletBalance = toNumber(walletPortfolio.available_balance);
+    const { fundingWalletService } = await import("@/services/funding-wallet.service");
 
-    assertDb(
-      await db
-        .from("investor_portfolios")
-        .update({ available_balance: walletBalance + returnAmount } as never)
-        .eq("user_id", user.id)
-        .eq("fund_id", DEFAULT_FUND_ID)
-        .select("user_id")
-        .single(),
-      "Could not return funds to wallet."
-    );
+    await fundingWalletService.creditAvailable({
+      investorId: user.id,
+      amount: returnAmount,
+      description: `Pool exit capital return — ${fundRow.name}`,
+      sourceType: "pool_exit",
+      sourceId: poolId,
+      actorId: user.id,
+    });
 
     if (poolId === DEFAULT_FUND_ID) {
       assertDb(
@@ -801,7 +790,6 @@ export const poolParticipationService = {
     );
 
     if (fundId === DEFAULT_FUND_ID) {
-      const walletBalance = toNumber(poolRow.available_balance);
       assertDb(
         await db
           .from("investor_portfolios")
@@ -809,7 +797,6 @@ export const poolParticipationService = {
             current_value: nextPoolValue,
             realized_pnl: newRealized,
             unrealized_pnl: newUnrealized,
-            available_balance: walletBalance + applied,
           } as never)
           .eq("user_id", user.id)
           .eq("fund_id", DEFAULT_FUND_ID)
@@ -818,8 +805,6 @@ export const poolParticipationService = {
         "Could not transfer pool profit to Funding Wallet."
       );
     } else {
-      const walletPortfolio = await ensureWalletPortfolio(db, user.id);
-      const walletBalance = toNumber(walletPortfolio.available_balance);
       assertDb(
         await db
           .from("investor_portfolios")
@@ -834,16 +819,24 @@ export const poolParticipationService = {
           .single(),
         "Could not update pool profit."
       );
-      assertDb(
-        await db
-          .from("investor_portfolios")
-          .update({ available_balance: walletBalance + applied } as never)
-          .eq("user_id", user.id)
-          .eq("fund_id", DEFAULT_FUND_ID)
-          .select("user_id")
-          .single(),
-        "Could not credit Funding Wallet."
-      );
+    }
+
+    if (portfolioDebit > 0) {
+      const { fundingWalletService } = await import("@/services/funding-wallet.service");
+      const projection = await fundingWalletService.getProjection(user.id);
+      if (fundingWalletService.usesLedger(projection)) {
+        await fundingWalletService.creditAvailable({
+          investorId: user.id,
+          amount: portfolioDebit,
+          description: `Pool profit (portfolio) transferred — ${poolName}`,
+          sourceType: "investor_portfolio_profit",
+          sourceId: fundId,
+          actorId: user.id,
+          syncLegacy: false,
+        });
+      } else {
+        await fundingWalletService.adjustLegacyAvailableBalance(user.id, portfolioDebit);
+      }
     }
 
     const profitNotes = `Pool profit transferred to Funding Wallet — ${poolName}`;
@@ -1093,19 +1086,15 @@ export const poolParticipationService = {
       const returnAmount = toNumber(row.current_value);
       if (returnAmount <= 0) continue;
 
-      const walletPortfolio = await ensureWalletPortfolio(db, row.user_id);
-      const walletBalance = toNumber(walletPortfolio.available_balance);
-
-      assertDb(
-        await db
-          .from("investor_portfolios")
-          .update({ available_balance: walletBalance + returnAmount } as never)
-          .eq("user_id", row.user_id)
-          .eq("fund_id", DEFAULT_FUND_ID)
-          .select("user_id")
-          .single(),
-        "Could not return funds to wallet."
-      );
+      const { fundingWalletService } = await import("@/services/funding-wallet.service");
+      await fundingWalletService.creditAvailable({
+        investorId: row.user_id,
+        amount: returnAmount,
+        description: `Pool liquidation return — ${fund.name}`,
+        sourceType: "pool_liquidation",
+        sourceId: poolId,
+        actorId: actorUserId,
+      });
 
       assertDb(
         await db

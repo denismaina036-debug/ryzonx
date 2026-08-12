@@ -600,14 +600,6 @@ export const cycleInvestorSettlementService = {
       ],
     });
 
-    const wallet = await ensureWalletPortfolio(db, user.id);
-    await db
-      .from("investor_portfolios")
-      .update({
-        available_balance: toNumber(wallet.available_balance) + transferAmount,
-      } as never)
-      .eq("user_id", user.id)
-      .eq("fund_id", DEFAULT_FUND_ID);
 
     const profitNotes = `Cycle profit transferred to Funding Wallet — ${settlement.cycleName}`;
     const { data: profitTx, error: profitTxError } = await db
@@ -878,14 +870,15 @@ export const cycleInvestorSettlementService = {
     }
 
     const amount = toNumber(txRow.amount);
-    const wallet = await ensureWalletPortfolio(db, txRow.user_id);
-    await db
-      .from("investor_portfolios")
-      .update({
-        available_balance: toNumber(wallet.available_balance) + amount,
-      } as never)
-      .eq("user_id", txRow.user_id)
-      .eq("fund_id", DEFAULT_FUND_ID);
+    const { fundingWalletService } = await import("@/services/funding-wallet.service");
+    await fundingWalletService.creditAvailable({
+      investorId: txRow.user_id,
+      amount,
+      description: `Cycle capital return approved — ${settlement.cycleName}`,
+      sourceType: "cycle_capital_return",
+      sourceId: txId,
+      actorId: admin.id,
+    });
 
     const now = new Date().toISOString();
     await db
