@@ -28,6 +28,51 @@ import { mapRawTransactionToActivityItem, type RawTransactionRow } from "@/lib/t
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolvePublicDisplayCount } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 import { computeLifetimePoolPerformance } from "@/lib/investor/lifetime-pool-performance";
+
+const ACTIVITY_SELECT_WITH_METADATA =
+  "id, fund_id, type, amount, status, payment_method, reference, transaction_reference, notes, destination, crypto_symbol, crypto_network, crypto_amount, metadata, created_at, user_id";
+
+const ACTIVITY_SELECT_BASIC =
+  "id, fund_id, type, amount, status, payment_method, reference, transaction_reference, notes, destination, crypto_symbol, crypto_network, crypto_amount, created_at, user_id";
+
+async function fetchRecentActivityRows(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+) {
+  const withMetadata = await supabase
+    .from("transactions")
+    .select(ACTIVITY_SELECT_WITH_METADATA)
+    .eq("user_id", userId)
+    .in("status", ["approved", "completed", "pending"])
+    .order("created_at", { ascending: false })
+    .limit(15);
+
+  if (!withMetadata.error) {
+    return withMetadata.data ?? [];
+  }
+
+  const missingMetadata =
+    withMetadata.error.message.includes("metadata") ||
+    withMetadata.error.message.includes("schema cache");
+
+  if (!missingMetadata) {
+    throw new Error(withMetadata.error.message);
+  }
+
+  const basic = await supabase
+    .from("transactions")
+    .select(ACTIVITY_SELECT_BASIC)
+    .eq("user_id", userId)
+    .in("status", ["approved", "completed", "pending"])
+    .order("created_at", { ascending: false })
+    .limit(15);
+
+  if (basic.error) {
+    throw new Error(basic.error.message);
+  }
+
+  return basic.data ?? [];
+}
 import type { InvestorPoolParticipationView } from "@/domain/investment/investor-pool-participation";
 import {
   resolveInvestorDisplayCapital,
@@ -185,15 +230,7 @@ export const investorService = {
       tradeFundIds.length > 0
         ? investorPoolTradesService.listForFunds(tradeFundIds, 20)
         : Promise.resolve([]),
-      supabase
-        .from("transactions")
-        .select(
-          "id, fund_id, type, amount, status, payment_method, reference, transaction_reference, notes, destination, crypto_symbol, crypto_network, crypto_amount, metadata, created_at, user_id"
-        )
-        .eq("user_id", user.id)
-        .in("status", ["approved", "completed", "pending"])
-        .order("created_at", { ascending: false })
-        .limit(15),
+      fetchRecentActivityRows(supabase, user.id),
       supabase
         .from("trader_challenges")
         .select("*")
@@ -376,7 +413,7 @@ export const investorService = {
     const recentTrades = journalTrades;
 
     let recentActivity: InvestorPoolActivityItem[] = [];
-    const activityRows = (activityResult.data ?? []) as RawTransactionRow[];
+    const activityRows = activityResult as RawTransactionRow[];
     if (activityRows.length > 0) {
       const activityFundIds = [...new Set(activityRows.map((row) => row.fund_id))];
       const admin = createAdminClient();

@@ -67,30 +67,43 @@ async function getLegacyFundedWithdrawalTotal(investorId: string): Promise<numbe
 
 export const walletProjectionService = {
   async getForInvestor(investorId: string): Promise<WalletProjection> {
-    const accounts = await ledgerAccountService.ensureInvestorAccounts(investorId);
-    const [availableLedger, reserved, settled, pending, legacyAvailable, legacyWithdrawals] =
-      await Promise.all([
-      ledgerAccountService.getBalance(accounts.available.id),
-      ledgerAccountService.getBalance(accounts.reserved.id),
-      ledgerAccountService.getBalance(accounts.settled.id),
-      getPendingAllocationTotal(investorId),
+    const [legacyAvailable, legacyWithdrawals, pending] = await Promise.all([
       getLegacyAvailableBalance(investorId),
       getLegacyFundedWithdrawalTotal(investorId),
+      getPendingAllocationTotal(investorId),
     ]);
 
-    const hasLedgerActivity = availableLedger !== 0 || reserved !== 0 || settled !== 0;
-    const available = hasLedgerActivity
-      ? Math.max(0, Math.round((availableLedger - legacyWithdrawals) * 100) / 100)
-      : legacyAvailable;
-    const source: WalletProjection["source"] = hasLedgerActivity ? "ledger" : "legacy";
+    try {
+      const accounts = await ledgerAccountService.ensureInvestorAccounts(investorId);
+      const [availableLedger, reserved, settled] = await Promise.all([
+        ledgerAccountService.getBalance(accounts.available.id),
+        ledgerAccountService.getBalance(accounts.reserved.id),
+        ledgerAccountService.getBalance(accounts.settled.id),
+      ]);
 
-    return {
-      available,
-      reserved,
-      pending,
-      settled,
-      currency: "USD",
-      source,
-    };
+      const hasLedgerActivity = availableLedger !== 0 || reserved !== 0 || settled !== 0;
+      const available = hasLedgerActivity
+        ? Math.max(0, Math.round((availableLedger - legacyWithdrawals) * 100) / 100)
+        : legacyAvailable;
+      const source: WalletProjection["source"] = hasLedgerActivity ? "ledger" : "legacy";
+
+      return {
+        available,
+        reserved,
+        pending,
+        settled,
+        currency: "USD",
+        source,
+      };
+    } catch {
+      return {
+        available: legacyAvailable,
+        reserved: 0,
+        pending,
+        settled: 0,
+        currency: "USD",
+        source: "legacy",
+      };
+    }
   },
 };
