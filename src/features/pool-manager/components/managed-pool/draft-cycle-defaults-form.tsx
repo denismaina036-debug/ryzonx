@@ -54,6 +54,8 @@ export function DraftCycleDefaultsForm({
           <Input
             type="number"
             min={1}
+            step={1}
+            inputMode="numeric"
             value={values.maxInvestors}
             onChange={(e) => patch("maxInvestors", e.target.value)}
             disabled={!editable}

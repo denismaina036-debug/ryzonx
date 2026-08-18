@@ -4,6 +4,8 @@ import {
   serializeCoverImagePosition,
 } from "@/domain/pools/cover-image-position";
 import {
+  parseCycleAmount,
+  parseCycleInvestorCount,
   sanitizeCycleCapacityFields,
   validateCycleCapacityFields,
 } from "@/domain/investment/cycle-validation";
@@ -13,11 +15,8 @@ import { durationToDays, resolveReturnDuration } from "@/domain/roi/return-durat
 
 export type ManagedPoolValidationMode = "draft" | "submit";
 
-function parseAmount(value: string): number | undefined {
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  const n = Number(trimmed);
-  return Number.isFinite(n) ? n : undefined;
+function parseAmount(value: string | number | null | undefined): number | undefined {
+  return parseCycleAmount(value);
 }
 
 export function normalizeManagedPoolForm(input: ManagedPoolFormInput): ManagedPoolFormInput {
@@ -126,6 +125,10 @@ export function validateManagedPoolForm(
       })
     );
     if (capacityError) return capacityError;
+
+    if (parseCycleInvestorCount(normalized.maxInvestors) == null) {
+      return "Target investors must be a whole number greater than zero.";
+    }
   }
 
   return null;

@@ -12,6 +12,7 @@ import {
 import type { PlatformInvestmentLevel } from "@/domain/roi";
 import {
   parseCycleAmount,
+  parseCycleInvestorCount,
   parseCycleMinInvestment,
   validateCycleCapacityFields,
 } from "@/domain/investment/cycle-validation";
@@ -98,6 +99,8 @@ export function CreateCycleForm({
           <Input
             type="number"
             min={1}
+            step={1}
+            inputMode="numeric"
             value={values.targetInvestors}
             onChange={(e) => patch("targetInvestors", e.target.value)}
             className={pmInputClass}
@@ -136,8 +139,8 @@ export function validateCreateCycleForm(values: CreateCycleFormValues): string |
   const validationError = validateCycleCapacityFields(parsed);
   if (validationError) return validationError;
   if (!values.name.trim()) return "Cycle name is required.";
-  const investors = parseCycleAmount(values.targetInvestors);
-  if (!investors || investors <= 0) return "Target investors must be greater than zero.";
+  const investors = parseCycleInvestorCount(values.targetInvestors);
+  if (investors == null) return "Target investors must be a whole number greater than zero.";
   return null;
 }
 
@@ -147,7 +150,7 @@ export function buildCreateCyclePayload(values: CreateCycleFormValues) {
     minInvestment: parseCycleMinInvestment(values.minInvestment)!,
     durationDays: parseCycleAmount(values.durationDays)!,
   };
-  const investors = parseCycleAmount(values.targetInvestors)!;
+  const investors = parseCycleInvestorCount(values.targetInvestors)!;
   return {
     name: values.name.trim(),
     durationDays: parsed.durationDays,

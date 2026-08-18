@@ -221,38 +221,44 @@ function readStrategyIdFromFund(fund: Record<string, unknown>): string | null {
   return managedPool.strategyId ?? managedPool.internalStrategyId ?? null;
 }
 
+function positiveNumber(value: unknown): number | null {
+  const n = toNumber(value as string | number | null | undefined);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 function buildCycleInputFromPool(
   fund: Record<string, unknown>,
   fundId: string,
   cycleNumber: number,
-  partial: CreatePoolInvestmentCycleInput
+  partial: Partial<CreatePoolInvestmentCycleInput> & { fundId: string }
 ): CreatePoolInvestmentCycleInput {
   const poolName = (fund.name as string) ?? "Pool";
   const targetCapital =
-    partial.targetCapital ??
-    (fund.target_capital != null ? toNumber(fund.target_capital as number) : null);
+    positiveNumber(partial.targetCapital) ??
+    positiveNumber(fund.target_capital) ??
+    1000;
+  const targetInvestors =
+    positiveNumber(partial.targetInvestors) ??
+    positiveNumber(fund.target_investors) ??
+    positiveNumber(fund.max_investors_cap) ??
+    10;
   return {
     fundId,
     name: partial.name?.trim() || `${poolName} — Cycle ${cycleNumber}`,
     durationDays:
-      partial.durationDays ??
-      (fund.pool_duration_days != null ? toNumber(fund.pool_duration_days as number) : 30),
+      positiveNumber(partial.durationDays) ??
+      positiveNumber(fund.pool_duration_days) ??
+      30,
     minInvestment:
-      partial.minInvestment ??
-      (fund.min_investment != null ? toNumber(fund.min_investment as number) : 100),
-    targetCapital: targetCapital ?? 1000,
-    targetInvestors:
-      partial.targetInvestors ??
-      (fund.target_investors != null
-        ? toNumber(fund.target_investors as number)
-        : fund.max_investors_cap != null
-          ? toNumber(fund.max_investors_cap as number)
-          : 10),
+      positiveNumber(partial.minInvestment) ??
+      positiveNumber(fund.min_investment) ??
+      100,
+    targetCapital,
+    targetInvestors: Math.floor(targetInvestors),
     maxCapacity:
-      partial.maxCapacity ??
-      (fund.max_aum != null
-        ? toNumber(fund.max_aum as number)
-        : targetCapital),
+      positiveNumber(partial.maxCapacity) ??
+      positiveNumber(fund.max_aum) ??
+      targetCapital,
     roiMultipliers: partial.roiMultipliers,
     openingDate: partial.openingDate,
     closingDate: partial.closingDate,
@@ -263,7 +269,7 @@ async function insertCycleFromPoolFund(
   fund: Record<string, unknown>,
   fundId: string,
   managerId: string,
-  input: CreatePoolInvestmentCycleInput,
+  input: Partial<CreatePoolInvestmentCycleInput> & { fundId: string },
   actorUserId: string | null
 ): Promise<InvestmentCycle> {
   const db = createAdminClient();
@@ -344,8 +350,9 @@ async function insertCycleFromPoolFund(
   if (validationError) throw new Error(validationError);
 
   if (!resolvedInput.name?.trim()) throw new Error("Cycle name is required.");
-  if (!Number.isFinite(resolvedInput.targetInvestors) || resolvedInput.targetInvestors <= 0) {
-    throw new Error("Target investors must be greater than zero.");
+  const targetInvestors = Math.floor(Number(resolvedInput.targetInvestors));
+  if (!Number.isFinite(targetInvestors) || targetInvestors <= 0) {
+    throw new Error("Target investors must be a whole number greater than zero.");
   }
 
   const roiMultipliers =
@@ -358,7 +365,7 @@ async function insertCycleFromPoolFund(
     minInvestment: capacity.minInvestment,
     targetCapital: capacity.targetCapital,
     maxCapacity: capacity.maxCapacity,
-    maxInvestorsCap: resolvedInput.targetInvestors,
+    maxInvestorsCap: targetInvestors,
     poolDurationDays: capacity.durationDays,
     roiMultipliers,
   });
@@ -390,7 +397,7 @@ async function insertCycleFromPoolFund(
       target_capital: capacity.targetCapital,
       min_investment: capacity.minInvestment,
       max_capacity: capacity.maxCapacity,
-      target_investors: Math.floor(resolvedInput.targetInvestors),
+      target_investors: targetInvestors,
       duration_days: capacity.durationDays,
       opening_date: openingDate,
       closing_date: closingDate,
@@ -577,11 +584,6 @@ export const investmentCycleService = {
       managerId,
       {
         fundId,
-        name: "",
-        durationDays: 0,
-        minInvestment: 0,
-        targetCapital: 0,
-        targetInvestors: 0,
         openingDate,
         closingDate,
       },
@@ -658,11 +660,11 @@ export const investmentCycleService = {
       managerId,
       {
         fundId,
-        name: options?.name ?? "",
-        durationDays: options?.durationDays ?? 0,
-        minInvestment: options?.minInvestment ?? 0,
-        targetCapital: options?.targetCapital ?? 0,
-        targetInvestors: options?.targetInvestors ?? 0,
+        name: options?.name,
+        durationDays: options?.durationDays,
+        minInvestment: options?.minInvestment,
+        targetCapital: options?.targetCapital,
+        targetInvestors: options?.targetInvestors,
         maxCapacity: options?.maxCapacity,
         roiMultipliers: options?.roiMultipliers,
         openingDate: options?.openingDate,

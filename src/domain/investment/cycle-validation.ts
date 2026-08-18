@@ -1,10 +1,23 @@
 /** Shared validation for investment cycle capacity fields (UI + API). */
 
-export function parseCycleAmount(value: string): number | undefined {
-  const trimmed = value.trim();
+export function parseCycleAmount(value: string | number | null | undefined): number | undefined {
+  if (value == null) return undefined;
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  const trimmed = String(value).trim().replace(/,/g, "");
   if (!trimmed) return undefined;
   const n = Number(trimmed);
   return Number.isFinite(n) ? n : undefined;
+}
+
+/** Whole investor counts — accepts "10", 10, and "10.0". */
+export function parseCycleInvestorCount(
+  value: string | number | null | undefined
+): number | undefined {
+  const n = parseCycleAmount(value);
+  if (n == null || n <= 0) return undefined;
+  return Math.floor(n);
 }
 
 /** Treat zero/blank max capacity as unset — avoids DB constraint failures. */

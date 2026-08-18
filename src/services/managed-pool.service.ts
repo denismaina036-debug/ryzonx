@@ -41,12 +41,10 @@ import { poolRoiService } from "@/services/pool-roi.service";
 import type { ReturnDurationPreset, ReturnDurationUnit } from "@/domain/roi/types";
 import { normalizeMarketCodes } from "@/domain/reference-data/utils";
 import { resolvePoolManagerPublicLabel, managerRowToIdentity } from "@/domain/pool-manager/public-profile";
+import { parseCycleAmount } from "@/domain/investment/cycle-validation";
 
-function parseAmount(value: string): number | undefined {
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  const n = Number(trimmed);
-  return Number.isFinite(n) ? n : undefined;
+function parseAmount(value: string | number | null | undefined): number | undefined {
+  return parseCycleAmount(value);
 }
 
 function resolvePoolDurationDays(input: ManagedPoolFormInput): number | undefined {
