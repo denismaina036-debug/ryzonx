@@ -4,6 +4,7 @@ import {
   durationToDays,
   resolveReturnDuration,
 } from "@/domain/roi/return-duration";
+import { validateMultiplier } from "@/domain/roi/calculator";
 import type { ReturnDurationPreset, ReturnDurationUnit } from "@/domain/roi/types";
 
 export function parseCycleAmount(value: string | number | null | undefined): number | undefined {
@@ -121,4 +122,17 @@ export function resolveCycleDurationDays(input: {
 }): number {
   const resolved = resolveReturnDuration(input);
   return durationToDays(resolved.value, resolved.unit);
+}
+
+export function validateCycleRoiMultipliers(
+  multipliers: Array<{ investmentLevelId: string; multiplier: number | string }>
+): string | null {
+  if (multipliers.length === 0) {
+    return "Configure profit multipliers for each investment level in this cycle.";
+  }
+  for (const entry of multipliers) {
+    const validationError = validateMultiplier(String(entry.multiplier));
+    if (validationError) return validationError;
+  }
+  return null;
 }

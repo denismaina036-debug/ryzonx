@@ -53,6 +53,7 @@ import {
 import {
   readCycleInitialRaisedCapital,
   readCycleReturnDuration,
+  readCycleRoiMultipliers,
 } from "@/domain/pools/pool-config-snapshot";
 import { investmentCycleMetricsService } from "@/services/investment-cycle-metrics.service";
 import { poolRoiService } from "@/services/pool-roi.service";
@@ -62,7 +63,7 @@ import {
   inferReturnDurationPreset,
   migrateLegacyPayoutPreset,
 } from "@/domain/roi/return-duration";
-import type { ReturnDurationPreset, ReturnDurationUnit } from "@/domain/roi/types";
+import type { ReturnDurationPreset, ReturnDurationUnit, PlatformInvestmentLevel, PoolRoiMultiplier } from "@/domain/roi/types";
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
@@ -116,6 +117,25 @@ const ACTIVE_CYCLE_PRIORITY: InvestmentCycleStatus[] = [
   "distribution",
   "approved",
 ];
+
+function resolveCardRoiMultipliers(
+  fundId: string,
+  cycle: CycleRow | null,
+  fundMultipliers: PoolRoiMultiplier[],
+  investmentLevels: PlatformInvestmentLevel[]
+): PoolRoiMultiplier[] {
+  const snapshotMultipliers = cycle ? readCycleRoiMultipliers(cycle.pool_config_snapshot) : [];
+  if (snapshotMultipliers.length === 0) return fundMultipliers;
+
+  const levelMap = new Map(investmentLevels.map((level) => [level.id, level]));
+  return snapshotMultipliers.map((entry) => ({
+    id: "",
+    fundId,
+    investmentLevelId: entry.investmentLevelId,
+    multiplier: entry.multiplier,
+    level: levelMap.get(entry.investmentLevelId),
+  }));
+}
 
 function pickActiveCycleForFund(
   cycles: CycleRow[],
@@ -352,7 +372,12 @@ async function enrichPoolCards(
           : (row.pool_duration_days as number | null),
       },
       investmentLevels,
-      multipliersByFund.get(card.id) ?? []
+      resolveCardRoiMultipliers(
+        card.id,
+        cycle,
+        multipliersByFund.get(card.id) ?? [],
+        investmentLevels
+      )
     );
   });
 }
@@ -869,11 +894,6 @@ export const marketplaceService = {
       tradeEntryService.sumRealizedProfitForPoolPublic(row.id as string),
     ]);
 
-    const [investmentLevels, roiMultipliers] = await Promise.all([
-      platformInvestmentLevelService.listActive(),
-      poolRoiService.getCompleteMultipliers(row.id as string),
-    ]);
-
     const detail: MarketplacePoolDetail = {
       ...enrichedCard,
       description: (row.description as string) ?? "",
@@ -930,8 +950,8 @@ export const marketplaceService = {
           : [],
       activeOpenTrades,
       poolRealizedProfit,
-      roiMultipliers,
-      investmentLevels,
+      roiMultipliers: enrichedCard.roiMultipliers,
+      investmentLevels: enrichedCard.investmentLevels,
   manager: mapManagerSummary(manager),
   faq,
   publicTrades: enrichedCard.activeCycle?.id

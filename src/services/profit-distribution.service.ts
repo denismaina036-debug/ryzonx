@@ -129,11 +129,12 @@ function mapAllocation(row: AllocationRow): ProfitSettlementAllocation {
   };
 }
 
-async function readPoolRoiConfig(fundId: string | null): Promise<{
+async function readCycleRoiConfig(
+  cycle: Pick<import("@/domain/investment/types").InvestmentCycle, "fundId" | "poolConfigSnapshot">
+): Promise<{
   multipliers: Map<string, number>;
 }> {
-  if (!fundId) return { multipliers: new Map() };
-  const rows = await poolRoiService.getMultipliersForFund(fundId);
+  const rows = await poolRoiService.getMultipliersForCycle(cycle);
   return {
     multipliers: new Map(rows.map((r) => [r.investmentLevelId, r.multiplier])),
   };
@@ -354,7 +355,7 @@ export const profitDistributionService = {
     const snapshots = await cycleOwnershipService.getSnapshot(cycleId);
     const useOwnershipSnapshots = snapshots.length > 0;
 
-    const roiConfig = await readPoolRoiConfig(cycle.fundId);
+    const roiConfig = await readCycleRoiConfig(cycle);
     const hasRoiMultipliers = roiConfig.multipliers.size > 0;
     const cycleCapital = useOwnershipSnapshots
       ? snapshots[0]!.poolCapitalTotal

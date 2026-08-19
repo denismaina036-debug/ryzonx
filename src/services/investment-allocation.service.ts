@@ -15,6 +15,7 @@ import type {
   CreateInvestmentAllocationInput,
   CycleParticipantView,
   InvestmentAllocation,
+  InvestmentCycle,
 } from "@/domain/investment/types";
 
 type AllocationRow = {
@@ -69,10 +70,13 @@ async function getManagerIdForUser(userId: string): Promise<string | null> {
   return (data as { id?: string } | null)?.id ?? null;
 }
 
-async function resolveAllocationRoiFields(fundId: string, amount: number) {
+async function resolveAllocationRoiFields(
+  cycle: Pick<InvestmentCycle, "fundId" | "poolConfigSnapshot">,
+  amount: number
+) {
   const [levels, multipliers] = await Promise.all([
     platformInvestmentLevelService.listActive(),
-    poolRoiService.getMultipliersForFund(fundId),
+    poolRoiService.getMultipliersForCycle(cycle),
   ]);
   const resolved = resolveAllocationRoi({
     amount,
@@ -439,10 +443,7 @@ export const investmentAllocationService = {
 
     if (existing && existing.status !== "cancelled" && existing.status !== "rejected") {
       const nextAmount = existing.amount + input.amount;
-      const roiFields =
-        cycle.fundId != null
-          ? await resolveAllocationRoiFields(cycle.fundId, nextAmount)
-          : null;
+      const roiFields = await resolveAllocationRoiFields(cycle, nextAmount);
       const { data, error } = await db
         .from("investment_allocations")
         .update({
@@ -465,10 +466,7 @@ export const investmentAllocationService = {
       return mapAllocation(data as AllocationRow);
     }
 
-    const roiFields =
-      cycle.fundId != null
-        ? await resolveAllocationRoiFields(cycle.fundId, input.amount)
-        : null;
+    const roiFields = await resolveAllocationRoiFields(cycle, input.amount);
 
     const { data, error } = await db
       .from("investment_allocations")

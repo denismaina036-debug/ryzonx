@@ -35,6 +35,7 @@ import {
   sanitizeCycleCapacityFields,
   validateCycleCapacityFields,
   validateCycleReturnDuration,
+  validateCycleRoiMultipliers,
 } from "@/domain/investment/cycle-validation";
 import {
   inferReturnDurationPreset,
@@ -309,6 +310,13 @@ function buildCycleInputFromPool(
 
     const returnDuration = resolveCycleReturnDurationInput(partial);
     const initialRaisedCapital = positiveNumber(partial.initialRaisedCapital) ?? undefined;
+    const roiValidationError = validateCycleRoiMultipliers(
+      (partial.roiMultipliers ?? []).map((entry) => ({
+        investmentLevelId: entry.investmentLevelId,
+        multiplier: entry.multiplier,
+      }))
+    );
+    if (roiValidationError) throw new Error(roiValidationError);
     return {
       fundId,
       name: partial.name?.trim() || `${poolName} — Cycle ${cycleNumber}`,

@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { PoolRoiMultiplier } from "@/domain/roi/types";
 import type { PlatformInvestmentLevel } from "@/domain/roi/types";
+import { readCycleRoiMultipliers } from "@/domain/pools/pool-config-snapshot";
+import type { InvestmentCycle } from "@/domain/investment/types";
 import { platformInvestmentLevelService } from "@/services/platform-investment-level.service";
 
 type MultiplierRow = {
@@ -28,6 +30,30 @@ function mapMultiplier(row: MultiplierRow, level?: PlatformInvestmentLevel): Poo
 }
 
 export const poolRoiService = {
+  /** ROI multipliers captured on the cycle snapshot, falling back to pool defaults. */
+  async getMultipliersForCycle(cycle: {
+    fundId: string | null;
+    poolConfigSnapshot: InvestmentCycle["poolConfigSnapshot"];
+  }): Promise<PoolRoiMultiplier[]> {
+    if (!cycle.fundId) return [];
+
+    const levels = await platformInvestmentLevelService.listActive();
+    const levelMap = new Map(levels.map((level) => [level.id, level]));
+    const snapshotMultipliers = readCycleRoiMultipliers(cycle.poolConfigSnapshot);
+
+    if (snapshotMultipliers.length > 0) {
+      return snapshotMultipliers.map((entry) => ({
+        id: "",
+        fundId: cycle.fundId!,
+        investmentLevelId: entry.investmentLevelId,
+        multiplier: entry.multiplier,
+        level: levelMap.get(entry.investmentLevelId),
+      }));
+    }
+
+    return this.getCompleteMultipliers(cycle.fundId);
+  },
+
   async getMultipliersForFunds(fundIds: string[]): Promise<Map<string, PoolRoiMultiplier[]>> {
     if (fundIds.length === 0) return new Map();
 

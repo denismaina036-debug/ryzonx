@@ -415,7 +415,7 @@ export const investorInvestmentService = {
     }
 
     const fundIdList = [...fundIds];
-    const [fundRows, multipliersByFund, cyclesByFund] = await Promise.all([
+    const [fundRows, cyclesByFund] = await Promise.all([
       createAdminClient()
         .from("funds")
         .select("id, name, pool_duration_days, pool_faq, return_duration_unit")
@@ -430,7 +430,6 @@ export const investorInvestmentService = {
             return_duration_unit: string | null;
           }>;
         }),
-      poolRoiService.getMultipliersForFunds(fundIdList),
       Promise.all(fundIdList.map((fundId) => investmentCycleService.listByFund(fundId))),
     ]);
 
@@ -499,10 +498,10 @@ export const investorInvestmentService = {
           fundingCycle.minInvestment ??
           primaryParticipation?.amountInvested ??
           null;
-        const poolMultipliers = multipliersByFund.get(primaryFundId) ?? [];
+        const cycleMultipliers = await poolRoiService.getMultipliersForCycle(fundingCycle);
         const projectedMultiplier =
           investAmount != null && investAmount > 0
-            ? resolveRoiMultiplier(investAmount, investmentLevels, poolMultipliers)
+            ? resolveRoiMultiplier(investAmount, investmentLevels, cycleMultipliers)
             : primaryParticipation?.projectedRoiMultiplier ?? null;
 
         funding = {

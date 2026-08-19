@@ -19,6 +19,7 @@ import {
   resolveCycleDurationDays,
   validateCycleCapacityFields,
   validateCycleReturnDuration,
+  validateCycleRoiMultipliers,
 } from "@/domain/investment/cycle-validation";
 import { resolveReturnDuration } from "@/domain/roi/return-duration";
 
@@ -182,7 +183,10 @@ export function CreateCycleForm({
   );
 }
 
-export function validateCreateCycleForm(values: CreateCycleFormValues): string | null {
+export function validateCreateCycleForm(
+  values: CreateCycleFormValues,
+  options?: { requireMultipliers?: boolean }
+): string | null {
   const parsed = {
     targetCapital: parseCycleAmount(values.targetCapital),
     minInvestment: parseCycleMinInvestment(values.minInvestment),
@@ -208,6 +212,15 @@ export function validateCreateCycleForm(values: CreateCycleFormValues): string |
     unit: resolved.unit,
   });
   if (returnDurationError) return returnDurationError;
+  if (options?.requireMultipliers !== false) {
+    const roiError = validateCycleRoiMultipliers(
+      values.multipliers.map((entry) => ({
+        investmentLevelId: entry.investmentLevelId,
+        multiplier: entry.multiplier,
+      }))
+    );
+    if (roiError) return roiError;
+  }
   if (!values.name.trim()) return "Cycle name is required.";
   const investors = parseCycleInvestorCount(values.targetInvestors);
   if (investors == null) return "Target investors must be a whole number greater than zero.";

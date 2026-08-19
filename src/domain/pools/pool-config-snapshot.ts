@@ -136,6 +136,17 @@ export function readCycleReturnDuration(
   };
 }
 
+export function readCycleRoiMultipliers(
+  snapshot: PoolConfigSnapshot | Record<string, unknown> | unknown | null | undefined
+): PoolConfigSnapshotRoiMultiplier[] {
+  if (!snapshot || typeof snapshot !== "object") return [];
+  const pool = (snapshot as PoolConfigSnapshot).pool;
+  if (!pool?.roiMultipliers?.length) return [];
+  return pool.roiMultipliers.filter(
+    (entry) => Number.isFinite(entry.multiplier) && entry.multiplier > 0
+  );
+}
+
 export function readCycleInitialRaisedCapital(
   snapshot: PoolConfigSnapshot | Record<string, unknown> | unknown | null | undefined
 ): number {

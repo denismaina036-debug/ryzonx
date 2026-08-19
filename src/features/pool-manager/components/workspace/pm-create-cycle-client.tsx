@@ -80,6 +80,19 @@ export function PmCreateCycleClient({
 
   useEffect(() => {
     if (!poolId || formValues.multipliers.length > 0) return;
+
+    const snapshotMultipliers = lastCycle?.poolConfigSnapshot?.pool?.roiMultipliers;
+    if (snapshotMultipliers?.length) {
+      setFormValues((prev) => ({
+        ...prev,
+        multipliers: snapshotMultipliers.map((entry) => ({
+          investmentLevelId: entry.investmentLevelId,
+          multiplier: String(entry.multiplier),
+        })),
+      }));
+      return;
+    }
+
     void fetch(`/api/pool-manager/managed-pools/${poolId}/roi`)
       .then((res) => res.json())
       .then((data: { multipliers?: RoiMultiplierEntry[] }) => {
@@ -88,7 +101,7 @@ export function PmCreateCycleClient({
         }
       })
       .catch(() => undefined);
-  }, [poolId, formValues.multipliers.length]);
+  }, [poolId, formValues.multipliers.length, lastCycle]);
 
   useEffect(() => {
     if (!selected || !canCreate || !lastCycle) return;
@@ -153,7 +166,9 @@ export function PmCreateCycleClient({
   async function createCycle() {
     if (!selected) return;
 
-    const validationError = validateCreateCycleForm(formValues);
+    const validationError = validateCreateCycleForm(formValues, {
+      requireMultipliers: investmentLevels.length > 0,
+    });
     if (validationError) {
       setError(validationError);
       return;
