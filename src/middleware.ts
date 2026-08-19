@@ -12,6 +12,27 @@ import { getEffectiveUserRole, isSafeRedirectPath } from "@/lib/auth/redirect";
 import { ROUTES } from "@/constants/routes";
 import { USER_ROLES, type UserRole } from "@/constants/roles";
 
+const AUTH_TIMEOUT_MS = 2500;
+
+function withTimeout<T>(
+  promiseLike: PromiseLike<T>,
+  timeoutMs: number,
+  message: string
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
+    Promise.resolve(promiseLike)
+      .then((value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+  });
+}
+
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
@@ -24,9 +45,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const { supabase, supabaseResponse } = createClient(request);
-
   if (pathname === "/about" || pathname === "/transparency") {
+    const { supabaseResponse } = createClient(request);
     return redirectWithSupabaseCookies(
       new URL(ROUTES.investors, request.url),
       supabaseResponse,
@@ -34,6 +54,19 @@ export async function middleware(request: NextRequest) {
     );
   }
 
+  const needsAuthResolution =
+    isAuthRoute(pathname) ||
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/pool-manager") ||
+    pathname.startsWith("/apply/pool-manager") ||
+    pathname.startsWith("/admin");
+
+  // Most routes do not require identity checks; skip Supabase calls for those requests.
+  if (!needsAuthResolution) {
+    return NextResponse.next();
+  }
+
+  const { supabase, supabaseResponse } = createClient(request);
   const hasSessionCookie = hasSupabaseSessionCookie(request);
 
   let user: { id: string } | null = null;
@@ -44,7 +77,11 @@ export async function middleware(request: NextRequest) {
     const {
       data: { user: authUser },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await withTimeout(
+      supabase.auth.getUser(),
+      AUTH_TIMEOUT_MS,
+      "[middleware] auth lookup timed out"
+    );
 
     if (authError) {
       if (isStaleRefreshTokenError(authError)) {
@@ -59,11 +96,11 @@ export async function middleware(request: NextRequest) {
       user = authUser;
 
       if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle();
+        const { data: profile } = await withTimeout(
+          supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+          AUTH_TIMEOUT_MS,
+          "[middleware] profile lookup timed out"
+        );
 
         profileRole = (profile as { role: UserRole } | null)?.role ?? null;
       }

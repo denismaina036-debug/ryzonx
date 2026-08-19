@@ -1152,15 +1152,19 @@ export const investmentCycleService = {
       throw new Error("Close all active trades before closing the investment cycle.");
     }
 
-    const { profitDistributionService } = await import("@/services/profit-distribution.service");
-    const settlement = await profitDistributionService.getByCycleId(id);
-    if (!settlement || settlement.status !== "completed") {
-      throw new Error("Distribute cycle profits before closing this cycle.");
+    const requiresSettlement =
+      (existing.investorCount ?? 0) > 0 || (existing.raisedCapital ?? 0) > 0;
+    if (requiresSettlement) {
+      const { profitDistributionService } = await import("@/services/profit-distribution.service");
+      const settlement = await profitDistributionService.getByCycleId(id);
+      if (!settlement || settlement.status !== "completed") {
+        throw new Error("Distribute cycle profits before closing this cycle.");
+      }
     }
 
     const cycle = await this.transition(id, "completed", actor);
 
-    if (existing.fundId) {
+    if (existing.fundId && requiresSettlement) {
       const { cycleInvestorSettlementService } = await import(
         "@/services/investment-engine/cycle-investor-settlement.service"
       );

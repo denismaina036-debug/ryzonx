@@ -32,6 +32,7 @@ export interface SupportTicket {
   id: string;
   subject: string;
   status: string;
+  adminDisplayName?: string;
   createdAt: string;
   updatedAt: string;
   messages: SupportMessage[];

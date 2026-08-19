@@ -12,18 +12,24 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(tickets[0]?.id ?? null);
   const [reply, setReply] = useState("");
+  const [displayName, setDisplayName] = useState(tickets[0]?.adminDisplayName ?? "Support");
   const [sending, setSending] = useState(false);
 
   const selected = tickets.find((t) => t.id === selectedId);
 
   async function sendReply() {
+    const senderLabel = displayName.trim();
     if (!selectedId || !reply.trim()) return;
+    if (!senderLabel) {
+      toast.error("Enter a display name for this ticket.");
+      return;
+    }
     setSending(true);
     try {
       const res = await fetch(`/api/admin/support/${selectedId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: reply }),
+        body: JSON.stringify({ message: reply, displayName: senderLabel }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Reply failed");
@@ -48,7 +54,10 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
             <li key={t.id}>
               <button
                 type="button"
-                onClick={() => setSelectedId(t.id)}
+                onClick={() => {
+                  setSelectedId(t.id);
+                  setDisplayName(t.adminDisplayName ?? "Support");
+                }}
                 className={cn(
                   "w-full px-4 py-3 text-left hover:bg-navy-50",
                   selectedId === t.id && "bg-royal-50"
@@ -88,7 +97,14 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
                 </div>
               ))}
             </div>
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 space-y-2">
+              <Input
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Name visible to client (e.g. Chase)"
+                maxLength={80}
+              />
+              <div className="flex gap-2">
               <Input
                 value={reply}
                 onChange={(e) => setReply(e.target.value)}
@@ -97,6 +113,7 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
               <Button disabled={sending} onClick={sendReply}>
                 Reply
               </Button>
+              </div>
             </div>
           </>
         )}

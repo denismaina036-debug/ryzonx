@@ -9,6 +9,7 @@ type TicketRow = {
   user_id: string;
   subject: string;
   status: string;
+  admin_display_name: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -22,7 +23,10 @@ type MessageRow = {
   created_at: string;
 };
 
-async function loadMessages(ticketId: string): Promise<SupportMessage[]> {
+async function loadMessages(
+  ticketId: string,
+  adminDisplayName: string | null = null
+): Promise<SupportMessage[]> {
   const db = createAdminClient();
   const { data: messages } = await db
     .from("support_messages")
@@ -50,7 +54,10 @@ async function loadMessages(ticketId: string): Promise<SupportMessage[]> {
     id: m.id,
     ticketId: m.ticket_id,
     senderId: m.sender_id,
-    senderName: nameMap.get(m.sender_id) ?? (m.is_admin ? "Support" : "You"),
+    senderName:
+      m.is_admin
+        ? adminDisplayName?.trim() || "Support"
+        : nameMap.get(m.sender_id) ?? "You",
     body: m.body,
     isAdmin: m.is_admin,
     createdAt: m.created_at,
@@ -64,7 +71,7 @@ export const supportService = {
 
     const { data } = await supabase
       .from("support_tickets")
-      .select("id, user_id, subject, status, created_at, updated_at")
+      .select("id, user_id, subject, status, admin_display_name, created_at, updated_at")
       .eq("user_id", user.id)
       .order("updated_at", { ascending: false });
 
@@ -74,9 +81,10 @@ export const supportService = {
         id: t.id,
         subject: t.subject,
         status: t.status,
+        adminDisplayName: t.admin_display_name ?? undefined,
         createdAt: t.created_at,
         updatedAt: t.updated_at,
-        messages: await loadMessages(t.id),
+        messages: await loadMessages(t.id, t.admin_display_name),
       }))
     );
   },
@@ -91,8 +99,9 @@ export const supportService = {
         user_id: user.id,
         subject: subject.trim(),
         status: "open",
+        admin_display_name: null,
       } as never)
-      .select("id, user_id, subject, status, created_at, updated_at")
+      .select("id, user_id, subject, status, admin_display_name, created_at, updated_at")
       .single();
 
     if (error || !ticket) {
@@ -127,9 +136,10 @@ export const supportService = {
       id: row.id,
       subject: row.subject,
       status: row.status,
+      adminDisplayName: row.admin_display_name ?? undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      messages: await loadMessages(row.id),
+      messages: await loadMessages(row.id, row.admin_display_name),
     };
   },
 
@@ -167,7 +177,7 @@ export const supportService = {
 
     const { data } = await db
       .from("support_tickets")
-      .select("id, user_id, subject, status, created_at, updated_at")
+      .select("id, user_id, subject, status, admin_display_name, created_at, updated_at")
       .order("updated_at", { ascending: false });
 
     const tickets = (data ?? []) as TicketRow[];
@@ -192,29 +202,40 @@ export const supportService = {
           id: t.id,
           subject: t.subject,
           status: t.status,
+          adminDisplayName: t.admin_display_name ?? undefined,
           createdAt: t.created_at,
           updatedAt: t.updated_at,
           investorName: profile?.full_name,
           investorEmail: profile?.email,
-          messages: await loadMessages(t.id),
+          messages: await loadMessages(t.id, t.admin_display_name),
         };
       })
     );
   },
 
-  async adminReply(ticketId: string, body: string): Promise<void> {
+  async adminReply(ticketId: string, body: string, displayName?: string): Promise<void> {
     const admin = await requireRole("administrator");
     const db = createAdminClient();
+    const normalizedDisplayName = displayName?.trim();
+    if (normalizedDisplayName && normalizedDisplayName.length > 80) {
+      throw new Error("Display name must be 80 characters or less.");
+    }
 
     const { data: ticket } = await db
       .from("support_tickets")
-      .select("id, user_id, subject")
+      .select("id, user_id, subject, admin_display_name")
       .eq("id", ticketId)
       .maybeSingle();
 
     if (!ticket) throw new Error("Ticket not found.");
 
-    const row = ticket as { id: string; user_id: string; subject: string };
+    const row = ticket as {
+      id: string;
+      user_id: string;
+      subject: string;
+      admin_display_name: string | null;
+    };
+    const ticketDisplayName = normalizedDisplayName || row.admin_display_name || "Support";
 
     const { error } = await db.from("support_messages").insert({
       ticket_id: ticketId,
@@ -227,7 +248,11 @@ export const supportService = {
 
     await db
       .from("support_tickets")
-      .update({ status: "replied", updated_at: new Date().toISOString() } as never)
+      .update({
+        status: "replied",
+        admin_display_name: ticketDisplayName,
+        updated_at: new Date().toISOString(),
+      } as never)
       .eq("id", ticketId);
 
     await communicationTriggers.supportReply({

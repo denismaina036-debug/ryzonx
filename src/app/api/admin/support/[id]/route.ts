@@ -7,11 +7,11 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const body = (await request.json()) as { message: string };
+    const body = (await request.json()) as { message: string; displayName?: string };
     if (!body.message?.trim()) {
       return NextResponse.json({ error: "Message required." }, { status: 400 });
     }
-    await supportService.adminReply(id, body.message);
+    await supportService.adminReply(id, body.message, body.displayName);
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Reply failed.";

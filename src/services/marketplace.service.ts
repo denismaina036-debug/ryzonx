@@ -99,6 +99,7 @@ type CycleRow = {
   funding_started_at: string | null;
   raised_capital: number | string | null;
   target_capital: number | string | null;
+  min_investment: number | string | null;
   investor_count: number | null;
   max_capacity: number | string | null;
 };
@@ -134,7 +135,7 @@ async function enrichPoolCards(
   const { data: cycleRows } = await db
     .from("investment_cycles")
     .select(
-      "id, fund_id, status, cycle_number, name, opening_date, closing_date, funding_deadline, funding_started_at, raised_capital, target_capital, investor_count, max_capacity"
+      "id, fund_id, status, cycle_number, name, opening_date, closing_date, funding_deadline, funding_started_at, raised_capital, target_capital, min_investment, investor_count, max_capacity"
     )
     .in("fund_id", poolIds)
     .in("status", ["funding", "trading", "distribution", "approved"]);
@@ -206,6 +207,9 @@ async function enrichPoolCards(
     const targetCapital = cycle?.target_capital != null
       ? toNumber(cycle.target_capital)
       : toNumber(row.target_capital as number | null);
+    const minInvestment = cycle?.min_investment != null
+      ? toNumber(cycle.min_investment)
+      : toNumber(row.min_investment as number | null);
     const liveInvestors = toNumber(row.active_investors as number);
     const seedInvestors = toNumber(row.display_active_investors as number);
     const managerSeedInvestors = manager?.display_investor_count ?? 0;
@@ -272,6 +276,7 @@ async function enrichPoolCards(
       canParticipate: cycle
         ? INVESTMENT_CYCLE_ALLOCATABLE_STATUSES.includes(cycle.status)
         : false,
+      minInvestment,
       fundingPeriodEndsAt,
       raisedCapital,
       targetCapital,

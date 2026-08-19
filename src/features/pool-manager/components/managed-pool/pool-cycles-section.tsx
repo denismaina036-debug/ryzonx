@@ -83,6 +83,14 @@ export function ManagedPoolCyclesPanel({
       .catch(() => undefined);
   }, [canCreate, formValues.multipliers.length, poolId]);
 
+  useEffect(() => {
+    if (!canCreate) return;
+    setFormValues((prev) => {
+      if (prev.name.trim()) return prev;
+      return { ...prev, name: `${poolName} — Cycle ${nextCycleNumber}` };
+    });
+  }, [canCreate, poolName, nextCycleNumber]);
+
   async function createCycle() {
     const validationError = validateCreateCycleForm(formValues);
     if (validationError) {
@@ -106,7 +114,7 @@ export function ManagedPoolCyclesPanel({
       if (data.cycle) {
         setCycles((prev) => sortCyclesChronologically([...prev, data.cycle!]));
         setFormValues({
-          name: "",
+          name: `${poolName} — Cycle ${nextCycleNumber + 1}`,
           durationDays: "",
           minInvestment: "",
           targetCapital: "",

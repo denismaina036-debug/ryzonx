@@ -95,6 +95,17 @@ export function PmCreateCycleClient({
       .catch(() => undefined);
   }, [poolId, formValues.multipliers.length]);
 
+  useEffect(() => {
+    if (!selected || !canCreate) return;
+    setFormValues((prev) => {
+      if (prev.name.trim()) return prev;
+      return {
+        ...prev,
+        name: `${selected.pool.name} — Cycle ${nextCycleNumber}`,
+      };
+    });
+  }, [selected, canCreate, nextCycleNumber]);
+
   async function createCycle() {
     if (!selected) return;
 

@@ -263,9 +263,15 @@ export const poolParticipationService = {
       if (!invite) throw new Error("This pool is invite-only.");
     }
 
-    if (amount < toNumber(fundRow.min_investment)) {
+    const activeCycle = await investmentCycleService.getActiveForFund(poolId);
+    const effectiveMinInvestment =
+      activeCycle?.minInvestment != null && activeCycle.minInvestment > 0
+        ? activeCycle.minInvestment
+        : toNumber(fundRow.min_investment);
+
+    if (amount < effectiveMinInvestment) {
       throw new Error(
-        `Minimum investment for ${fundRow.name} is $${toNumber(fundRow.min_investment).toLocaleString()}.`
+        `Minimum investment for ${fundRow.name} is $${effectiveMinInvestment.toLocaleString()}.`
       );
     }
 
@@ -312,7 +318,6 @@ export const poolParticipationService = {
     const nextInvested = toNumber(poolRow?.total_invested) + amount;
     const nextValue = toNumber(poolRow?.current_value) + amount;
 
-    const activeCycle = await investmentCycleService.getActiveForFund(poolId);
     const queueDuringTrading =
       activeCycle &&
       (activeCycle.status === "trading" || activeCycle.status === "distribution");
