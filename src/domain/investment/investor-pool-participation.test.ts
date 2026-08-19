@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  resolveInvestorCapitalExposure,
   resolveInvestorDisplayCapital,
   resolvePostCycleCapitalAmount,
   shouldShowPostCycleChoices,
@@ -23,6 +24,18 @@ const sampleSettlement = {
 };
 
 describe("resolveInvestorDisplayCapital", () => {
+  it("uses cycle allocation during an active funding cycle", () => {
+    expect(
+      resolveInvestorDisplayCapital({
+        hasActiveTradingCycle: false,
+        hasActiveFundingCycle: true,
+        portfolioInvested: 10_000,
+        pendingSettlement: null,
+        cycleAllocationAmount: 200,
+      })
+    ).toBe(200);
+  });
+
   it("uses cycle allocation during an active trading cycle", () => {
     expect(
       resolveInvestorDisplayCapital({
@@ -43,6 +56,32 @@ describe("resolveInvestorDisplayCapital", () => {
         cycleAllocationAmount: null,
       })
     ).toBe(20_000);
+  });
+});
+
+describe("resolveInvestorCapitalExposure", () => {
+  it("counts each pool once when portfolio and cycle allocation match", () => {
+    expect(
+      resolveInvestorCapitalExposure(
+        [{ fundId: "f1", amountInvested: 200 }],
+        [{ fundId: "f1", amount: 200, status: "funding_confirmed" }]
+      )
+    ).toBe(200);
+  });
+
+  it("sums distinct pools without double counting", () => {
+    expect(
+      resolveInvestorCapitalExposure(
+        [
+          { fundId: "f1", amountInvested: 200 },
+          { fundId: "f2", amountInvested: 200 },
+        ],
+        [
+          { fundId: "f1", amount: 200, status: "funding_confirmed" },
+          { fundId: "f2", amount: 200, status: "funding_confirmed" },
+        ]
+      )
+    ).toBe(400);
   });
 });
 

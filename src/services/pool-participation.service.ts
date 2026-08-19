@@ -286,7 +286,9 @@ export const poolParticipationService = {
     const projection = await walletProjectionService.getForInvestor(user.id);
 
     if (amount > projection.available + 0.004) {
-      throw new Error("Insufficient available balance. Deposit and wait for approval first.");
+      throw new Error(
+        "Insufficient available balance. You cannot invest more than your approved wallet deposits across all pools."
+      );
     }
 
     const walletPortfolio = await ensureWalletPortfolio(db, user.id);

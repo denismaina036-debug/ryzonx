@@ -8,16 +8,53 @@ function toNumber(value: string | number | null | undefined): number {
   return typeof value === "number" ? value : Number(value);
 }
 
+async function getRemainingDeployableFromDeposits(investorId: string): Promise<number> {
+  const db = createAdminClient();
+  const { data: walletPortfolio } = await db
+    .from("investor_portfolios")
+    .select("total_deposits")
+    .eq("user_id", investorId)
+    .eq("fund_id", DEFAULT_FUND_ID)
+    .maybeSingle();
+
+  const totalDeposits = toNumber(
+    (walletPortfolio as { total_deposits?: number | string } | null)?.total_deposits
+  );
+
+  const { data: deployedRows } = await db
+    .from("investor_portfolios")
+    .select("total_invested")
+    .eq("user_id", investorId)
+    .neq("fund_id", DEFAULT_FUND_ID)
+    .gt("total_invested", 0);
+
+  const deployedToPools = ((deployedRows ?? []) as Array<{ total_invested: number | string }>).reduce(
+    (sum, row) => sum + toNumber(row.total_invested),
+    0
+  );
+
+  return Math.max(0, roundMoney(totalDeposits - deployedToPools));
+}
+
 async function getLegacyAvailableBalance(investorId: string): Promise<number> {
   const db = createAdminClient();
-  const { data } = await db
+  const { data: walletPortfolio } = await db
     .from("investor_portfolios")
     .select("available_balance")
     .eq("user_id", investorId)
     .eq("fund_id", DEFAULT_FUND_ID)
     .maybeSingle();
 
-  return toNumber((data as { available_balance?: number } | null)?.available_balance);
+  const rawAvailable = toNumber(
+    (walletPortfolio as { available_balance?: number | string } | null)?.available_balance
+  );
+  const remainingFromDeposits = await getRemainingDeployableFromDeposits(investorId);
+
+  return Math.min(rawAvailable, remainingFromDeposits);
+}
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 async function getPendingAllocationTotal(investorId: string): Promise<number> {
@@ -67,10 +104,11 @@ async function getLegacyFundedWithdrawalTotal(investorId: string): Promise<numbe
 
 export const walletProjectionService = {
   async getForInvestor(investorId: string): Promise<WalletProjection> {
-    const [legacyAvailable, legacyWithdrawals, pending] = await Promise.all([
+    const [legacyAvailable, legacyWithdrawals, pending, depositCap] = await Promise.all([
       getLegacyAvailableBalance(investorId),
       getLegacyFundedWithdrawalTotal(investorId),
       getPendingAllocationTotal(investorId),
+      getRemainingDeployableFromDeposits(investorId),
     ]);
 
     try {
@@ -82,9 +120,10 @@ export const walletProjectionService = {
       ]);
 
       const hasLedgerActivity = availableLedger !== 0 || reserved !== 0 || settled !== 0;
-      const available = hasLedgerActivity
+      const ledgerAvailable = hasLedgerActivity
         ? Math.max(0, Math.round((availableLedger - legacyWithdrawals) * 100) / 100)
         : legacyAvailable;
+      const available = Math.min(ledgerAvailable, depositCap);
       const source: WalletProjection["source"] = hasLedgerActivity ? "ledger" : "legacy";
 
       return {

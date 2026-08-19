@@ -108,7 +108,9 @@ export const fundingWalletService = {
 
     const projection = await this.getProjection(input.investorId);
     if (amount > projection.available + 0.004) {
-      throw new Error("Insufficient available balance. Deposit and wait for approval first.");
+      throw new Error(
+        "Insufficient available balance. You cannot invest more than your approved wallet deposits across all pools."
+      );
     }
 
     if (this.usesLedger(projection)) {
@@ -165,6 +167,8 @@ export const fundingWalletService = {
           ],
         });
       }
+
+      await this.adjustLegacyAvailableBalance(input.investorId, -amount);
       return;
     }
 

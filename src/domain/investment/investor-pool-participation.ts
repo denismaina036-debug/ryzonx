@@ -1,5 +1,15 @@
+import type { InvestmentAllocationStatus } from "@/constants/investment-allocation";
 import type { WalletPoolParticipation } from "@/features/investor/types/wallet";
 import type { CycleInvestorSettlement } from "@/services/investment-engine/cycle-investor-settlement.service";
+
+const ACTIVE_INVESTOR_ALLOCATION_STATUSES = new Set<InvestmentAllocationStatus>([
+  "pending",
+  "funding_confirmed",
+  "confirmed",
+  "settled",
+  "locked",
+  "distributed",
+]);
 
 export interface InvestorPoolParticipationView extends WalletPoolParticipation {
   hasActiveTradingCycle: boolean;
@@ -11,13 +21,46 @@ export interface InvestorPoolParticipationView extends WalletPoolParticipation {
   showPostCycleChoices: boolean;
 }
 
+/** Count each pool once — prefer cycle allocations over legacy portfolio rows. */
+export function resolveInvestorCapitalExposure(
+  participations: Array<{ fundId: string; amountInvested: number }>,
+  allocations: Array<{ fundId: string; amount: number; status: InvestmentAllocationStatus | string }>
+): number {
+  const allocationByFund = new Map<string, number>();
+  for (const allocation of allocations) {
+    if (!ACTIVE_INVESTOR_ALLOCATION_STATUSES.has(allocation.status as InvestmentAllocationStatus)) {
+      continue;
+    }
+    allocationByFund.set(
+      allocation.fundId,
+      (allocationByFund.get(allocation.fundId) ?? 0) + allocation.amount
+    );
+  }
+
+  const fundIds = new Set([
+    ...participations.map((participation) => participation.fundId),
+    ...allocationByFund.keys(),
+  ]);
+
+  let total = 0;
+  for (const fundId of fundIds) {
+    const allocationTotal = allocationByFund.get(fundId);
+    const portfolioAmount =
+      participations.find((participation) => participation.fundId === fundId)?.amountInvested ?? 0;
+    total += allocationTotal != null && allocationTotal > 0 ? allocationTotal : portfolioAmount;
+  }
+
+  return total;
+}
+
 export function resolveInvestorDisplayCapital(input: {
   hasActiveTradingCycle: boolean;
+  hasActiveFundingCycle?: boolean;
   portfolioInvested: number;
   pendingSettlement: CycleInvestorSettlement | null;
   cycleAllocationAmount?: number | null;
 }): number {
-  if (input.hasActiveTradingCycle) {
+  if (input.hasActiveTradingCycle || input.hasActiveFundingCycle) {
     if (input.cycleAllocationAmount != null && input.cycleAllocationAmount > 0) {
       return input.cycleAllocationAmount;
     }

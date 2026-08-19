@@ -26,8 +26,8 @@ import {
 import type { InvestmentAllocationStatus } from "@/constants/investment-allocation";
 import { mapRawTransactionToActivityItem, type RawTransactionRow } from "@/lib/transaction/map";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { resolvePublicDisplayCount } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 import { computeLifetimePoolPerformance } from "@/lib/investor/lifetime-pool-performance";
+import { resolvePoolLiveRaisedCapital } from "@/domain/investment/cycle-metrics";
 
 const ACTIVITY_SELECT_WITH_METADATA =
   "id, fund_id, type, amount, status, payment_method, reference, transaction_reference, notes, destination, crypto_symbol, crypto_network, crypto_amount, metadata, created_at, user_id";
@@ -97,31 +97,6 @@ function mapPoolHealth(
     return value;
   }
   return null;
-}
-
-/** Total capital raised in the pool — live totals with optional admin display seed. */
-function resolvePoolRaisedCapital(input: {
-  cycleRaisedCapital?: number | null;
-  portfolioInvestedTotal: number;
-  investorCapital?: number | null;
-  currentCapital?: number | null;
-  displayRaisedCapital?: number | null;
-  poolStatsValue?: number | null;
-  fundPoolValue?: number | null;
-}): number {
-  const liveRaised = Math.max(
-    input.cycleRaisedCapital ?? 0,
-    input.portfolioInvestedTotal,
-    toNumber(input.investorCapital),
-    toNumber(input.currentCapital)
-  );
-
-  const seedRaised = toNumber(input.displayRaisedCapital);
-  if (seedRaised > 0 || liveRaised > 0) {
-    return resolvePublicDisplayCount(seedRaised, liveRaised);
-  }
-
-  return toNumber(input.poolStatsValue) || toNumber(input.fundPoolValue);
 }
 
 function emptyPoolPerformance(): InvestorPoolPerformance {
@@ -339,7 +314,8 @@ export const investorService = {
 
     const rankRows = (rankResult.data ?? []) as RankSnapshot[];
 
-    const poolBalance = resolvePoolRaisedCapital({
+    const poolBalance = resolvePoolLiveRaisedCapital({
+      hasActiveCycle: activeCycle != null,
       cycleRaisedCapital: activeCycle?.raisedCapital,
       portfolioInvestedTotal: poolInvestedTotal,
       investorCapital: fund?.investor_capital,
@@ -557,14 +533,15 @@ export const investorService = {
     );
 
     const admin = createAdminClient();
-    const { data: tradingCycles } = await admin
+    const activeCycleFundIds = [...new Set([...tradingFundIds, ...fundingFundIds])];
+    const { data: activeCycles } = await admin
       .from("investment_cycles")
       .select("id, fund_id")
-      .in("fund_id", [...tradingFundIds])
-      .in("status", ["trading", "distribution"]);
+      .in("fund_id", activeCycleFundIds)
+      .in("status", ["funding", "trading", "distribution"]);
 
     const cycleIdByFund = new Map(
-      ((tradingCycles ?? []) as Array<{ id: string; fund_id: string }>).map((row) => [
+      ((activeCycles ?? []) as Array<{ id: string; fund_id: string }>).map((row) => [
         row.fund_id,
         row.id,
       ])
@@ -624,6 +601,7 @@ export const investorService = {
 
         const displayCapitalInvested = resolveInvestorDisplayCapital({
           hasActiveTradingCycle,
+          hasActiveFundingCycle,
           portfolioInvested: baseParticipation.amountInvested,
           pendingSettlement,
           cycleAllocationAmount: allocationByFund.get(fundId) ?? null,

@@ -28,6 +28,7 @@ import type {
   InvestorStrategyCard,
 } from "@/domain/investment/investor-presentation";
 import { INVESTMENT_ALLOCATION_STATUS_LABELS } from "@/constants/investment-allocation";
+import { resolveInvestorCapitalExposure } from "@/domain/investment/investor-pool-participation";
 import { computeInvestorOwnershipShare } from "@/domain/investment/cycle-metrics";
 import { resolveMergedManagerRating } from "@/lib/pool-manager/merge-admin-statistics";
 
@@ -196,6 +197,7 @@ async function enrichAllocations(allocations: InvestmentAllocation[]): Promise<I
       cycleName: cycle.name,
       cycleSlug: cycle.slug,
       cycleStatus: cycle.status,
+      fundId: cycle.fundId ?? "",
       strategyName: strategy?.name ?? "Strategy",
       managerName: managerPublicName(manager),
       canCancel,
@@ -292,10 +294,17 @@ export const investorInvestmentService = {
       }));
 
     const pendingAllocations = allocationViews.filter((a) => a.status === "pending");
-    const legacyInvested = wallet.participations.reduce((s, p) => s + p.amountInvested, 0);
-    const cycleCommitted = allocationViews
-      .filter((a) => a.status !== "cancelled")
-      .reduce((sum, a) => sum + a.amount, 0);
+    const activeAllocations = allocationViews.filter(
+      (a) => a.status !== "cancelled" && a.status !== "distributed"
+    );
+    const cycleCommitted = resolveInvestorCapitalExposure(
+      wallet.participations,
+      activeAllocations.map((allocation) => ({
+        fundId: allocation.fundId,
+        amount: allocation.amount,
+        status: allocation.status,
+      }))
+    );
 
     return {
       fundingCycleCount: fundingCycles.length,
@@ -306,7 +315,7 @@ export const investorInvestmentService = {
       pendingAllocations,
       portfolioSummary: {
         balance: wallet.balance,
-        legacyInvested,
+        legacyInvested: wallet.participations.reduce((sum, p) => sum + p.amountInvested, 0),
         cycleCommitted,
         pendingCount: pendingAllocations.length,
       },
@@ -326,8 +335,15 @@ export const investorInvestmentService = {
       (a) => a.status !== "cancelled" && a.status !== "distributed"
     );
     const pending = allocationViews.filter((a) => a.status === "pending");
-    const totalCommitted = active.reduce((sum, a) => sum + a.amount, 0);
     const legacyInvested = wallet.participations.reduce((s, p) => s + p.amountInvested, 0);
+    const totalCommitted = resolveInvestorCapitalExposure(
+      wallet.participations,
+      active.map((allocation) => ({
+        fundId: allocation.fundId,
+        amount: allocation.amount,
+        status: allocation.status,
+      }))
+    );
 
     const riskMap = new Map<string, number>();
     const strategyMap = new Map<string, { amount: number; cycles: Set<string> }>();
@@ -345,7 +361,7 @@ export const investorInvestmentService = {
       strategyMap.set(allocation.strategyName, entry);
     }
 
-    const totalExposure = totalCommitted + legacyInvested;
+    const totalExposure = totalCommitted;
     const riskExposure = [...riskMap.entries()].map(([label, amount]) => ({
       label: label.replace(/_/g, " "),
       amount,

@@ -55,6 +55,7 @@ export interface InvestorAllocationView {
   cycleName: string;
   cycleSlug: string;
   cycleStatus: InvestmentCycleStatus;
+  fundId: string;
   strategyName: string;
   managerName: string;
   canCancel: boolean;
