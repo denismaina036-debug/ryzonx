@@ -471,20 +471,15 @@ async function syncActiveCycleFromPoolConfig(
     | undefined;
   if (!cycle) return;
 
+  const durationDays = resolvePoolDurationDays(input);
   const openingDate = input.scheduleOpenEnded ? null : parseIsoOrNull(input.openingDate);
   const closingDate = input.scheduleOpenEnded ? null : parseIsoOrNull(input.closingDate);
-  const durationDays = resolvePoolDurationDays(input);
-  const targetCapital = parseAmount(input.maxPoolSize);
-  const minInvestment = parseAmount(input.minInvestment);
 
   const patch: Record<string, unknown> = {
     opening_date: openingDate,
     closing_date: closingDate,
     funding_deadline: closingDate,
     duration_days: durationDays ?? null,
-    target_capital: targetCapital ?? null,
-    min_investment: minInvestment ?? null,
-    max_capacity: targetCapital ?? null,
   };
 
   // Explicit PM edit of Funding Start updates the live timestamp once funding has begun.

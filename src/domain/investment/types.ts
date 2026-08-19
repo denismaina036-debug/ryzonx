@@ -128,6 +128,8 @@ export interface CreatePoolInvestmentCycleInput {
   minInvestment: number;
   targetCapital: number;
   targetInvestors: number;
+  /** Optional starting capital for this cycle before investor commitments. */
+  initialRaisedCapital?: number;
   maxCapacity?: number | null;
   roiMultipliers?: Array<{ investmentLevelId: string; multiplier: number }>;
   openingDate?: string;

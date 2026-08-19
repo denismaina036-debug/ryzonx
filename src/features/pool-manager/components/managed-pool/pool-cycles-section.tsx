@@ -55,6 +55,7 @@ export function ManagedPoolCyclesPanel({
     durationDays: "",
     minInvestment: "",
     targetCapital: "",
+    initialRaisedCapital: "",
     targetInvestors: "",
     multipliers: [],
   });
@@ -82,6 +83,32 @@ export function ManagedPoolCyclesPanel({
       })
       .catch(() => undefined);
   }, [canCreate, formValues.multipliers.length, poolId]);
+
+  useEffect(() => {
+    if (!canCreate || !lastCycle) return;
+    setFormValues((prev) => {
+      const readInitialFromCycle = (cycle: InvestmentCycle) => {
+        const snapshotInitial = cycle.poolConfigSnapshot?.pool?.initialRaisedCapital;
+        if (snapshotInitial != null && snapshotInitial > 0) return String(snapshotInitial);
+        if (cycle.raisedCapital > 0 && cycle.investorCount === 0) return String(cycle.raisedCapital);
+        return "";
+      };
+      return {
+        ...prev,
+        durationDays: prev.durationDays || (lastCycle.durationDays != null ? String(lastCycle.durationDays) : ""),
+        minInvestment:
+          prev.minInvestment ||
+          (lastCycle.minInvestment != null ? String(lastCycle.minInvestment) : ""),
+        targetCapital:
+          prev.targetCapital ||
+          (lastCycle.targetCapital != null ? String(lastCycle.targetCapital) : ""),
+        initialRaisedCapital: prev.initialRaisedCapital || readInitialFromCycle(lastCycle),
+        targetInvestors:
+          prev.targetInvestors ||
+          (lastCycle.targetInvestors != null ? String(lastCycle.targetInvestors) : ""),
+      };
+    });
+  }, [canCreate, lastCycle]);
 
   useEffect(() => {
     if (!canCreate) return;
@@ -118,6 +145,7 @@ export function ManagedPoolCyclesPanel({
           durationDays: "",
           minInvestment: "",
           targetCapital: "",
+          initialRaisedCapital: "",
           targetInvestors: "",
           multipliers: formValues.multipliers,
         });

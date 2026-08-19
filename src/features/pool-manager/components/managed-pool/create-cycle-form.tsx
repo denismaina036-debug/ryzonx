@@ -22,6 +22,7 @@ export interface CreateCycleFormValues {
   durationDays: string;
   minInvestment: string;
   targetCapital: string;
+  initialRaisedCapital: string;
   targetInvestors: string;
   multipliers: RoiMultiplierEntry[];
 }
@@ -50,7 +51,7 @@ export function CreateCycleForm({
   loading = false,
   error = null,
   submitLabel = "Create funding cycle",
-  hint = "Set only the terms for this cycle. Pool branding, strategy, markets, and schedule stay inherited from the parent pool.",
+  hint = "Set the funding terms for this cycle only. Target and initial raised capital apply to this round — they are not inherited from the parent pool.",
 }: CreateCycleFormProps) {
   function patch<K extends keyof CreateCycleFormValues>(key: K, value: CreateCycleFormValues[K]) {
     onChange({ ...values, [key]: value });
@@ -92,6 +93,18 @@ export function CreateCycleForm({
             min={1}
             value={values.targetCapital}
             onChange={(e) => patch("targetCapital", e.target.value)}
+            className={pmInputClass}
+          />
+        </PmFormField>
+        <PmFormField
+          label="Initial raised capital (USD)"
+          hint="Starting capital for this cycle before investor commitments (optional)."
+        >
+          <Input
+            type="number"
+            min={0}
+            value={values.initialRaisedCapital}
+            onChange={(e) => patch("initialRaisedCapital", e.target.value)}
             className={pmInputClass}
           />
         </PmFormField>
@@ -151,12 +164,16 @@ export function buildCreateCyclePayload(values: CreateCycleFormValues) {
     durationDays: parseCycleAmount(values.durationDays)!,
   };
   const investors = parseCycleInvestorCount(values.targetInvestors)!;
+  const initialRaised = parseCycleAmount(values.initialRaisedCapital);
   return {
     name: values.name.trim(),
     durationDays: parsed.durationDays,
     minInvestment: parsed.minInvestment,
     targetCapital: parsed.targetCapital,
     targetInvestors: investors,
+    ...(initialRaised != null && initialRaised > 0
+      ? { initialRaisedCapital: initialRaised }
+      : {}),
     maxCapacity: parsed.targetCapital,
     roiMultipliers: values.multipliers
       .filter((entry) => entry.multiplier.trim())

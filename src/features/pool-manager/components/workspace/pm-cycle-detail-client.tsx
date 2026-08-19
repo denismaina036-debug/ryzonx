@@ -68,6 +68,7 @@ export function PmCycleDetailClient({
 
   const canCloseCycle =
     (cycle.status === "trading" && openTradeCount === 0) || cycle.status === "distribution";
+  const hasInvestors = cycle.investorCount > 0;
   const canDistributeProfit = cycle.status === "trading" && !profitDistributed;
 
   const currentProfit = liveMetrics?.currentCycleProfit ?? cycle.currentCycleProfit;
@@ -172,8 +173,9 @@ export function PmCycleDetailClient({
         setCycle(result.cycle);
         setCloseDialogOpen(false);
         setMessage({
-          text:
-            "Cycle closed. Investors can reinvest in the next funding round, move to another pool, or request capital return to their Funding Wallet.",
+          text: hasInvestors
+            ? "Cycle closed. Investors can reinvest in the next funding round, move to another pool, or request capital return to their Funding Wallet."
+            : "Cycle closed. Trading profit was credited to your manager earnings. Open the next funding round from the pool page when you are ready.",
           variant: "success",
         });
         router.refresh();
@@ -186,7 +188,7 @@ export function PmCycleDetailClient({
         setLoading(false);
       }
     },
-    [cycle.id, router]
+    [cycle.id, hasInvestors, router]
   );
 
   const journalHref = `${ROUTES.poolManagerInvestmentCycles}/${cycle.id}/journal`;
@@ -251,7 +253,9 @@ export function PmCycleDetailClient({
               onClick={() => {
                 void runAction(
                   () => distributeCycleProfit(cycle.id),
-                  "Profits distributed to investors"
+                  hasInvestors
+                    ? "Profits distributed to investors"
+                    : "Profit sent to your manager earnings"
                 ).then(() => setProfitDistributed(true));
               }}
             >
@@ -299,19 +303,20 @@ export function PmCycleDetailClient({
           <DialogHeader>
             <DialogTitle>Close cycle</DialogTitle>
             <DialogDescription className="text-[var(--id-text-secondary)]">
-              Distribute profits first, then close this cycle. Capital is not reinvested automatically.
-              Open the next funding round separately from the pool page when you are ready.
+              {hasInvestors
+                ? "Distribute profits first, then close this cycle. Capital is not reinvested automatically. Open the next funding round separately from the pool page when you are ready."
+                : "This cycle has no investors. Closing will send trading profit to your manager earnings (after platform fees) and let you open the next funding round."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
             <Button
-              disabled={loading || !profitDistributed}
+              disabled={loading || (hasInvestors && !profitDistributed)}
               className="w-full"
               onClick={() => void runCloseCycle()}
             >
               Close cycle
             </Button>
-            {!profitDistributed && (
+            {hasInvestors && !profitDistributed && (
               <p className="text-xs text-[var(--id-text-muted)]">
                 Distribute profits before closing this cycle.
               </p>

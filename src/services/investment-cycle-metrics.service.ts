@@ -7,6 +7,7 @@ import {
 } from "@/domain/investment/cycle-metrics";
 import type { InvestmentCycle } from "@/domain/investment/types";
 import { loadFundRaisedCapitalSeeds, mergePublicRaisedCapital } from "@/lib/pools/public-raised-capital";
+import { readCycleInitialRaisedCapital } from "@/domain/pools/pool-config-snapshot";
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
@@ -73,11 +74,24 @@ export const investmentCycleMetricsService = {
    * Raised Capital = confirmed investments; Investor Count = distinct committed investors.
    */
   async recalculateCycleRaisedCapital(cycleId: string): Promise<number> {
-    const [raisedCapital, investorCount] = await Promise.all([
+    const db = createAdminClient();
+    const { data: cycleRow, error: cycleError } = await db
+      .from("investment_cycles")
+      .select("pool_config_snapshot")
+      .eq("id", cycleId)
+      .maybeSingle();
+    if (cycleError) throw new Error(cycleError.message);
+
+    const initialRaised = readCycleInitialRaisedCapital(
+      (cycleRow as { pool_config_snapshot?: unknown } | null)?.pool_config_snapshot
+    );
+
+    const [allocationRaised, investorCount] = await Promise.all([
       this.sumRaisedCapitalForCycle(cycleId),
       countActiveInvestors(cycleId),
     ]);
-    const db = createAdminClient();
+    const raisedCapital = initialRaised + allocationRaised;
+
     const { error } = await db
       .from("investment_cycles")
       .update({
@@ -90,21 +104,30 @@ export const investmentCycleMetricsService = {
     return raisedCapital;
   },
 
-  async enrichCycles(cycles: InvestmentCycle[]): Promise<InvestmentCycle[]> {
+  async enrichCycles(
+    cycles: InvestmentCycle[],
+    options?: { applyFundRaisedSeed?: boolean }
+  ): Promise<InvestmentCycle[]> {
     if (cycles.length === 0) return cycles;
 
+    const applyFundRaisedSeed = options?.applyFundRaisedSeed ?? false;
     const raisedByCycle = await this.sumRaisedCapitalForCycles(cycles.map((cycle) => cycle.id));
     const investorCounts = await Promise.all(
       cycles.map(async (cycle) => [cycle.id, await countActiveInvestors(cycle.id)] as const)
     );
     const investorByCycle = new Map(investorCounts);
-    const fundIds = [...new Set(cycles.map((cycle) => cycle.fundId).filter(Boolean))] as string[];
-    const seedsByFund = await loadFundRaisedCapitalSeeds(fundIds);
+    const seedsByFund = applyFundRaisedSeed
+      ? await loadFundRaisedCapitalSeeds(
+          [...new Set(cycles.map((cycle) => cycle.fundId).filter(Boolean))] as string[]
+        )
+      : new Map<string, number>();
 
     return cycles.map((cycle) => {
-      const liveRaised = raisedByCycle.get(cycle.id) ?? 0;
-      const seed = cycle.fundId ? seedsByFund.get(cycle.fundId) ?? 0 : 0;
-      const raised = mergePublicRaisedCapital(seed, liveRaised);
+      const allocationRaised = raisedByCycle.get(cycle.id) ?? 0;
+      const initialRaised = readCycleInitialRaisedCapital(cycle.poolConfigSnapshot);
+      const liveRaised = initialRaised + allocationRaised;
+      const seed = applyFundRaisedSeed && cycle.fundId ? seedsByFund.get(cycle.fundId) ?? 0 : 0;
+      const raised = applyFundRaisedSeed ? mergePublicRaisedCapital(seed, liveRaised) : liveRaised;
       const enriched = applyCycleFundingMetrics(cycle, raised);
       return {
         ...enriched,

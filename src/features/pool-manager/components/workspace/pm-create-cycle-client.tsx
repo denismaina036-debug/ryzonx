@@ -66,6 +66,7 @@ export function PmCreateCycleClient({
     [selected?.cycles]
   );
   const nextCycleNumber = (sortedCycles[sortedCycles.length - 1]?.cycleNumber ?? 0) + 1;
+  const lastCycle = sortedCycles[sortedCycles.length - 1];
   const canCreate = selected ? resolveCanCreateCycle(selected.cycles, true) : false;
 
   const [formValues, setFormValues] = useState<CreateCycleFormValues>({
@@ -73,6 +74,7 @@ export function PmCreateCycleClient({
     durationDays: "",
     minInvestment: "",
     targetCapital: "",
+    initialRaisedCapital: "",
     targetInvestors: "",
     multipliers: [],
   });
@@ -94,6 +96,32 @@ export function PmCreateCycleClient({
       })
       .catch(() => undefined);
   }, [poolId, formValues.multipliers.length]);
+
+  useEffect(() => {
+    if (!selected || !canCreate || !lastCycle) return;
+    setFormValues((prev) => {
+      const readInitialFromCycle = (cycle: InvestmentCycle) => {
+        const snapshotInitial = cycle.poolConfigSnapshot?.pool?.initialRaisedCapital;
+        if (snapshotInitial != null && snapshotInitial > 0) return String(snapshotInitial);
+        if (cycle.raisedCapital > 0 && cycle.investorCount === 0) return String(cycle.raisedCapital);
+        return "";
+      };
+      return {
+        ...prev,
+        durationDays: prev.durationDays || (lastCycle.durationDays != null ? String(lastCycle.durationDays) : ""),
+        minInvestment:
+          prev.minInvestment ||
+          (lastCycle.minInvestment != null ? String(lastCycle.minInvestment) : ""),
+        targetCapital:
+          prev.targetCapital ||
+          (lastCycle.targetCapital != null ? String(lastCycle.targetCapital) : ""),
+        initialRaisedCapital: prev.initialRaisedCapital || readInitialFromCycle(lastCycle),
+        targetInvestors:
+          prev.targetInvestors ||
+          (lastCycle.targetInvestors != null ? String(lastCycle.targetInvestors) : ""),
+      };
+    });
+  }, [selected, canCreate, lastCycle]);
 
   useEffect(() => {
     if (!selected || !canCreate) return;

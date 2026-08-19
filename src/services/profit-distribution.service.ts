@@ -259,7 +259,38 @@ async function readPoolName(fundId: string): Promise<string> {
   return (data as { name?: string } | null)?.name ?? "Pool";
 }
 
+async function resolveCycleGrossTradingProfit(
+  cycleId: string,
+  options?: { grossTradingProfitOverride?: number }
+): Promise<number> {
+  if (options?.grossTradingProfitOverride != null) {
+    return options.grossTradingProfitOverride;
+  }
+  const tradeEntries = await tradeEntryService.listByCycleInternal(cycleId);
+  const journalProfit = computeCycleRealizedTradingProfit(tradeEntries);
+  const cachedCycleProfit = await cycleProfitService.getCycleProfit(cycleId);
+  return cachedCycleProfit !== 0 ? cachedCycleProfit : journalProfit;
+}
+
+async function listSettlementEligibleAllocations(cycleId: string) {
+  const allocations = await investmentAllocationService.listByCycleInternal(cycleId);
+  return allocations.filter((a) =>
+    PROFIT_SETTLEMENT_ELIGIBLE_ALLOCATION_STATUSES.includes(a.status)
+  );
+}
+
 export const profitDistributionService = {
+  async hasInvestorAllocationsForSettlement(cycleId: string): Promise<boolean> {
+    const settled = await listSettlementEligibleAllocations(cycleId);
+    return settled.length > 0;
+  },
+
+  async getCycleGrossTradingProfit(
+    cycleId: string,
+    options?: { grossTradingProfitOverride?: number }
+  ): Promise<number> {
+    return resolveCycleGrossTradingProfit(cycleId, options);
+  },
   async getByCycleId(cycleId: string): Promise<ProfitSettlement | null> {
     const db = createAdminClient();
     const { data, error } = await db
@@ -313,23 +344,12 @@ export const profitDistributionService = {
       throw new Error("Settlement already confirmed for this cycle.");
     }
 
-    const allocations = await investmentAllocationService.listByCycleInternal(cycleId);
-    const settled = allocations.filter((a) =>
-      PROFIT_SETTLEMENT_ELIGIBLE_ALLOCATION_STATUSES.includes(a.status)
-    );
+    const settled = await listSettlementEligibleAllocations(cycleId);
     if (settled.length === 0) {
-      throw new Error("No investor allocations found for this cycle.");
+      return this.initiatePoolManagerOnlySettlement(cycleId, cycle, actorId, existing, options);
     }
 
-    const tradeEntries = await tradeEntryService.listByCycleInternal(cycleId);
-    const journalProfit = computeCycleRealizedTradingProfit(tradeEntries);
-    const cachedCycleProfit = await cycleProfitService.getCycleProfit(cycleId);
-    const grossTradingProfit =
-      options?.grossTradingProfitOverride != null
-        ? options.grossTradingProfitOverride
-        : cachedCycleProfit !== 0
-          ? cachedCycleProfit
-          : journalProfit;
+    const grossTradingProfit = await resolveCycleGrossTradingProfit(cycleId, options);
 
     const snapshots = await cycleOwnershipService.getSnapshot(cycleId);
     const useOwnershipSnapshots = snapshots.length > 0;
@@ -536,6 +556,113 @@ export const profitDistributionService = {
         cycleId,
         cycleName: cycle.name,
         summary: `Profit settlement calculated for ${cycle.name}`,
+      },
+    });
+
+    return settlement;
+  },
+
+  /** When a cycle has trading profit but no investor allocations, pay net profit to the pool manager. */
+  async initiatePoolManagerOnlySettlement(
+    cycleId: string,
+    cycle: NonNullable<Awaited<ReturnType<typeof investmentCycleService.getById>>>,
+    actorId: string,
+    existing: ProfitSettlement | null,
+    options?: { grossTradingProfitOverride?: number }
+  ): Promise<ProfitSettlement> {
+    const grossTradingProfit = await resolveCycleGrossTradingProfit(cycleId, options);
+    if (grossTradingProfit <= 0) {
+      throw new Error("No trading profit to distribute for this cycle.");
+    }
+
+    const snapshots = await cycleOwnershipService.getSnapshot(cycleId);
+    const cycleCapital =
+      snapshots.length > 0
+        ? snapshots[0]!.poolCapitalTotal
+        : roundMoney(cycle.raisedCapital ?? 0);
+
+    const platformFeeRate = await platformSettingsService.getPlatformServiceFeeRate();
+    const platformServiceFee = roundMoney(grossTradingProfit * platformFeeRate);
+    const netDistributableProfit = roundMoney(grossTradingProfit - platformServiceFee);
+    const poolManagerEarnings = netDistributableProfit;
+
+    const db = createAdminClient();
+    const settlementPayload = {
+      investment_cycle_id: cycleId,
+      fund_id: cycle.fundId,
+      pool_manager_id: cycle.poolManagerId,
+      cycle_capital: cycleCapital,
+      gross_trading_profit: grossTradingProfit,
+      platform_service_fee_pct: platformFeeRate,
+      platform_service_fee: platformServiceFee,
+      net_distributable_profit: netDistributableProfit,
+      investor_share_pct: 0,
+      pool_manager_share_pct: 100,
+      investor_distribution_total: 0,
+      pool_manager_earnings: poolManagerEarnings,
+      status: "pending_review" as ProfitSettlementStatus,
+      settlement_date: new Date().toISOString(),
+      currency: "USD",
+      metadata: {
+        engine: "pool_manager_only",
+        noInvestors: true,
+        settlementSequence: [
+          "gross_trading_profit",
+          "platform_service_fee",
+          "pool_manager_full_share",
+        ],
+      },
+    };
+
+    let settlement: ProfitSettlement;
+    if (existing) {
+      const { data, error } = await db
+        .from("profit_settlements")
+        .update(settlementPayload as never)
+        .eq("id", existing.id)
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      settlement = mapSettlement(data as SettlementRow);
+      await db
+        .from("profit_settlement_allocations")
+        .delete()
+        .eq("profit_settlement_id", settlement.id);
+    } else {
+      const { data, error } = await db
+        .from("profit_settlements")
+        .insert(settlementPayload as never)
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      settlement = mapSettlement(data as SettlementRow);
+    }
+
+    await auditService.log({
+      actorId,
+      action: FINANCIAL_AUDIT_PROFIT_ACTIONS.SETTLEMENT_CALCULATED,
+      entityType: "profit_settlement",
+      entityId: settlement.id,
+      newValues: {
+        grossTradingProfit,
+        platformServiceFee,
+        netDistributableProfit,
+        poolManagerEarnings,
+        investorProfitPool: 0,
+        poolManagerOnly: true,
+      },
+    });
+
+    publishPlatformEvent({
+      eventType: PLATFORM_EVENT_TYPES.CYCLE_STATUS_CHANGED,
+      category: "financial",
+      entityType: "profit_settlement",
+      entityId: settlement.id,
+      actorId,
+      payload: {
+        cycleId,
+        cycleName: cycle.name,
+        summary: `Pool manager profit settlement calculated for ${cycle.name}`,
       },
     });
 

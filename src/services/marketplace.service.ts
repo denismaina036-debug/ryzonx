@@ -50,6 +50,7 @@ import {
   computeFundingProgressPct,
   computeRemainingCapital,
 } from "@/domain/investment/cycle-metrics";
+import { readCycleInitialRaisedCapital } from "@/domain/pools/pool-config-snapshot";
 import { investmentCycleMetricsService } from "@/services/investment-cycle-metrics.service";
 import { poolRoiService } from "@/services/pool-roi.service";
 import { platformInvestmentLevelService } from "@/services/platform-investment-level.service";
@@ -102,6 +103,7 @@ type CycleRow = {
   min_investment: number | string | null;
   investor_count: number | null;
   max_capacity: number | string | null;
+  pool_config_snapshot: unknown;
 };
 
 const ACTIVE_CYCLE_PRIORITY: InvestmentCycleStatus[] = [
@@ -135,7 +137,7 @@ async function enrichPoolCards(
   const { data: cycleRows } = await db
     .from("investment_cycles")
     .select(
-      "id, fund_id, status, cycle_number, name, opening_date, closing_date, funding_deadline, funding_started_at, raised_capital, target_capital, min_investment, investor_count, max_capacity"
+      "id, fund_id, status, cycle_number, name, opening_date, closing_date, funding_deadline, funding_started_at, raised_capital, target_capital, min_investment, investor_count, max_capacity, pool_config_snapshot"
     )
     .in("fund_id", poolIds)
     .in("status", ["funding", "trading", "distribution", "approved"]);
@@ -213,10 +215,16 @@ async function enrichPoolCards(
     const liveInvestors = toNumber(row.active_investors as number);
     const seedInvestors = toNumber(row.display_active_investors as number);
     const managerSeedInvestors = manager?.display_investor_count ?? 0;
-    const liveRaisedCapital = cycle
+    const allocationRaised = cycle
       ? raisedByCycle.get(cycle.id) ?? 0
       : toNumber(row.current_capital as number | null);
-    const seedRaisedCapital = toNumber(row.display_raised_capital as number);
+    const cycleInitialRaised = cycle
+      ? readCycleInitialRaisedCapital(cycle.pool_config_snapshot)
+      : 0;
+    const liveRaisedCapital = cycle
+      ? cycleInitialRaised + allocationRaised
+      : allocationRaised;
+    const seedRaisedCapital = cycle ? 0 : toNumber(row.display_raised_capital as number);
     const raisedCapital = resolvePublicDisplayCount(seedRaisedCapital, liveRaisedCapital);
     const remainingCapital = computeRemainingCapital(targetCapital, raisedCapital);
     const fundingProgressPct = computeFundingProgressPct(targetCapital, raisedCapital);

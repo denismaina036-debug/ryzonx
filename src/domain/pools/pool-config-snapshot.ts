@@ -22,6 +22,8 @@ export interface PoolConfigSnapshot {
     minInvestment: number;
     maxInvestment: number | null;
     targetCapital: number | null;
+    /** PM-set starting capital for this cycle (before investor allocations). */
+    initialRaisedCapital: number | null;
     maxInvestorsCap: number | null;
     poolDurationDays: number | null;
     profitTargetPct: number | null;
@@ -82,6 +84,7 @@ export function buildPoolConfigSnapshot(
         row.max_investment != null ? toNumber(row.max_investment as number) : null,
       targetCapital:
         row.target_capital != null ? toNumber(row.target_capital as number) : null,
+      initialRaisedCapital: null,
       maxInvestorsCap:
         row.max_investors_cap != null ? toNumber(row.max_investors_cap as number) : null,
       poolDurationDays: (row.pool_duration_days as number | null) ?? null,
@@ -104,10 +107,21 @@ export function buildPoolConfigSnapshot(
 export interface CycleSnapshotOverrides {
   minInvestment?: number | null;
   targetCapital?: number | null;
+  initialRaisedCapital?: number | null;
   maxCapacity?: number | null;
   maxInvestorsCap?: number | null;
   poolDurationDays?: number | null;
   roiMultipliers?: PoolConfigSnapshotRoiMultiplier[];
+}
+
+export function readCycleInitialRaisedCapital(
+  snapshot: PoolConfigSnapshot | Record<string, unknown> | unknown | null | undefined
+): number {
+  if (!snapshot || typeof snapshot !== "object") return 0;
+  const pool = (snapshot as PoolConfigSnapshot).pool;
+  if (!pool || typeof pool !== "object") return 0;
+  const initial = (pool as { initialRaisedCapital?: number | null }).initialRaisedCapital;
+  return initial != null && initial > 0 ? initial : 0;
 }
 
 /** Apply cycle-specific funding terms onto a pool snapshot at cycle creation. */
@@ -121,6 +135,10 @@ export function applyCycleSnapshotOverrides(
       ...snapshot.pool,
       minInvestment: overrides.minInvestment ?? snapshot.pool.minInvestment,
       targetCapital: overrides.targetCapital ?? snapshot.pool.targetCapital,
+      initialRaisedCapital:
+        overrides.initialRaisedCapital !== undefined
+          ? overrides.initialRaisedCapital
+          : snapshot.pool.initialRaisedCapital,
       maxInvestorsCap: overrides.maxInvestorsCap ?? snapshot.pool.maxInvestorsCap,
       poolDurationDays: overrides.poolDurationDays ?? snapshot.pool.poolDurationDays,
       roiMultipliers:
