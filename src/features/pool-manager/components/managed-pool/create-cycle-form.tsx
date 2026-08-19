@@ -9,23 +9,42 @@ import {
   PmRoiMultiplierEditor,
   type RoiMultiplierEntry,
 } from "@/features/pool-manager/components/managed-pool/pm-roi-multiplier-editor";
+import { PmReturnDurationEditor } from "@/features/pool-manager/components/managed-pool/pm-return-duration-editor";
 import type { PlatformInvestmentLevel } from "@/domain/roi";
+import type { ReturnDurationPreset, ReturnDurationUnit } from "@/domain/roi/types";
 import {
   parseCycleAmount,
   parseCycleInvestorCount,
   parseCycleMinInvestment,
+  resolveCycleDurationDays,
   validateCycleCapacityFields,
+  validateCycleReturnDuration,
 } from "@/domain/investment/cycle-validation";
+import { resolveReturnDuration } from "@/domain/roi/return-duration";
 
 export interface CreateCycleFormValues {
   name: string;
-  durationDays: string;
+  returnDurationPreset: ReturnDurationPreset;
+  returnDurationValue: string;
+  returnDurationUnit: ReturnDurationUnit;
   minInvestment: string;
   targetCapital: string;
   initialRaisedCapital: string;
   targetInvestors: string;
   multipliers: RoiMultiplierEntry[];
 }
+
+export const DEFAULT_CREATE_CYCLE_FORM_VALUES: CreateCycleFormValues = {
+  name: "",
+  returnDurationPreset: "daily",
+  returnDurationValue: "1",
+  returnDurationUnit: "days",
+  minInvestment: "",
+  targetCapital: "",
+  initialRaisedCapital: "",
+  targetInvestors: "",
+  multipliers: [],
+};
 
 interface CreateCycleFormProps {
   poolId: string;
@@ -51,7 +70,7 @@ export function CreateCycleForm({
   loading = false,
   error = null,
   submitLabel = "Create funding cycle",
-  hint = "Set the funding terms for this cycle only. Target and initial raised capital apply to this round — they are not inherited from the parent pool.",
+  hint = "Set the funding terms for this cycle only. Target capital, payout duration, and initial raised capital apply to this round — they are not inherited from the parent pool.",
 }: CreateCycleFormProps) {
   function patch<K extends keyof CreateCycleFormValues>(key: K, value: CreateCycleFormValues[K]) {
     onChange({ ...values, [key]: value });
@@ -66,15 +85,6 @@ export function CreateCycleForm({
             value={values.name}
             onChange={(e) => patch("name", e.target.value)}
             placeholder={`${poolName} — Cycle ${cycleNumber}`}
-            className={pmInputClass}
-          />
-        </PmFormField>
-        <PmFormField label="Trading duration (days)" required>
-          <Input
-            type="number"
-            min={1}
-            value={values.durationDays}
-            onChange={(e) => patch("durationDays", e.target.value)}
             className={pmInputClass}
           />
         </PmFormField>
@@ -121,6 +131,35 @@ export function CreateCycleForm({
         </PmFormField>
       </div>
 
+      <PmFormField
+        label="Payout duration"
+        hint="How long this cycle will trade after funding closes. Each cycle can use its own duration."
+        required
+      >
+        <PmReturnDurationEditor
+          preset={values.returnDurationPreset}
+          value={values.returnDurationValue}
+          unit={values.returnDurationUnit}
+          onPresetChange={(preset) => {
+            if (preset === "hourly") {
+              onChange({
+                ...values,
+                returnDurationPreset: preset,
+                returnDurationUnit: "hours",
+                returnDurationValue:
+                  values.returnDurationUnit === "hours" && values.returnDurationValue.trim()
+                    ? values.returnDurationValue
+                    : "4",
+              });
+              return;
+            }
+            patch("returnDurationPreset", preset);
+          }}
+          onValueChange={(v) => patch("returnDurationValue", v)}
+          onUnitChange={(unit) => patch("returnDurationUnit", unit)}
+        />
+      </PmFormField>
+
       {investmentLevels.length > 0 && (
         <PmFormField label="Profit multipliers (ROI)" hint="Per investment level for this cycle.">
           <PmRoiMultiplierEditor
@@ -147,10 +186,28 @@ export function validateCreateCycleForm(values: CreateCycleFormValues): string |
   const parsed = {
     targetCapital: parseCycleAmount(values.targetCapital),
     minInvestment: parseCycleMinInvestment(values.minInvestment),
-    durationDays: parseCycleAmount(values.durationDays),
   };
-  const validationError = validateCycleCapacityFields(parsed);
+  const resolved = resolveReturnDuration({
+    preset: values.returnDurationPreset,
+    value: parseCycleAmount(values.returnDurationValue),
+    unit: values.returnDurationUnit,
+  });
+  const durationDays = resolveCycleDurationDays({
+    preset: values.returnDurationPreset,
+    value: resolved.value,
+    unit: resolved.unit,
+  });
+  const validationError = validateCycleCapacityFields({
+    ...parsed,
+    durationDays,
+  });
   if (validationError) return validationError;
+  const returnDurationError = validateCycleReturnDuration({
+    preset: values.returnDurationPreset,
+    value: resolved.value,
+    unit: resolved.unit,
+  });
+  if (returnDurationError) return returnDurationError;
   if (!values.name.trim()) return "Cycle name is required.";
   const investors = parseCycleInvestorCount(values.targetInvestors);
   if (investors == null) return "Target investors must be a whole number greater than zero.";
@@ -161,16 +218,28 @@ export function buildCreateCyclePayload(values: CreateCycleFormValues) {
   const parsed = {
     targetCapital: parseCycleAmount(values.targetCapital)!,
     minInvestment: parseCycleMinInvestment(values.minInvestment)!,
-    durationDays: parseCycleAmount(values.durationDays)!,
   };
+  const resolved = resolveReturnDuration({
+    preset: values.returnDurationPreset,
+    value: parseCycleAmount(values.returnDurationValue),
+    unit: values.returnDurationUnit,
+  });
+  const durationDays = resolveCycleDurationDays({
+    preset: values.returnDurationPreset,
+    value: resolved.value,
+    unit: resolved.unit,
+  });
   const investors = parseCycleInvestorCount(values.targetInvestors)!;
   const initialRaised = parseCycleAmount(values.initialRaisedCapital);
   return {
     name: values.name.trim(),
-    durationDays: parsed.durationDays,
+    durationDays,
     minInvestment: parsed.minInvestment,
     targetCapital: parsed.targetCapital,
     targetInvestors: investors,
+    returnDurationPreset: values.returnDurationPreset,
+    returnDurationValue: resolved.value,
+    returnDurationUnit: resolved.unit,
     ...(initialRaised != null && initialRaised > 0
       ? { initialRaisedCapital: initialRaised }
       : {}),

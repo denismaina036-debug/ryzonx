@@ -143,9 +143,9 @@ export const investorPoolTradesService = {
       )
       .in("investment_cycle_id", cycleIds)
       .eq("investor_visible", true)
-      .in("status", ["open", "partially_closed", "closed"])
-      .order("closed_at", { ascending: false, nullsFirst: false })
-      .order("opened_at", { ascending: false, nullsFirst: false })
+      .eq("status", "closed")
+      .not("closed_at", "is", null)
+      .order("closed_at", { ascending: false })
       .limit(limit);
 
     if (error) throw new Error(error.message);

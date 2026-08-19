@@ -121,13 +121,19 @@ export interface CreateInvestmentCycleInput {
   durationDays?: number;
 }
 
+import type { ReturnDurationPreset, ReturnDurationUnit } from "@/domain/roi/types";
+
 export interface CreatePoolInvestmentCycleInput {
   fundId: string;
   name: string;
-  durationDays: number;
   minInvestment: number;
   targetCapital: number;
   targetInvestors: number;
+  returnDurationPreset: ReturnDurationPreset;
+  returnDurationValue: number;
+  returnDurationUnit: ReturnDurationUnit;
+  /** Legacy trading duration in days — derived from return duration when omitted. */
+  durationDays?: number;
   /** Optional starting capital for this cycle before investor commitments. */
   initialRaisedCapital?: number;
   maxCapacity?: number | null;

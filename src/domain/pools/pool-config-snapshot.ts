@@ -111,7 +111,29 @@ export interface CycleSnapshotOverrides {
   maxCapacity?: number | null;
   maxInvestorsCap?: number | null;
   poolDurationDays?: number | null;
+  returnDurationPreset?: ReturnDurationPreset | null;
+  returnDurationValue?: number | null;
+  returnDurationUnit?: ReturnDurationUnit | null;
   roiMultipliers?: PoolConfigSnapshotRoiMultiplier[];
+}
+
+export function readCycleReturnDuration(
+  snapshot: PoolConfigSnapshot | Record<string, unknown> | unknown | null | undefined
+): {
+  preset: ReturnDurationPreset;
+  value: number;
+  unit: ReturnDurationUnit;
+} | null {
+  if (!snapshot || typeof snapshot !== "object") return null;
+  const pool = (snapshot as PoolConfigSnapshot).pool;
+  if (!pool?.returnDurationPreset) return null;
+  return {
+    preset: pool.returnDurationPreset,
+    value: pool.returnDurationValue != null && pool.returnDurationValue > 0
+      ? pool.returnDurationValue
+      : 1,
+    unit: pool.returnDurationUnit ?? "days",
+  };
 }
 
 export function readCycleInitialRaisedCapital(
@@ -141,6 +163,18 @@ export function applyCycleSnapshotOverrides(
           : snapshot.pool.initialRaisedCapital,
       maxInvestorsCap: overrides.maxInvestorsCap ?? snapshot.pool.maxInvestorsCap,
       poolDurationDays: overrides.poolDurationDays ?? snapshot.pool.poolDurationDays,
+      returnDurationPreset:
+        overrides.returnDurationPreset !== undefined
+          ? overrides.returnDurationPreset
+          : snapshot.pool.returnDurationPreset,
+      returnDurationValue:
+        overrides.returnDurationValue !== undefined
+          ? overrides.returnDurationValue
+          : snapshot.pool.returnDurationValue,
+      returnDurationUnit:
+        overrides.returnDurationUnit !== undefined
+          ? overrides.returnDurationUnit
+          : snapshot.pool.returnDurationUnit,
       roiMultipliers:
         overrides.roiMultipliers && overrides.roiMultipliers.length > 0
           ? overrides.roiMultipliers

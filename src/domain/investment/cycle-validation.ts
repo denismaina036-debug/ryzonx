@@ -1,5 +1,11 @@
 /** Shared validation for investment cycle capacity fields (UI + API). */
 
+import {
+  durationToDays,
+  resolveReturnDuration,
+} from "@/domain/roi/return-duration";
+import type { ReturnDurationPreset, ReturnDurationUnit } from "@/domain/roi/types";
+
 export function parseCycleAmount(value: string | number | null | undefined): number | undefined {
   if (value == null) return undefined;
   if (typeof value === "number") {
@@ -90,4 +96,29 @@ export function sanitizeCycleCapacityFields(
     input.durationDays != null && input.durationDays > 0 ? input.durationDays : null;
 
   return { targetCapital: target, minInvestment: min, maxCapacity: max, durationDays: duration };
+}
+
+export function validateCycleReturnDuration(input: {
+  preset: ReturnDurationPreset;
+  value?: number | null;
+  unit?: ReturnDurationUnit | null;
+}): string | null {
+  if (input.preset === "hourly" || input.preset === "custom") {
+    const value = input.value;
+    if (!value || value <= 0) {
+      return input.preset === "hourly"
+        ? "Hourly payout duration must specify a positive number of hours."
+        : "Custom payout duration must be a positive number.";
+    }
+  }
+  return null;
+}
+
+export function resolveCycleDurationDays(input: {
+  preset: ReturnDurationPreset;
+  value?: number | null;
+  unit?: ReturnDurationUnit | null;
+}): number {
+  const resolved = resolveReturnDuration(input);
+  return durationToDays(resolved.value, resolved.unit);
 }

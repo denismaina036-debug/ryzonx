@@ -15,7 +15,7 @@ const NAV_LINKS = [
   { label: "Home", href: ROUTES.home },
   { label: "Marketplace", href: ROUTES.marketplace },
   { label: "Performance", href: ROUTES.performance },
-  { label: "Trading Journal", href: ROUTES.journal },
+  { label: "Recent Pool Trades", href: ROUTES.journal },
   { label: "Investors", href: ROUTES.investors },
   { label: "How It Works", href: ROUTES.howItWorks },
   { label: "FAQ", href: ROUTES.faq },

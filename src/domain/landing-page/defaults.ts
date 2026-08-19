@@ -80,7 +80,7 @@ export const DEFAULT_LANDING_PAGE_CONTENT: LandingPageContent = {
     logoUrl: "/images/logo.png",
     quickLinks: [
       { label: "Performance", href: ROUTES.performance },
-      { label: "Trading Journal", href: ROUTES.journal },
+      { label: "Recent Pool Trades", href: ROUTES.journal },
       { label: "Investors", href: ROUTES.investors },
       { label: "How It Works", href: ROUTES.howItWorks },
       { label: "FAQ", href: ROUTES.faq },
@@ -131,10 +131,10 @@ export const DEFAULT_LANDING_PAGE_CONTENT: LandingPageContent = {
         "Track the fund's growth over time. All data is updated in real-time and fully transparent.",
     },
     journal: {
-      badge: "Trading Journal",
-      title: "Latest Published Trades",
-      description: "Every trade is verified and published for full transparency.",
-      viewAllLabel: "View Full Journal",
+      badge: "Recent Pool Trades",
+      title: "Recent Pool Trades",
+      description: "Recent published trades from pool managers across marketplace pools.",
+      viewAllLabel: "View all recent trades",
     },
     recentActivity: {
       badge: "Live Activity",

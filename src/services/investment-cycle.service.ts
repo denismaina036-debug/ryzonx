@@ -31,9 +31,16 @@ import {
 } from "@/domain/pools/pool-config-snapshot";
 import {
   friendlyInvestmentCycleError,
+  resolveCycleDurationDays,
   sanitizeCycleCapacityFields,
   validateCycleCapacityFields,
+  validateCycleReturnDuration,
 } from "@/domain/investment/cycle-validation";
+import {
+  inferReturnDurationPreset,
+  resolveReturnDuration,
+} from "@/domain/roi/return-duration";
+import type { ReturnDurationPreset, ReturnDurationUnit } from "@/domain/roi/types";
 import { investmentCycleMetricsService } from "@/services/investment-cycle-metrics.service";
 import { poolRoiService } from "@/services/pool-roi.service";
 
@@ -226,6 +233,63 @@ function positiveNumber(value: unknown): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+function readFundReturnDuration(fund: Record<string, unknown>): {
+  preset: ReturnDurationPreset;
+  value: number;
+  unit: ReturnDurationUnit;
+  durationDays: number;
+} {
+  const preset = inferReturnDurationPreset({
+    preset: fund.return_duration_preset as ReturnDurationPreset | null,
+    value: fund.return_duration_value as number | null,
+    unit: fund.return_duration_unit as ReturnDurationUnit | null,
+  });
+  const resolved = resolveReturnDuration({
+    preset,
+    value: positiveNumber(fund.return_duration_value) ?? positiveNumber(fund.pool_duration_days),
+    unit: (fund.return_duration_unit as ReturnDurationUnit | null) ?? "days",
+  });
+  return {
+    preset,
+    value: resolved.value,
+    unit: resolved.unit,
+    durationDays: resolveCycleDurationDays({
+      preset,
+      value: resolved.value,
+      unit: resolved.unit,
+    }),
+  };
+}
+
+function resolveCycleReturnDurationInput(
+  partial: Partial<CreatePoolInvestmentCycleInput>
+): {
+  preset: ReturnDurationPreset;
+  value: number;
+  unit: ReturnDurationUnit;
+  durationDays: number;
+} {
+  const preset = partial.returnDurationPreset;
+  if (!preset) {
+    throw new Error("Payout duration is required for this cycle.");
+  }
+  const unit = partial.returnDurationUnit ?? "days";
+  const value = positiveNumber(partial.returnDurationValue) ?? (preset === "daily" ? 1 : null);
+  const validationError = validateCycleReturnDuration({ preset, value, unit });
+  if (validationError) throw new Error(validationError);
+  const resolved = resolveReturnDuration({ preset, value, unit });
+  return {
+    preset,
+    value: resolved.value,
+    unit: resolved.unit,
+    durationDays: resolveCycleDurationDays({
+      preset,
+      value: resolved.value,
+      unit: resolved.unit,
+    }),
+  };
+}
+
 function buildCycleInputFromPool(
   fund: Record<string, unknown>,
   fundId: string,
@@ -238,21 +302,23 @@ function buildCycleInputFromPool(
   if (!options.inheritPoolDefaults) {
     const targetCapital = positiveNumber(partial.targetCapital);
     const minInvestment = positiveNumber(partial.minInvestment);
-    const durationDays = positiveNumber(partial.durationDays);
     const targetInvestors = positiveNumber(partial.targetInvestors);
     if (!targetCapital) throw new Error("Target capital is required for this cycle.");
     if (!minInvestment) throw new Error("Minimum investment is required for this cycle.");
-    if (!durationDays) throw new Error("Trading duration is required for this cycle.");
     if (!targetInvestors) throw new Error("Target investors is required for this cycle.");
 
+    const returnDuration = resolveCycleReturnDurationInput(partial);
     const initialRaisedCapital = positiveNumber(partial.initialRaisedCapital) ?? undefined;
     return {
       fundId,
       name: partial.name?.trim() || `${poolName} — Cycle ${cycleNumber}`,
-      durationDays,
+      durationDays: returnDuration.durationDays,
       minInvestment,
       targetCapital,
       targetInvestors: Math.floor(targetInvestors),
+      returnDurationPreset: returnDuration.preset,
+      returnDurationValue: returnDuration.value,
+      returnDurationUnit: returnDuration.unit,
       initialRaisedCapital,
       maxCapacity:
         positiveNumber(partial.maxCapacity) ?? targetCapital,
@@ -262,6 +328,7 @@ function buildCycleInputFromPool(
     };
   }
 
+  const fundReturnDuration = readFundReturnDuration(fund);
   const targetCapital =
     positiveNumber(partial.targetCapital) ??
     positiveNumber(fund.target_capital) ??
@@ -271,19 +338,23 @@ function buildCycleInputFromPool(
     positiveNumber(fund.target_investors) ??
     positiveNumber(fund.max_investors_cap) ??
     10;
+  const inheritedReturnDuration = partial.returnDurationPreset
+    ? resolveCycleReturnDurationInput(partial)
+    : fundReturnDuration;
   return {
     fundId,
     name: partial.name?.trim() || `${poolName} — Cycle ${cycleNumber}`,
     durationDays:
-      positiveNumber(partial.durationDays) ??
-      positiveNumber(fund.pool_duration_days) ??
-      30,
+      positiveNumber(partial.durationDays) ?? inheritedReturnDuration.durationDays,
     minInvestment:
       positiveNumber(partial.minInvestment) ??
       positiveNumber(fund.min_investment) ??
       100,
     targetCapital,
     targetInvestors: Math.floor(targetInvestors),
+    returnDurationPreset: inheritedReturnDuration.preset,
+    returnDurationValue: inheritedReturnDuration.value,
+    returnDurationUnit: inheritedReturnDuration.unit,
     initialRaisedCapital: positiveNumber(partial.initialRaisedCapital) ?? undefined,
     maxCapacity:
       positiveNumber(partial.maxCapacity) ??
@@ -403,6 +474,9 @@ async function insertCycleFromPoolFund(
     maxCapacity: capacity.maxCapacity,
     maxInvestorsCap: targetInvestors,
     poolDurationDays: capacity.durationDays,
+    returnDurationPreset: resolvedInput.returnDurationPreset,
+    returnDurationValue: resolvedInput.returnDurationValue,
+    returnDurationUnit: resolvedInput.returnDurationUnit,
     roiMultipliers,
   });
 

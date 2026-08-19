@@ -18,6 +18,7 @@ import {
   CreateCycleForm,
   buildCreateCyclePayload,
   validateCreateCycleForm,
+  DEFAULT_CREATE_CYCLE_FORM_VALUES,
   type CreateCycleFormValues,
 } from "./create-cycle-form";
 import type { RoiMultiplierEntry } from "./pm-roi-multiplier-editor";
@@ -50,15 +51,7 @@ export function ManagedPoolCyclesPanel({
 }) {
   const router = useRouter();
   const [cycles, setCycles] = useState(initialCycles);
-  const [formValues, setFormValues] = useState<CreateCycleFormValues>({
-    name: "",
-    durationDays: "",
-    minInvestment: "",
-    targetCapital: "",
-    initialRaisedCapital: "",
-    targetInvestors: "",
-    multipliers: [],
-  });
+  const [formValues, setFormValues] = useState<CreateCycleFormValues>(DEFAULT_CREATE_CYCLE_FORM_VALUES);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,9 +86,21 @@ export function ManagedPoolCyclesPanel({
         if (cycle.raisedCapital > 0 && cycle.investorCount === 0) return String(cycle.raisedCapital);
         return "";
       };
+      const readReturnDurationFromCycle = (cycle: InvestmentCycle) => {
+        const snapshot = cycle.poolConfigSnapshot?.pool;
+        if (!snapshot?.returnDurationPreset) return null;
+        return {
+          preset: snapshot.returnDurationPreset,
+          value:
+            snapshot.returnDurationValue != null && snapshot.returnDurationValue > 0
+              ? String(snapshot.returnDurationValue)
+              : "1",
+          unit: snapshot.returnDurationUnit ?? "days",
+        };
+      };
+      const returnDuration = readReturnDurationFromCycle(lastCycle);
       return {
         ...prev,
-        durationDays: prev.durationDays || (lastCycle.durationDays != null ? String(lastCycle.durationDays) : ""),
         minInvestment:
           prev.minInvestment ||
           (lastCycle.minInvestment != null ? String(lastCycle.minInvestment) : ""),
@@ -106,6 +111,17 @@ export function ManagedPoolCyclesPanel({
         targetInvestors:
           prev.targetInvestors ||
           (lastCycle.targetInvestors != null ? String(lastCycle.targetInvestors) : ""),
+        returnDurationPreset:
+          prev.returnDurationPreset === DEFAULT_CREATE_CYCLE_FORM_VALUES.returnDurationPreset &&
+          returnDuration
+            ? returnDuration.preset
+            : prev.returnDurationPreset,
+        returnDurationValue:
+          prev.returnDurationValue === DEFAULT_CREATE_CYCLE_FORM_VALUES.returnDurationValue &&
+          returnDuration
+            ? returnDuration.value
+            : prev.returnDurationValue,
+        returnDurationUnit: returnDuration?.unit ?? prev.returnDurationUnit,
       };
     });
   }, [canCreate, lastCycle]);
@@ -141,12 +157,8 @@ export function ManagedPoolCyclesPanel({
       if (data.cycle) {
         setCycles((prev) => sortCyclesChronologically([...prev, data.cycle!]));
         setFormValues({
+          ...DEFAULT_CREATE_CYCLE_FORM_VALUES,
           name: `${poolName} — Cycle ${nextCycleNumber + 1}`,
-          durationDays: "",
-          minInvestment: "",
-          targetCapital: "",
-          initialRaisedCapital: "",
-          targetInvestors: "",
           multipliers: formValues.multipliers,
         });
         router.refresh();

@@ -45,7 +45,7 @@ export function MobileTradesPreview({ trades }: MobileTradesPreviewProps) {
   return (
     <section className="rounded-2xl bg-[var(--id-surface)] p-4 shadow-[var(--id-shadow)]">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-[var(--id-text)]">Pool Trades</h2>
+        <h2 className="text-sm font-semibold text-[var(--id-text)]">Recent Pool Trades</h2>
         <Link
           href={ROUTES.trades}
           className="text-xs font-medium text-[var(--id-accent-text)] hover:underline"
@@ -57,7 +57,7 @@ export function MobileTradesPreview({ trades }: MobileTradesPreviewProps) {
       <ul className="mt-2">
         {preview.length === 0 ? (
           <li className="py-6 text-center text-xs text-[var(--id-text-muted)]">
-            No pool trades recorded yet.
+            No recent pool trades yet.
           </li>
         ) : (
           preview.map((trade) => {

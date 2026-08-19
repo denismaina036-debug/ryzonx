@@ -660,8 +660,7 @@ export const investorService = {
   },
 
   async getTradesPageData(): Promise<{
-    runningTrades: InvestorDashboardTrade[];
-    closedTrades: InvestorDashboardTrade[];
+    recentTrades: InvestorDashboardTrade[];
   }> {
     await requireAuth();
     const supabase = await createClient();
@@ -671,12 +670,9 @@ export const investorService = {
       ...new Set([...wallet.participations.map((p) => p.fundId), ...listedFundIds]),
     ];
 
-    const trades = await fetchPublishedPoolTrades(supabase, fundIds, 100);
+    const recentTrades = await fetchPublishedPoolTrades(supabase, fundIds, 100);
 
-    return {
-      runningTrades: trades.filter((t) => t.isActive),
-      closedTrades: trades.filter((t) => !t.isActive),
-    };
+    return { recentTrades };
   },
 
   /** @deprecated Use getDashboardPageData */

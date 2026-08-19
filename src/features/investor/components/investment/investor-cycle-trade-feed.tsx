@@ -22,7 +22,7 @@ export function InvestorCycleTradeFeed({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-semibold text-[var(--id-text)]">Trading Journal</h2>
+            <h2 className="font-semibold text-[var(--id-text)]">Recent Pool Trades</h2>
             {live && (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
                 <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
@@ -31,7 +31,7 @@ export function InvestorCycleTradeFeed({
             )}
           </div>
           <p className="mt-1 text-sm text-[var(--id-text-muted)]">
-            Verified trades recorded by the pool manager with chart screenshots.
+            Recent verified trades recorded by the pool manager.
           </p>
         </div>
         <div className="w-full sm:max-w-xs">

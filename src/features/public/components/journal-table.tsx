@@ -177,7 +177,7 @@ export function JournalTable({ trades }: { trades: PublicJournalTrade[] }) {
       {totalPages > 1 && (
         <div className="mt-6 flex items-center justify-between">
           <p className="text-sm text-navy-500">
-            Page {page} of {totalPages} ({filtered.length} trades)
+            Page {page} of {totalPages}
           </p>
           <div className="flex gap-2">
             <Button

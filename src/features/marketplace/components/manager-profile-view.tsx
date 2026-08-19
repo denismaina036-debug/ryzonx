@@ -41,7 +41,7 @@ const BASE_PROFILE_TABS = [
   { id: "cycles", label: "Active Pools" },
   { id: "ratings", label: "Ratings" },
   { id: "opportunities", label: "Legacy Pools" },
-  { id: "journal", label: "Journal" },
+  { id: "journal", label: "Recent Pool Trades" },
 ] as const;
 
 type ProfileTab = (typeof BASE_PROFILE_TABS)[number]["id"];
@@ -422,7 +422,7 @@ export function ManagerProfileView({
       {resolvedTab === "journal" && journalEntries.length > 0 && (
         <div>
           <p className="mb-4 text-sm text-[var(--id-text-muted)]">
-            Public trading journal entries from this manager&apos;s listed opportunities.
+            Recent published trades from this manager&apos;s listed pool opportunities.
           </p>
           <div className="overflow-x-auto rounded-xl border border-[var(--id-border)]">
             <table className="w-full min-w-[640px] text-sm">

@@ -12,16 +12,12 @@ import {
   marketplaceHomeCrumb,
 } from "@/features/marketplace/components/marketplace-breadcrumb";
 import { formatShortCycleLabel } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import {
-  PoolActivityCurrentTab,
-  EMPTY_POOL_ACTIVITY_FILTERS,
-} from "@/features/marketplace/components/pool-activity/pool-activity-current-tab";
 import {
   PoolActivityJournalTab,
 } from "@/features/marketplace/components/pool-activity/pool-activity-journal-tab";
 import type { PoolActivityFiltersState } from "@/features/marketplace/components/pool-activity/pool-activity-filters";
+import { EMPTY_POOL_ACTIVITY_FILTERS } from "@/features/marketplace/components/pool-activity/pool-activity-current-tab";
 import { formatCurrency } from "@/lib/utils";
 
 interface PoolActivityViewProps {
@@ -29,14 +25,11 @@ interface PoolActivityViewProps {
 }
 
 export function PoolActivityView({ data }: PoolActivityViewProps) {
-  const [currentFilters, setCurrentFilters] =
-    useState<PoolActivityFiltersState>(EMPTY_POOL_ACTIVITY_FILTERS);
   const [journalFilters, setJournalFilters] =
     useState<PoolActivityFiltersState>(EMPTY_POOL_ACTIVITY_FILTERS);
 
   const displayName = data.displayPoolName || data.poolName;
   const activeCycle = data.activeCycle;
-  const tradesRecorded = activeCycle?.tradeCount ?? 0;
   const cycleProfit = activeCycle?.cycleProfit ?? 0;
 
   return (
@@ -56,7 +49,10 @@ export function PoolActivityView({ data }: PoolActivityViewProps) {
         <h1 className="text-xl font-semibold tracking-tight text-[var(--id-text)] sm:text-2xl">
           {displayName}
         </h1>
-        <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <p className="mt-2 text-sm text-[var(--id-text-muted)]">
+          Recent pool trades recorded by the manager in this pool&apos;s trading journal.
+        </p>
+        <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <HeaderStat
             label="Current Trading Cycle"
             value={formatShortCycleLabel(displayName, activeCycle, data.poolName)}
@@ -69,7 +65,6 @@ export function PoolActivityView({ data }: PoolActivityViewProps) {
                 : "—"
             }
           />
-          <HeaderStat label="Trades Recorded" value={String(tradesRecorded)} />
           <HeaderStat
             label="Current Cycle Profit"
             value={formatCurrency(cycleProfit)}
@@ -78,35 +73,15 @@ export function PoolActivityView({ data }: PoolActivityViewProps) {
         </dl>
       </header>
 
-      <Tabs defaultValue="current" className="w-full">
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1 sm:inline-flex sm:w-auto">
-          <TabsTrigger value="current" className="min-h-11 px-4">
-            Current Cycle
-          </TabsTrigger>
-          <TabsTrigger value="journal" className="min-h-11 px-4">
-            Pool Journal
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="current">
-          <PoolActivityCurrentTab
-            trades={data.currentCycleTrades}
-            cycles={data.cycles}
-            activeCycle={data.activeCycle}
-            filters={currentFilters}
-            onFiltersChange={setCurrentFilters}
-          />
-        </TabsContent>
-
-        <TabsContent value="journal">
-          <PoolActivityJournalTab
-            trades={data.journalTrades}
-            cycles={data.cycles}
-            filters={journalFilters}
-            onFiltersChange={setJournalFilters}
-          />
-        </TabsContent>
-      </Tabs>
+      <section>
+        <h2 className="mb-4 text-lg font-semibold text-[var(--id-text)]">Recent Pool Trades</h2>
+        <PoolActivityJournalTab
+          trades={data.journalTrades}
+          cycles={data.cycles}
+          filters={journalFilters}
+          onFiltersChange={setJournalFilters}
+        />
+      </section>
     </div>
   );
 }

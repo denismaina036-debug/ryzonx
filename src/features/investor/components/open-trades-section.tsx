@@ -25,11 +25,10 @@ const ASSET_ICONS: Record<string, string> = {
 
 export function PoolTradesSection({ trades }: PoolTradesSectionProps) {
   const poolTrades = trades.slice(0, 2);
-  const totalCount = trades.length;
 
   return (
     <DashboardCard
-      title={`Pool Trades${totalCount > 0 ? ` (${totalCount})` : ""}`}
+      title="Recent Pool Trades"
       headerAction={
         <Link
           href={ROUTES.trades}
@@ -41,7 +40,7 @@ export function PoolTradesSection({ trades }: PoolTradesSectionProps) {
     >
       {poolTrades.length === 0 ? (
         <p className="px-6 py-12 text-center text-sm text-[var(--id-text-muted)]">
-          No pool trades recorded yet. Trades from pool manager journals will appear here.
+          No recent pool trades yet. Trades from pool manager journals will appear here.
         </p>
       ) : (
         <div className={cn(dashboardCardBodyClass, "space-y-0 pt-0")}>

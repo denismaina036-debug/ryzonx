@@ -50,7 +50,10 @@ import {
   computeFundingProgressPct,
   computeRemainingCapital,
 } from "@/domain/investment/cycle-metrics";
-import { readCycleInitialRaisedCapital } from "@/domain/pools/pool-config-snapshot";
+import {
+  readCycleInitialRaisedCapital,
+  readCycleReturnDuration,
+} from "@/domain/pools/pool-config-snapshot";
 import { investmentCycleMetricsService } from "@/services/investment-cycle-metrics.service";
 import { poolRoiService } from "@/services/pool-roi.service";
 import { platformInvestmentLevelService } from "@/services/platform-investment-level.service";
@@ -104,6 +107,7 @@ type CycleRow = {
   investor_count: number | null;
   max_capacity: number | string | null;
   pool_config_snapshot: unknown;
+  duration_days: number | null;
 };
 
 const ACTIVE_CYCLE_PRIORITY: InvestmentCycleStatus[] = [
@@ -137,7 +141,7 @@ async function enrichPoolCards(
   const { data: cycleRows } = await db
     .from("investment_cycles")
     .select(
-      "id, fund_id, status, cycle_number, name, opening_date, closing_date, funding_deadline, funding_started_at, raised_capital, target_capital, min_investment, investor_count, max_capacity, pool_config_snapshot"
+      "id, fund_id, status, cycle_number, name, opening_date, closing_date, funding_deadline, funding_started_at, raised_capital, target_capital, min_investment, investor_count, max_capacity, duration_days, pool_config_snapshot"
     )
     .in("fund_id", poolIds)
     .in("status", ["funding", "trading", "distribution", "approved"]);
@@ -221,6 +225,7 @@ async function enrichPoolCards(
     const cycleInitialRaised = cycle
       ? readCycleInitialRaisedCapital(cycle.pool_config_snapshot)
       : 0;
+    const cycleReturnDuration = cycle ? readCycleReturnDuration(cycle.pool_config_snapshot) : null;
     const liveRaisedCapital = cycle
       ? cycleInitialRaised + allocationRaised
       : allocationRaised;
@@ -303,10 +308,17 @@ async function enrichPoolCards(
         managed.tradingStyle?.trim() || card.tradingStyle?.trim() || null,
       riskLevelTag: formatRiskLevelTag(card.aggressivenessLevel),
       expectedDurationLabel: formatReturnDurationLabel({
-        preset: (row.return_duration_preset as ReturnDurationPreset | null) ??
+        preset:
+          cycleReturnDuration?.preset ??
+          (row.return_duration_preset as ReturnDurationPreset | null) ??
           migrateLegacyPayoutPreset(managed.payoutDurationPreset),
-        value: (row.return_duration_value as number | null) ?? (row.pool_duration_days as number | null),
-        unit: (row.return_duration_unit as ReturnDurationUnit | null) ??
+        value:
+          cycleReturnDuration?.value ??
+          (row.return_duration_value as number | null) ??
+          (row.pool_duration_days as number | null),
+        unit:
+          cycleReturnDuration?.unit ??
+          (row.return_duration_unit as ReturnDurationUnit | null) ??
           (managed.durationUnit as ReturnDurationUnit | undefined) ??
           "days",
       }),
@@ -316,22 +328,28 @@ async function enrichPoolCards(
         time: managed.tradingScheduleTime,
         legacyDateTime: managed.tradingTimeNy,
       }) ?? managed.tradingHours ?? null,
-      returnDurationPreset: inferReturnDurationPreset({
+      returnDurationPreset: cycleReturnDuration?.preset ?? inferReturnDurationPreset({
         preset: row.return_duration_preset as ReturnDurationPreset | null,
         value: row.return_duration_value as number | null,
         unit: row.return_duration_unit as ReturnDurationUnit | null,
       }),
       returnDurationValue:
+        cycleReturnDuration?.value ??
         (row.return_duration_value as number | null) ??
         (row.pool_duration_days as number | null) ??
         1,
       returnDurationUnit:
-        (row.return_duration_unit as ReturnDurationUnit | null) ?? "days",
+        cycleReturnDuration?.unit ??
+        (row.return_duration_unit as ReturnDurationUnit | null) ??
+        "days",
       poolLevelLabel: formatPoolLevelLabel(card.capacityStatus),
       poolVerified: card.governanceVerified,
       managerRating: resolvedManagerRating,
       managerReviewCount: resolvePublicDisplayCount(seedReviewCount, liveReviewCount),
-      poolDurationDays: row.pool_duration_days as number | null,
+      poolDurationDays:
+        cycle?.duration_days != null
+          ? toNumber(cycle.duration_days)
+          : (row.pool_duration_days as number | null),
       },
       investmentLevels,
       multipliersByFund.get(card.id) ?? []

@@ -101,9 +101,6 @@ export function PoolActivityJournalTab({
                 >
                   <div>
                     <p className="font-semibold text-[var(--id-text)]">{cycle.name}</p>
-                    <p className="text-xs text-[var(--id-text-muted)]">
-                      {cycleTrades.length} trade{cycleTrades.length === 1 ? "" : "s"}
-                    </p>
                   </div>
                   <ChevronDown
                     className={cn(
