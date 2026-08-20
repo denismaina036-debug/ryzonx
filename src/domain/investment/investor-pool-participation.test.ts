@@ -149,4 +149,16 @@ describe("shouldShowPostCycleChoices", () => {
       })
     ).toBe(true);
   });
+
+  it("shows choices when distributed pool profit remains even if a funding cycle is open", () => {
+    expect(
+      shouldShowPostCycleChoices({
+        hasActiveTradingCycle: false,
+        hasActiveFundingCycle: true,
+        pendingSettlement: null,
+        displayCapitalInvested: 20_000,
+        poolProfit: 34_500,
+      })
+    ).toBe(true);
+  });
 });

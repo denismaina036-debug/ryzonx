@@ -101,9 +101,11 @@ export function shouldShowPostCycleChoices(input: {
     }
   }
 
+  if ((input.poolProfit ?? 0) > 0) return true;
+
   if (input.hasActiveFundingCycle) return false;
 
-  return input.displayCapitalInvested > 0 || (input.poolProfit ?? 0) > 0;
+  return input.displayCapitalInvested > 0;
 }
 
 export function resolvePostCycleCapitalAmount(input: {

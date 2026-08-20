@@ -97,11 +97,12 @@ export function CurrentInvestmentCard({
             <div className="mt-6">
               {primaryPoolView?.showPostCycleChoices ? (
                 <PoolPostCycleChoicesFromView pool={primaryPoolView} />
-              ) : !primaryPoolView || primaryPoolView.hasActiveTradingCycle ? (
+              ) : (primaryPoolView?.poolProfit ?? primary!.poolProfit) > 0 ||
+                primaryPoolView?.hasActiveTradingCycle ? (
                 <PoolProfitActions
                   fundId={primary!.fundId}
                   poolName={poolName}
-                  availableProfit={primary!.poolProfit}
+                  availableProfit={primaryPoolView?.poolProfit ?? primary!.poolProfit}
                 />
               ) : null}
             </div>

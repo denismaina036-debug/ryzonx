@@ -100,7 +100,7 @@ export default async function MyInvestmentsPage() {
 
                 {pool.showPostCycleChoices ? (
                   <PoolPostCycleChoicesFromView pool={pool} compact />
-                ) : pool.hasActiveTradingCycle ? (
+                ) : pool.poolProfit > 0 || pool.hasActiveTradingCycle ? (
                   <PoolProfitActions
                     fundId={pool.fundId}
                     poolName={pool.poolName}
