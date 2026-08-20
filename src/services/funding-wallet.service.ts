@@ -106,8 +106,10 @@ export const fundingWalletService = {
       throw new Error("Amount must be greater than zero.");
     }
 
-    const projection = await this.getProjection(input.investorId);
-    if (amount > projection.available + 0.004) {
+    const spendable = await walletProjectionService.getSpendableForPoolInvestment(
+      input.investorId
+    );
+    if (amount > spendable + 0.004) {
       throw new Error(
         "Insufficient available balance. You cannot invest more than your approved wallet deposits across all pools."
       );

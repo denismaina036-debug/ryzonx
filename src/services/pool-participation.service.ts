@@ -283,9 +283,9 @@ export const poolParticipationService = {
 
     const { walletProjectionService } = await import("@/services/wallet-projection.service");
     const { fundingWalletService } = await import("@/services/funding-wallet.service");
-    const projection = await walletProjectionService.getForInvestor(user.id);
+    const spendable = await walletProjectionService.getSpendableForPoolInvestment(user.id);
 
-    if (amount > projection.available + 0.004) {
+    if (amount > spendable + 0.004) {
       throw new Error(
         "Insufficient available balance. You cannot invest more than your approved wallet deposits across all pools."
       );
@@ -768,6 +768,9 @@ export const poolParticipationService = {
           },
         ],
       });
+
+      const { fundingWalletService } = await import("@/services/funding-wallet.service");
+      await fundingWalletService.adjustLegacyAvailableBalance(user.id, walletDebit);
     }
 
     const invested = toNumber(poolRow.total_invested);

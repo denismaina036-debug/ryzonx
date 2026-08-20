@@ -600,6 +600,8 @@ export const cycleInvestorSettlementService = {
       ],
     });
 
+    const { fundingWalletService } = await import("@/services/funding-wallet.service");
+    await fundingWalletService.adjustLegacyAvailableBalance(user.id, transferAmount);
 
     const profitNotes = `Cycle profit transferred to Funding Wallet — ${settlement.cycleName}`;
     const { data: profitTx, error: profitTxError } = await db

@@ -45,12 +45,9 @@ async function getLegacyAvailableBalance(investorId: string): Promise<number> {
     .eq("fund_id", DEFAULT_FUND_ID)
     .maybeSingle();
 
-  const rawAvailable = toNumber(
+  return toNumber(
     (walletPortfolio as { available_balance?: number | string } | null)?.available_balance
   );
-  const remainingFromDeposits = await getRemainingDeployableFromDeposits(investorId);
-
-  return Math.min(rawAvailable, remainingFromDeposits);
 }
 
 function roundMoney(value: number): number {
@@ -104,11 +101,10 @@ async function getLegacyFundedWithdrawalTotal(investorId: string): Promise<numbe
 
 export const walletProjectionService = {
   async getForInvestor(investorId: string): Promise<WalletProjection> {
-    const [legacyAvailable, legacyWithdrawals, pending, depositCap] = await Promise.all([
+    const [legacyAvailable, legacyWithdrawals, pending] = await Promise.all([
       getLegacyAvailableBalance(investorId),
       getLegacyFundedWithdrawalTotal(investorId),
       getPendingAllocationTotal(investorId),
-      getRemainingDeployableFromDeposits(investorId),
     ]);
 
     try {
@@ -120,10 +116,9 @@ export const walletProjectionService = {
       ]);
 
       const hasLedgerActivity = availableLedger !== 0 || reserved !== 0 || settled !== 0;
-      const ledgerAvailable = hasLedgerActivity
+      const available = hasLedgerActivity
         ? Math.max(0, Math.round((availableLedger - legacyWithdrawals) * 100) / 100)
         : legacyAvailable;
-      const available = Math.min(ledgerAvailable, depositCap);
       const source: WalletProjection["source"] = hasLedgerActivity ? "ledger" : "legacy";
 
       return {
@@ -144,5 +139,14 @@ export const walletProjectionService = {
         source: "legacy",
       };
     }
+  },
+
+  /** Deposit headroom for new pool investments — not applied to funding wallet display. */
+  async getSpendableForPoolInvestment(investorId: string): Promise<number> {
+    const [projection, depositCap] = await Promise.all([
+      this.getForInvestor(investorId),
+      getRemainingDeployableFromDeposits(investorId),
+    ]);
+    return Math.min(projection.available, depositCap);
   },
 };

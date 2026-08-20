@@ -86,10 +86,12 @@ export const settlementService = {
     const amount = Number(allocation.amount);
     assertPositiveAmount(amount);
 
-    const projection = await walletProjectionService.getForInvestor(allocation.investor_id);
-    if (projection.available < amount) {
+    const spendable = await walletProjectionService.getSpendableForPoolInvestment(
+      allocation.investor_id
+    );
+    if (spendable < amount) {
       throw new Error(
-        `Insufficient available balance. Required ${amount}, available ${projection.available}.`
+        `Insufficient available balance. Required ${amount}, available ${spendable}.`
       );
     }
 

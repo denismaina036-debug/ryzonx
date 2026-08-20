@@ -86,10 +86,8 @@ export const walletService = {
       last_deposit_at: string | null;
     }>;
 
-    const walletRow = allRows.find((row) => row.fund_id === DEFAULT_FUND_ID);
-    const legacyBalance = toNumber(walletRow?.available_balance);
     const projection = await walletProjectionService.getForInvestor(user.id);
-    const balance = projection.source === "ledger" ? projection.available : legacyBalance;
+    const balance = projection.available;
 
     const participationRows = allRows
       .filter((row) => toNumber(row.total_invested) > 0)
