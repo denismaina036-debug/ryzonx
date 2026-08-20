@@ -7,6 +7,7 @@ import {
   multiplierToDisplayPct,
   resolveRoiMultiplier,
 } from "@/features/investor/types/pool-participation";
+import { fundingWalletService } from "@/services/funding-wallet.service";
 import { walletProjectionService } from "@/services/wallet-projection.service";
 import { investorProfitWalletService } from "@/services/investment-engine/investor-profit-wallet.service";
 import { platformInvestmentLevelService } from "@/services/platform-investment-level.service";
@@ -86,6 +87,7 @@ export const walletService = {
       last_deposit_at: string | null;
     }>;
 
+    await fundingWalletService.reconcileLegacyAvailable(user.id).catch(() => undefined);
     const projection = await walletProjectionService.getForInvestor(user.id);
     const balance = projection.available;
 

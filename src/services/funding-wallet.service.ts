@@ -18,6 +18,44 @@ export const fundingWalletService = {
     return projection.source === "ledger";
   },
 
+  async setLegacyAvailableBalance(
+    investorId: string,
+    balance: number,
+    fundId: string = DEFAULT_FUND_ID
+  ): Promise<void> {
+    const db = createAdminClient();
+    const nextBalance = roundMoney(Math.max(0, balance));
+
+    const { error } = await db
+      .from("investor_portfolios")
+      .update({ available_balance: nextBalance } as never)
+      .eq("user_id", investorId)
+      .eq("fund_id", fundId);
+
+    if (error) throw new Error(error.message);
+  },
+
+  /** Align legacy funding wallet with ledger-backed available balance when they diverge. */
+  async reconcileLegacyAvailable(investorId: string): Promise<void> {
+    const projection = await walletProjectionService.getForInvestor(investorId);
+    if (projection.source !== "ledger") return;
+
+    const db = createAdminClient();
+    const { data: portfolio } = await db
+      .from("investor_portfolios")
+      .select("available_balance")
+      .eq("user_id", investorId)
+      .eq("fund_id", DEFAULT_FUND_ID)
+      .maybeSingle();
+
+    const legacy = toNumber(
+      (portfolio as { available_balance?: number | string } | null)?.available_balance
+    );
+
+    if (Math.abs(legacy - projection.available) <= 0.004) return;
+    await this.setLegacyAvailableBalance(investorId, projection.available);
+  },
+
   async adjustLegacyAvailableBalance(
     investorId: string,
     delta: number,
@@ -106,6 +144,7 @@ export const fundingWalletService = {
       throw new Error("Amount must be greater than zero.");
     }
 
+    const projection = await this.getProjection(input.investorId);
     const spendable = await walletProjectionService.getSpendableForPoolInvestment(
       input.investorId
     );

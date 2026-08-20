@@ -842,11 +842,16 @@ export const poolParticipationService = {
           sourceType: "investor_portfolio_profit",
           sourceId: fundId,
           actorId: user.id,
-          syncLegacy: false,
         });
       } else {
         await fundingWalletService.adjustLegacyAvailableBalance(user.id, portfolioDebit);
       }
+    }
+
+    {
+      const { fundingWalletService } = await import("@/services/funding-wallet.service");
+      const projection = await fundingWalletService.getProjection(user.id);
+      await fundingWalletService.setLegacyAvailableBalance(user.id, projection.available);
     }
 
     const profitNotes = `Pool profit transferred to Funding Wallet — ${poolName}`;
