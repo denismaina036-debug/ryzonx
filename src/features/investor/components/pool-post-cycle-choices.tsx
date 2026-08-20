@@ -32,7 +32,10 @@ export function PoolPostCycleChoices({
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
 
-  const capitalPending = capitalAmount > 0 && !(settlement?.capitalResolved ?? false);
+  const capitalPending =
+    settlement != null &&
+    settlement.principalAmount > 0 &&
+    !settlement.capitalResolved;
   const profitPending = profitAmount > 0 && !(settlement?.profitResolved ?? false);
   const capitalAwaitingAdmin = settlement?.status === "capital_withdrawal_requested";
 
@@ -94,14 +97,16 @@ export function PoolPostCycleChoices({
   async function transferProfit() {
     setLoading("transfer-profit");
     try {
-      const settlementId = await resolveSettlementId();
-      const res = await fetch(
-        `/api/investor/cycle-settlements/${settlementId}/transfer-profit`,
-        { method: "POST" }
-      );
+      const res = await fetch(`/api/investor/pools/${fundId}/transfer-profit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: profitAmount }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Request failed");
-      toast.success(`${formatCurrency(profitAmount)} moved to your Funding Wallet.`);
+      toast.success(
+        `${formatCurrency(data.transferred ?? profitAmount)} moved to your Funding Wallet.`
+      );
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
