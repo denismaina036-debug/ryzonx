@@ -85,7 +85,7 @@ export function shouldShowPostCycleChoices(input: {
   displayCapitalInvested: number;
   poolProfit?: number;
 }): boolean {
-  if (input.hasActiveTradingCycle || input.hasActiveFundingCycle) return false;
+  if (input.hasActiveTradingCycle) return false;
 
   if (input.pendingSettlement) {
     const profitPending =
@@ -100,6 +100,8 @@ export function shouldShowPostCycleChoices(input: {
       return true;
     }
   }
+
+  if (input.hasActiveFundingCycle) return false;
 
   return input.displayCapitalInvested > 0 || (input.poolProfit ?? 0) > 0;
 }

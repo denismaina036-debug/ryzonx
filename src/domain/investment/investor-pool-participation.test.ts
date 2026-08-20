@@ -138,4 +138,15 @@ describe("shouldShowPostCycleChoices", () => {
       })
     ).toBe(true);
   });
+
+  it("shows choices for unresolved settlements even when a funding cycle is open", () => {
+    expect(
+      shouldShowPostCycleChoices({
+        hasActiveTradingCycle: false,
+        hasActiveFundingCycle: true,
+        pendingSettlement: sampleSettlement,
+        displayCapitalInvested: 20_000,
+      })
+    ).toBe(true);
+  });
 });
