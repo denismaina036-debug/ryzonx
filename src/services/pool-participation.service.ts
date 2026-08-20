@@ -287,7 +287,7 @@ export const poolParticipationService = {
 
     if (amount > spendable + 0.004) {
       throw new Error(
-        "Insufficient available balance. You cannot invest more than your approved wallet deposits across all pools."
+        "Insufficient available balance. Add funds to your Funding Wallet or reduce the investment amount."
       );
     }
 

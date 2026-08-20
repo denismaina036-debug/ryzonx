@@ -8,34 +8,6 @@ function toNumber(value: string | number | null | undefined): number {
   return typeof value === "number" ? value : Number(value);
 }
 
-async function getRemainingDeployableFromDeposits(investorId: string): Promise<number> {
-  const db = createAdminClient();
-  const { data: walletPortfolio } = await db
-    .from("investor_portfolios")
-    .select("total_deposits")
-    .eq("user_id", investorId)
-    .eq("fund_id", DEFAULT_FUND_ID)
-    .maybeSingle();
-
-  const totalDeposits = toNumber(
-    (walletPortfolio as { total_deposits?: number | string } | null)?.total_deposits
-  );
-
-  const { data: deployedRows } = await db
-    .from("investor_portfolios")
-    .select("total_invested")
-    .eq("user_id", investorId)
-    .neq("fund_id", DEFAULT_FUND_ID)
-    .gt("total_invested", 0);
-
-  const deployedToPools = ((deployedRows ?? []) as Array<{ total_invested: number | string }>).reduce(
-    (sum, row) => sum + toNumber(row.total_invested),
-    0
-  );
-
-  return Math.max(0, roundMoney(totalDeposits - deployedToPools));
-}
-
 async function getLegacyAvailableBalance(investorId: string): Promise<number> {
   const db = createAdminClient();
   const { data: walletPortfolio } = await db
@@ -141,12 +113,12 @@ export const walletProjectionService = {
     }
   },
 
-  /** Deposit headroom for new pool investments — not applied to funding wallet display. */
+  /**
+   * Amount that can be invested from the funding wallet.
+   * Matches displayed available balance (deposits + transferred profit, after prior investments).
+   */
   async getSpendableForPoolInvestment(investorId: string): Promise<number> {
-    const [projection, depositCap] = await Promise.all([
-      this.getForInvestor(investorId),
-      getRemainingDeployableFromDeposits(investorId),
-    ]);
-    return Math.min(projection.available, depositCap);
+    const projection = await this.getForInvestor(investorId);
+    return projection.available;
   },
 };
