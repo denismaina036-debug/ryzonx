@@ -218,5 +218,7 @@ export const MOCK_RECENT_CRYPTO_DEPOSITS: RecentCryptoDeposit[] = [
     cryptoAmount: 500,
     status: "completed",
     createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+    paymentMethod: "crypto",
+    kesAmount: null,
   },
 ];

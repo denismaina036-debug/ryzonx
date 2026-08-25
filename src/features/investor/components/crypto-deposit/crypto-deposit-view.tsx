@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Copy, Search } from "lucide-react";
+import { ArrowLeft, Bitcoin, ChevronRight, Copy, Search, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,7 @@ import type {
   CryptoDepositNetwork,
   CryptoDepositPageData,
 } from "@/features/investor/types/deposit";
+import { MpesaDepositPanel } from "@/features/investor/components/mobile-payment/mpesa-deposit-panel";
 
 interface CryptoDepositViewProps {
   data: CryptoDepositPageData;
@@ -32,6 +33,7 @@ const POPULAR_SYMBOLS = ["USDT", "USDC", "BNB", "BTC", "SOL"];
 
 export function CryptoDepositView({ data }: CryptoDepositViewProps) {
   const router = useRouter();
+  const [fundingMethod, setFundingMethod] = useState<"crypto" | "mobile" | null>(null);
   const [search, setSearch] = useState("");
   const [selectedAsset, setSelectedAsset] = useState<CryptoDepositAsset | null>(null);
   const [selectedNetwork, setSelectedNetwork] = useState<CryptoDepositNetwork | null>(null);
@@ -158,8 +160,8 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
   return (
     <div className="mx-auto max-w-[1200px]">
       <RyvonxPageHeader
-        title="Deposit Crypto"
-        description={`${data.fundName} · Min deposit ${formatCurrency(data.minInvestment)} · Enter USD amount, send crypto, then mark as sent.`}
+        title="Deposit Funds"
+        description={`${data.fundName} · Minimum deposit ${formatCurrency(data.minInvestment)} · Choose how you want to fund your Ryvonx wallet.`}
       />
 
       <div className="mb-6 rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] px-5 py-4 shadow-[var(--id-shadow)]">
@@ -174,7 +176,34 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
+      {!fundingMethod ? (
+        <section className="mb-8">
+          <h2 className="text-base font-semibold text-[var(--id-text)]">Choose a deposit method</h2>
+          <p className="mt-1 text-sm text-[var(--id-text-muted)]">Both methods credit the same USD Funding Wallet after confirmation.</p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <button type="button" onClick={() => setFundingMethod("crypto")} className="group rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5 text-left shadow-[var(--id-shadow)] transition hover:border-[var(--id-accent)]">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--id-accent-soft)] text-[var(--id-accent-text)]"><Bitcoin className="h-5 w-5" /></span>
+              <span className="mt-4 block text-base font-semibold text-[var(--id-text)]">Deposit Crypto</span>
+              <span className="mt-1 block text-sm leading-6 text-[var(--id-text-muted)]">Send supported crypto directly to the provided Ryvonx wallet address.</span>
+              <span className="mt-4 flex items-center text-sm font-semibold text-[var(--id-accent-text)]">Continue with crypto <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5" /></span>
+            </button>
+            <button type="button" onClick={() => setFundingMethod("mobile")} className="group rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5 text-left shadow-[var(--id-shadow)] transition hover:border-emerald-500">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600"><Smartphone className="h-5 w-5" /></span>
+              <span className="mt-4 block text-base font-semibold text-[var(--id-text)]">Mobile Pay</span>
+              <span className="mt-1 block text-sm leading-6 text-[var(--id-text-muted)]">Pay from your phone using M-Pesa STK Push. Airtel Money is coming soon.</span>
+              <span className="mt-4 flex items-center text-sm font-semibold text-emerald-600">Continue with mobile pay <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5" /></span>
+            </button>
+          </div>
+        </section>
+      ) : (
+        <button type="button" onClick={() => setFundingMethod(null)} className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--id-accent-text)] hover:underline"><ArrowLeft className="h-4 w-4" /> Change deposit method</button>
+      )}
+
+      {fundingMethod === "mobile" && (
+        <MpesaDepositPanel config={data.mobilePayment} minimumUsd={data.minInvestment} onCompleted={() => router.refresh()} />
+      )}
+
+      {fundingMethod === "crypto" && <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
         <div className="overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow-lg)]">
           {/* Step 1 — Select Coin */}
           <CryptoFlowStep
@@ -481,7 +510,7 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
             ))}
           </ul>
         </aside>
-      </div>
+      </div>}
 
       <section className="mt-8 overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow)]">
         <div className="flex items-center justify-between border-b border-[var(--id-border)] px-5 py-4 sm:px-6">
@@ -511,7 +540,7 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
                   <div>
                     <p className="text-sm font-semibold text-[var(--id-text)]">Deposit</p>
                     <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">
-                      {dep.symbol} • {dep.network}
+                      {dep.paymentMethod === "mpesa" ? "M-Pesa · Mobile Pay" : `${dep.symbol} • ${dep.network}`}
                     </p>
                     <p className="mt-0.5 text-xs text-[var(--id-text-faint)]">
                       {new Date(dep.createdAt).toLocaleDateString("en-US", {
@@ -528,6 +557,11 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
                     {dep.cryptoAmount != null && dep.cryptoAmount > 0 && (
                       <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">
                         ≈ {formatCryptoAmount(dep.cryptoAmount, dep.symbol)} {dep.symbol}
+                      </p>
+                    )}
+                    {dep.paymentMethod === "mpesa" && dep.kesAmount != null && (
+                      <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">
+                        Paid KES {dep.kesAmount.toLocaleString()}
                       </p>
                     )}
                     <StatusPill status={dep.status} />

@@ -39,6 +39,8 @@ export interface RecentCryptoDeposit {
   cryptoAmount: number | null;
   status: string;
   createdAt: string;
+  paymentMethod: string;
+  kesAmount: number | null;
 }
 
 export interface CryptoDepositPageData {
@@ -49,6 +51,7 @@ export interface CryptoDepositPageData {
   minInvestment: number;
   fundName: string;
   fundingWalletBalance: number;
+  mobilePayment: MobilePaymentConfig;
 }
 
 export interface SubmitCryptoDepositInput {
@@ -59,3 +62,4 @@ export interface SubmitCryptoDepositInput {
   amount: number;
   txHash?: string;
 }
+import type { MobilePaymentConfig } from "@/features/investor/types/mobile-payment";

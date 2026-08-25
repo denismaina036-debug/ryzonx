@@ -6,7 +6,13 @@ import { FeaturedPoolManagerCarousel } from "@/features/public/components/featur
 export async function FeaturedPoolManagersSection() {
   const [content, managers] = await Promise.all([
     landingPageService.getPublicContent(),
-    landingFeaturedManagersService.getTopManagers(5),
+    landingFeaturedManagersService.getTopManagers(5).catch((error: unknown) => {
+      console.warn(
+        "[landing] featured managers unavailable — hiding optional section.",
+        error instanceof Error ? error.message : "Unknown error"
+      );
+      return [];
+    }),
   ]);
 
   if (managers.length === 0) return null;

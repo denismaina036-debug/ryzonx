@@ -24,6 +24,7 @@ import type {
   SubmitCryptoDepositInput,
 } from "@/features/investor/types/deposit";
 import type { Tables } from "@/types/database.types";
+import { mobilePaymentService } from "@/services/mobile-payment.service";
 
 type WalletRow = Tables<"crypto_deposit_wallets">;
 
@@ -107,6 +108,8 @@ function mapRecentDeposit(row: {
   status: string;
   created_at: string;
   notes?: string | null;
+  payment_method?: string | null;
+  metadata?: Record<string, unknown> | null;
 }): RecentCryptoDeposit {
   const meta = resolveCryptoDepositFields(row);
 
@@ -118,6 +121,13 @@ function mapRecentDeposit(row: {
     cryptoAmount: meta.cryptoAmount,
     status: row.status,
     createdAt: row.created_at,
+    paymentMethod: row.payment_method ?? "crypto",
+    kesAmount:
+      typeof row.metadata?.kesAmount === "number"
+        ? row.metadata.kesAmount
+        : typeof row.metadata?.kesAmount === "string"
+          ? Number(row.metadata.kesAmount)
+          : null,
   };
 }
 
@@ -165,7 +175,7 @@ async function fetchRecentDeposits(userId: string) {
   const withCrypto = await db
     .from("transactions")
     .select(
-      "id, amount, crypto_symbol, crypto_network, crypto_amount, status, created_at, notes"
+      "id, amount, crypto_symbol, crypto_network, crypto_amount, status, created_at, notes, payment_method, metadata"
     )
     .eq("user_id", userId)
     .eq("type", "deposit")
@@ -231,6 +241,7 @@ export const depositService = {
       minInvestment: toNumber(fund?.min_investment) || 100,
       fundName: fund?.name ?? DEFAULT_FUND_NAME,
       fundingWalletBalance: projection.available,
+      mobilePayment: await mobilePaymentService.getConfig(),
     };
   },
 

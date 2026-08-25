@@ -19,7 +19,13 @@ import {
 
 export async function JournalPreviewSection() {
   const [trades, content] = await Promise.all([
-    publicJournalService.listRecent(5),
+    publicJournalService.listRecent(5).catch((error: unknown) => {
+      console.warn(
+        "[landing] recent trades unavailable — showing empty journal preview.",
+        error instanceof Error ? error.message : "Unknown error"
+      );
+      return [];
+    }),
     landingPageService.getPublicContent(),
   ]);
 
