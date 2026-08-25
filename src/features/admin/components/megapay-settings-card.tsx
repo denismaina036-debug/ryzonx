@@ -41,7 +41,7 @@ export function MegaPaySettingsCard({ initialConfig, preview = false }: { initia
         body: JSON.stringify({
           enabled,
           accountEmail,
-          kesPerUsd: Number(kesPerUsd),
+          kesPerUsd: kesPerUsd.trim() ? Number(kesPerUsd) : null,
           ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
           initiateUrl,
           statusUrl,
@@ -78,7 +78,7 @@ export function MegaPaySettingsCard({ initialConfig, preview = false }: { initia
           </div>
           <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-[var(--id-text-secondary)]">
             <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} className="h-4 w-4 accent-emerald-600" />
-            M-Pesa enabled
+            Mobile Pay available to clients
           </label>
         </div>
       </CardHeader>
@@ -178,7 +178,7 @@ export function MegaPaySettingsCard({ initialConfig, preview = false }: { initia
 
         <div className="flex items-center justify-between gap-4 border-t border-[var(--id-border)] pt-5">
           <p className="text-xs text-[var(--id-text-faint)]">{config.updatedAt ? `Last updated ${new Date(config.updatedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC` : "Using rollout configuration"}</p>
-          <Button type="button" onClick={() => void save()} disabled={preview || saving || !accountEmail.trim() || !kesPerUsd || !initiateUrl || !statusUrl || !requestTimeoutMs || !merchantDisplayName.trim() || (!config.apiKeyConfigured && !apiKey.trim())}>{saving ? "Saving…" : "Save MegaPay Settings"}</Button>
+          <Button type="button" onClick={() => void save()} disabled={preview || saving || !initiateUrl || !statusUrl || !requestTimeoutMs || !merchantDisplayName.trim() || (enabled && (!accountEmail.trim() || !kesPerUsd || !webhookRegistered || (!config.apiKeyConfigured && !apiKey.trim())))}>{saving ? "Saving…" : "Save MegaPay Settings"}</Button>
         </div>
       </CardContent>
     </Card>

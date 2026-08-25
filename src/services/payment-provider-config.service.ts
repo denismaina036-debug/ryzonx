@@ -51,8 +51,8 @@ export type MegaPayRuntimeConfig = {
 
 const updateSchema = z.object({
   enabled: z.boolean(),
-  accountEmail: z.string().trim().email(),
-  kesPerUsd: z.coerce.number().positive().max(10_000),
+  accountEmail: z.union([z.string().trim().email(), z.literal("")]),
+  kesPerUsd: z.union([z.coerce.number().positive().max(10_000), z.null()]),
   apiKey: z.string().trim().max(500).optional(),
   initiateUrl: z.string().url().refine((value) => value.startsWith("https://"), "Initiation URL must use HTTPS."),
   statusUrl: z.string().url().refine((value) => value.startsWith("https://"), "Status URL must use HTTPS."),
@@ -147,8 +147,11 @@ export const paymentProviderConfigService = {
     const parsed = updateSchema.parse(input);
     const existing = await row();
     const apiKey = parsed.apiKey?.trim();
-    if (!apiKey && !existing?.encrypted_api_key && !process.env.MEGAPAY_API_KEY) {
+    if (parsed.enabled && !apiKey && !existing?.encrypted_api_key && !process.env.MEGAPAY_API_KEY) {
       throw new Error("Enter a MegaPay API key before enabling the provider.");
+    }
+    if (parsed.enabled && (!parsed.accountEmail || !parsed.kesPerUsd || !parsed.webhookRegistered)) {
+      throw new Error("Complete the merchant email, conversion rate, and webhook setup before enabling M-Pesa.");
     }
     if (apiKey && !encryptionConfigured()) {
       throw new Error("Configure PAYMENT_CONFIG_ENCRYPTION_KEY on the server before saving an API key.");

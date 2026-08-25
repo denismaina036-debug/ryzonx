@@ -33,7 +33,10 @@ const POPULAR_SYMBOLS = ["USDT", "USDC", "BNB", "BTC", "SOL"];
 
 export function CryptoDepositView({ data }: CryptoDepositViewProps) {
   const router = useRouter();
-  const [fundingMethod, setFundingMethod] = useState<"crypto" | "mobile" | null>(null);
+  const mobilePayEnabled = data.mobilePayment.enabled;
+  const [fundingMethod, setFundingMethod] = useState<"crypto" | "mobile" | null>(
+    mobilePayEnabled ? null : "crypto"
+  );
   const [search, setSearch] = useState("");
   const [selectedAsset, setSelectedAsset] = useState<CryptoDepositAsset | null>(null);
   const [selectedNetwork, setSelectedNetwork] = useState<CryptoDepositNetwork | null>(null);
@@ -161,7 +164,7 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
     <div className="mx-auto max-w-[1200px]">
       <RyvonxPageHeader
         title="Deposit Funds"
-        description={`${data.fundName} · Minimum deposit ${formatCurrency(data.minInvestment)} · Choose how you want to fund your Ryvonx wallet.`}
+        description={`${data.fundName} · Minimum deposit ${formatCurrency(data.minInvestment)} · ${mobilePayEnabled ? "Choose how you want to fund your Ryvonx wallet." : "Deposit crypto directly to your Ryvonx wallet."}`}
       />
 
       <div className="mb-6 rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] px-5 py-4 shadow-[var(--id-shadow)]">
@@ -176,7 +179,7 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
         </p>
       </div>
 
-      {!fundingMethod ? (
+      {mobilePayEnabled && !fundingMethod ? (
         <section className="mb-8">
           <h2 className="text-base font-semibold text-[var(--id-text)]">Choose a deposit method</h2>
           <p className="mt-1 text-sm text-[var(--id-text-muted)]">Both methods credit the same USD Funding Wallet after confirmation.</p>
@@ -195,11 +198,11 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
             </button>
           </div>
         </section>
-      ) : (
+      ) : mobilePayEnabled ? (
         <button type="button" onClick={() => setFundingMethod(null)} className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--id-accent-text)] hover:underline"><ArrowLeft className="h-4 w-4" /> Change deposit method</button>
-      )}
+      ) : null}
 
-      {fundingMethod === "mobile" && (
+      {mobilePayEnabled && fundingMethod === "mobile" && (
         <MpesaDepositPanel config={data.mobilePayment} minimumUsd={data.minInvestment} onCompleted={() => router.refresh()} />
       )}
 
