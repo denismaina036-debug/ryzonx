@@ -1,12 +1,6 @@
 import { z } from "zod";
 import { paymentProviderConfigService } from "@/services/payment-provider-config.service";
-
-const initiateResponseSchema = z.object({
-  success: z.union([z.string(), z.number()]).optional(),
-  massage: z.string().optional(),
-  message: z.string().optional(),
-  transaction_request_id: z.string().min(1),
-}).passthrough();
+import { megaPayInitiateResponseSchema } from "@/services/megapay.schemas";
 
 const statusResponseSchema = z.object({
   ResultCode: z.union([z.string(), z.number()]),
@@ -74,7 +68,7 @@ export const megaPayService = {
       msisdn: input.phone,
       reference: input.reference,
     }, config.requestTimeoutMs);
-    return initiateResponseSchema.parse(payload);
+    return megaPayInitiateResponseSchema.parse(payload);
   },
 
   async status(transactionRequestId: string) {
