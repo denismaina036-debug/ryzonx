@@ -54,12 +54,54 @@ async function sumTotalCapital(db: ReturnType<typeof createAdminClient>): Promis
 }
 
 async function countTotalInvestors(db: ReturnType<typeof createAdminClient>): Promise<number> {
-  const { count, error } = await db
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .eq("role", "investor");
-  if (error) return 0;
-  return count ?? 0;
+  const { data: funds, error: fundsError } = await db
+    .from("funds")
+    .select("pool_manager_id, display_active_investors, active_investors")
+    .eq("lifecycle_status", "live")
+    .eq("status", "active")
+    .eq("is_marketplace_listed", true);
+
+  if (fundsError || !funds) return 0;
+
+  const managerIds = [
+    ...new Set(
+      (funds as Array<{ pool_manager_id: string | null }>)
+        .map((fund) => fund.pool_manager_id)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
+
+  const managerBaselines = new Map<string, number>();
+  if (managerIds.length > 0) {
+    const { data: managers, error: managersError } = await db
+      .from("pool_managers")
+      .select("id, display_investor_count")
+      .in("id", managerIds);
+
+    if (managersError) return 0;
+
+    for (const manager of (managers ?? []) as Array<{
+      id: string;
+      display_investor_count: number;
+    }>) {
+      managerBaselines.set(manager.id, toNumber(manager.display_investor_count));
+    }
+  }
+
+  return (
+    funds as Array<{
+      pool_manager_id: string | null;
+      display_active_investors: number;
+      active_investors: number;
+    }>
+  ).reduce((total, fund) => {
+    const adminBaseline = Math.max(
+      toNumber(fund.display_active_investors),
+      fund.pool_manager_id ? managerBaselines.get(fund.pool_manager_id) ?? 0 : 0
+    );
+    const additionalInvestors = toNumber(fund.active_investors);
+    return total + adminBaseline + additionalInvestors;
+  }, 0);
 }
 
 async function countSupportedBrokers(): Promise<number> {

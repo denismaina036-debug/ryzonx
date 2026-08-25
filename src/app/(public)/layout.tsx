@@ -6,6 +6,9 @@ import { LegalLinksProvider } from "@/providers/legal-links-provider";
 import { getLegalLinksSafe } from "@/lib/legal/links";
 import { landingPageService } from "@/services/landing-page.service";
 
+// Public pages include live marketplace and investor data, so render them per request.
+export const dynamic = "force-dynamic";
+
 export default async function PublicRouteLayout({
   children,
 }: {

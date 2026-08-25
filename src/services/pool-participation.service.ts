@@ -445,6 +445,14 @@ export const poolParticipationService = {
         notes: `Queued during ${activeCycle.status}`,
       });
 
+      const { referralService } = await import("@/services/referral.service");
+      await referralService
+        .rewardFirstPoolInvestment({
+          referredUserId: user.id,
+          qualifyingTransactionId: txId,
+        })
+        .catch(() => null);
+
       await attachTransactionReference(db, txId, {
         type: "adjustment",
         payment_method: "pool_allocation",
@@ -494,6 +502,14 @@ export const poolParticipationService = {
         amount,
       });
     }
+
+    const { referralService } = await import("@/services/referral.service");
+    await referralService
+      .rewardFirstPoolInvestment({
+        referredUserId: user.id,
+        qualifyingTransactionId: txId,
+      })
+      .catch(() => null);
 
     await attachTransactionReference(db, txId, {
       type: "adjustment",

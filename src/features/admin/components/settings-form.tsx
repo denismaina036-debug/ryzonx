@@ -54,6 +54,9 @@ export function SettingsForm({ settings: initial }: { settings: PlatformSetting[
                   <Label htmlFor={setting.key}>{setting.label}</Label>
                   <Input
                     id={setting.key}
+                    type={setting.key === "referral_reward_amount" ? "number" : "text"}
+                    min={setting.key === "referral_reward_amount" ? 0 : undefined}
+                    step={setting.key === "referral_reward_amount" ? "0.01" : undefined}
                     value={setting.value}
                     onChange={(e) => updateValue(setting.key, e.target.value)}
                     placeholder={setting.label}

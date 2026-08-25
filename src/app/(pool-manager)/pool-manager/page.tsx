@@ -8,6 +8,7 @@ import {
   ManagedPoolListClient,
   type ManagedPoolListItem,
 } from "@/features/pool-manager/components/managed-pool/managed-pool-list-client";
+import { referralService } from "@/services/referral.service";
 
 export default async function PoolManagerDashboardPage() {
   const user = await getCurrentUser();
@@ -15,9 +16,13 @@ export default async function PoolManagerDashboardPage() {
     redirect(ROUTES.applyPoolManager);
   }
 
-  const [pools, strategies] = await Promise.all([
+  const [pools, strategies, referralSummary] = await Promise.all([
     managedPoolService.listMine(),
     strategyService.listMine(),
+    referralService
+      .processPendingRewardForUser(user.id)
+      .catch(() => null)
+      .then(() => referralService.getSummary(user.id)),
   ]);
 
   const items: ManagedPoolListItem[] = await Promise.all(
@@ -27,5 +32,11 @@ export default async function PoolManagerDashboardPage() {
     }))
   );
 
-  return <ManagedPoolListClient items={items} strategies={strategies} />;
+  return (
+    <ManagedPoolListClient
+      items={items}
+      strategies={strategies}
+      referralSummary={referralSummary}
+    />
+  );
 }

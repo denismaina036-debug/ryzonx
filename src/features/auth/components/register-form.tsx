@@ -27,6 +27,7 @@ function resolveIntent(raw: string | null): RegistrationIntent {
 export function RegisterForm() {
   const searchParams = useSearchParams();
   const intent = resolveIntent(searchParams.get("intent"));
+  const referralCode = searchParams.get("ref")?.trim() || undefined;
   const isCreatePool = intent === REGISTRATION_INTENTS.CREATE_POOL;
   const schema = useMemo(() => createRegisterSchema(intent), [intent]);
   const { signUp } = useAuthActions();
@@ -60,6 +61,7 @@ export function RegisterForm() {
       lastName: data.lastName,
       phone: data.phone,
       country: data.country,
+      referralCode,
       registrationIntent: intent,
       acceptTerms: data.acceptTerms,
       acceptPrivacy: data.acceptPrivacy,

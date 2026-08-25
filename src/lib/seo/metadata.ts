@@ -50,10 +50,6 @@ export const ROOT_SITE_METADATA: Metadata = {
     ],
   },
   manifest: "/site.webmanifest",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: BRAND_THEME_COLOR },
-    { media: "(prefers-color-scheme: dark)", color: BRAND_THEME_COLOR },
-  ],
   other: {
     "msapplication-TileColor": BRAND_THEME_COLOR,
   },

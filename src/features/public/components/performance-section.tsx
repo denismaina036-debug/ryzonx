@@ -83,12 +83,7 @@ export function PerformanceSection({
           </div>
           <PeriodSelector value={period} onChange={setPeriod} />
         </div>
-        <div className="md:hidden">
-          <PerformanceChart data={chartData} type="area" height={300} />
-        </div>
-        <div className="hidden md:block">
-          <PerformanceChart data={chartData} type="area" height={360} />
-        </div>
+        <PerformanceChart data={chartData} type="area" height={320} />
       </div>
     </SectionContainer>
   );

@@ -5,7 +5,10 @@ import {
   clearStaleAuthSession,
   isStaleRefreshTokenError,
 } from "@/lib/auth/stale-session";
-import { hasServerSupabaseSessionCookie } from "@/lib/auth/session-cookies";
+import {
+  hasServerSupabaseSessionCookie,
+  readServerSupabaseSession,
+} from "@/lib/auth/session-cookies";
 import { parseRegistrationIntent } from "@/domain/investor/pm-journey-variant";
 import type { UserProfile } from "@/types";
 import type { User, AuthError } from "@supabase/supabase-js";
@@ -13,7 +16,10 @@ import { cookies } from "next/headers";
 
 function isSessionFresh(expiresAt: number | undefined): boolean {
   if (!expiresAt) return true;
-  return expiresAt * 1000 > Date.now() + 5_000;
+  // Supabase starts refresh recovery 90 seconds before token expiry.
+  // Public shells stay anonymous in that small window instead of attempting
+  // recovery for a stale browser session and surfacing an AuthApiError.
+  return expiresAt * 1000 > Date.now() + 95_000;
 }
 
 /**
@@ -22,22 +28,15 @@ function isSessionFresh(expiresAt: number | undefined): boolean {
  */
 export async function getShellUser(): Promise<UserProfile | null> {
   const cookieStore = await cookies();
-  if (!hasServerSupabaseSessionCookie(cookieStore)) {
+  const session = readServerSupabaseSession(cookieStore);
+
+  if (!session?.user || !isSessionFresh(session.expires_at)) {
     return null;
   }
 
   const supabase = await createClient();
 
   try {
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession();
-
-    if (sessionError || !session?.user || !isSessionFresh(session.expires_at)) {
-      return null;
-    }
-
     return loadProfileForAuthUser(supabase, session.user);
   } catch {
     return null;

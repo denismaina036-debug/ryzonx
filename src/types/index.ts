@@ -306,6 +306,7 @@ export interface RegisterFormData {
   lastName: string;
   phone: string;
   country?: string;
+  referralCode?: string;
   registrationIntent: import("@/constants/registration").RegistrationIntent;
   acceptTerms: boolean;
   acceptPrivacy: boolean;

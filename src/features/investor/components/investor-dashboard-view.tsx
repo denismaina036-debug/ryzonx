@@ -18,6 +18,8 @@ import type { InvestorHomeData } from "@/domain/investment/investor-presentation
 import type { UserProfile } from "@/types";
 import { InvestorHomeInvestmentPanel } from "@/features/investor/components/investment/investor-home-investment-panel";
 import type { PmJourneyCardVariant } from "@/domain/investor/pm-journey-variant";
+import type { ReferralSummary } from "@/domain/referrals/types";
+import { ReferralCard } from "@/features/referrals/components/referral-card";
 
 const fadeUp = {
   initial: { opacity: 0, y: 12 },
@@ -31,6 +33,7 @@ interface InvestorDashboardViewProps {
   challengeDisplayStatus?: ChallengeDisplayStatus;
   challengeProgressPct?: number;
   pmJourneyVariant?: PmJourneyCardVariant;
+  referralSummary: ReferralSummary;
 }
 
 export function InvestorDashboardView({
@@ -40,6 +43,7 @@ export function InvestorDashboardView({
   challengeDisplayStatus,
   challengeProgressPct,
   pmJourneyVariant = "hidden",
+  referralSummary,
 }: InvestorDashboardViewProps) {
   const hasInvestments = data.investment.participations.length > 0;
   const dailyProfit = data.poolPerformance.dailyProfit ?? 0;
@@ -55,6 +59,7 @@ export function InvestorDashboardView({
           homeInvestment={homeInvestment}
           showManagerJourneyCard={showManagerJourneyCard}
           pmJourneyVariant={pmJourneyVariant}
+          referralSummary={referralSummary}
         />
       </div>
 
@@ -86,6 +91,7 @@ export function InvestorDashboardView({
 
           <div className="flex flex-col gap-5">
             <RecentActivityTimeline activity={data.recentActivity} maxItems={2} />
+            <ReferralCard summary={referralSummary} compact />
             {showManagerJourneyCard &&
             challengeDisplayStatus &&
             challengeDisplayStatus !== CHALLENGE_DISPLAY_STATUS.NONE ? (

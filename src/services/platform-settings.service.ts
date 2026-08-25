@@ -16,6 +16,7 @@ const SETTING_GROUPS: Record<string, string> = {
   min_investment: "Financial",
   min_withdrawal: "Financial",
   max_withdrawal: "Financial",
+  referral_reward_amount: "Referrals",
   default_currency: "Financial",
   platform_name: "Branding",
   branding: "Branding",
@@ -36,6 +37,7 @@ const SETTING_LABELS: Record<string, string> = {
   min_investment: "Minimum Investment",
   min_withdrawal: "Minimum Withdrawal",
   max_withdrawal: "Maximum Withdrawal",
+  referral_reward_amount: "Reward Per Qualified Referral (USD)",
   default_currency: "Default Currency",
   maintenance_mode: "Maintenance Mode",
   registration_enabled: "Registration Enabled",
@@ -107,13 +109,21 @@ export const platformSettingsService = {
     const db = createAdminClient();
 
     for (const { key, value } of updates) {
+      if (key === "referral_reward_amount") {
+        const reward = Number(value);
+        if (!Number.isFinite(reward) || reward < 0) {
+          throw new Error("Referral reward must be a valid amount of zero or more.");
+        }
+      }
+
       const jsonValue =
         typeof value === "string" &&
         (key === "branding" || key === "landing_content" || key === "feature_flags")
           ? JSON.parse(value)
           : key === "platform_service_fee_pct" ||
               key === "min_investment" ||
-              key === "min_withdrawal"
+              key === "min_withdrawal" ||
+              key === "referral_reward_amount"
             ? Number(value)
             : key === "maintenance_mode" ||
                 key === "registration_enabled" ||

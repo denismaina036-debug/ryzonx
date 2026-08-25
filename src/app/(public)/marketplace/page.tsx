@@ -4,6 +4,7 @@ import { InvestorPageContent } from "@/components/layouts/investor-page-content"
 import { ROUTES } from "@/constants/routes";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 import { marketplacePresentationService } from "@/services/marketplace-presentation.service";
+import { landingPageStatsService } from "@/services/landing-page-stats.service";
 
 export const dynamic = "force-dynamic";
 
@@ -21,8 +22,11 @@ export const metadata: Metadata = buildPageMetadata({
 });
 
 export default async function MarketplacePage() {
-  const { pools, managers, featuredManagerSections, strategies, cycles } =
-    await marketplacePresentationService.getLandingPageData();
+  const [{ pools, managers, featuredManagerSections, strategies, cycles }, totalInvestors] =
+    await Promise.all([
+      marketplacePresentationService.getLandingPageData(),
+      landingPageStatsService.resolveAutomaticNumericValue("total_investors"),
+    ]);
 
   return (
     <InvestorPageContent wide className="py-1 sm:py-4">
@@ -32,6 +36,7 @@ export default async function MarketplacePage() {
         strategies={strategies}
         cycles={cycles}
         featuredManagerSections={featuredManagerSections}
+        totalInvestors={totalInvestors ?? 0}
       />
     </InvestorPageContent>
   );

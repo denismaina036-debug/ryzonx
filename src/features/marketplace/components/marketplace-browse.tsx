@@ -26,10 +26,7 @@ import { MarketplaceManagerCardView } from "@/features/marketplace/components/ma
 import { MarketplacePoolCardView } from "@/features/marketplace/components/marketplace-pool-card";
 import { MarketplaceBreadcrumb, marketplaceHomeCrumb } from "@/features/marketplace/components/marketplace-breadcrumb";
 import { MarketplaceHero } from "@/features/marketplace/components/marketplace-hero";
-import {
-  computeMarketplaceHeroStats,
-  pickFeaturedSection,
-} from "@/features/marketplace/utils/marketplace-stats";
+import { pickFeaturedSection } from "@/features/marketplace/utils/marketplace-stats";
 import type {
   FeaturedManagerSection,
   MarketplaceManagerCard,
@@ -58,6 +55,7 @@ interface MarketplaceBrowseProps {
   strategies: InvestorStrategyCard[];
   cycles: InvestorCycleCard[];
   featuredManagerSections: FeaturedManagerSection[];
+  totalInvestors: number;
 }
 
 export function MarketplaceBrowse({
@@ -66,6 +64,7 @@ export function MarketplaceBrowse({
   strategies: _strategies,
   cycles: _cycles,
   featuredManagerSections,
+  totalInvestors,
 }: MarketplaceBrowseProps) {
   const [activeTab, setActiveTab] = useState<(typeof MARKETPLACE_MANAGER_TABS)[number]["value"]>(
     "opportunities"
@@ -79,15 +78,6 @@ export function MarketplaceBrowse({
   const [riskProfile, setRiskProfile] = useState("");
   const [fundingStatus, setFundingStatus] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-
-  const heroStats = useMemo(
-    () =>
-      computeMarketplaceHeroStats({
-        pools,
-        activeInvestors: managers.reduce((sum, m) => sum + m.activeInvestors, 0),
-      }),
-    [managers, pools]
-  );
 
   const topSection = useMemo(
     () => pickFeaturedSection(featuredManagerSections),
@@ -189,10 +179,10 @@ export function MarketplaceBrowse({
     activeTab === "managers" ? filteredManagers.length : filteredPools.length;
 
   return (
-    <div className="space-y-4 pb-6 md:space-y-12 md:pb-8">
+    <div className="space-y-5 pb-8 md:space-y-9 md:pb-12">
       <MarketplaceBreadcrumb items={[marketplaceHomeCrumb()]} className="hidden md:flex" />
 
-      <MarketplaceHero stats={heroStats} />
+      <MarketplaceHero totalInvestors={totalInvestors} />
 
       {topSection && activeTab === "managers" && (
         <section className="hidden space-y-6 md:block">
@@ -214,7 +204,7 @@ export function MarketplaceBrowse({
         </section>
       )}
 
-      <section className="space-y-3 md:space-y-6">
+      <section className="space-y-4 md:space-y-6">
         {/* Mobile — compact toolbar */}
         <div className="space-y-2 md:hidden">
           <div className="flex gap-1 rounded-lg border border-[var(--id-border)] bg-[var(--id-surface-muted)]/40 p-0.5">
@@ -423,7 +413,7 @@ export function MarketplaceBrowse({
             {filteredPools.length === 0 ? (
               <RyvonxEmptyState title="No live pools match your filters" description="Try adjusting your search or filter selections." />
             ) : (
-              <div className="grid gap-3.5 md:gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 md:gap-6 xl:grid-cols-3">
                 {filteredPools.map((pool) => (
                   <MarketplacePoolCardView key={pool.id} pool={pool} />
                 ))}

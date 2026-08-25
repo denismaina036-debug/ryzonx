@@ -127,6 +127,9 @@ function resolveSubtitle(
   if (category === "commission" || category === "adjustment") {
     return input.notes?.split("—")[0]?.trim() || resolveWalletLabel(input);
   }
+  if (category === "reward") {
+    return input.notes?.split("—")[0]?.trim() || resolveWalletLabel(input);
+  }
   return input.fundName;
 }
 
@@ -210,11 +213,13 @@ export function buildTransactionPresentation(
 ): TransactionPresentation {
   const category = resolveTransactionCategory(input);
   const amountMeta = resolveAmountPresentation(category, input);
+  const isReferralReward =
+    category === "reward" && Boolean(readMetadataString(input.metadata ?? null, "referralId"));
 
   return {
     category,
-    title: CATEGORY_TITLES[category],
-    subtitle: resolveSubtitle(category, input),
+    title: isReferralReward ? "Referral Reward" : CATEGORY_TITLES[category],
+    subtitle: isReferralReward ? "RyvonX Referral Program" : resolveSubtitle(category, input),
     iconKind: CATEGORY_ICONS[category],
     amountPrefix: amountMeta.prefix,
     amountSuffix: amountMeta.suffix,

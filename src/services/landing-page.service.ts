@@ -46,8 +46,16 @@ async function resolveHeroStats(stats: LandingHeroFloatingStat[]): Promise<Resol
 
 export const landingPageService = {
   getRawContent: cache(async (): Promise<LandingPageContent> => {
-    const raw = await platformSettingsService.get("landing_content");
-    return parseLandingPageContent(raw);
+    try {
+      const raw = await platformSettingsService.get("landing_content");
+      return parseLandingPageContent(raw);
+    } catch (error) {
+      console.warn(
+        "[landing-page] public content read failed — using defaults.",
+        error instanceof Error ? error.message : error
+      );
+      return parseLandingPageContent(null);
+    }
   }),
 
   getPublicContent: cache(async (): Promise<PublicLandingPageContent> => {

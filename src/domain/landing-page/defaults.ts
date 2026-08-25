@@ -6,12 +6,12 @@ import type { LandingPageContent } from "@/domain/landing-page/types";
 export const DEFAULT_LANDING_PAGE_CONTENT: LandingPageContent = {
   hero: {
     badge: "Transparent Pool Trading Fund",
-    heading: "Where Great Traders Meet Smart Investors.",
+    heading: "Where Smart Investors Meet Great Traders.",
     subheading: "",
     description:
-      "RyvonX is a trusted marketplace where skilled traders earn the opportunity to manage investment pools, while investors discover and invest alongside verified trading professionals.",
-    primaryButtonText: "Join Pool",
-    primaryButtonLink: registerRoute(REGISTRATION_INTENTS.JOIN_POOL),
+      "Discover transparent investment pools managed by verified trading professionals.",
+    primaryButtonText: "Explore Pools",
+    primaryButtonLink: ROUTES.marketplace,
     secondaryButtonText: "Create Pool",
     secondaryButtonLink: registerRoute(REGISTRATION_INTENTS.CREATE_POOL),
     backgroundImageUrl: "/images/hero-cover.png",

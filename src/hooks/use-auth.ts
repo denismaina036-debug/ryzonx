@@ -78,6 +78,7 @@ export function useAuthActions() {
           lastName: data.lastName.trim(),
           phone: data.phone,
           country: data.country?.trim() || undefined,
+          referralCode: data.referralCode?.trim() || undefined,
           registrationIntent: data.registrationIntent,
         }),
       });

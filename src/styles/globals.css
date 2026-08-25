@@ -523,3 +523,116 @@
     -webkit-tap-highlight-color: transparent;
   }
 }
+.hero-light-beams {
+  background-image:
+    linear-gradient(90deg, transparent 0%, rgba(23, 92, 212, 0.08) 48%, transparent 100%),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 3.6rem,
+      rgba(61, 139, 255, 0.17) 3.72rem,
+      rgba(28, 97, 228, 0.05) 4rem,
+      transparent 4.25rem
+    );
+  mask-image: linear-gradient(to left, black 15%, rgba(0, 0, 0, 0.82) 58%, transparent 100%);
+}
+
+.hero-copy-illumination {
+  background:
+    radial-gradient(
+      ellipse at 30% 43%,
+      rgba(37, 99, 235, 0.2) 0%,
+      rgba(24, 73, 151, 0.13) 31%,
+      rgba(8, 29, 65, 0.08) 52%,
+      transparent 76%
+    );
+  opacity: 0.9;
+}
+
+.ryvonx-hero-shell {
+  min-height: calc(100svh - 6.5rem);
+}
+
+html:has(.ryvonx-public-home) {
+  scrollbar-width: none;
+}
+
+html:has(.ryvonx-public-home)::-webkit-scrollbar {
+  display: none;
+}
+
+.hero-floor-light {
+  background:
+    radial-gradient(ellipse at 76% 82%, rgba(59, 130, 246, 0.34), transparent 31%),
+    linear-gradient(176deg, transparent 51%, rgba(72, 145, 255, 0.42) 52%, transparent 53%);
+  filter: blur(0.2px);
+  opacity: 0.82;
+}
+
+.hero-trust-metric:not(:first-child) {
+  border-top: 1px solid rgb(255 255 255 / 0.09);
+}
+
+@media (min-width: 640px) {
+  .hero-trust-metric:nth-child(2),
+  .hero-trust-metric:nth-child(4) {
+    border-left: 1px solid rgb(255 255 255 / 0.09);
+  }
+
+  .hero-trust-metric:nth-child(2) {
+    border-top: 0;
+  }
+}
+
+@media (min-width: 1024px) {
+  .ryvonx-hero-stage {
+    min-height: clamp(33rem, calc(100svh - 17rem), 39rem);
+  }
+
+  .hero-trust-metric:not(:first-child) {
+    border-top: 0;
+    border-left: 1px solid rgb(255 255 255 / 0.09);
+  }
+}
+
+@keyframes rx-hero-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotateY(-0.8deg) rotateX(0deg);
+    filter: brightness(1) saturate(1);
+  }
+  42% {
+    transform: translate3d(0, -9px, 0) rotateY(1.2deg) rotateX(0.55deg);
+    filter: brightness(1.055) saturate(1.04);
+  }
+  72% {
+    transform: translate3d(0, -3px, 0) rotateY(-0.35deg) rotateX(-0.25deg);
+    filter: brightness(1.025) saturate(1.02);
+  }
+}
+
+.rx-hero-float {
+  animation: rx-hero-float 7.5s ease-in-out infinite;
+  transform-origin: center center;
+  transform-style: preserve-3d;
+  will-change: transform, filter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rx-hero-float {
+    animation: none;
+  }
+}
+
+@media (max-width: 639px) {
+  .hero-copy-illumination {
+    width: 100%;
+    background:
+      radial-gradient(
+        ellipse at 50% 24%,
+        rgba(37, 99, 235, 0.2) 0%,
+        rgba(18, 57, 122, 0.11) 40%,
+        transparent 74%
+      );
+  }
+}

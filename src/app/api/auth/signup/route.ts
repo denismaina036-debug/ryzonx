@@ -7,6 +7,7 @@ import { registerUserWithVerificationEmail } from "@/lib/auth/register-with-emai
 import { getAuthCallbackUrl } from "@/lib/app-url";
 import { isResendConfigured } from "@/services/communication/email/resend.service";
 import { ROUTES } from "@/constants/routes";
+import { referralService } from "@/services/referral.service";
 
 export async function POST(request: Request) {
   let body: {
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
     phone?: string;
     country?: string;
     registrationIntent?: string;
+    referralCode?: string;
   };
 
   try {
@@ -68,6 +70,23 @@ export async function POST(request: Request) {
     metadata.accepted_legal_at_signup = "true";
   }
 
+  const referralCode = body.referralCode?.trim();
+  if (referralCode) {
+    metadata.referral_code = referralCode;
+  }
+
+  async function recordReferral(userId: string) {
+    if (!referralCode) return;
+    try {
+      await referralService.recordSignupAttribution({
+        referredUserId: userId,
+        referralCode,
+      });
+    } catch {
+      // The auth metadata retains the code so account creation is never blocked.
+    }
+  }
+
   try {
     if (isResendConfigured()) {
       const result = await registerUserWithVerificationEmail({
@@ -75,6 +94,8 @@ export async function POST(request: Request) {
         password,
         metadata,
       });
+
+      await recordReferral(result.user.id);
 
       if (!result.needsVerification) {
         try {
@@ -120,6 +141,10 @@ export async function POST(request: Request) {
         },
         { status: 409 }
       );
+    }
+
+    if (data.user) {
+      await recordReferral(data.user.id);
     }
 
     if (data.session && data.user) {

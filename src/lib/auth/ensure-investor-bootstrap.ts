@@ -83,4 +83,13 @@ export async function ensureInvestorBootstrap(user: User): Promise<void> {
       available_balance: 0,
     });
   }
+
+  const referralCode =
+    typeof meta.referral_code === "string" ? meta.referral_code.trim() : "";
+  if (referralCode) {
+    const { referralService } = await import("@/services/referral.service");
+    await referralService
+      .recordSignupAttribution({ referredUserId: user.id, referralCode })
+      .catch(() => undefined);
+  }
 }

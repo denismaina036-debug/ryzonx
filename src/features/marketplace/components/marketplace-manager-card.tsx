@@ -71,8 +71,8 @@ export function MarketplaceManagerCardView({
   return (
     <article
       className={cn(
-        "group flex h-full flex-col overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow)] transition-all duration-200",
-        "hover:border-[var(--id-accent)]/35 hover:shadow-[var(--id-shadow-lg)]"
+        "group flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow)] transition-all duration-300",
+        "hover:-translate-y-1 hover:border-[var(--id-accent)]/35 hover:shadow-[var(--id-shadow-lg)]"
       )}
     >
       <div className="flex flex-1 flex-col p-5 sm:p-6">

@@ -16,6 +16,8 @@ import Link from "next/link";
 import { ROUTES } from "@/constants/routes";
 import type { PmJourneyCardVariant } from "@/domain/investor/pm-journey-variant";
 import { getDisplayFirstName } from "@/lib/utils";
+import type { ReferralSummary } from "@/domain/referrals/types";
+import { ReferralCard } from "@/features/referrals/components/referral-card";
 
 interface MobileDashboardViewProps {
   user: UserProfile;
@@ -23,6 +25,7 @@ interface MobileDashboardViewProps {
   homeInvestment?: InvestorHomeData;
   showManagerJourneyCard?: boolean;
   pmJourneyVariant?: PmJourneyCardVariant;
+  referralSummary: ReferralSummary;
 }
 
 const item = {
@@ -41,6 +44,7 @@ export function MobileDashboardView({
   homeInvestment,
   showManagerJourneyCard = false,
   pmJourneyVariant = "become",
+  referralSummary,
 }: MobileDashboardViewProps) {
   const firstName = getDisplayFirstName(user.fullName);
   const hasInvestments = data.investment.participations.length > 0;
@@ -70,6 +74,10 @@ export function MobileDashboardView({
 
       <motion.div variants={item}>
         <MobilePrimaryActions hasActivePool={hasInvestments} />
+      </motion.div>
+
+      <motion.div variants={item}>
+        <ReferralCard summary={referralSummary} compact />
       </motion.div>
 
       {homeInvestment && homeInvestment.fundingCycleCount > 0 && (

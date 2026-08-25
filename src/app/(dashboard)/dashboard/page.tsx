@@ -5,12 +5,13 @@ import { investorInvestmentService } from "@/services/investor-investment.servic
 import { challengeCenterService } from "@/services/challenge-center.service";
 import { InvestorDashboardView } from "@/features/investor";
 import { resolvePmJourneyCardVariant } from "@/domain/investor/pm-journey-variant";
+import { referralService } from "@/services/referral.service";
 
 export default async function InvestorDashboardPage() {
   const user = await requireAuth();
   const admin = createAdminClient();
 
-  const [data, homeInvestment, challengeState, applicationResult] = await Promise.all([
+  const [data, homeInvestment, challengeState, applicationResult, referralSummary] = await Promise.all([
     investorService.getDashboardPageData(),
     investorInvestmentService.getHomeData(),
     challengeCenterService.getChallengeCenterState(user.id).catch(() => null),
@@ -19,6 +20,10 @@ export default async function InvestorDashboardPage() {
       .select("id, status")
       .eq("user_id", user.id)
       .maybeSingle(),
+    referralService
+      .processPendingRewardForUser(user.id)
+      .catch(() => null)
+      .then(() => referralService.getSummary(user.id)),
   ]);
 
   const applicationRow = applicationResult.data as { id: string; status: string } | null;
@@ -37,6 +42,7 @@ export default async function InvestorDashboardPage() {
       challengeDisplayStatus={challengeState?.displayStatus}
       challengeProgressPct={challengeState?.statistics?.progressPct}
       pmJourneyVariant={pmJourneyVariant}
+      referralSummary={referralSummary}
     />
   );
 }

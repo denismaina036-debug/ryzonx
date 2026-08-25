@@ -8,6 +8,9 @@ import { buildPageMetadata } from "@/lib/seo/metadata";
 import { PlatformActivityFeed } from "@/features/public/components/platform-activity-feed";
 import { publicActivityService } from "@/services/public-activity.service";
 
+// This page reads a live Supabase activity feed and must not be prerendered at build time.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = buildPageMetadata({
   title: "Platform Activity",
   description:

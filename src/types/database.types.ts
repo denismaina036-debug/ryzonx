@@ -3220,6 +3220,119 @@ export type Database = {
         }
         Relationships: []
       }
+      referral_codes: {
+        Row: {
+          code: string
+          created_at: string
+          is_active: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          is_active?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          is_active?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_codes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referrals: {
+        Row: {
+          created_at: string
+          id: string
+          qualified_at: string | null
+          qualifying_transaction_id: string | null
+          referral_code: string
+          referred_user_id: string
+          referrer_id: string
+          reward_amount: number
+          reward_transaction_id: string | null
+          rewarded_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          qualified_at?: string | null
+          qualifying_transaction_id?: string | null
+          referral_code: string
+          referred_user_id: string
+          referrer_id: string
+          reward_amount?: number
+          reward_transaction_id?: string | null
+          rewarded_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          qualified_at?: string | null
+          qualifying_transaction_id?: string | null
+          referral_code?: string
+          referred_user_id?: string
+          referrer_id?: string
+          reward_amount?: number
+          reward_transaction_id?: string | null
+          rewarded_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referrals_code_fk"
+            columns: ["referral_code"]
+            isOneToOne: false
+            referencedRelation: "referral_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "referrals_qualifying_transaction_id_fkey"
+            columns: ["qualifying_transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referred_user_id_fkey"
+            columns: ["referred_user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_reward_transaction_id_fkey"
+            columns: ["reward_transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_messages: {
         Row: {
           body: string
@@ -4029,12 +4142,14 @@ export type Database = {
           fund_id: string
           id: string
           is_public: boolean
+          metadata: Json
           notes: string | null
           payment_method: string | null
           payment_proof: string | null
           processed_at: string | null
           processed_by: string | null
           reference: string | null
+          transaction_reference: string | null
           status: Database["public"]["Enums"]["transaction_status"]
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at: string
@@ -4052,12 +4167,14 @@ export type Database = {
           fund_id: string
           id?: string
           is_public?: boolean
+          metadata?: Json
           notes?: string | null
           payment_method?: string | null
           payment_proof?: string | null
           processed_at?: string | null
           processed_by?: string | null
           reference?: string | null
+          transaction_reference?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
@@ -4075,12 +4192,14 @@ export type Database = {
           fund_id?: string
           id?: string
           is_public?: boolean
+          metadata?: Json
           notes?: string | null
           payment_method?: string | null
           payment_proof?: string | null
           processed_at?: string | null
           processed_by?: string | null
           reference?: string | null
+          transaction_reference?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
           type?: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
@@ -4206,6 +4325,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      finalize_referral_reward: {
+        Args: {
+          p_qualifying_transaction_id: string
+          p_referred_user_id: string
+          p_reward_amount: number
+        }
+        Returns: {
+          referral_id: string
+          referrer_id: string
+          reward_amount: number
+          reward_transaction_id: string | null
+          rewarded_now: boolean
+        }[]
+      }
       get_user_role: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]

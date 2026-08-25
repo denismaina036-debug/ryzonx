@@ -28,6 +28,7 @@ interface NavbarProps {
 
 export function Navbar({ isAuthenticated = false }: NavbarProps) {
   const pathname = usePathname();
+  const isHome = pathname === ROUTES.home;
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [getStartedOpen, setGetStartedOpen] = useState(false);
@@ -52,22 +53,26 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
       <header
         className={cn(
           "fixed top-0 z-50 w-full transition-all duration-300",
-          scrolled
-            ? "border-b border-border/60 bg-background/80 shadow-sm backdrop-blur-xl"
-            : "bg-transparent"
+          isHome
+            ? scrolled
+              ? "border-b border-white/10 bg-[#040d1c]/92 shadow-[0_8px_30px_rgba(0,0,0,.24)] backdrop-blur-xl"
+              : "border-b border-white/10 bg-[#040d1c]/88 backdrop-blur-xl"
+            : scrolled
+              ? "border-b border-slate-200/70 bg-white/90 shadow-[0_8px_30px_rgba(15,23,42,.06)] backdrop-blur-xl"
+              : "border-b border-slate-200/50 bg-white/80 backdrop-blur-xl"
         )}
       >
-        <div className="page-container flex h-16 items-center justify-between lg:h-18">
-          <Link href={ROUTES.home} className="relative z-50 flex items-center gap-2.5">
+        <div className="mx-auto flex h-16 w-full max-w-[96rem] items-center justify-between px-5 sm:px-7 lg:h-18 lg:px-10 xl:px-12">
+          <Link href={ROUTES.home} className="relative z-50 flex items-center gap-2.5 rounded-xl outline-none transition-opacity hover:opacity-85 focus-visible:ring-2 focus-visible:ring-blue-500">
             <Image
-              src="/images/logo.png"
+              src="/images/logo-transparent.png"
               alt="RyvonX logo — investment pool marketplace"
               width={36}
               height={36}
               className="h-9 w-9 object-contain"
               priority
             />
-            <span className="text-lg font-semibold tracking-tight text-navy-950">
+            <span className={cn("text-lg font-semibold tracking-tight", isHome ? "text-white" : "text-navy-950")}>
               {APP_NAME}
             </span>
           </Link>
@@ -78,10 +83,12 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "relative rounded-lg px-3 py-2 text-sm font-medium transition-all hover:bg-slate-100/80",
                   pathname === link.href
-                    ? "text-navy-950"
-                    : "text-navy-500 hover:text-navy-900"
+                    ? isHome
+                      ? "text-white after:absolute after:-bottom-[13px] after:left-1/2 after:h-0.5 after:w-8 after:-translate-x-1/2 after:rounded-full after:bg-gradient-to-r after:from-blue-500 after:to-indigo-400"
+                      : "text-navy-950"
+                    : isHome ? "text-slate-300 hover:bg-white/[.06] hover:text-white" : "text-navy-500 hover:text-navy-900"
                 )}
               >
                 {link.label}
@@ -96,10 +103,10 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
               </Button>
             ) : (
               <>
-                <Button asChild variant="ghost" size="sm">
+                <Button asChild variant="ghost" size="sm" className={isHome ? "text-slate-200 hover:bg-white/[.07] hover:text-white" : undefined}>
                   <Link href={ROUTES.login}>Login</Link>
                 </Button>
-                <Button type="button" size="sm" onClick={() => setGetStartedOpen(true)}>
+                <Button type="button" size="sm" className={isHome ? "bg-blue-500 text-white shadow-lg shadow-blue-950/30 hover:bg-blue-400" : undefined} onClick={() => setGetStartedOpen(true)}>
                   Get Started
                 </Button>
               </>
@@ -109,7 +116,7 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
           <button
             type="button"
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="relative z-50 flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card xl:hidden"
+            className={cn("relative z-50 flex h-10 w-10 items-center justify-center rounded-xl border shadow-sm transition active:scale-95 xl:hidden", isHome ? "border-white/15 bg-white/[.07] text-white" : "border-slate-200 bg-white")}
             aria-label="Toggle menu"
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -188,7 +195,7 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
 
       <GetStartedModal open={getStartedOpen} onOpenChange={setGetStartedOpen} />
 
-      <div className="h-16 lg:h-18" />
+      <div className={cn("h-16 lg:h-18", isHome && "bg-[#06142d]")} />
     </>
   );
 }

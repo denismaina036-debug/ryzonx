@@ -33,6 +33,8 @@ import {
   resolveCanCreateCycle,
   sortCyclesChronologically,
 } from "./pool-cycles-section";
+import type { ReferralSummary } from "@/domain/referrals/types";
+import { ReferralCard } from "@/features/referrals/components/referral-card";
 
 export interface ManagedPoolListItem {
   pool: Pool;
@@ -42,9 +44,14 @@ export interface ManagedPoolListItem {
 interface ManagedPoolListClientProps {
   items: ManagedPoolListItem[];
   strategies: Strategy[];
+  referralSummary: ReferralSummary;
 }
 
-export function ManagedPoolListClient({ items, strategies }: ManagedPoolListClientProps) {
+export function ManagedPoolListClient({
+  items,
+  strategies,
+  referralSummary,
+}: ManagedPoolListClientProps) {
   const router = useRouter();
   const [loadingPoolId, setLoadingPoolId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -122,6 +129,8 @@ export function ManagedPoolListClient({ items, strategies }: ManagedPoolListClie
           )
         }
       />
+
+      <ReferralCard summary={referralSummary} />
 
       <PmFormMessage message={error} variant="error" />
 
