@@ -65,22 +65,22 @@ AS $$
 DECLARE
   v_allocation investment_allocations%ROWTYPE;
   v_fund_id UUID;
-  v_cycle_status TEXT;
   v_delta NUMERIC;
 BEGIN
   IF p_amount <= 0 OR length(trim(p_reason)) < 5 THEN
     RAISE EXCEPTION 'A positive amount and a meaningful correction reason are required.';
   END IF;
 
-  SELECT ia.*, ic.fund_id, ic.status::text INTO v_allocation, v_fund_id, v_cycle_status
-  FROM investment_allocations ia JOIN investment_cycles ic ON ic.id = ia.investment_cycle_id
-  WHERE ia.id = p_allocation_id FOR UPDATE;
+  SELECT * INTO v_allocation
+  FROM investment_allocations
+  WHERE id = p_allocation_id FOR UPDATE;
   IF NOT FOUND OR v_allocation.status IN ('cancelled', 'distributed') OR EXISTS (
     SELECT 1 FROM profit_settlement_allocations
     WHERE investment_allocation_id = p_allocation_id
   ) THEN
     RAISE EXCEPTION 'An allocation can only be corrected before its first profit distribution.';
   END IF;
+  SELECT fund_id INTO v_fund_id FROM investment_cycles WHERE id = v_allocation.investment_cycle_id;
 
   v_delta := round(p_amount - v_allocation.amount, 2);
   UPDATE investment_allocations SET amount = p_amount, updated_at = now() WHERE id = p_allocation_id;
