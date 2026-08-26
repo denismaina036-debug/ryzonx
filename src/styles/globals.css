@@ -247,7 +247,7 @@
    ============================================================================= */
 
 :root {
-  --id-radius: 1rem;
+  --id-radius: 1.125rem;
   --id-bg: #f5f7fb;
   --id-bg-subtle: #eef1f7;
   --id-sidebar: #ffffff;
@@ -255,8 +255,8 @@
   --id-surface-elevated: #ffffff;
   --id-surface-muted: #f8fafc;
   --id-surface-hover: #f1f5f9;
-  --id-border: rgba(15, 23, 42, 0.06);
-  --id-border-strong: rgba(15, 23, 42, 0.1);
+  --id-border: rgba(15, 23, 42, 0.075);
+  --id-border-strong: rgba(15, 23, 42, 0.12);
   --id-text: #0f172a;
   --id-text-secondary: #475569;
   --id-text-muted: #64748b;
@@ -268,9 +268,11 @@
   --id-success: #16a34a;
   --id-success-soft: rgba(22, 163, 74, 0.08);
   --id-danger: #dc2626;
-  --id-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 20px rgba(15, 23, 42, 0.06);
-  --id-shadow-lg: 0 8px 32px rgba(15, 23, 42, 0.08);
-  --id-glass: rgba(255, 255, 255, 0.95);
+  --id-shadow: 0 1px 2px rgba(15, 23, 42, 0.035), 0 10px 30px -16px rgba(15, 23, 42, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  --id-shadow-lg: 0 22px 55px -28px rgba(15, 23, 42, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  --id-glass: rgba(255, 255, 255, 0.82);
+  --id-shell-glow: rgba(79, 70, 229, 0.09);
+  --id-shell-glow-secondary: rgba(14, 165, 233, 0.055);
   --id-wallet-gradient: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 50%, #dbeafe 100%);
 }
 
@@ -295,9 +297,11 @@
   --id-success: #4ade80;
   --id-success-soft: rgba(74, 222, 128, 0.12);
   --id-danger: #f87171;
-  --id-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 24px rgba(0, 0, 0, 0.25);
-  --id-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.35);
-  --id-glass: rgba(8, 9, 13, 0.92);
+  --id-shadow: 0 16px 40px -24px rgba(0, 0, 0, 0.78), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  --id-shadow-lg: 0 28px 70px -34px rgba(0, 0, 0, 0.92), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --id-glass: rgba(8, 9, 13, 0.78);
+  --id-shell-glow: rgba(59, 130, 246, 0.11);
+  --id-shell-glow-secondary: rgba(99, 102, 241, 0.08);
   --id-wallet-gradient: linear-gradient(135deg, #1a1744 0%, #252350 45%, #2e2a6e 100%);
 }
 
@@ -306,13 +310,13 @@
    ============================================================================= */
 
 .investor-dashboard {
-  --id-radius: 1rem;
+  --id-radius: 1.125rem;
   overflow-x: hidden;
-  --id-bg: #08090d;
+  --id-bg: #070b12;
   --id-bg-subtle: #0c0e14;
-  --id-sidebar: #0a0b10;
-  --id-surface: #11121e;
-  --id-surface-elevated: #161825;
+  --id-sidebar: rgba(7, 11, 18, 0.94);
+  --id-surface: rgba(17, 22, 34, 0.94);
+  --id-surface-elevated: #161d2c;
   --id-surface-muted: rgba(255, 255, 255, 0.03);
   --id-surface-hover: rgba(255, 255, 255, 0.05);
   --id-border: rgba(255, 255, 255, 0.06);
@@ -328,9 +332,11 @@
   --id-success: #4ade80;
   --id-success-soft: rgba(74, 222, 128, 0.12);
   --id-danger: #f87171;
-  --id-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 24px rgba(0, 0, 0, 0.25);
-  --id-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.35);
-  --id-glass: rgba(8, 9, 13, 0.92);
+  --id-shadow: 0 16px 40px -24px rgba(0, 0, 0, 0.82), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  --id-shadow-lg: 0 28px 70px -34px rgba(0, 0, 0, 0.94), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --id-glass: rgba(7, 11, 18, 0.78);
+  --id-shell-glow: rgba(37, 99, 235, 0.13);
+  --id-shell-glow-secondary: rgba(99, 102, 241, 0.09);
   --id-wallet-gradient: linear-gradient(135deg, #1a1744 0%, #252350 45%, #2e2a6e 100%);
   color-scheme: dark;
   background-color: var(--id-bg);
@@ -345,8 +351,8 @@
 .light .investor-dashboard {
   --id-bg: #f5f7fb;
   --id-bg-subtle: #eef1f7;
-  --id-sidebar: #ffffff;
-  --id-surface: #ffffff;
+  --id-sidebar: rgba(255, 255, 255, 0.92);
+  --id-surface: rgba(255, 255, 255, 0.94);
   --id-surface-elevated: #ffffff;
   --id-surface-muted: #f8fafc;
   --id-surface-hover: #f1f5f9;
@@ -363,9 +369,11 @@
   --id-success: #16a34a;
   --id-success-soft: rgba(22, 163, 74, 0.08);
   --id-danger: #dc2626;
-  --id-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 20px rgba(15, 23, 42, 0.06);
-  --id-shadow-lg: 0 8px 32px rgba(15, 23, 42, 0.08);
-  --id-glass: rgba(255, 255, 255, 0.95);
+  --id-shadow: 0 1px 2px rgba(15, 23, 42, 0.035), 0 10px 30px -16px rgba(15, 23, 42, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  --id-shadow-lg: 0 22px 55px -28px rgba(15, 23, 42, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  --id-glass: rgba(255, 255, 255, 0.8);
+  --id-shell-glow: rgba(79, 70, 229, 0.085);
+  --id-shell-glow-secondary: rgba(14, 165, 233, 0.055);
   --id-wallet-gradient: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 50%, #dbeafe 100%);
   color-scheme: light;
 }
@@ -380,12 +388,12 @@
    ============================================================================= */
 
 .pool-manager-workspace {
-  --id-radius: 1rem;
+  --id-radius: 1.125rem;
   overflow-x: hidden;
-  --id-bg: #08090d;
+  --id-bg: #070b12;
   --id-bg-subtle: #0c0e14;
-  --id-sidebar: #0a0f18;
-  --id-surface: #11121e;
+  --id-sidebar: rgba(7, 12, 20, 0.94);
+  --id-surface: rgba(17, 22, 34, 0.94);
   --id-surface-elevated: #161825;
   --id-surface-muted: rgba(255, 255, 255, 0.03);
   --id-surface-hover: rgba(255, 255, 255, 0.05);
@@ -418,6 +426,8 @@
     transparent 100%
   );
   --pm-brand-gradient: linear-gradient(135deg, #6366f1 0%, #f59e0b 100%);
+  --id-shell-glow: rgba(99, 102, 241, 0.11);
+  --id-shell-glow-secondary: rgba(245, 158, 11, 0.065);
   color-scheme: dark;
   background-color: var(--id-bg);
   color: var(--id-text);
@@ -431,8 +441,8 @@
 .light .pool-manager-workspace {
   --id-bg: #f5f7fb;
   --id-bg-subtle: #eef1f7;
-  --id-sidebar: #ffffff;
-  --id-surface: #ffffff;
+  --id-sidebar: rgba(255, 255, 255, 0.92);
+  --id-surface: rgba(255, 255, 255, 0.94);
   --id-surface-elevated: #ffffff;
   --id-surface-muted: #f8fafc;
   --id-surface-hover: #f1f5f9;
@@ -465,12 +475,48 @@
     transparent 100%
   );
   --pm-brand-gradient: linear-gradient(135deg, #4f46e5 0%, #d97706 100%);
+  --id-shell-glow: rgba(79, 70, 229, 0.075);
+  --id-shell-glow-secondary: rgba(217, 119, 6, 0.055);
   color-scheme: light;
 }
 
 .light .pool-manager-workspace ::selection {
   background: rgb(79 70 229 / 0.12);
   color: #0f172a;
+}
+
+/* Premium continuity layer — carries the landing page's depth into app shells
+   while preserving each workspace's established light/dark palette. */
+.premium-app-shell {
+  background-color: var(--id-bg);
+  background-image:
+    radial-gradient(circle at 88% -8%, var(--id-shell-glow), transparent 31rem),
+    radial-gradient(circle at 42% 18%, var(--id-shell-glow-secondary), transparent 34rem);
+  background-attachment: fixed;
+}
+
+.premium-app-sidebar {
+  border-right: 1px solid var(--id-border);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.025), 12px 0 40px -34px rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(22px) saturate(130%);
+}
+
+.premium-app-main {
+  position: relative;
+  isolation: isolate;
+}
+
+.premium-app-main::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 15rem);
+  content: "";
+  pointer-events: none;
+}
+
+.premium-app-shell :is(button, a, [role="button"]) {
+  transition-timing-function: var(--ease-premium);
 }
 
 /* =============================================================================

@@ -18,7 +18,7 @@ export function AdminPageHeader({
   return (
     <div
       className={cn(
-        "mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between",
+        "mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between",
         className
       )}
     >
@@ -55,7 +55,7 @@ export function AdminMetricCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border bg-card p-5 shadow-sm transition-shadow hover:shadow-md",
+        "rounded-[var(--id-radius)] border border-border bg-card/95 p-5 shadow-[var(--id-shadow)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[var(--id-shadow-lg)]",
         className
       )}
     >

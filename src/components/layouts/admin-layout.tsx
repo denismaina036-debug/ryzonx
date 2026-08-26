@@ -105,7 +105,7 @@ export function AdminSidebar({
         <Menu className="h-5 w-5" />
       </button>
 
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-navy-800 bg-navy-950 lg:flex xl:w-72">
+      <aside className="premium-app-sidebar hidden w-64 shrink-0 flex-col border-r border-navy-800 bg-navy-950 lg:flex xl:w-72">
         <AdminSidebarContent
           pathname={pathname}
           userName={userName}
@@ -380,7 +380,7 @@ export function AdminLayoutShell({
 }: AdminLayoutShellProps) {
   return (
     <LegalReacceptanceGate>
-      <div className="flex min-h-screen bg-surface-1">
+      <div className="premium-app-shell flex min-h-screen bg-surface-1">
         <AdminSidebar
           userName={userName}
           pendingDeposits={pendingDeposits}
@@ -388,7 +388,7 @@ export function AdminLayoutShell({
           pendingApplications={pendingApplications}
         />
         <div className="flex min-w-0 flex-1 flex-col">
-          <main className="flex-1 p-4 pt-16 lg:p-8 lg:pt-8">{children}</main>
+          <main className="premium-app-main flex-1 p-4 pt-16 lg:p-7 lg:pt-7 xl:p-8">{children}</main>
         </div>
       </div>
     </LegalReacceptanceGate>

@@ -51,8 +51,8 @@ export function PoolManagerLayoutShell({
   return (
     <InvestorThemeProvider>
       <LegalReacceptanceGate>
-      <div className="pool-manager-workspace flex min-h-screen overflow-x-hidden bg-[var(--id-bg)]">
-        <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-[var(--pm-sidebar-border)] bg-[var(--id-sidebar)] lg:flex xl:w-[17rem]">
+      <div className="pool-manager-workspace premium-app-shell flex min-h-screen overflow-x-hidden bg-[var(--id-bg)]">
+        <aside className="premium-app-sidebar fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-[var(--pm-sidebar-border)] bg-[var(--id-sidebar)] lg:flex xl:w-[17rem]">
           <div className="border-b border-[var(--pm-sidebar-border)] px-5 py-5">
             <div className="flex items-center gap-2.5">
               <Image
@@ -205,7 +205,7 @@ export function PoolManagerLayoutShell({
               </div>
             </div>
           </header>
-          <main className="flex-1 scroll-touch px-4 py-6 pb-mobile-shell sm:px-6 lg:px-8 lg:py-8 lg:pb-8">
+          <main className="premium-app-main flex-1 scroll-touch px-4 py-5 pb-mobile-shell sm:px-6 sm:py-7 lg:px-8 lg:py-8 lg:pb-8">
             {children}
           </main>
         </div>

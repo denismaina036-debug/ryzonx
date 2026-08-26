@@ -47,7 +47,7 @@ export function DashboardLayoutShell({
   return (
     <InvestorThemeProvider>
       <LegalReacceptanceGate>
-        <div className="investor-dashboard flex min-h-screen bg-[var(--id-bg)]">
+        <div className="investor-dashboard premium-app-shell flex min-h-screen bg-[var(--id-bg)]">
         <DashboardSidebar
           userName={userName}
           userRole={userRole}
@@ -57,7 +57,7 @@ export function DashboardLayoutShell({
 
         <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden lg:pl-[17rem]">
           <InvestorShellHeader unreadNotifications={unreadNotifications} />
-          <main className="flex-1 scroll-touch px-4 py-5 pb-mobile-shell sm:px-6 sm:py-8 lg:px-10 lg:py-12 lg:pb-12">
+          <main className="premium-app-main flex-1 scroll-touch px-4 py-5 pb-mobile-shell sm:px-6 sm:py-7 lg:px-8 lg:py-8 lg:pb-8 xl:px-10">
             {children}
           </main>
         </div>
@@ -86,7 +86,7 @@ function DashboardSidebar({
   const { signOut } = useAuthActions();
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-[17rem] flex-col bg-[var(--id-sidebar)] lg:flex">
+    <aside className="premium-app-sidebar fixed inset-y-0 left-0 z-30 hidden w-[17rem] flex-col bg-[var(--id-sidebar)] lg:flex">
       <SidebarContent
         pathname={pathname}
         userName={userName}
@@ -152,7 +152,7 @@ function SidebarContent({
                 tapNavLink,
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                 isActive
-                  ? "bg-[var(--id-accent)] text-white"
+                  ? "bg-[var(--id-accent-gradient)] text-white shadow-[0_12px_26px_-16px_var(--id-accent)] ring-1 ring-inset ring-white/10"
                   : "text-[var(--id-text-muted)] hover:bg-[var(--id-surface-hover)] hover:text-[var(--id-text)]"
               )}
             >

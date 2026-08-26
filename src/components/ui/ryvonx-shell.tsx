@@ -23,7 +23,7 @@ export function RyvonxPageHeader({
   return (
     <div
       className={cn(
-        "mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between",
+        "mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between",
         className
       )}
     >
@@ -123,7 +123,7 @@ export function RyvonxSectionCard({
     <section
       className={cn(
         muted ? "bg-[var(--id-surface-muted)]" : "bg-[var(--id-surface)]",
-        "rounded-[var(--id-radius)] border border-[var(--id-border)] p-5 shadow-[var(--id-shadow)] sm:p-6",
+        "rounded-[var(--id-radius)] border border-[var(--id-border)] p-5 shadow-[var(--id-shadow)] backdrop-blur-sm sm:p-6",
         className
       )}
     >
