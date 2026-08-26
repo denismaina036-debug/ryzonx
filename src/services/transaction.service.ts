@@ -580,6 +580,8 @@ export const transactionService = {
     amount: number;
     destination: string;
     fundId?: string;
+    cryptoSymbol?: string;
+    cryptoNetwork?: string;
   }): Promise<{ id: string }> {
     const user = await requireAuth();
     await ensurePlatformFundingFund();
@@ -621,6 +623,8 @@ export const transactionService = {
         amount,
         status: "pending",
         payment_method: "bank",
+        crypto_symbol: input.cryptoSymbol ?? null,
+        crypto_network: input.cryptoNetwork ?? null,
         destination: input.destination.trim(),
         notes: `Withdrawal request to ${input.destination.trim()}`,
       } as never)

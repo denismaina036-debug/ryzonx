@@ -9,6 +9,7 @@ export async function POST(request: Request) {
       amount: number;
       destination: string;
       fundId?: string;
+      cryptoSymbol?: string; cryptoNetwork?: string;
     };
 
     if (!body.amount || !body.destination) {

@@ -15,17 +15,25 @@ import {
 } from "@/features/investor/components/crypto-flow/crypto-flow-step";
 import { RyvonxPageHeader } from "@/features/investor/constants/ui";
 import { formatCurrency } from "@/lib/utils";
+import type { CryptoDepositAsset } from "@/features/investor/types/deposit";
 
 interface InvestorWithdrawalsViewProps {
   availableBalance: number;
+  assets: CryptoDepositAsset[]; defaultDestination: string; defaultSymbol: string; defaultNetwork: string;
 }
 
 export function InvestorWithdrawalsView({
   availableBalance,
+  assets,
+  defaultDestination,
+  defaultSymbol,
+  defaultNetwork,
 }: InvestorWithdrawalsViewProps) {
   const router = useRouter();
   const [amount, setAmount] = useState("");
-  const [destination, setDestination] = useState("");
+  const [destination, setDestination] = useState(defaultDestination);
+  const [symbol, setSymbol] = useState(defaultSymbol || assets[0]?.symbol || "");
+  const [network, setNetwork] = useState(defaultNetwork || assets[0]?.networks[0]?.networkCode || "");
   const [submitting, setSubmitting] = useState(false);
 
   const parsed = Number(amount);
@@ -52,6 +60,7 @@ export function InvestorWithdrawalsView({
         body: JSON.stringify({
           amount: parsed,
           destination: destination.trim(),
+          cryptoSymbol: symbol, cryptoNetwork: network,
         }),
       });
       const body = await res.json();
@@ -149,7 +158,7 @@ export function InvestorWithdrawalsView({
 
         <CryptoFlowStep
           step={3}
-          title="Destination Address"
+          title="Crypto & Destination"
           active={hasFunds && amountValid}
           done={destinationValid}
           disabled={!amountValid || !hasFunds}
@@ -162,6 +171,7 @@ export function InvestorWithdrawalsView({
           }
         >
           <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2"><select className={cryptoFlowInputClass} value={symbol} onChange={(e) => { setSymbol(e.target.value); setNetwork(assets.find((a) => a.symbol === e.target.value)?.networks[0]?.networkCode ?? ""); }}>{assets.map((a) => <option key={a.symbol}>{a.symbol}</option>)}</select><select className={cryptoFlowInputClass} value={network} onChange={(e) => setNetwork(e.target.value)}>{assets.find((a) => a.symbol === symbol)?.networks.map((n) => <option key={n.id} value={n.networkCode}>{n.networkLabel}</option>)}</select></div>
             <Input
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
