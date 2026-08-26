@@ -591,6 +591,7 @@ export const transactionService = {
     }
 
     const db = createAdminClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- migration 00072 is live; generated types are pending.
     const { data: hold } = await (db as any).from("investor_correction_withdrawal_holds").select("is_withdrawal_allowed").eq("investor_id", user.id).maybeSingle();
     if (hold && !(hold as { is_withdrawal_allowed: boolean }).is_withdrawal_allowed) {
       throw new Error("Withdrawal requests are currently unavailable. Please contact support.");
