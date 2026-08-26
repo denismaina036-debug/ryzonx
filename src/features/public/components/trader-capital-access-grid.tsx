@@ -11,7 +11,14 @@ import { formatCurrency, cn } from "@/lib/utils";
 
 export function TraderCapitalAccessGrid({ tiers }: { tiers: PmAdmissionTier[] }) {
   const [path, setPath] = useState<PoolManagerAdmissionPath>("trading_challenge");
+  const [selectedTierId, setSelectedTierId] = useState<string | null>(
+    () => tiers.find((tier) => tier.isFeatured)?.id ?? tiers[0]?.id ?? null
+  );
   const challenge = path === "trading_challenge";
+  const selectedTier = tiers.find((tier) => tier.id === selectedTierId) ?? tiers[0] ?? null;
+  const registrationHref = selectedTier
+    ? `${registerRoute(REGISTRATION_INTENTS.CREATE_POOL)}&tier=${encodeURIComponent(selectedTier.slug)}&path=${path}`
+    : registerRoute(REGISTRATION_INTENTS.CREATE_POOL);
 
   return (
     <section className="relative overflow-hidden bg-[#06101f] px-4 py-16 text-white sm:py-20">
@@ -28,9 +35,25 @@ export function TraderCapitalAccessGrid({ tiers }: { tiers: PmAdmissionTier[] })
         </div>
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {tiers.map((tier) => (
-            <article key={tier.id} className={cn("relative flex flex-col rounded-2xl border p-5 backdrop-blur-xl transition-transform duration-300 hover:-translate-y-1", tier.isFeatured ? "border-blue-400/45 bg-blue-400/[.1] shadow-[0_22px_60px_rgba(37,99,235,.18)]" : "border-white/10 bg-white/[.045]") }>
+          {tiers.map((tier) => {
+            const selected = tier.id === selectedTier?.id;
+            return (
+            <button
+              key={tier.id}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => setSelectedTierId(tier.id)}
+              className={cn(
+                "relative flex flex-col rounded-2xl border p-5 text-left backdrop-blur-xl transition-all duration-300 hover:-translate-y-1",
+                selected
+                  ? "border-blue-300 bg-blue-400/[.14] shadow-[0_22px_60px_rgba(37,99,235,.25)] ring-1 ring-blue-300/45"
+                  : tier.isFeatured
+                    ? "border-blue-400/45 bg-blue-400/[.1] shadow-[0_22px_60px_rgba(37,99,235,.18)]"
+                    : "border-white/10 bg-white/[.045] hover:border-blue-300/40"
+              )}
+            >
               {tier.isFeatured && <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-blue-500 px-3 py-1 text-[9px] font-bold uppercase tracking-[.15em] text-white">Most popular</span>}
+              {selected && <span className="absolute right-4 top-4 rounded-full bg-blue-300/15 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-blue-100">Selected</span>}
               <p className="text-xs font-semibold uppercase tracking-[.16em] text-blue-300">{tier.name}</p>
               <p className="mt-3 font-mono text-2xl font-semibold tracking-tight text-white">{formatCurrency(tier.maxCapital)}</p>
               <p className="mt-1 text-xs text-slate-400">Maximum capital mandate</p>
@@ -42,14 +65,19 @@ export function TraderCapitalAccessGrid({ tiers }: { tiers: PmAdmissionTier[] })
                 <li className="flex gap-2"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />{challenge ? "One evaluation phase" : "No trading challenge"}</li>
                 <li className="flex gap-2"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />Professional application review</li>
               </ul>
-            </article>
-          ))}
+            </button>
+          );
+          })}
         </div>
 
         <div className="mt-9 flex flex-col items-center gap-3 text-center">
           <Button asChild size="lg" className="bg-gradient-to-r from-blue-600 to-indigo-500 text-white shadow-[0_16px_38px_rgba(37,99,235,.3)] hover:from-blue-500 hover:to-indigo-400">
-            <Link href={registerRoute(REGISTRATION_INTENTS.CREATE_POOL)}>Start Pool Manager application <ArrowRight className="h-4 w-4" /></Link>
+            <Link href={registrationHref}>
+              {selectedTier ? `Sign up for ${selectedTier.name}` : "Start Pool Manager application"}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </Button>
+          {selectedTier && <p className="text-xs font-medium text-blue-200">{selectedTier.name} · {formatCurrency(selectedTier.maxCapital)} mandate · {formatCurrency(admissionTierFee(selectedTier, path))} one-time fee</p>}
           <p className="text-[11px] text-slate-400">Capital access is subject to identity verification, application review, platform rules, and approval.</p>
         </div>
       </div>

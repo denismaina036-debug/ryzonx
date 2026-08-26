@@ -10,8 +10,6 @@ import {
   ChevronRight,
   Clock,
   Shield,
-  Trophy,
-  Zap,
 } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { USER_ROLES } from "@/constants/roles";
@@ -422,7 +420,6 @@ export function PoolManagerAdmissionWizard({
         {step === PM_APPLICATION_SECTIONS.ADMISSION_PATH && (
           <AdmissionPathSection
             formData={formData}
-            settings={settings}
             tiers={tiers}
             onSelect={selectAdmissionPath}
             onSelectTier={selectAdmissionTier}
@@ -814,61 +811,59 @@ function PersonalStatementFields({
 
 function AdmissionPathSection({
   formData,
-  settings,
   tiers,
   onSelect,
   onSelectTier,
   disabled,
 }: {
   formData: PoolManagerApplicationData;
-  settings: PmAdmissionSettings;
   tiers: PmAdmissionTier[];
   onSelect: (path: PoolManagerAdmissionPath) => void;
   onSelectTier: (tierId: string) => void;
   disabled: boolean;
 }) {
-  const selected = formData.admissionPath;
-
   const selectedTier = tiers.find((tier) => tier.id === formData.admissionTierId);
+  const challengeSelected = formData.admissionPath !== PM_ADMISSION_PATH.DIRECT_ACCESS;
 
   return (
-    <div className="space-y-7">
-      <p className="text-sm text-[var(--id-text-secondary)]">
-        Choose how you wish to qualify as a Pool Manager.
-      </p>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <AdmissionCard
-          icon={Trophy}
-          title="Take Trading Challenge"
-          price={settings.tradingChallengeFee}
-          description="Demonstrate your trading ability through an official RyvonX evaluation challenge."
-          requirements={[
-            "Complete the evaluation",
-            "Maintain a complete Trading Journal",
-            "Follow challenge rules",
-            "Meet performance objectives",
-            "Pass Administrator review",
-          ]}
-          selected={selected === PM_ADMISSION_PATH.TRADING_CHALLENGE}
-          disabled={disabled}
-          onChoose={() => onSelect(PM_ADMISSION_PATH.TRADING_CHALLENGE)}
-          buttonLabel="Choose Trading Challenge"
-        />
-        <AdmissionCard
-          icon={Zap}
-          title="Instant Access"
-          price={settings.directAccessFee}
-          description="For experienced traders with an established background."
-          requirements={[
-            "Administrator reviews your application",
-            "If approved, become an active Pool Manager",
-            "No trading challenge required",
-          ]}
-          selected={selected === PM_ADMISSION_PATH.DIRECT_ACCESS}
-          disabled={disabled}
-          onChoose={() => onSelect(PM_ADMISSION_PATH.DIRECT_ACCESS)}
-          buttonLabel="Choose Instant Access"
-        />
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-[var(--id-border)] bg-[linear-gradient(125deg,var(--id-surface),var(--id-accent-soft))] p-5 shadow-[var(--id-shadow)] sm:p-6">
+        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--id-accent-text)]">RyvonX Capital Access</span>
+        <h3 className="mt-2 text-xl font-semibold tracking-[-0.025em] text-[var(--id-text)]">Choose your route and capital mandate</h3>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--id-text-secondary)]">Select the route that suits your experience, then choose the capital tier you want to qualify for. Your tier sets the one-time admission fee and maximum approved mandate.</p>
+        <div className="mt-5 inline-flex rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-1 shadow-sm">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onSelect(PM_ADMISSION_PATH.TRADING_CHALLENGE)}
+            className={cn(
+              "rounded-lg px-4 py-2.5 text-sm font-semibold transition-all sm:px-5",
+              challengeSelected
+                ? "bg-[var(--id-accent)] text-white shadow-sm"
+                : "text-[var(--id-text-secondary)] hover:text-[var(--id-text)]"
+            )}
+          >
+            One-Phase Challenge
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onSelect(PM_ADMISSION_PATH.DIRECT_ACCESS)}
+            className={cn(
+              "rounded-lg px-4 py-2.5 text-sm font-semibold transition-all sm:px-5",
+              !challengeSelected
+                ? "bg-[var(--id-accent)] text-white shadow-sm"
+                : "text-[var(--id-text-secondary)] hover:text-[var(--id-text)]"
+            )}
+          >
+            Instant Access
+          </button>
+        </div>
+        <p className="mt-3 text-xs text-[var(--id-text-muted)]">
+          {challengeSelected
+            ? "Complete one RyvonX evaluation phase before final approval."
+            : "Apply directly for review—no trading challenge is required."}
+        </p>
       </div>
       <div>
         <div className="flex flex-wrap items-end justify-between gap-2">
@@ -878,28 +873,38 @@ function AdmissionPathSection({
           </div>
           {selectedTier && <span className="text-xs font-semibold text-[var(--id-accent-text)]">Selected: {selectedTier.name}</span>}
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           {tiers.map((tier) => {
             const isSelected = tier.id === formData.admissionTierId;
-            const fee = formData.admissionPath ? admissionTierFee(tier, formData.admissionPath) : tier.challengeFee;
+            const fee = admissionTierFee(
+              tier,
+              challengeSelected ? PM_ADMISSION_PATH.TRADING_CHALLENGE : PM_ADMISSION_PATH.DIRECT_ACCESS
+            );
             return (
               <button
                 key={tier.id}
                 type="button"
                 disabled={disabled}
-                onClick={() => onSelectTier(tier.id)}
+                onClick={() => {
+                  if (!formData.admissionPath) onSelect(PM_ADMISSION_PATH.TRADING_CHALLENGE);
+                  onSelectTier(tier.id);
+                }}
                 className={cn(
-                  "relative rounded-2xl border p-4 text-left transition-all",
+                  "relative flex min-h-[220px] flex-col rounded-2xl border p-5 text-left transition-all",
                   isSelected
-                    ? "border-[var(--id-accent)] bg-[var(--id-accent-soft)] shadow-[var(--id-shadow)] ring-1 ring-[var(--id-accent)]/20"
-                    : "border-[var(--id-border)] bg-[var(--id-surface)] hover:-translate-y-0.5 hover:border-[var(--id-border-strong)] hover:shadow-[var(--id-shadow)]"
+                    ? "border-[var(--id-accent)] bg-[var(--id-accent-soft)] shadow-[var(--id-shadow)] ring-2 ring-[var(--id-accent)]/20"
+                    : "border-[var(--id-border)] bg-[var(--id-surface)] hover:-translate-y-1 hover:border-[var(--id-accent)]/45 hover:shadow-[var(--id-shadow)]"
                 )}
               >
-                {tier.isFeatured && <span className="absolute -top-2 right-3 rounded-full bg-[var(--id-accent)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">Popular</span>}
-                <span className="block text-sm font-semibold text-[var(--id-text)]">{tier.name}</span>
-                <span className="mt-2 block font-mono text-xl font-semibold text-[var(--id-text)]">{formatCurrency(tier.maxCapital)}</span>
-                <span className="block text-[10px] uppercase tracking-wider text-[var(--id-text-muted)]">Maximum capital</span>
-                <span className="mt-3 block text-sm font-semibold text-[var(--id-accent-text)]">{formatCurrency(fee)} fee</span>
+                {tier.isFeatured && <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-[var(--id-accent)] px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-white">Most popular</span>}
+                {isSelected && <Check className="absolute right-4 top-4 h-4 w-4 text-[var(--id-accent-text)]" />}
+                <span className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--id-accent-text)]">{tier.name}</span>
+                <span className="mt-3 block font-mono text-2xl font-semibold tracking-tight text-[var(--id-text)]">{formatCurrency(tier.maxCapital)}</span>
+                <span className="mt-1 block text-[10px] font-medium uppercase tracking-wider text-[var(--id-text-muted)]">Maximum capital mandate</span>
+                <span className="my-4 h-px bg-[var(--id-border)]" />
+                <span className="block text-xl font-semibold text-[var(--id-text)]">{formatCurrency(fee)}</span>
+                <span className="mt-1 block text-[10px] font-medium uppercase tracking-wider text-[var(--id-text-muted)]">{challengeSelected ? "One-phase challenge fee" : "Instant access fee"}</span>
+                <span className="mt-3 text-xs leading-5 text-[var(--id-text-secondary)]">{tier.description}</span>
               </button>
             );
           })}
@@ -1014,61 +1019,6 @@ function ReviewSection({
           disabled={disabled}
         />
       </div>
-    </div>
-  );
-}
-
-function AdmissionCard({
-  icon: Icon,
-  title,
-  price,
-  description,
-  requirements,
-  selected,
-  disabled,
-  onChoose,
-  buttonLabel,
-}: {
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-  title: string;
-  price: number;
-  description: string;
-  requirements: string[];
-  selected: boolean;
-  disabled: boolean;
-  onChoose: () => void;
-  buttonLabel: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex flex-col rounded-xl border p-5 transition",
-        selected
-          ? "border-[var(--id-accent)] bg-[var(--id-accent-soft)]/40"
-          : "border-[var(--id-border)] bg-[var(--id-surface-muted)]/30"
-      )}
-    >
-      <Icon className="h-6 w-6 text-[var(--id-accent-text)]" strokeWidth={1.75} />
-      <h3 className="mt-3 font-semibold text-[var(--id-text)]">{title}</h3>
-      <p className="mt-1 text-xl font-bold text-[var(--id-accent-text)]">{formatCurrency(price)}</p>
-      <p className="mt-3 text-xs leading-relaxed text-[var(--id-text-secondary)]">{description}</p>
-      <ul className="mt-4 flex-1 space-y-1.5 text-xs text-[var(--id-text-muted)]">
-        {requirements.map((r) => (
-          <li key={r} className="flex gap-2">
-            <Check className="mt-0.5 h-3 w-3 shrink-0 text-[var(--id-accent-text)]" />
-            {r}
-          </li>
-        ))}
-      </ul>
-      <Button
-        type="button"
-        className="mt-5 w-full"
-        variant={selected ? "default" : "outline"}
-        disabled={disabled}
-        onClick={onChoose}
-      >
-        {buttonLabel}
-      </Button>
     </div>
   );
 }
