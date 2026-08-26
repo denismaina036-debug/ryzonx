@@ -3,6 +3,7 @@ import { requirePermission } from "@/lib/auth/authorization";
 import { auditService } from "@/services/audit.service";
 import { PLATFORM_SERVICE_FEE_RATE } from "@/constants/profit-distribution";
 import type { PlatformSetting } from "@/features/admin/types";
+import { revalidateTag } from "next/cache";
 
 type SettingRow = {
   key: string;
@@ -140,6 +141,7 @@ export const platformSettingsService = {
         { onConflict: "key" }
       );
       if (error) throw new Error(error.message);
+      if (key === "landing_content") revalidateTag("landing-content");
 
       await auditService.log({
         actorId,

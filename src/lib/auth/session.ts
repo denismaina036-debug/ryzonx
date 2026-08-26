@@ -13,6 +13,7 @@ import { parseRegistrationIntent } from "@/domain/investor/pm-journey-variant";
 import type { UserProfile } from "@/types";
 import type { User, AuthError } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 function isSessionFresh(expiresAt: number | undefined): boolean {
   if (!expiresAt) return true;
@@ -26,7 +27,7 @@ function isSessionFresh(expiresAt: number | undefined): boolean {
  * Lightweight auth for public shells — reads the cookie session only.
  * Does not call Auth refresh APIs (avoids stale refresh-token errors on /login).
  */
-export async function getShellUser(): Promise<UserProfile | null> {
+export const getShellUser = cache(async (): Promise<UserProfile | null> => {
   const cookieStore = await cookies();
   const session = readServerSupabaseSession(cookieStore);
 
@@ -41,7 +42,7 @@ export async function getShellUser(): Promise<UserProfile | null> {
   } catch {
     return null;
   }
-}
+});
 
 async function loadProfileForAuthUser(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -75,7 +76,7 @@ async function loadProfileForAuthUser(
  * Get the current authenticated user with profile data.
  * Returns null if not authenticated or profile not found.
  */
-export async function getCurrentUser(): Promise<UserProfile | null> {
+export const getCurrentUser = cache(async (): Promise<UserProfile | null> => {
   const cookieStore = await cookies();
   if (!hasServerSupabaseSessionCookie(cookieStore)) {
     return null;
@@ -112,7 +113,7 @@ export async function getCurrentUser(): Promise<UserProfile | null> {
   }
 
   return loadProfileForAuthUser(supabase, user);
-}
+});
 
 function mergeAuthMetadata(profile: UserProfile, authUser: User): UserProfile {
   const meta = authUser.user_metadata ?? {};

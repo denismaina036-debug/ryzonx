@@ -1,5 +1,6 @@
 import type { LegalDocumentLink } from "@/domain/legal-documents/types";
 import { LEGAL_DOCUMENT_TYPES } from "@/domain/legal-documents/types";
+import { unstable_cache } from "next/cache";
 
 export const FALLBACK_LEGAL_LINKS: LegalDocumentLink[] = [
   {
@@ -14,7 +15,7 @@ export const FALLBACK_LEGAL_LINKS: LegalDocumentLink[] = [
   },
 ];
 
-export async function getLegalLinksSafe(): Promise<LegalDocumentLink[]> {
+const loadLegalLinks = unstable_cache(async (): Promise<LegalDocumentLink[]> => {
   try {
     const { legalDocumentService } = await import("@/services/legal-document.service");
     const links = await legalDocumentService.getPublicLinks();
@@ -22,4 +23,8 @@ export async function getLegalLinksSafe(): Promise<LegalDocumentLink[]> {
   } catch {
     return FALLBACK_LEGAL_LINKS;
   }
+}, ["public-legal-links"], { revalidate: 300, tags: ["legal-links"] });
+
+export async function getLegalLinksSafe(): Promise<LegalDocumentLink[]> {
+  return loadLegalLinks();
 }

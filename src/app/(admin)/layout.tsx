@@ -20,19 +20,20 @@ export default async function AdminRouteLayout({
   let pendingDeposits = 0;
   let pendingWithdrawals = 0;
   let pendingApplications = 0;
-  try {
-    const stats = await adminService.getDashboardStats();
-    pendingDeposits = stats.pendingDeposits;
-    pendingWithdrawals = stats.pendingWithdrawals;
-  } catch (error) {
-    console.error("[admin layout] Failed to load pending counts:", error);
+  const [statsResult, applicationsResult] = await Promise.allSettled([
+    adminService.getDashboardStats(),
+    poolManagerAdminService.listApplications(),
+  ]);
+  if (statsResult.status === "fulfilled") {
+    pendingDeposits = statsResult.value.pendingDeposits;
+    pendingWithdrawals = statsResult.value.pendingWithdrawals;
+  } else {
+    console.error("[admin layout] Failed to load pending counts:", statsResult.reason);
   }
-
-  try {
-    const applications = await poolManagerAdminService.listApplications();
-    pendingApplications = filterPoolManagerApplications(applications, "pending").length;
-  } catch (error) {
-    console.error("[admin layout] Failed to load pending applications:", error);
+  if (applicationsResult.status === "fulfilled") {
+    pendingApplications = filterPoolManagerApplications(applicationsResult.value, "pending").length;
+  } else {
+    console.error("[admin layout] Failed to load pending applications:", applicationsResult.reason);
   }
 
   return (

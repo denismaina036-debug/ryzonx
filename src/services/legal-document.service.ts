@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createPublicClient } from "@/lib/supabase/public";
 import { requirePermission } from "@/lib/auth/authorization";
@@ -462,6 +462,7 @@ export const legalDocumentService = {
     revalidatePath("/terms");
     revalidatePath("/privacy");
     revalidatePath(`/${row.slug}`);
+    revalidateTag("legal-links");
 
     const updated = data as LegalDocumentRow;
     return {
@@ -487,6 +488,7 @@ export const legalDocumentService = {
       } as never)
       .eq("document_type", documentType);
     if (error) throw new Error(error.message);
+    revalidateTag("legal-links");
 
     const { auditService } = await import("@/services/audit.service");
     await auditService.log({

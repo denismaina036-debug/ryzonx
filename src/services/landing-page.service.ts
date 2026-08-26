@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { revalidateTag, unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/auth/authorization";
 import { platformSettingsService } from "@/services/platform-settings.service";
@@ -44,8 +45,8 @@ async function resolveHeroStats(stats: LandingHeroFloatingStat[]): Promise<Resol
   );
 }
 
-export const landingPageService = {
-  getRawContent: cache(async (): Promise<LandingPageContent> => {
+const loadRawPublicContent = unstable_cache(
+  async (): Promise<LandingPageContent> => {
     try {
       const raw = await platformSettingsService.get("landing_content");
       return parseLandingPageContent(raw);
@@ -56,16 +57,28 @@ export const landingPageService = {
       );
       return parseLandingPageContent(null);
     }
-  }),
+  },
+  ["landing-page-raw-content"],
+  { revalidate: 300, tags: ["landing-content"] }
+);
 
-  getPublicContent: cache(async (): Promise<PublicLandingPageContent> => {
-    const content = await landingPageService.getRawContent();
+const loadResolvedPublicContent = unstable_cache(
+  async (): Promise<PublicLandingPageContent> => {
+    const content = await loadRawPublicContent();
     const [heroStats, statistics] = await Promise.all([
       resolveHeroStats(content.heroStats),
       resolveStats(content.statistics),
     ]);
     return { ...content, heroStats, statistics };
-  }),
+  },
+  ["landing-page-resolved-content"],
+  { revalidate: 60, tags: ["landing-content"] }
+);
+
+export const landingPageService = {
+  getRawContent: cache(loadRawPublicContent),
+
+  getPublicContent: cache(loadResolvedPublicContent),
 
   async getAdminContent(): Promise<LandingPageContent> {
     await requirePermission("MANAGE_PLATFORM_CONFIG");
@@ -86,6 +99,7 @@ export const landingPageService = {
       { onConflict: "key" }
     );
     if (error) throw new Error(error.message);
+    revalidateTag("landing-content");
 
     const { auditService } = await import("@/services/audit.service");
     await auditService.log({

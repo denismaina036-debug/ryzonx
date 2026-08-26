@@ -22,23 +22,29 @@ export default async function PoolManagerRouteLayout({
     approvedPoolId: null as string | null,
   };
 
-  try {
-    const db = createAdminClient();
-    const { data } = await db
-      .from("pool_managers")
-      .select("slug")
-      .eq("user_id", user.id)
-      .eq("status", "approved")
-      .maybeSingle();
-    managerSlug = (data as { slug?: string } | null)?.slug ?? null;
-  } catch {
-    managerSlug = null;
+  const [managerResult, quickActionResult] = await Promise.allSettled([
+    (async () => {
+      const db = createAdminClient();
+      const { data } = await db
+        .from("pool_managers")
+        .select("slug")
+        .eq("user_id", user.id)
+        .eq("status", "approved")
+        .maybeSingle();
+      return (data as { slug?: string } | null)?.slug ?? null;
+    })(),
+    poolManagerWorkspaceService.getQuickActionContext(),
+  ]);
+  if (managerResult.status === "fulfilled") {
+    managerSlug = managerResult.value;
   }
-
-  try {
-    quickActionContext = await poolManagerWorkspaceService.getQuickActionContext();
-  } catch (error) {
-    console.error("[pool-manager layout] Failed to load quick action context:", error);
+  if (quickActionResult.status === "fulfilled") {
+    quickActionContext = quickActionResult.value;
+  } else {
+    console.error(
+      "[pool-manager layout] Failed to load quick action context:",
+      quickActionResult.reason
+    );
   }
 
   return (
