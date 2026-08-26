@@ -84,6 +84,7 @@ export const ROUTES = {
   adminFinanceCycleSettlements: "/admin/finance/cycle-settlements",
   adminFinanceWallets: "/admin/finance/wallets",
   adminFinanceOperations: "/admin/finance/operations",
+  adminFinanceCorrections: "/admin/finance/corrections",
   /** @deprecated — redirects to finance routes */
   adminDeposits: "/admin/deposits",
   /** @deprecated — redirects to finance routes */

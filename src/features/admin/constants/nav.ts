@@ -312,6 +312,7 @@ export const FINANCE_SECTION_NAV = [
   },
   { label: "Wallets", href: ROUTES.adminFinanceWallets },
   { label: "Operations", href: ROUTES.adminFinanceOperations, matchPrefix: "/admin/finance/operations" },
+  { label: "Corrections", href: ROUTES.adminFinanceCorrections, matchPrefix: "/admin/finance/corrections" },
 ] as const;
 
 export const FINANCE_STATUS_NAV = [
