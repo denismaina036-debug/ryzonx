@@ -89,7 +89,7 @@ export const walletProjectionService = {
 
       const hasLedgerActivity = availableLedger !== 0 || reserved !== 0 || settled !== 0;
       const available = hasLedgerActivity
-        ? Math.max(0, Math.round((availableLedger - legacyWithdrawals) * 100) / 100)
+        ? Math.max(0, Math.round((Math.max(availableLedger, legacyAvailable) - legacyWithdrawals) * 100) / 100)
         : legacyAvailable;
       const source: WalletProjection["source"] = hasLedgerActivity ? "ledger" : "legacy";
 

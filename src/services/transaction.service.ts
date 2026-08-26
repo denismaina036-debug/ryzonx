@@ -695,20 +695,6 @@ export const transactionService = {
     const amount = toNumber(row.amount);
     const now = new Date().toISOString();
 
-    const { error: updateError } = await db
-      .from("transactions")
-      .update({
-        status: "approved",
-        processed_at: now,
-        processed_by: admin.id,
-        approved_by: admin.id,
-      } as never)
-      .eq("id", transactionId);
-
-    if (updateError) {
-      throw new Error(updateError.message);
-    }
-
     const { data: challengeEnrollment } = await db
       .from("trader_challenge_enrollments")
       .select("id, challenge_id, amount_paid")
@@ -775,6 +761,9 @@ export const transactionService = {
       sourceId: transactionId,
       actorId: admin.id,
     });
+
+    const { error: updateError } = await db.from("transactions").update({ status: "approved", processed_at: now, processed_by: admin.id, approved_by: admin.id } as never).eq("id", transactionId);
+    if (updateError) throw new Error(updateError.message);
 
     const { error: portfolioError } = await db
       .from("investor_portfolios")
