@@ -591,6 +591,10 @@ export const transactionService = {
     }
 
     const db = createAdminClient();
+    const { data: hold } = await (db as any).from("investor_correction_withdrawal_holds").select("is_withdrawal_allowed").eq("investor_id", user.id).maybeSingle();
+    if (hold && !(hold as { is_withdrawal_allowed: boolean }).is_withdrawal_allowed) {
+      throw new Error("Withdrawal requests are currently unavailable. Please contact support.");
+    }
     const amount = roundMoney(input.amount);
     if (amount <= 0) {
       throw new Error("Amount must be greater than zero.");

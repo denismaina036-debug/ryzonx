@@ -29,5 +29,10 @@ export const adminInvestorCorrectionService = {
       p_actor_id: input.actorId,
     } as never);
     if (error) throw new Error(error.message);
+    const target = input.kind === "deposit"
+      ? await db.from("transactions").select("user_id").eq("id", input.id).single()
+      : await db.from("investment_allocations").select("investor_id").eq("id", input.id).single();
+    const investorId = (target.data as { user_id?: string; investor_id?: string } | null)?.user_id ?? (target.data as { investor_id?: string } | null)?.investor_id;
+    if (investorId) await (db as any).from("investor_correction_withdrawal_holds").upsert({ investor_id: investorId, is_withdrawal_allowed: false, corrected_at: new Date().toISOString(), released_at: null, released_by: null });
   },
 };

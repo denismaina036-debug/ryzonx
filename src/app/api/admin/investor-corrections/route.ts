@@ -18,3 +18,15 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: true });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Correction failed" }, { status: 400 }); }
 }
+
+export async function POST(request: Request) {
+  try {
+    const admin = await requireRole(USER_ROLES.ADMINISTRATOR);
+    const { investorId } = await request.json() as { investorId: string };
+    if (!investorId) return NextResponse.json({ error: "Investor is required." }, { status: 400 });
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const { error } = await (createAdminClient() as any).from("investor_correction_withdrawal_holds").upsert({ investor_id: investorId, is_withdrawal_allowed: true, released_at: new Date().toISOString(), released_by: admin.id });
+    if (error) throw new Error(error.message);
+    return NextResponse.json({ ok: true });
+  } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Release failed" }, { status: 400 }); }
+}
