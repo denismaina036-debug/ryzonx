@@ -23,6 +23,7 @@ export interface AdmissionPaymentState {
   availableBalance: number;
   fee: number | null;
   admissionPath: string | null;
+  admissionTierId: string | null;
   sufficient: boolean;
   alreadyPaid: boolean;
 }

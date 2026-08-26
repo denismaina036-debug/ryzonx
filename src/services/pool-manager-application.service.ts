@@ -38,6 +38,12 @@ import {
   AdmissionInsufficientBalanceError,
   type AdmissionPaymentState,
 } from "@/domain/pool-manager/admission-errors";
+import { pmAdmissionTierService } from "@/services/pm-admission-tier.service";
+import {
+  admissionTierFee,
+  snapshotAdmissionTier,
+  type PmAdmissionTierSnapshot,
+} from "@/domain/pool-manager/admission-tier";
 
 type ApplicationRow = {
   id: string;
@@ -50,6 +56,8 @@ type ApplicationRow = {
   admission_path?: string | null;
   payment_status?: string;
   admission_fee_amount?: number | string | null;
+  admission_tier_id?: string | null;
+  admission_tier_snapshot?: PmAdmissionTierSnapshot | null;
   strategy_submitted_at: string | null;
   challenge_enrollment_id: string | null;
   challenge_template_id?: string | null;
@@ -80,6 +88,8 @@ function mapApplication(row: ApplicationRow): PoolManagerApplication {
     strategyData: row.strategy_data ?? {},
     applicationData: { ...applicationData, admissionPath: admissionPath ?? applicationData.admissionPath },
     admissionPath,
+    admissionTierId: row.admission_tier_id ?? applicationData.admissionTierId ?? null,
+    admissionTierSnapshot: row.admission_tier_snapshot ?? null,
     paymentStatus:
       row.payment_status === "paid" || row.payment_status === "waived"
         ? row.payment_status
@@ -145,7 +155,7 @@ async function chargeAdmissionFee(input: {
   const pathLabel =
     input.admissionPath === PM_ADMISSION_PATH.TRADING_CHALLENGE
       ? "Trading Challenge"
-      : "Direct Access";
+      : "Instant Access";
 
   const admissionNotes = `Pool Manager admission fee — ${pathLabel}`;
 
@@ -275,7 +285,10 @@ export const poolManagerApplicationService = {
     }
 
     const now = new Date().toISOString();
-    const initialApplicationData =
+    const priorApplication = mapApplication(row);
+    const hasSettledAdmission =
+      priorApplication.paymentStatus === "paid" || priorApplication.paymentStatus === "waived";
+    const initialApplicationData: PoolManagerApplicationData =
       user.registrationCountry
         ? {
             professionalBackground: {
@@ -283,6 +296,10 @@ export const poolManagerApplicationService = {
             },
           }
         : {};
+    if (hasSettledAdmission) {
+      initialApplicationData.admissionPath = priorApplication.admissionPath ?? undefined;
+      initialApplicationData.admissionTierId = priorApplication.admissionTierId;
+    }
 
     const { data, error } = await db
       .from("pool_manager_applications")
@@ -401,6 +418,18 @@ export const poolManagerApplicationService = {
     if (input.data.admissionPath) {
       merged.admissionPath = input.data.admissionPath;
     }
+    if (input.data.admissionTierId) {
+      merged.admissionTierId = input.data.admissionTierId;
+    }
+
+    if (
+      input.section === PM_APPLICATION_SECTIONS.ADMISSION_PATH &&
+      (application.paymentStatus === "paid" || application.paymentStatus === "waived") &&
+      (merged.admissionPath !== application.admissionPath ||
+        merged.admissionTierId !== application.admissionTierId)
+    ) {
+      throw new Error("The admission path and capital tier cannot be changed after payment.");
+    }
     if (input.data.reviewConfirmations) {
       merged.reviewConfirmations = {
         ...application.applicationData.reviewConfirmations,
@@ -415,11 +444,16 @@ export const poolManagerApplicationService = {
     const nextStage = Math.max(application.currentStage, input.section + 1) as PoolManagerApplication["currentStage"];
     let admissionPath: PoolManagerAdmissionPath | null = application.admissionPath;
     let admissionFeeAmount = application.admissionFeeAmount;
+    let admissionTierId = application.admissionTierId;
+    let admissionTierSnapshot = application.admissionTierSnapshot;
 
-    if (input.section === PM_APPLICATION_SECTIONS.ADMISSION_PATH && merged.admissionPath) {
+    if (input.section === PM_APPLICATION_SECTIONS.ADMISSION_PATH && merged.admissionPath && merged.admissionTierId) {
       admissionPath = merged.admissionPath;
-      const settings = await pmAdmissionSettingsService.get();
-      admissionFeeAmount = admissionFeeForPath(merged.admissionPath, settings);
+      const tier = await pmAdmissionTierService.getActive(merged.admissionTierId);
+      if (!tier) throw new Error("Select an available capital tier.");
+      admissionTierId = tier.id;
+      admissionTierSnapshot = snapshotAdmissionTier(tier, merged.admissionPath);
+      admissionFeeAmount = admissionTierFee(tier, merged.admissionPath);
     }
 
     const basicInfoPatch = buildLegacyBasicInfo(merged);
@@ -432,6 +466,8 @@ export const poolManagerApplicationService = {
         current_stage: nextStage,
         admission_path: admissionPath,
         admission_fee_amount: admissionFeeAmount,
+        admission_tier_id: admissionTierId,
+        admission_tier_snapshot: admissionTierSnapshot,
       } as never)
       .eq("id", application.id)
       .eq("user_id", user.id)
@@ -449,7 +485,18 @@ export const poolManagerApplicationService = {
     const admissionPath =
       application.applicationData.admissionPath ?? application.admissionPath;
     const settings = await pmAdmissionSettingsService.get();
-    const fee = admissionPath ? admissionFeeForPath(admissionPath, settings) : null;
+    const isSettled =
+      application.paymentStatus === "paid" || application.paymentStatus === "waived";
+    const tier = !isSettled && application.applicationData.admissionTierId
+      ? await pmAdmissionTierService.getActive(application.applicationData.admissionTierId)
+      : null;
+    const fee = admissionPath
+      ? isSettled && application.admissionFeeAmount != null
+        ? application.admissionFeeAmount
+        : tier
+        ? admissionTierFee(tier, admissionPath)
+        : admissionFeeForPath(admissionPath, settings)
+      : null;
 
     if (
       application.paymentStatus === "paid" ||
@@ -459,6 +506,7 @@ export const poolManagerApplicationService = {
         availableBalance: 0,
         fee,
         admissionPath,
+        admissionTierId: application.admissionTierId,
         sufficient: true,
         alreadyPaid: true,
       };
@@ -473,6 +521,7 @@ export const poolManagerApplicationService = {
       availableBalance,
       fee,
       admissionPath,
+      admissionTierId: application.admissionTierId,
       sufficient: fee != null && availableBalance >= fee,
       alreadyPaid: false,
     };
@@ -505,8 +554,23 @@ export const poolManagerApplicationService = {
       throw new Error("Select an admission path before submitting.");
     }
 
-    const settings = await pmAdmissionSettingsService.get();
-    const admissionFeeAmount = admissionFeeForPath(admissionPath, settings);
+    const tierId = data.admissionTierId ?? application.admissionTierId;
+    if (!tierId) throw new Error("Select a capital tier before submitting.");
+    const isSettled =
+      application.paymentStatus === "paid" || application.paymentStatus === "waived";
+    const activeTier = await pmAdmissionTierService.getActive(tierId);
+    if (!activeTier && !isSettled) {
+      throw new Error("The selected capital tier is no longer available.");
+    }
+    if (isSettled && (!application.admissionTierSnapshot || application.admissionFeeAmount == null)) {
+      throw new Error("The paid admission record is incomplete. Contact support before resubmitting.");
+    }
+    const admissionFeeAmount = isSettled
+      ? application.admissionFeeAmount!
+      : admissionTierFee(activeTier!, admissionPath);
+    const tierSnapshot = isSettled
+      ? application.admissionTierSnapshot!
+      : snapshotAdmissionTier(activeTier!, admissionPath);
     const now = new Date().toISOString();
 
     let paymentStatus = application.paymentStatus;
@@ -536,6 +600,12 @@ export const poolManagerApplicationService = {
         current_stage: PM_APPLICATION_STAGES.ADMIN_REVIEW,
         admission_path: admissionPath,
         admission_fee_amount: admissionFeeAmount,
+        admission_tier_id: tierSnapshot.tierId,
+        admission_tier_snapshot: tierSnapshot,
+        challenge_template_id:
+          admissionPath === PM_ADMISSION_PATH.TRADING_CHALLENGE
+            ? tierSnapshot.challengeTemplateId
+            : application.challengeTemplateId,
         payment_status: paymentStatus,
         submitted_at: now,
       } as never)
@@ -551,7 +621,7 @@ export const poolManagerApplicationService = {
     const pathLabel =
       admissionPath === PM_ADMISSION_PATH.TRADING_CHALLENGE
         ? "Trading Challenge"
-        : "Direct Access";
+        : "Instant Access";
 
     await notificationService.sendToUser({
       userId: user.id,
@@ -1370,6 +1440,8 @@ export const poolManagerAdminService = {
         display_trade_count: initialRating?.displayTradeCount ?? 0,
         display_investor_count: initialRating?.displayInvestorCount ?? 0,
         manager_level: resolveManagerCareerLevel(initialRating?.experienceLevel),
+        admission_tier_id: application.admissionTierId,
+        capital_limit_amount: application.admissionTierSnapshot?.maxCapital ?? null,
         governance_stage: "approved",
         development_notes: formatPmInitialRatingNotes(
           initialRating?.experienceLevel,

@@ -1,5 +1,4 @@
 import {
-  Activity,
   ArrowDownToLine,
   ArrowUpFromLine,
   CircleDollarSign,
@@ -22,7 +21,6 @@ const iconConfig = {
   investment_confirmed: { icon: Wallet, className: "bg-royal-50 text-royal-600" },
   pool_settlement: { icon: CircleDollarSign, className: "bg-emerald-50 text-emerald-600" },
   profit_distribution: { icon: CircleDollarSign, className: "bg-gold-50 text-gold-600" },
-  platform_event: { icon: Activity, className: "bg-surface-2 text-navy-600" },
 } as const;
 
 export function PlatformActivityFeed({

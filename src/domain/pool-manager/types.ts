@@ -104,6 +104,7 @@ export interface PoolManagerApplicationData {
   tradingPerformance?: TradingPerformanceSection;
   personalStatement?: PersonalStatementSection;
   admissionPath?: PoolManagerAdmissionPath | null;
+  admissionTierId?: string | null;
   reviewConfirmations?: ApplicationReviewConfirmations;
 }
 
@@ -174,6 +175,8 @@ export interface PoolManagerApplication {
   strategyData: PoolManagerStrategyData;
   applicationData: PoolManagerApplicationData;
   admissionPath: PoolManagerAdmissionPath | null;
+  admissionTierId: string | null;
+  admissionTierSnapshot: import("@/domain/pool-manager/admission-tier").PmAdmissionTierSnapshot | null;
   paymentStatus: PoolManagerPaymentStatus;
   admissionFeeAmount: number | null;
   strategySubmittedAt: string | null;

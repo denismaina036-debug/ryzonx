@@ -118,7 +118,7 @@ function roundMoney(value: number): number {
 }
 
 export const investorPoolTradesService = {
-  /** Pool manager journal trades visible to investors across marketplace pools. */
+  /** Investor-visible journal trades for fund IDs already scoped to the authenticated investor. */
   async listForFunds(fundIds: string[], limit = 100): Promise<InvestorDashboardTrade[]> {
     if (fundIds.length === 0) return [];
 

@@ -61,6 +61,10 @@ import { countryCodeToFlag } from "@/lib/country-flag";
 import type { PmAdmissionSettings } from "@/domain/pool-manager/admission-settings";
 import type { AdmissionPaymentState } from "@/domain/pool-manager/admission-errors";
 import {
+  admissionTierFee,
+  type PmAdmissionTier,
+} from "@/domain/pool-manager/admission-tier";
+import {
   normalizeProfessionalBackground,
   formatTradingInstruments,
 } from "@/domain/pool-manager/professional-background";
@@ -69,6 +73,7 @@ interface PoolManagerAdmissionWizardProps {
   userRole: string;
   initialApplication: PoolManagerApplication | null;
   initialSettings: PmAdmissionSettings;
+  initialTiers: PmAdmissionTier[];
   registrationCountry?: string | null;
 }
 
@@ -84,11 +89,13 @@ export function PoolManagerAdmissionWizard({
   userRole,
   initialApplication,
   initialSettings,
+  initialTiers,
   registrationCountry,
 }: PoolManagerAdmissionWizardProps) {
   const router = useRouter();
   const [application, setApplication] = useState(initialApplication);
   const [settings] = useState(initialSettings);
+  const [tiers] = useState(initialTiers);
   const [step, setStep] = useState(
     Math.min(
       initialApplication?.currentStage ?? PM_APPLICATION_SECTIONS.PROFESSIONAL_BACKGROUND,
@@ -258,6 +265,10 @@ export function PoolManagerAdmissionWizard({
     setFormData((prev) => ({ ...prev, admissionPath: path }));
   }
 
+  function selectAdmissionTier(tierId: string) {
+    setFormData((prev) => ({ ...prev, admissionTierId: tierId }));
+  }
+
   if (isPoolManager || isApproved) {
     return (
       <div className={`${investorCardClass} max-w-2xl p-8 text-center`}>
@@ -278,7 +289,7 @@ export function PoolManagerAdmissionWizard({
       application?.admissionPath === PM_ADMISSION_PATH.TRADING_CHALLENGE
         ? "Trading Challenge"
         : application?.admissionPath === PM_ADMISSION_PATH.DIRECT_ACCESS
-          ? "Direct Access"
+          ? "Instant Access"
           : "Pool Manager";
 
     return (
@@ -412,7 +423,9 @@ export function PoolManagerAdmissionWizard({
           <AdmissionPathSection
             formData={formData}
             settings={settings}
+            tiers={tiers}
             onSelect={selectAdmissionPath}
+            onSelectTier={selectAdmissionTier}
             disabled={!canEdit || loading}
           />
         )}
@@ -421,6 +434,7 @@ export function PoolManagerAdmissionWizard({
             formData={formData}
             setFormData={setFormData}
             settings={settings}
+            tiers={tiers}
             paymentState={paymentState}
             disabled={!canEdit || loading}
           />
@@ -801,18 +815,24 @@ function PersonalStatementFields({
 function AdmissionPathSection({
   formData,
   settings,
+  tiers,
   onSelect,
+  onSelectTier,
   disabled,
 }: {
   formData: PoolManagerApplicationData;
   settings: PmAdmissionSettings;
+  tiers: PmAdmissionTier[];
   onSelect: (path: PoolManagerAdmissionPath) => void;
+  onSelectTier: (tierId: string) => void;
   disabled: boolean;
 }) {
   const selected = formData.admissionPath;
 
+  const selectedTier = tiers.find((tier) => tier.id === formData.admissionTierId);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-7">
       <p className="text-sm text-[var(--id-text-secondary)]">
         Choose how you wish to qualify as a Pool Manager.
       </p>
@@ -836,7 +856,7 @@ function AdmissionPathSection({
         />
         <AdmissionCard
           icon={Zap}
-          title="Direct Access"
+          title="Instant Access"
           price={settings.directAccessFee}
           description="For experienced traders with an established background."
           requirements={[
@@ -847,8 +867,43 @@ function AdmissionPathSection({
           selected={selected === PM_ADMISSION_PATH.DIRECT_ACCESS}
           disabled={disabled}
           onChoose={() => onSelect(PM_ADMISSION_PATH.DIRECT_ACCESS)}
-          buttonLabel="Choose Direct Access"
+          buttonLabel="Choose Instant Access"
         />
+      </div>
+      <div>
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h3 className="text-base font-semibold text-[var(--id-text)]">Choose your capital tier</h3>
+            <p className="mt-1 text-sm text-[var(--id-text-secondary)]">Your selection sets the admission fee and maximum approved capital mandate.</p>
+          </div>
+          {selectedTier && <span className="text-xs font-semibold text-[var(--id-accent-text)]">Selected: {selectedTier.name}</span>}
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {tiers.map((tier) => {
+            const isSelected = tier.id === formData.admissionTierId;
+            const fee = formData.admissionPath ? admissionTierFee(tier, formData.admissionPath) : tier.challengeFee;
+            return (
+              <button
+                key={tier.id}
+                type="button"
+                disabled={disabled}
+                onClick={() => onSelectTier(tier.id)}
+                className={cn(
+                  "relative rounded-2xl border p-4 text-left transition-all",
+                  isSelected
+                    ? "border-[var(--id-accent)] bg-[var(--id-accent-soft)] shadow-[var(--id-shadow)] ring-1 ring-[var(--id-accent)]/20"
+                    : "border-[var(--id-border)] bg-[var(--id-surface)] hover:-translate-y-0.5 hover:border-[var(--id-border-strong)] hover:shadow-[var(--id-shadow)]"
+                )}
+              >
+                {tier.isFeatured && <span className="absolute -top-2 right-3 rounded-full bg-[var(--id-accent)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">Popular</span>}
+                <span className="block text-sm font-semibold text-[var(--id-text)]">{tier.name}</span>
+                <span className="mt-2 block font-mono text-xl font-semibold text-[var(--id-text)]">{formatCurrency(tier.maxCapital)}</span>
+                <span className="block text-[10px] uppercase tracking-wider text-[var(--id-text-muted)]">Maximum capital</span>
+                <span className="mt-3 block text-sm font-semibold text-[var(--id-accent-text)]">{formatCurrency(fee)} fee</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -858,12 +913,14 @@ function ReviewSection({
   formData,
   setFormData,
   settings,
+  tiers,
   paymentState,
   disabled,
 }: {
   formData: PoolManagerApplicationData;
   setFormData: SetForm;
   settings: PmAdmissionSettings;
+  tiers: PmAdmissionTier[];
   paymentState: AdmissionPaymentState | null;
   disabled: boolean;
 }) {
@@ -874,8 +931,10 @@ function ReviewSection({
       reviewConfirmations: { ...prev.reviewConfirmations, ...p },
     }));
 
-  const fee =
-    formData.admissionPath === PM_ADMISSION_PATH.TRADING_CHALLENGE
+  const selectedTier = tiers.find((tier) => tier.id === formData.admissionTierId);
+  const fee = formData.admissionPath && selectedTier
+    ? admissionTierFee(selectedTier, formData.admissionPath)
+    : formData.admissionPath === PM_ADMISSION_PATH.TRADING_CHALLENGE
       ? settings.tradingChallengeFee
       : formData.admissionPath === PM_ADMISSION_PATH.DIRECT_ACCESS
         ? settings.directAccessFee
@@ -902,10 +961,12 @@ function ReviewSection({
               formData.admissionPath === PM_ADMISSION_PATH.TRADING_CHALLENGE
                 ? "Trading Challenge"
                 : formData.admissionPath === PM_ADMISSION_PATH.DIRECT_ACCESS
-                  ? "Direct Access"
+                  ? "Instant Access"
                   : "—"
             }
           />
+          <ReviewItem label="Capital Tier" value={selectedTier?.name ?? "—"} />
+          <ReviewItem label="Maximum Capital" value={selectedTier ? formatCurrency(selectedTier.maxCapital) : "—"} />
           {fee != null && <ReviewItem label="Admission Fee" value={formatCurrency(fee)} />}
         </dl>
       </div>

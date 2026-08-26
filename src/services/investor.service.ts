@@ -122,19 +122,6 @@ function emptyPoolPerformance(): InvestorPoolPerformance {
   };
 }
 
-async function fetchListedFundIds(
-  supabase: Awaited<ReturnType<typeof createClient>>
-): Promise<string[]> {
-  const { data } = await supabase
-    .from("funds")
-    .select("id")
-    .eq("is_marketplace_listed", true)
-    .in("lifecycle_status", ["live", "approved"])
-    .eq("status", "active");
-
-  return (data ?? []).map((row) => (row as { id: string }).id);
-}
-
 async function fetchPublishedPoolTrades(
   _supabase: Awaited<ReturnType<typeof createClient>>,
   fundIds: string[],
@@ -163,13 +150,7 @@ export const investorService = {
       0
     );
     const participationFundIds = walletSummary.participations.map((p) => p.fundId);
-    const listedFundIds = await fetchListedFundIds(supabase);
-    const tradeFundIds = [
-      ...new Set([
-        ...walletSummary.participations.map((p) => p.fundId),
-        ...listedFundIds,
-      ]),
-    ];
+    const tradeFundIds = [...new Set(walletSummary.participations.map((p) => p.fundId))];
 
     const [
       fundResult,
@@ -643,10 +624,7 @@ export const investorService = {
     await requireAuth();
     const supabase = await createClient();
     const wallet = await walletService.getWalletSummary();
-    const listedFundIds = await fetchListedFundIds(supabase);
-    const fundIds = [
-      ...new Set([...wallet.participations.map((p) => p.fundId), ...listedFundIds]),
-    ];
+    const fundIds = [...new Set(wallet.participations.map((p) => p.fundId))];
 
     const recentTrades = await fetchPublishedPoolTrades(supabase, fundIds, 100);
 

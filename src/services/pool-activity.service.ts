@@ -8,6 +8,7 @@ import type {
 import type { PublicPoolTradeView } from "@/domain/trading-journal/types";
 import { tradeEntryService } from "@/services/trade-entry.service";
 import { investmentCycleService } from "@/services/investment-cycle.service";
+import { getCurrentUser } from "@/lib/auth/session";
 
 const JOURNAL_TRADE_LIMIT = 1000;
 
@@ -85,6 +86,20 @@ async function assertPublicFund(fundId: string): Promise<boolean> {
   );
 }
 
+async function canViewFundTrades(fundId: string): Promise<boolean> {
+  const user = await getCurrentUser();
+  if (!user) return false;
+  const db = createAdminClient();
+  const { data } = await db
+    .from("investor_portfolios")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .eq("fund_id", fundId)
+    .gt("total_invested", 0)
+    .maybeSingle();
+  return Boolean(data);
+}
+
 export const poolActivityService = {
   async getPageDataByPoolSlug(slug: string): Promise<PoolActivityPageData | null> {
     const db = createAdminClient();
@@ -126,8 +141,9 @@ export const poolActivityService = {
       null;
 
     const cycleIds = publicCycles.map((c) => c.id);
+    const mayViewTrades = await canViewFundTrades(fundId);
     const journalTrades =
-      cycleIds.length > 0
+      mayViewTrades && cycleIds.length > 0
         ? await this.listPublicClosedTradesForCycles(cycleIds, JOURNAL_TRADE_LIMIT)
         : [];
 

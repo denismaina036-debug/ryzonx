@@ -6,7 +6,6 @@ import { HeroSection } from "@/features/public/components/hero-section";
 import { BrokerCompatibilitySection } from "@/features/public/components/broker-compatibility-section";
 import { FeaturedPoolManagersSection } from "@/features/public/components/featured-pool-managers-section";
 import { PerformanceSection } from "@/features/public/components/performance-section";
-import { JournalPreviewSection } from "@/features/public/components/journal-preview";
 import { ActivitySections } from "@/features/public/components/activity-sections";
 import { InvestorStatsSection } from "@/features/public/components/investor-stats-section";
 import { HowItWorksSection } from "@/features/public/components/how-it-works-section";
@@ -16,6 +15,7 @@ import { FaqPreviewSection } from "@/features/public/components/faq-preview";
 import { ContactSection } from "@/features/public/components/contact-section";
 import { LandingCtaBanner } from "@/features/public/components/landing-cta-banner";
 import { landingPageService } from "@/services/landing-page.service";
+import { TraderCapitalAccessSection } from "@/features/public/components/trader-capital-access-section";
 
 export async function generateMetadata(): Promise<Metadata> {
   const content = await landingPageService.getPublicContent();
@@ -65,63 +65,61 @@ export default async function HomePage() {
           </p>
         </section>
       </div>
-      {sections.brokerCompatibility ? (
-        <div className="order-2 w-full min-w-0">
-          <BrokerCompatibilitySection />
-        </div>
-      ) : null}
       {sections.featuredPoolManagers ? (
         <div className="order-3 w-full min-w-0">
           <FeaturedPoolManagersSection />
         </div>
       ) : null}
+      <div className="order-4 w-full min-w-0">
+        <TraderCapitalAccessSection />
+      </div>
+      {sections.brokerCompatibility ? (
+        <div className="order-5 w-full min-w-0">
+          <BrokerCompatibilitySection />
+        </div>
+      ) : null}
       {sections.statistics ? (
-        <div className="order-4 w-full min-w-0 md:order-7">
+        <div className="order-10 w-full min-w-0">
           <InvestorStatsSection />
         </div>
       ) : null}
       {sections.performance ? (
-        <div className="order-5 w-full min-w-0 md:order-3">
+        <div className="order-6 w-full min-w-0">
           <PerformanceSection allData={mockPerformanceHistory} />
         </div>
       ) : null}
-      {sections.journal ? (
-        <div className="order-6 w-full min-w-0 md:order-4">
-          <JournalPreviewSection />
-        </div>
-      ) : null}
       {sections.recentActivity ? (
-        <div className="order-7 w-full min-w-0 md:order-5">
+        <div className="order-8 w-full min-w-0">
           <ActivitySections />
         </div>
       ) : null}
       {sections.howItWorks ? (
-        <div className="order-8 w-full min-w-0 md:order-6">
+        <div className="order-9 w-full min-w-0">
           <HowItWorksSection />
         </div>
       ) : null}
       {sections.whyRyvonx ? (
-        <div className="order-9 w-full min-w-0">
+        <div className="order-11 w-full min-w-0">
           <WhyRyvonxSection />
         </div>
       ) : null}
       {sections.testimonials ? (
-        <div className="order-10 w-full min-w-0">
+        <div className="order-12 w-full min-w-0">
           <TestimonialsSection />
         </div>
       ) : null}
       {sections.faq ? (
-        <div className="order-11 w-full min-w-0">
+        <div className="order-13 w-full min-w-0">
           <FaqPreviewSection />
         </div>
       ) : null}
       {sections.ctaBanner ? (
-        <div className="order-12 w-full min-w-0">
+        <div className="order-14 w-full min-w-0">
           <LandingCtaBanner />
         </div>
       ) : null}
       {sections.contact ? (
-        <div className="order-13 w-full min-w-0">
+        <div className="order-15 w-full min-w-0">
           <ContactSection />
         </div>
       ) : null}

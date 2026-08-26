@@ -42,9 +42,9 @@ export function AdminPmAdmissionSettingsForm({
   return (
     <div className="space-y-8">
       <section className="rounded-xl border border-navy-100 bg-white p-6">
-        <h2 className="text-base font-semibold text-navy-900">Admission Fees</h2>
+        <h2 className="text-base font-semibold text-navy-900">Legacy Admission Fallback</h2>
         <p className="mt-1 text-sm text-navy-500">
-          Fees shown to applicants during admission path selection.
+          Used only for historical applications created before dynamic capital tiers. New application fees are managed in the tier catalog above.
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field label="Trading Challenge Fee ($)">
@@ -56,7 +56,7 @@ export function AdminPmAdmissionSettingsForm({
               onChange={(e) => patch({ tradingChallengeFee: Number(e.target.value) || 0 })}
             />
           </Field>
-          <Field label="Direct Access Fee ($)">
+          <Field label="Legacy Instant Access Fee ($)">
             <Input
               type="number"
               min={0}

@@ -26,13 +26,13 @@ export async function ActivitySections() {
       <div className="grid gap-8 lg:grid-cols-2">
         <div>
           <h3 className="mb-4 text-lg font-semibold text-navy-950">
-            {content.copy.recentActivity.investmentsColumnTitle}
+            Recent Deposits
           </h3>
           <InvestmentActivityFeed items={investments} />
         </div>
         <div>
           <h3 className="mb-4 text-lg font-semibold text-navy-950">
-            {content.copy.recentActivity.payoutsColumnTitle}
+            Withdrawals &amp; Distributed Profits
           </h3>
           <InvestmentActivityFeed items={payouts} />
         </div>

@@ -195,7 +195,7 @@ export function AdminPmApplications({
               <p className="mt-2 text-xs capitalize text-royal-600">
                 {PM_STATUS_LABELS[app.status] ?? app.status}
                 {app.admissionPath && (
-                  <> · {app.admissionPath === PM_ADMISSION_PATH.DIRECT_ACCESS ? "Direct Access" : "Trading Challenge"}</>
+                  <> · {app.admissionPath === PM_ADMISSION_PATH.DIRECT_ACCESS ? "Instant Access" : "Trading Challenge"}</>
                 )}
               </p>
             </button>
@@ -224,7 +224,7 @@ export function AdminPmApplications({
                 Admission path:{" "}
                 <span className="font-medium">
                   {selected.admissionPath === PM_ADMISSION_PATH.DIRECT_ACCESS
-                    ? "Direct Access"
+                    ? "Instant Access"
                     : "Trading Challenge"}
                 </span>
                 {selected.admissionFeeAmount != null && (
@@ -462,7 +462,7 @@ export function AdminPmApplications({
             <h3 className="text-sm font-semibold text-navy-800">Review Actions</h3>
             <p className="text-xs text-navy-500">
               {isDirectAccess
-                ? "Direct Access applicants can be approved immediately after review."
+                ? "Instant Access applicants can be approved immediately after review."
                 : "Trading Challenge applicants must pass the challenge before final Pool Manager approval."}
             </p>
             {error && <p className="text-sm text-rose-600">{error}</p>}

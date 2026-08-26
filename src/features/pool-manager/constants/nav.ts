@@ -55,7 +55,7 @@ export const PM_APPLICATION_STEPS = [
   { stage: 3, title: "Risk Management", description: "Capital protection" },
   { stage: 4, title: "Trading Performance", description: "Track record" },
   { stage: 5, title: "Personal Statement", description: "Your motivation" },
-  { stage: 6, title: "Admission Path", description: "Challenge or direct access" },
+  { stage: 6, title: "Admission Path", description: "Challenge or Instant Access" },
   { stage: 7, title: "Review", description: "Confirm and submit" },
   { stage: 8, title: "Admin Review", description: "RyvonX evaluation" },
   { stage: 9, title: "Activation", description: "Unlock your dashboard" },

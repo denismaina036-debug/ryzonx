@@ -6,6 +6,8 @@ import { poolManagerApplicationService } from "@/services/pool-manager-applicati
 import { pmAdmissionSettingsService } from "@/services/pm-admission-settings.service";
 import { PoolManagerAdmissionWizard } from "@/features/pool-manager/components/pool-manager-admission-wizard";
 import { InvestorPageContent } from "@/components/layouts/investor-page-content";
+import { pmAdmissionTierService } from "@/services/pm-admission-tier.service";
+import { DEFAULT_PM_ADMISSION_TIERS } from "@/domain/pool-manager/admission-tier";
 
 export default async function ApplyPoolManagerPage() {
   const user = await getCurrentUser();
@@ -23,11 +25,13 @@ export default async function ApplyPoolManagerPage() {
 
   let application = null;
   let settings = pmAdmissionSettingsService.defaults();
+  let tiers = DEFAULT_PM_ADMISSION_TIERS;
 
   try {
-    [application, settings] = await Promise.all([
+    [application, settings, tiers] = await Promise.all([
       poolManagerApplicationService.getMyApplication(),
       pmAdmissionSettingsService.getPublic(),
+      pmAdmissionTierService.listPublic(),
     ]);
   } catch {
     // Tables may not exist until migration runs
@@ -39,6 +43,7 @@ export default async function ApplyPoolManagerPage() {
         userRole={user.role}
         initialApplication={application}
         initialSettings={settings}
+        initialTiers={tiers}
         registrationCountry={user.registrationCountry}
       />
     </InvestorPageContent>

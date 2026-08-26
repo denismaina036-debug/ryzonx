@@ -1088,8 +1088,66 @@ export type Database = {
           },
         ]
       }
+      pm_admission_tiers: {
+        Row: {
+          challenge_fee: number
+          challenge_template_id: string | null
+          created_at: string
+          description: string
+          id: string
+          instant_access_fee: number
+          is_active: boolean
+          is_featured: boolean
+          max_capital: number
+          name: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          challenge_fee: number
+          challenge_template_id?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          instant_access_fee: number
+          is_active?: boolean
+          is_featured?: boolean
+          max_capital: number
+          name: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          challenge_fee?: number
+          challenge_template_id?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          instant_access_fee?: number
+          is_active?: boolean
+          is_featured?: boolean
+          max_capital?: number
+          name?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pm_admission_tiers_challenge_template_id_fkey"
+            columns: ["challenge_template_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pool_managers: {
         Row: {
+          admission_tier_id: string | null
+          capital_limit_amount: number | null
           aggressiveness_rating: number | null
           application_id: string | null
           admin_statistics: Json
@@ -1132,6 +1190,8 @@ export type Database = {
           username: string | null
         }
         Insert: {
+          admission_tier_id?: string | null
+          capital_limit_amount?: number | null
           aggressiveness_rating?: number | null
           application_id?: string | null
           admin_statistics?: Json
@@ -1168,6 +1228,8 @@ export type Database = {
           username?: string | null
         }
         Update: {
+          admission_tier_id?: string | null
+          capital_limit_amount?: number | null
           aggressiveness_rating?: number | null
           application_id?: string | null
           admin_statistics?: Json
@@ -1222,6 +1284,8 @@ export type Database = {
       }
       pool_manager_applications: {
         Row: {
+          admission_tier_id: string | null
+          admission_tier_snapshot: Json | null
           admin_notes: string | null
           approved_at: string | null
           basic_info: Json
@@ -1241,6 +1305,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          admission_tier_id?: string | null
+          admission_tier_snapshot?: Json | null
           admin_notes?: string | null
           approved_at?: string | null
           basic_info?: Json
@@ -1260,6 +1326,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          admission_tier_id?: string | null
+          admission_tier_snapshot?: Json | null
           admin_notes?: string | null
           approved_at?: string | null
           basic_info?: Json

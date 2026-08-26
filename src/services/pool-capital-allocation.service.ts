@@ -318,6 +318,26 @@ export const poolCapitalAllocationService = {
     const isIncrease = previousRyvonx > 0 && input.amount > previousRyvonx;
     const isReduce = input.amount < previousRyvonx;
 
+    if (poolManagerId) {
+      const [{ data: manager }, { data: managedFunds }] = await Promise.all([
+        db.from("pool_managers").select("capital_limit_amount").eq("id", poolManagerId).maybeSingle(),
+        db.from("funds").select("id, ryvonx_capital").eq("pool_manager_id", poolManagerId),
+      ]);
+      const capitalLimit = toNumber((manager as { capital_limit_amount?: number | string | null } | null)?.capital_limit_amount);
+      if (capitalLimit > 0) {
+        const currentManagedAllocation = (managedFunds ?? []).reduce(
+          (sum, row) => sum + toNumber((row as { ryvonx_capital?: number | string }).ryvonx_capital),
+          0
+        );
+        const proposedManagedAllocation = currentManagedAllocation - previousRyvonx + input.amount;
+        if (proposedManagedAllocation > capitalLimit + 0.004) {
+          throw new Error(
+            `This allocation would exceed the manager's approved ${capitalLimit.toLocaleString("en-US", { style: "currency", currency: "USD" })} capital mandate.`
+          );
+        }
+      }
+    }
+
     const settings = await poolCapitalAllocationService.getSettings();
     const newAllocated = settings.totalAllocatedCapital - previousRyvonx + input.amount;
     if (newAllocated > settings.totalAvailableCapital) {

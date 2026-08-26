@@ -55,7 +55,10 @@ export function isSectionComplete(
       );
     }
     case PM_APPLICATION_SECTIONS.ADMISSION_PATH:
-      return data.admissionPath === "trading_challenge" || data.admissionPath === "direct_access";
+      return Boolean(
+        (data.admissionPath === "trading_challenge" || data.admissionPath === "direct_access") &&
+        data.admissionTierId
+      );
     case PM_APPLICATION_SECTIONS.REVIEW:
       return Boolean(
         data.reviewConfirmations?.informationAccurate &&

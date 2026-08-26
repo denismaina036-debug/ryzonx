@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = buildPageMetadata({
   title: "Platform Activity",
   description:
-    "Live RyvonX platform activity — deposits, withdrawals, pool investments, and marketplace milestones.",
+    "Live RyvonX money activity — deposits, withdrawals, and distributed profits.",
   path: ROUTES.activity,
   keywords: ["platform activity", "investment activity", "RyvonX live feed"],
 });
@@ -26,7 +26,7 @@ export default async function ActivityPage() {
     <SectionContainer className="!py-8 md:!py-12">
       <PageHeader
         title="Platform Activity"
-        description="Live feed of deposits, withdrawals, pool investments, settlements, and platform milestones across RyvonX."
+        description="Live feed of deposits, withdrawals, and distributed profits across RyvonX."
         actions={
           <Button asChild variant="outline" size="sm">
             <Link href={ROUTES.transactions}>Your Transactions</Link>
@@ -37,8 +37,8 @@ export default async function ActivityPage() {
       <PlatformActivityFeed items={items} />
 
       <p className="mt-8 text-sm text-navy-500">
-        Deposits and withdrawals appear here when investors opt in to public activity. For your
-        personal history, visit your transaction page.
+        Money activity appears here when investors opt in to public activity. For your personal
+        history, visit your transaction page.
       </p>
     </SectionContainer>
   );
