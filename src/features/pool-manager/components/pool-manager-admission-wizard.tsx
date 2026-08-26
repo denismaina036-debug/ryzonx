@@ -210,6 +210,7 @@ export function PoolManagerAdmissionWizard({
     () => ADMISSION_WIZARD_STEPS.find((s) => s.section === step),
     [step]
   );
+  const isAdmissionPathStep = step === PM_APPLICATION_SECTIONS.ADMISSION_PATH;
 
   async function saveSection(section: number) {
     setLoading(true);
@@ -357,8 +358,8 @@ export function PoolManagerAdmissionWizard({
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
-      <header className="space-y-3">
+    <div className={cn("mx-auto space-y-8", isAdmissionPathStep ? "max-w-7xl" : "max-w-3xl")}>
+      <header className={cn("space-y-3", isAdmissionPathStep && "mx-auto max-w-3xl text-center")}>
         <div className="inline-flex items-center gap-2 rounded-full bg-[var(--id-accent-soft)] px-3 py-1 text-xs font-semibold text-[var(--id-accent-text)]">
           <Shield className="h-3.5 w-3.5" />
           Pool Manager Application
@@ -369,7 +370,7 @@ export function PoolManagerAdmissionWizard({
         </p>
       </header>
 
-      <nav className="flex flex-wrap gap-2">
+      <nav className={cn("flex flex-wrap gap-2", isAdmissionPathStep && "mx-auto max-w-3xl justify-center")}>
         {ADMISSION_WIZARD_STEPS.map((s) => {
           const done = (application?.currentStage ?? 1) > s.section;
           const active = step === s.section;
@@ -392,9 +393,14 @@ export function PoolManagerAdmissionWizard({
         })}
       </nav>
 
-      <div className={`${investorCardClass} space-y-6 p-6 sm:p-8`}>
+      <div
+        className={cn(
+          "space-y-6",
+          isAdmissionPathStep ? "" : `${investorCardClass} p-6 sm:p-8`
+        )}
+      >
         {currentStepMeta && (
-          <div>
+          <div className={cn(isAdmissionPathStep && "mx-auto max-w-3xl text-center")}>
             <h2 className="text-lg font-semibold text-[var(--id-text)]">{currentStepMeta.title}</h2>
             <p className="mt-1 text-sm text-[var(--id-text-muted)]">{currentStepMeta.description}</p>
           </div>
@@ -827,53 +833,53 @@ function AdmissionPathSection({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-[var(--id-border)] bg-[linear-gradient(125deg,var(--id-surface),var(--id-accent-soft))] p-5 shadow-[var(--id-shadow)] sm:p-6">
-        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--id-accent-text)]">RyvonX Capital Access</span>
-        <h3 className="mt-2 text-xl font-semibold tracking-[-0.025em] text-[var(--id-text)]">Choose your route and capital mandate</h3>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--id-text-secondary)]">Select the route that suits your experience, then choose the capital tier you want to qualify for. Your tier sets the one-time admission fee and maximum approved mandate.</p>
-        <div className="mt-5 inline-flex rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-1 shadow-sm">
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => onSelect(PM_ADMISSION_PATH.TRADING_CHALLENGE)}
-            className={cn(
-              "rounded-lg px-4 py-2.5 text-sm font-semibold transition-all sm:px-5",
-              challengeSelected
-                ? "bg-[var(--id-accent)] text-white shadow-sm"
-                : "text-[var(--id-text-secondary)] hover:text-[var(--id-text)]"
-            )}
-          >
-            One-Phase Challenge
-          </button>
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => onSelect(PM_ADMISSION_PATH.DIRECT_ACCESS)}
-            className={cn(
-              "rounded-lg px-4 py-2.5 text-sm font-semibold transition-all sm:px-5",
-              !challengeSelected
-                ? "bg-[var(--id-accent)] text-white shadow-sm"
-                : "text-[var(--id-text-secondary)] hover:text-[var(--id-text)]"
-            )}
-          >
-            Instant Access
-          </button>
-        </div>
-        <p className="mt-3 text-xs text-[var(--id-text-muted)]">
-          {challengeSelected
-            ? "Complete one RyvonX evaluation phase before final approval."
-            : "Apply directly for review—no trading challenge is required."}
-        </p>
-      </div>
-      <div>
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h3 className="text-base font-semibold text-[var(--id-text)]">Choose your capital tier</h3>
-            <p className="mt-1 text-sm text-[var(--id-text-secondary)]">Your selection sets the admission fee and maximum approved capital mandate.</p>
+      <section className="rounded-[28px] border border-[var(--id-border)] bg-[linear-gradient(135deg,var(--id-surface),var(--id-accent-soft))] p-5 shadow-[var(--id-shadow)] sm:p-8 lg:p-10">
+        <div className="mx-auto max-w-3xl text-center">
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--id-accent-text)]">
+            RyvonX Capital Access
+          </span>
+          <h3 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-[var(--id-text)] sm:text-3xl">
+            Choose the mandate that matches your ambition
+          </h3>
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[var(--id-text-secondary)] sm:text-base">
+            Qualify through a one-phase evaluation or apply for Instant Access. Your route and tier set the one-time admission fee and maximum approved mandate.
+          </p>
+          <div className="mt-6 inline-flex rounded-2xl border border-[var(--id-border)] bg-[var(--id-surface)] p-1.5 shadow-sm">
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onSelect(PM_ADMISSION_PATH.TRADING_CHALLENGE)}
+              className={cn(
+                "rounded-xl px-4 py-2.5 text-sm font-semibold transition-all sm:px-6",
+                challengeSelected
+                  ? "bg-[var(--id-accent)] text-white shadow-sm"
+                  : "text-[var(--id-text-secondary)] hover:text-[var(--id-text)]"
+              )}
+            >
+              One-Phase Challenge
+            </button>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onSelect(PM_ADMISSION_PATH.DIRECT_ACCESS)}
+              className={cn(
+                "rounded-xl px-4 py-2.5 text-sm font-semibold transition-all sm:px-6",
+                !challengeSelected
+                  ? "bg-[var(--id-accent)] text-white shadow-sm"
+                  : "text-[var(--id-text-secondary)] hover:text-[var(--id-text)]"
+              )}
+            >
+              Instant Access
+            </button>
           </div>
-          {selectedTier && <span className="text-xs font-semibold text-[var(--id-accent-text)]">Selected: {selectedTier.name}</span>}
+          <p className="mt-3 text-xs text-[var(--id-text-muted)]">
+            {challengeSelected
+              ? "Complete one RyvonX evaluation phase before final approval."
+              : "Apply directly for review—no trading challenge is required."}
+          </p>
         </div>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+
+        <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {tiers.map((tier) => {
             const isSelected = tier.id === formData.admissionTierId;
             const fee = admissionTierFee(
@@ -890,26 +896,31 @@ function AdmissionPathSection({
                   onSelectTier(tier.id);
                 }}
                 className={cn(
-                  "relative flex min-h-[220px] flex-col rounded-2xl border p-5 text-left transition-all",
+                  "relative flex min-h-[330px] flex-col rounded-2xl border p-5 text-left transition-all sm:p-6",
                   isSelected
-                    ? "border-[var(--id-accent)] bg-[var(--id-accent-soft)] shadow-[var(--id-shadow)] ring-2 ring-[var(--id-accent)]/20"
-                    : "border-[var(--id-border)] bg-[var(--id-surface)] hover:-translate-y-1 hover:border-[var(--id-accent)]/45 hover:shadow-[var(--id-shadow)]"
+                    ? "border-[var(--id-accent)] bg-[var(--id-surface)] shadow-[var(--id-shadow)] ring-2 ring-[var(--id-accent)]/25"
+                    : "border-[var(--id-border)] bg-[var(--id-surface)]/80 hover:-translate-y-1 hover:border-[var(--id-accent)]/45 hover:shadow-[var(--id-shadow)]"
                 )}
               >
                 {tier.isFeatured && <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-[var(--id-accent)] px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-white">Most popular</span>}
                 {isSelected && <Check className="absolute right-4 top-4 h-4 w-4 text-[var(--id-accent-text)]" />}
                 <span className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--id-accent-text)]">{tier.name}</span>
-                <span className="mt-3 block font-mono text-2xl font-semibold tracking-tight text-[var(--id-text)]">{formatCurrency(tier.maxCapital)}</span>
+                <span className="mt-4 block whitespace-nowrap font-mono text-xl font-semibold tracking-tight text-[var(--id-text)] sm:text-2xl">{formatCurrency(tier.maxCapital)}</span>
                 <span className="mt-1 block text-[10px] font-medium uppercase tracking-wider text-[var(--id-text-muted)]">Maximum capital mandate</span>
-                <span className="my-4 h-px bg-[var(--id-border)]" />
-                <span className="block text-xl font-semibold text-[var(--id-text)]">{formatCurrency(fee)}</span>
+                <span className="my-5 h-px bg-[var(--id-border)]" />
+                <span className="block text-2xl font-semibold text-[var(--id-text)]">{formatCurrency(fee)}</span>
                 <span className="mt-1 block text-[10px] font-medium uppercase tracking-wider text-[var(--id-text-muted)]">{challengeSelected ? "One-phase challenge fee" : "Instant access fee"}</span>
-                <span className="mt-3 text-xs leading-5 text-[var(--id-text-secondary)]">{tier.description}</span>
+                <span className="mt-4 text-xs leading-5 text-[var(--id-text-secondary)]">{tier.description}</span>
               </button>
             );
           })}
         </div>
-      </div>
+        {selectedTier && (
+          <p className="mt-7 text-center text-sm font-medium text-[var(--id-accent-text)]">
+            {selectedTier.name}: {formatCurrency(selectedTier.maxCapital)} mandate · {formatCurrency(admissionTierFee(selectedTier, challengeSelected ? PM_ADMISSION_PATH.TRADING_CHALLENGE : PM_ADMISSION_PATH.DIRECT_ACCESS))} one-time fee
+          </p>
+        )}
+      </section>
     </div>
   );
 }
