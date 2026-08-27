@@ -8,6 +8,7 @@ import { auditService } from "@/services/audit.service";
 import { poolRoiService } from "@/services/pool-roi.service";
 import { platformInvestmentLevelService } from "@/services/platform-investment-level.service";
 import type { AdminFund } from "@/features/admin/types";
+import { publishPlatformEvent, PLATFORM_EVENT_TYPES } from "@/lib/platform-events/publish";
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
@@ -173,7 +174,7 @@ export const poolAdminService = {
     poolManagerName?: string | null;
     poolManagerIconUrl?: string | null;
   }): Promise<AdminFund> {
-    await requireRole("administrator");
+    const admin = await requireRole("administrator");
     const db = createAdminClient();
 
     const slug = `${slugify(input.name)}-${Date.now().toString(36)}`;
@@ -216,18 +217,18 @@ export const poolAdminService = {
       );
     }
 
-    const { data: investors } = await db
-      .from("profiles")
-      .select("id")
-      .eq("role", "investor");
-
-    for (const inv of (investors ?? []) as Array<{ id: string }>) {
-      await notificationService.sendToUser({
-        userId: inv.id,
-        type: "pool_trading",
-        title: "New pool available",
-        message: `${fund.name} is open for participation.`,
-        metadata: { fund_id: fund.id },
+    if (fund.status === "active") {
+      publishPlatformEvent({
+        eventType: PLATFORM_EVENT_TYPES.POOL_PUBLISHED,
+        category: "investment",
+        entityType: "fund",
+        entityId: fund.id,
+        actorId: admin.id,
+        payload: {
+          fundId: fund.id,
+          poolName: fund.name,
+          summary: `${fund.name} is now available in the RyvonX marketplace`,
+        },
       });
     }
 
@@ -255,12 +256,12 @@ export const poolAdminService = {
       additionalCapital?: number;
     }>
   ): Promise<AdminFund> {
-    await requireRole("administrator");
+    const admin = await requireRole("administrator");
     const db = createAdminClient();
 
     const { data: existing } = await db
       .from("funds")
-      .select("current_capital, is_default")
+      .select("current_capital, is_default, status")
       .eq("id", fundId)
       .maybeSingle();
 
@@ -303,22 +304,20 @@ export const poolAdminService = {
 
     if (error || !data) throw new Error(error?.message ?? "Failed to update pool.");
 
-    if (input.status === "active") {
+    if (input.status === "active" && (existing as { status?: string }).status !== "active") {
       const fund = data as FundRow;
-      const { data: investors } = await db
-        .from("profiles")
-        .select("id")
-        .eq("role", "investor");
-
-      for (const inv of (investors ?? []) as Array<{ id: string }>) {
-        await notificationService.sendToUser({
-          userId: inv.id,
-          type: "pool_trading",
-          title: "New pool available",
-          message: `${fund.name} is now open for participation.`,
-          metadata: { fund_id: fundId },
-        });
-      }
+      publishPlatformEvent({
+        eventType: PLATFORM_EVENT_TYPES.POOL_PUBLISHED,
+        category: "investment",
+        entityType: "fund",
+        entityId: fundId,
+        actorId: admin.id,
+        payload: {
+          fundId,
+          poolName: fund.name,
+          summary: `${fund.name} is now available in the RyvonX marketplace`,
+        },
+      });
     }
 
     return mapFund(

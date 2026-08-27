@@ -1047,6 +1047,20 @@ export const profitDistributionService = {
       /* queue processing / next cycle should not block distribution record */
     }
 
+    publishPlatformEvent({
+      eventType: PLATFORM_EVENT_TYPES.DISTRIBUTION_COMPLETED,
+      category: "financial",
+      entityType: "profit_settlement",
+      entityId: settlementId,
+      actorId,
+      payload: {
+        cycleId: settlement.investmentCycleId,
+        fundId: settlement.fundId,
+        distributedProfit: settlement.investorDistributionTotal,
+        summary: `Profit distribution completed for ${cycle.name}`,
+      },
+    });
+
     return mapSettlement(completed as SettlementRow);
   },
 

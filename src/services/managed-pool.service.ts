@@ -42,6 +42,7 @@ import type { ReturnDurationPreset, ReturnDurationUnit } from "@/domain/roi/type
 import { normalizeMarketCodes } from "@/domain/reference-data/utils";
 import { resolvePoolManagerPublicLabel, managerRowToIdentity } from "@/domain/pool-manager/public-profile";
 import { parseCycleAmount } from "@/domain/investment/cycle-validation";
+import { publishPlatformEvent, PLATFORM_EVENT_TYPES } from "@/lib/platform-events/publish";
 
 function parseAmount(value: string | number | null | undefined): number | undefined {
   return parseCycleAmount(value);
@@ -842,6 +843,19 @@ export const managedPoolService = {
         hide_from_marketplace: false,
       } as never)
       .eq("id", poolId);
+
+    publishPlatformEvent({
+      eventType: PLATFORM_EVENT_TYPES.POOL_PUBLISHED,
+      category: "investment",
+      entityType: "fund",
+      entityId: poolId,
+      actorId: admin.id,
+      payload: {
+        fundId: poolId,
+        poolName: String(fund.name ?? "Pool"),
+        summary: `${String(fund.name ?? "Pool")} is now available in the RyvonX marketplace`,
+      },
+    });
 
     revalidatePoolMarketplaceSurfaces((fund.slug as string | undefined) ?? null);
   },

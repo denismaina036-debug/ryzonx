@@ -625,6 +625,23 @@ export const tradeEntryService = {
     await cycleProgressService.recordTradeClosed(entry, userId);
 
     const poolManagerUserId = await resolveCycleManagerUserId(entry.investmentCycleId);
+    if (realizedPnl > 0) {
+      publishPlatformEvent({
+        eventType: PLATFORM_EVENT_TYPES.TRADE_PROFIT_RECORDED,
+        category: "performance",
+        entityType: "trade_entry",
+        entityId: entry.id,
+        actorId: userId,
+        payload: {
+          poolManagerUserId,
+          cycleId: entry.investmentCycleId,
+          tradeReference: entry.tradeReference,
+          instrument: entry.instrument,
+          realizedPnl,
+          summary: `Trade ${entry.tradeReference} recorded a realized profit`,
+        },
+      });
+    }
     publishPlatformEvent({
       eventType: PLATFORM_EVENT_TYPES.TRADE_CLOSED,
       category: "operations",

@@ -2,6 +2,7 @@ import type { CommunicationTemplate } from "@/domain/communication/types";
 import { renderPremiumEmail } from "./render";
 import { interpolateTemplate } from "../template-engine";
 import type { EmailCatalogEntry } from "./catalog/helpers";
+import { prepareAdminMessageContent } from "./admin-message-html";
 
 export function catalogEntryToCommunicationTemplate(
   entry: EmailCatalogEntry,
@@ -71,12 +72,15 @@ export function renderTemplateWithPremium(
     ? interpolateTemplate(template.subjectTemplate, variables)
     : null;
   const body = interpolateTemplate(template.bodyTemplate, variables);
+  const richBody = /<\/?[a-z][\s\S]*>/i.test(body)
+    ? prepareAdminMessageContent(body)
+    : null;
 
   return {
     subject,
-    body,
-    html: null,
-    plainText: body,
+    body: richBody?.plainText ?? body,
+    html: richBody?.html ?? null,
+    plainText: richBody?.plainText ?? body,
     inAppTitle: template.inAppTitleTemplate
       ? interpolateTemplate(template.inAppTitleTemplate, variables)
       : null,

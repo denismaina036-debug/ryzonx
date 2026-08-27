@@ -1053,6 +1053,22 @@ export const investmentCycleService = {
           summary: `Cycle ${cycle.name} started trading`,
         },
       });
+    } else if (nextStatus === "funding") {
+      publishPlatformEvent({
+        eventType: PLATFORM_EVENT_TYPES.CYCLE_FUNDING_OPENED,
+        category: "investment",
+        entityType: "investment_cycle",
+        entityId: cycle.id,
+        actorId: userId,
+        payload: {
+          poolManagerUserId,
+          cycleId: cycle.id,
+          cycleName: cycle.name,
+          fundId: cycle.fundId,
+          status: nextStatus,
+          summary: `Cycle ${cycle.name} opened for funding`,
+        },
+      });
     } else if (nextStatus === "completed") {
       publishPlatformEvent({
         eventType: PLATFORM_EVENT_TYPES.CYCLE_COMPLETED,
@@ -1160,6 +1176,41 @@ export const investmentCycleService = {
       } catch {
         /* snapshot optional */
       }
+    }
+
+    const poolManagerUserId = await resolvePoolManagerUserId(cycle.poolManagerId);
+    if (nextStatus === "trading") {
+      publishPlatformEvent({
+        eventType: PLATFORM_EVENT_TYPES.CYCLE_STARTED,
+        category: "investment",
+        entityType: "investment_cycle",
+        entityId: cycle.id,
+        actorId: actorUserId,
+        payload: {
+          poolManagerUserId,
+          cycleId: cycle.id,
+          cycleName: cycle.name,
+          fundId: cycle.fundId,
+          status: nextStatus,
+          summary: `Cycle ${cycle.name} started trading`,
+        },
+      });
+    } else if (nextStatus === "funding") {
+      publishPlatformEvent({
+        eventType: PLATFORM_EVENT_TYPES.CYCLE_FUNDING_OPENED,
+        category: "investment",
+        entityType: "investment_cycle",
+        entityId: cycle.id,
+        actorId: actorUserId,
+        payload: {
+          poolManagerUserId,
+          cycleId: cycle.id,
+          cycleName: cycle.name,
+          fundId: cycle.fundId,
+          status: nextStatus,
+          summary: `Cycle ${cycle.name} opened for funding`,
+        },
+      });
     }
 
     if (nextStatus === "funding" && existing.fundId) {

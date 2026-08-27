@@ -36,12 +36,13 @@ export interface PublishPlatformEventInput {
 }
 
 export interface AutomationRuleAction {
-  type: "notify_user" | "notify_admins" | "enqueue_webhook";
+  type: "notify_user" | "notify_admins" | "enqueue_webhook" | "broadcast_template";
   recipientField?: string;
   templateSlug?: string;
   channels?: CommunicationChannel[];
   category?: CommunicationCategory;
   minSeverity?: PlatformEventSeverity;
+  audience?: "all_active";
 }
 
 export interface AutomationRule {

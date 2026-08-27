@@ -17,6 +17,7 @@ import { platformEventService } from "@/services/platform-event.service";
 import { notificationQueueService } from "@/services/notification-queue.service";
 import { webhookService } from "@/services/webhook.service";
 import { adminNotifyService } from "@/services/communication/admin-notify.service";
+import { automatedPoolBroadcastService } from "@/services/communication/automated-pool-broadcast.service";
 
 type RuleRow = {
   id: string;
@@ -142,6 +143,10 @@ export const eventDispatcherService = {
       if (action.type === "enqueue_webhook") {
         await webhookService.enqueueForEvent(event);
       }
+
+      if (action.type === "broadcast_template") {
+        await automatedPoolBroadcastService.dispatch(event, action);
+      }
     }
   },
 
@@ -192,6 +197,52 @@ export const eventDispatcherService = {
       entityType: "automation_rule",
       entityId: ruleId,
       newValues: { status },
+    });
+  },
+
+  async updateBroadcastChannels(
+    ruleId: string,
+    channels: CommunicationChannel[],
+    actorId: string
+  ): Promise<void> {
+    await requireRole(USER_ROLES.ADMINISTRATOR);
+    const allowed: CommunicationChannel[] = ["telegram", "email", "in_app"];
+    const uniqueChannels = [...new Set(channels)];
+    if (uniqueChannels.some((channel) => !allowed.includes(channel))) {
+      throw new Error("Unsupported automated communication channel.");
+    }
+
+    const db = createAdminClient();
+    const { data, error } = await db
+      .from("automation_rules")
+      .select("actions")
+      .eq("id", ruleId)
+      .single();
+    if (error || !data) throw new Error(error?.message ?? "Automation rule not found.");
+
+    const actions = Array.isArray((data as { actions?: unknown }).actions)
+      ? ((data as unknown as { actions: AutomationRuleAction[] }).actions)
+      : [];
+    let found = false;
+    const updated = actions.map((action) => {
+      if (action.type !== "broadcast_template") return action;
+      found = true;
+      return { ...action, channels: uniqueChannels };
+    });
+    if (!found) throw new Error("This rule is not a pool-activity broadcast rule.");
+
+    const { error: updateError } = await db
+      .from("automation_rules")
+      .update({ actions: updated } as never)
+      .eq("id", ruleId);
+    if (updateError) throw new Error(updateError.message);
+
+    await auditService.log({
+      actorId,
+      action: PLATFORM_EVENT_AUDIT_ACTIONS.AUTOMATION_RULE_UPDATED,
+      entityType: "automation_rule",
+      entityId: ruleId,
+      newValues: { channels: uniqueChannels },
     });
   },
 };
