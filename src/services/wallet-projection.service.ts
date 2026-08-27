@@ -88,9 +88,11 @@ export const walletProjectionService = {
       ]);
 
       const hasLedgerActivity = availableLedger !== 0 || reserved !== 0 || settled !== 0;
+      // Migration 00077 records legacy opening balances in the ledger. Once an
+      // account has ledger activity, the ledger alone is authoritative.
       const available = hasLedgerActivity
-        ? Math.max(0, Math.round((Math.max(availableLedger, legacyAvailable) - legacyWithdrawals) * 100) / 100)
-        : legacyAvailable;
+        ? Math.max(0, roundMoney(availableLedger))
+        : Math.max(0, roundMoney(legacyAvailable - legacyWithdrawals));
       const source: WalletProjection["source"] = hasLedgerActivity ? "ledger" : "legacy";
 
       return {

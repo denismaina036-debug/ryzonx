@@ -73,9 +73,28 @@ export const investorProfitWalletService = {
     investorId: string,
     fundId: string,
     amount: number,
-    sourceCycleId?: string | null
+    sourceCycleId?: string | null,
+    eventKey?: string
   ): Promise<InvestorProfitWallet> {
     if (amount <= 0) return this.getOrCreate(investorId, fundId, sourceCycleId);
+    if (eventKey) {
+      const db = createAdminClient();
+      const { data, error } = await db.rpc("credit_investor_profit_wallet_once" as never, {
+        p_investor_id: investorId,
+        p_fund_id: fundId,
+        p_source_cycle_id: sourceCycleId ?? null,
+        p_amount: roundMoney(amount),
+        p_event_key: eventKey,
+      } as never);
+      if (error) throw new Error(error.message);
+      const result = data as unknown as { balance?: number | string } | null;
+      return {
+        investorId,
+        fundId,
+        balance: roundMoney(Number(result?.balance ?? 0)),
+        sourceCycleId: sourceCycleId ?? null,
+      };
+    }
     const wallet = await this.getOrCreate(investorId, fundId, sourceCycleId);
     const next = roundMoney(wallet.balance + amount);
     const db = createAdminClient();

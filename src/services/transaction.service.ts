@@ -34,30 +34,16 @@ async function reserveWithdrawalOnLedger(
   transactionId: string
 ): Promise<void> {
   const { ledgerAccountService } = await import("@/services/ledger-account.service");
-  const { ledgerService } = await import("@/services/ledger.service");
   const accounts = await ledgerAccountService.ensureInvestorAccounts(userId);
-
-  await ledgerService.postTransaction({
-    description: `Withdrawal reserved — ${transactionId}`,
-    transactionType: "transfer",
-    sourceType: "withdrawal",
-    sourceId: transactionId,
-    actorId: userId,
-    entries: [
-      {
-        accountId: accounts.available.id,
-        entrySide: "debit",
-        amount,
-        memo: "Withdrawal request",
-      },
-      {
-        accountId: accounts.reserved.id,
-        entrySide: "credit",
-        amount,
-        memo: "Withdrawal reserved",
-      },
-    ],
-  });
+  const db = createAdminClient();
+  const { error } = await db.rpc("reserve_withdrawal_atomic" as never, {
+    p_investor_id: userId,
+    p_amount: amount,
+    p_transaction_id: transactionId,
+    p_available_account_id: accounts.available.id,
+    p_reserved_account_id: accounts.reserved.id,
+  } as never);
+  if (error) throw new Error(error.message);
 }
 
 async function releaseWithdrawalOnLedger(
@@ -75,6 +61,7 @@ async function releaseWithdrawalOnLedger(
     transactionType: "transfer",
     sourceType: "withdrawal",
     sourceId: transactionId,
+    idempotencyKey: `withdrawal:${transactionId}:release`,
     actorId,
     entries: [
       {
@@ -108,6 +95,7 @@ async function finalizeWithdrawalOnLedger(
     transactionType: "transfer",
     sourceType: "withdrawal",
     sourceId: transactionId,
+    idempotencyKey: `withdrawal:${transactionId}:finalize`,
     actorId,
     entries: [
       {
@@ -879,7 +867,7 @@ export const transactionService = {
     }
 
     const row = tx as TransactionRow;
-    if (row.status !== "pending") {
+    if (row.status !== "pending" && row.status !== "approved") {
       throw new Error("Only pending withdrawals can be approved.");
     }
 
@@ -887,49 +875,62 @@ export const transactionService = {
     const now = new Date().toISOString();
     const usesLedger = await hasLedgerWithdrawalReservation(transactionId);
 
-    const { data: portfolio } = await db
-      .from("investor_portfolios")
-      .select("total_withdrawals")
-      .eq("user_id", row.user_id)
-      .eq("fund_id", row.fund_id)
-      .maybeSingle();
-
-    const portfolioRow = portfolio as { total_withdrawals?: number } | null;
-
-    const { error: updateError } = await db
-      .from("transactions")
-      .update({
-        status: "approved",
-        processed_at: now,
-        processed_by: admin.id,
-        approved_by: admin.id,
-      } as never)
-      .eq("id", transactionId);
-
-    if (updateError) {
-      throw new Error(updateError.message);
-    }
-
     if (usesLedger) {
       await finalizeWithdrawalOnLedger(row.user_id, amount, transactionId, admin.id);
     }
 
-    if (portfolioRow) {
-      await db
-        .from("investor_portfolios")
+    const wasPending = row.status === "pending";
+    if (wasPending) {
+      const { data: transitioned, error: updateError } = await db
+        .from("transactions")
         .update({
-          total_withdrawals: toNumber(portfolioRow.total_withdrawals) + amount,
+          status: "approved",
+          processed_at: now,
+          processed_by: admin.id,
+          approved_by: admin.id,
         } as never)
-        .eq("user_id", row.user_id)
-        .eq("fund_id", row.fund_id);
+        .eq("id", transactionId)
+        .eq("status", "pending")
+        .select("id")
+        .maybeSingle();
+
+      if (updateError) throw new Error(updateError.message);
+      if (!transitioned) {
+        throw new Error("Withdrawal was processed by another request.");
+      }
     }
 
-    await communicationTriggers.withdrawalApproved({
-      userId: row.user_id,
-      amount: formatMoney(amount),
-      transactionId,
-      triggeredBy: admin.id,
-    });
+    // This summary is derived from approved source records, never incremented,
+    // so a retry or a repaired request cannot count the withdrawal twice.
+    const { data: approvedRows, error: approvedError } = await db
+      .from("transactions")
+      .select("amount")
+      .eq("user_id", row.user_id)
+      .eq("fund_id", row.fund_id)
+      .eq("type", "withdrawal")
+      .eq("status", "approved");
+    if (approvedError) throw new Error(approvedError.message);
+
+    const approvedTotal = roundMoney(
+      ((approvedRows ?? []) as Array<{ amount: number | string }>).reduce(
+        (sum, approvedRow) => sum + toNumber(approvedRow.amount),
+        0
+      )
+    );
+    await db
+      .from("investor_portfolios")
+      .update({ total_withdrawals: approvedTotal } as never)
+      .eq("user_id", row.user_id)
+      .eq("fund_id", row.fund_id);
+
+    if (wasPending) {
+      await communicationTriggers.withdrawalApproved({
+        userId: row.user_id,
+        amount: formatMoney(amount),
+        transactionId,
+        triggeredBy: admin.id,
+      });
+    }
   },
 
   async rejectWithdrawal(

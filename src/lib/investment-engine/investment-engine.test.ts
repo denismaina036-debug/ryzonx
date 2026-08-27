@@ -67,6 +67,22 @@ describe("investment engine", () => {
     expect(result.poolManagerEarnings).toBe(0);
   });
 
+  it("uses cycle capital ownership and applies the fee exactly once", () => {
+    const result = calculateOwnershipOnlyDistribution({
+      grossTradingProfit: 400,
+      allocations: [
+        { allocationId: "a1", investorId: "i1", capitalBasis: 2, ownershipPct: 2 / 200 },
+        { allocationId: "a2", investorId: "i2", capitalBasis: 198, ownershipPct: 198 / 200 },
+      ],
+    });
+
+    expect(result.platformServiceFee).toBe(10);
+    expect(result.netDistributableProfit).toBe(390);
+    expect(result.investorAllocations[0]!.ownershipPct).toBe(0.01);
+    expect(result.investorAllocations[0]!.profitShare).toBe(3.9);
+    expect(result.investorDistributionTotal).toBe(390);
+  });
+
   it("applies ROI target caps before PM surplus", () => {
     const result = calculateRoiV2Distribution({
       grossTradingProfit: 50000,

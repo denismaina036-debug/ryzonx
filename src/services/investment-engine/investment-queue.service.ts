@@ -100,27 +100,10 @@ export const investmentQueueService = {
 
   async processItem(item: InvestmentQueueItem): Promise<void> {
     if (item.status !== "pending") return;
-
-    switch (item.queueType) {
-      case "investment":
-        await poolCapitalService.applyInvestment(item.fundId, item.investorId, item.amount);
-        break;
-      case "withdrawal":
-        await poolCapitalService.applyWithdrawal(item.fundId, item.investorId, item.amount);
-        break;
-      case "reinvestment":
-        await poolCapitalService.applyReinvestment(item.fundId, item.investorId, item.amount);
-        break;
-    }
-
     const db = createAdminClient();
-    const { error } = await db
-      .from("investment_queue")
-      .update({
-        status: "processed",
-        processed_at: new Date().toISOString(),
-      } as never)
-      .eq("id", item.id);
+    const { error } = await db.rpc("process_investment_queue_item_atomic" as never, {
+      p_item_id: item.id,
+    } as never);
     if (error) throw new Error(error.message);
   },
 };

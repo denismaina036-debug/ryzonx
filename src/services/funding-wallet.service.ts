@@ -93,6 +93,7 @@ export const fundingWalletService = {
     sourceId: string;
     actorId?: string | null;
     syncLegacy?: boolean;
+    idempotencyKey?: string;
   }): Promise<void> {
     const amount = roundMoney(input.amount);
     if (amount <= 0) return;
@@ -102,11 +103,14 @@ export const fundingWalletService = {
     const accounts = await ledgerAccountService.ensureInvestorAccounts(input.investorId);
     const platformSuspense = await ledgerAccountService.ensurePlatformSuspenseAccount();
 
-    await ledgerService.postTransaction({
+    const posting = await ledgerService.postTransaction({
       description: input.description,
       transactionType: input.transactionType ?? "transfer",
       sourceType: input.sourceType,
       sourceId: input.sourceId,
+      idempotencyKey:
+        input.idempotencyKey ??
+        `${input.sourceType}:${input.investorId}:${input.sourceId}:funding-credit`,
       actorId: input.actorId ?? input.investorId,
       entries: [
         {
@@ -124,7 +128,7 @@ export const fundingWalletService = {
       ],
     });
 
-    if (input.syncLegacy !== false) {
+    if (posting.created && input.syncLegacy !== false) {
       await this.adjustLegacyAvailableBalance(input.investorId, amount);
     }
   },
@@ -159,11 +163,12 @@ export const fundingWalletService = {
       const { ledgerService } = await import("@/services/ledger.service");
       const accounts = await ledgerAccountService.ensureInvestorAccounts(input.investorId);
 
-      await ledgerService.postTransaction({
+      const reservePosting = await ledgerService.postTransaction({
         description: `Pool investment reserved — ${input.sourceId}`,
         transactionType: "allocation_reserve",
         sourceType: input.sourceType,
         sourceId: input.sourceId,
+        idempotencyKey: `${input.sourceType}:${input.investorId}:${input.sourceId}:allocation-reserve`,
         actorId: input.actorId,
         entries: [
           {
@@ -191,6 +196,7 @@ export const fundingWalletService = {
           transactionType: "allocation_settlement",
           sourceType: input.sourceType,
           sourceId: input.sourceId,
+          idempotencyKey: `${input.sourceType}:${input.investorId}:${input.sourceId}:allocation-settlement`,
           actorId: input.actorId,
           entries: [
             {
@@ -209,7 +215,9 @@ export const fundingWalletService = {
         });
       }
 
-      await this.adjustLegacyAvailableBalance(input.investorId, -amount);
+      if (reservePosting.created) {
+        await this.adjustLegacyAvailableBalance(input.investorId, -amount);
+      }
       return;
     }
 
@@ -241,11 +249,12 @@ export const fundingWalletService = {
       const accounts = await ledgerAccountService.ensureInvestorAccounts(input.investorId);
       const platformSuspense = await ledgerAccountService.ensurePlatformSuspenseAccount();
 
-      await ledgerService.postTransaction({
+      const posting = await ledgerService.postTransaction({
         description: input.description,
         transactionType: "transfer",
         sourceType: input.sourceType,
         sourceId: input.sourceId,
+        idempotencyKey: `${input.sourceType}:${input.investorId}:${input.sourceId}:funding-debit`,
         actorId: input.actorId,
         entries: [
           {
@@ -262,6 +271,9 @@ export const fundingWalletService = {
           },
         ],
       });
+      if (posting.created) {
+        await this.adjustLegacyAvailableBalance(input.investorId, -amount);
+      }
       return;
     }
 

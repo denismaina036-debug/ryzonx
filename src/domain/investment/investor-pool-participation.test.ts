@@ -150,6 +150,24 @@ describe("shouldShowPostCycleChoices", () => {
     ).toBe(true);
   });
 
+  it("hides completed-cycle actions after both profit and capital are resolved", () => {
+    expect(
+      shouldShowPostCycleChoices({
+        hasActiveTradingCycle: false,
+        hasActiveFundingCycle: false,
+        pendingSettlement: {
+          ...sampleSettlement,
+          profitAmount: 1_350,
+          profitResolved: true,
+          capitalResolved: true,
+          status: "closed",
+        },
+        displayCapitalInvested: 0,
+        poolProfit: 0,
+      })
+    ).toBe(false);
+  });
+
   it("shows choices when distributed pool profit remains even if a funding cycle is open", () => {
     expect(
       shouldShowPostCycleChoices({

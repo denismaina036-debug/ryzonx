@@ -1,3 +1,5 @@
+import { PLATFORM_SERVICE_FEE_RATE } from "@/constants/profit-distribution";
+
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
 }
@@ -44,7 +46,8 @@ function splitProRataShares(
  */
 export function computeProjectedProfitShares(
   currentCycleProfit: number,
-  participants: ProjectedProfitParticipantInput[]
+  participants: ProjectedProfitParticipantInput[],
+  platformServiceFeeRate = PLATFORM_SERVICE_FEE_RATE
 ): ProjectedProfitShare[] {
   if (participants.length === 0) return [];
 
@@ -52,7 +55,13 @@ export function computeProjectedProfitShares(
     return participants.map((row) => ({ ...row, projectedProfit: 0 }));
   }
 
-  const magnitude = Math.abs(currentCycleProfit);
+  // Positive cycle P&L is gross: deduct the RyvonX fee exactly once before
+  // allocating the investor-specific projection. Losses are never fee-bearing.
+  const projectedDistributableProfit =
+    currentCycleProfit > 0
+      ? roundMoney(currentCycleProfit * (1 - platformServiceFeeRate))
+      : currentCycleProfit;
+  const magnitude = Math.abs(projectedDistributableProfit);
   const sign = currentCycleProfit >= 0 ? 1 : -1;
   const shares = splitProRataShares(magnitude, participants);
 
@@ -65,9 +74,14 @@ export function computeProjectedProfitShares(
 export function computeSingleProjectedProfitShare(
   currentCycleProfit: number,
   investmentAmount: number,
-  poolTotal: number
+  poolTotal: number,
+  platformServiceFeeRate = PLATFORM_SERVICE_FEE_RATE
 ): number {
   if (poolTotal <= 0 || investmentAmount <= 0 || currentCycleProfit === 0) return 0;
   const ownershipPct = investmentAmount / poolTotal;
-  return roundMoney(currentCycleProfit * ownershipPct);
+  const projectedDistributableProfit =
+    currentCycleProfit > 0
+      ? roundMoney(currentCycleProfit * (1 - platformServiceFeeRate))
+      : currentCycleProfit;
+  return roundMoney(projectedDistributableProfit * ownershipPct);
 }

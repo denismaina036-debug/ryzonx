@@ -87,13 +87,11 @@ export const platformSettingsService = {
     return (data as { value?: unknown } | null)?.value ?? null;
   },
 
-  /** Platform service fee rate (0.025 = 2.5%). Falls back to constant if unset. */
+  /** Financial policy fee rate: 0.025 (2.5%). */
   async getPlatformServiceFeeRate(): Promise<number> {
-    const raw = await this.get("platform_service_fee_pct");
-    if (raw == null) return PLATFORM_SERVICE_FEE_RATE;
-    const pct = typeof raw === "number" ? raw : Number(raw);
-    if (!Number.isFinite(pct) || pct < 0) return PLATFORM_SERVICE_FEE_RATE;
-    return pct / 100;
+    // Financial policy is fixed at 2.5%. Keeping this resolver central ensures
+    // realized and projected calculations cannot drift through stale settings.
+    return PLATFORM_SERVICE_FEE_RATE;
   },
 
   async getFeatureFlag(flag: string): Promise<boolean> {

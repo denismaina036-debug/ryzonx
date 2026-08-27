@@ -97,11 +97,11 @@ export function PoolPostCycleChoices({
   async function transferProfit() {
     setLoading("transfer-profit");
     try {
-      const res = await fetch(`/api/investor/pools/${fundId}/transfer-profit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: profitAmount }),
-      });
+      const settlementId = await resolveSettlementId();
+      const res = await fetch(
+        `/api/investor/cycle-settlements/${settlementId}/transfer-profit`,
+        { method: "POST" }
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Request failed");
       toast.success(
@@ -118,11 +118,11 @@ export function PoolPostCycleChoices({
   async function reinvestProfit() {
     setLoading("reinvest-profit");
     try {
-      const res = await fetch(`/api/investor/pools/${fundId}/reinvest-profit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: profitAmount }),
-      });
+      const settlementId = await resolveSettlementId();
+      const res = await fetch(
+        `/api/investor/cycle-settlements/${settlementId}/reinvest-profit`,
+        { method: "POST" }
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Request failed");
       toast.success(`${formatCurrency(data.reinvested ?? profitAmount)} reinvested in ${poolName}.`);

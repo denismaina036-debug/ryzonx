@@ -615,6 +615,7 @@ export const poolParticipationService = {
       description: `Pool exit capital return — ${fundRow.name}`,
       sourceType: "pool_exit",
       sourceId: poolId,
+      idempotencyKey: `pool-exit:${user.id}:${poolId}:${row.investment_start_date ?? row.investment_maturity_date ?? "legacy-position"}`,
       actorId: user.id,
     });
 
@@ -723,6 +724,25 @@ export const poolParticipationService = {
 
     if (!isValidPoolId(fundId)) {
       throw new Error("Invalid pool.");
+    }
+
+    // Completed-cycle profit belongs to one settlement. Route even legacy API
+    // callers through that cycle-scoped, atomic operation before using the
+    // compatibility pool-wide balance path.
+    const { cycleInvestorSettlementService } = await import(
+      "@/services/investment-engine/cycle-investor-settlement.service"
+    );
+    const cycleSettlement = await cycleInvestorSettlementService.ensureSettlementForFund(
+      user.id,
+      fundId
+    );
+    if (
+      cycleSettlement &&
+      !cycleSettlement.profitResolved &&
+      cycleSettlement.profitAmount > 0
+    ) {
+      const result = await cycleInvestorSettlementService.transferProfit(cycleSettlement.id);
+      return { transferred: result.transferred, poolName: cycleSettlement.poolName };
     }
 
     const db = createAdminClient();
@@ -857,6 +877,7 @@ export const poolParticipationService = {
           description: `Pool profit (portfolio) transferred — ${poolName}`,
           sourceType: "investor_portfolio_profit",
           sourceId: fundId,
+          idempotencyKey: `investor-portfolio-profit:${user.id}:${fundId}:${realized.toFixed(2)}:${unrealized.toFixed(2)}:${applied.toFixed(2)}`,
           actorId: user.id,
         });
       } else {

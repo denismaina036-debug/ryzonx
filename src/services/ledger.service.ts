@@ -74,6 +74,8 @@ export interface PostLedgerTransactionInput {
   sourceId?: string;
   actorId?: string | null;
   metadata?: Record<string, unknown>;
+  /** Stable key for a money-moving event. A retry returns the original posting. */
+  idempotencyKey?: string;
   entries: Array<{
     accountId: string;
     entrySide: LedgerEntrySide;
@@ -86,6 +88,7 @@ export const ledgerService = {
   async postTransaction(input: PostLedgerTransactionInput): Promise<{
     transaction: LedgerTransaction;
     entries: LedgerEntry[];
+    created: boolean;
   }> {
     assertBalancedEntries(
       input.entries.map((e) => ({ entrySide: e.entrySide, amount: e.amount }))
@@ -94,41 +97,27 @@ export const ledgerService = {
     const db = createAdminClient();
     const reference = input.reference ?? generateLedgerReference("LDG");
 
-    const { data: txData, error: txError } = await db
-      .from("ledger_transactions")
-      .insert({
-        reference,
-        description: input.description,
-        transaction_type: input.transactionType,
-        status: "posted",
-        source_type: input.sourceType ?? null,
-        source_id: input.sourceId ?? null,
-        actor_id: input.actorId ?? null,
-        metadata: input.metadata ?? {},
-      } as never)
-      .select("*")
-      .single();
+    const { data, error } = await db.rpc("post_ledger_transaction_atomic" as never, {
+      p_reference: reference,
+      p_description: input.description,
+      p_transaction_type: input.transactionType,
+      p_source_type: input.sourceType ?? null,
+      p_source_id: input.sourceId ?? null,
+      p_actor_id: input.actorId ?? null,
+      p_metadata: input.metadata ?? {},
+      p_idempotency_key: input.idempotencyKey ?? null,
+      p_entries: input.entries,
+    } as never);
 
-    if (txError) throw new Error(txError.message);
-    const transaction = mapTransaction(txData as TransactionRow);
+    if (error) throw new Error(error.message);
+    const result = data as unknown as {
+      transaction: TransactionRow;
+      entries: EntryRow[];
+      created: boolean;
+    };
+    const transaction = mapTransaction(result.transaction);
 
-    const entryRows = input.entries.map((e) => ({
-      transaction_id: transaction.id,
-      account_id: e.accountId,
-      entry_side: e.entrySide,
-      amount: e.amount,
-      currency: "USD",
-      memo: e.memo ?? null,
-    }));
-
-    const { data: entriesData, error: entriesError } = await db
-      .from("ledger_entries")
-      .insert(entryRows as never)
-      .select("*");
-
-    if (entriesError) throw new Error(entriesError.message);
-
-    if (input.actorId) {
+    if (input.actorId && result.created) {
       await auditService.log({
         actorId: input.actorId,
         action: FINANCIAL_AUDIT_ACTIONS.LEDGER_POSTED,
@@ -138,7 +127,7 @@ export const ledgerService = {
       });
     }
 
-    publishPlatformEvent({
+    if (result.created) publishPlatformEvent({
       eventType: PLATFORM_EVENT_TYPES.LEDGER_TRANSACTION_POSTED,
       category: "financial",
       entityType: "ledger_transaction",
@@ -155,7 +144,8 @@ export const ledgerService = {
 
     return {
       transaction,
-      entries: ((entriesData ?? []) as EntryRow[]).map(mapEntry),
+      entries: (result.entries ?? []).map(mapEntry),
+      created: result.created,
     };
   },
 

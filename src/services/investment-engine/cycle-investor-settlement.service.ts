@@ -545,108 +545,110 @@ export const cycleInvestorSettlementService = {
     const user = await requireAuth();
     const settlement = await getSettlementForInvestor(settlementId, user.id);
 
-    if (settlement.profitResolved || settlement.profitAmount <= 0) {
+    if (settlement.profitAmount <= 0) {
       throw new Error("No cycle profit available to transfer.");
     }
 
     const db = createAdminClient();
-    const profitWallet = await investorProfitWalletService.getOrCreate(
-      user.id,
-      settlement.fundId,
-      settlement.investmentCycleId
-    );
-
-    const transferAmount = roundMoney(
-      Math.min(profitWallet.balance, settlement.profitAmount)
-    );
-    if (transferAmount <= 0) {
-      throw new Error("No cycle profit available to transfer.");
+    let transferAmount = roundMoney(settlement.profitAmount);
+    if (!settlement.profitResolved) {
+      const profitWallet = await investorProfitWalletService.getOrCreate(
+        user.id,
+        settlement.fundId,
+        settlement.investmentCycleId
+      );
+      transferAmount = roundMoney(Math.min(profitWallet.balance, settlement.profitAmount));
+      if (transferAmount <= 0) {
+        throw new Error("No cycle profit available to transfer.");
+      }
     }
 
-    await investorProfitWalletService.debit(
-      user.id,
-      settlement.fundId,
-      transferAmount,
-      settlement.investmentCycleId
-    );
-
     const { ledgerAccountService } = await import("@/services/ledger-account.service");
-    const { ledgerService } = await import("@/services/ledger.service");
     const poolProfitAccount = await ledgerAccountService.ensureInvestorPoolProfitAccount(
       user.id,
       settlement.fundId,
       settlement.poolName
     );
     const investorAccounts = await ledgerAccountService.ensureInvestorAccounts(user.id);
-    await ledgerService.postTransaction({
-      description: `Cycle profit transferred to Funding Wallet — ${settlement.cycleName}`,
-      transactionType: "transfer",
-      sourceType: "cycle_investor_settlement",
-      sourceId: settlement.id,
-      actorId: user.id,
-      entries: [
-        {
-          accountId: poolProfitAccount.id,
-          entrySide: "debit",
-          amount: transferAmount,
-          memo: "Cycle profit released to Funding Wallet",
-        },
-        {
-          accountId: investorAccounts.available.id,
-          entrySide: "credit",
-          amount: transferAmount,
-          memo: "Cycle profit transferred to Funding Wallet",
-        },
-      ],
-    });
-
-    const { fundingWalletService } = await import("@/services/funding-wallet.service");
-    const projection = await fundingWalletService.getProjection(user.id);
-    await fundingWalletService.setLegacyAvailableBalance(user.id, projection.available);
-
     const profitNotes = `Cycle profit transferred to Funding Wallet — ${settlement.cycleName}`;
-    const { data: profitTx, error: profitTxError } = await db
-      .from("transactions")
-      .insert({
-        user_id: user.id,
-        fund_id: settlement.fundId,
-        type: "adjustment",
-        amount: transferAmount,
-        status: "completed",
-        payment_method: "profit_transfer",
-        notes: profitNotes,
-      } as never)
-      .select("id")
-      .single();
+    const { data: transferResult, error: transferError } = await db.rpc(
+      "transfer_cycle_profit_atomic" as never,
+      {
+        p_settlement_id: settlement.id,
+        p_investor_id: user.id,
+        p_requested_amount: transferAmount,
+        p_profit_account_id: poolProfitAccount.id,
+        p_available_account_id: investorAccounts.available.id,
+        p_actor_id: user.id,
+        p_description: profitNotes,
+      } as never
+    );
+    if (transferError) throw new Error(transferError.message);
+    const result = transferResult as unknown as {
+      transferred?: number | string;
+      created?: boolean;
+    } | null;
+    const transferred = Number(result?.transferred ?? 0);
 
-    if (profitTxError || !profitTx) {
-      throw new Error(profitTxError?.message ?? "Failed to record profit transfer.");
+    if (result?.created !== false) {
+      await communicationTriggers.investmentUpdated({
+        userId: user.id,
+        poolName: settlement.poolName,
+        message: `$${transferred.toLocaleString()} from ${settlement.cycleName} is now in your Funding Wallet.`,
+        poolId: settlement.fundId,
+      });
     }
 
-    await attachTransactionReference(db, (profitTx as { id: string }).id, {
-      type: "adjustment",
-      payment_method: "profit_transfer",
-      notes: profitNotes,
-    });
+    return { transferred };
+  },
 
-    const nextStatus = resolveClosedStatus({
-      ...settlement,
-      profitResolved: true,
-    });
+  async reinvestProfit(settlementId: string): Promise<{ reinvested: number; queued: true }> {
+    const user = await requireAuth();
+    const settlement = await getSettlementForInvestor(settlementId, user.id);
+    if (settlement.profitResolved) {
+      const db = createAdminClient();
+      const { data } = await db
+        .from("investment_queue")
+        .select("amount")
+        .eq("cycle_settlement_id" as never, settlement.id)
+        .eq("queue_type", "reinvestment")
+        .maybeSingle();
+      const amount = toNumber((data as { amount?: number | string } | null)?.amount);
+      if (amount > 0) return { reinvested: amount, queued: true };
+      throw new Error("Cycle profit has already been resolved.");
+    }
+    const activeCycle = await investmentCycleService.getActiveForFund(settlement.fundId);
+    if (!activeCycle || !["funding", "approved"].includes(activeCycle.status)) {
+      throw new Error(
+        "This pool has no open funding cycle. Wait for the pool manager to open the next cycle."
+      );
+    }
 
-    await updateSettlement(settlement.id, {
-      profit_resolved: true,
-      status: nextStatus === "closed" ? "closed" : "profit_transferred",
-    });
+    const notes = `Cycle profit reinvestment queued — ${settlement.cycleName} (${settlement.poolName})`;
+    const db = createAdminClient();
+    const { data, error } = await db.rpc("reinvest_cycle_profit_atomic" as never, {
+      p_settlement_id: settlement.id,
+      p_investor_id: user.id,
+      p_target_cycle_id: activeCycle.id,
+      p_notes: notes,
+    } as never);
+    if (error) throw new Error(error.message);
+    const result = data as unknown as {
+      reinvested?: number | string;
+      created?: boolean;
+    } | null;
+    const reinvested = Number(result?.reinvested ?? 0);
 
-    await communicationTriggers.investmentUpdated({
-      userId: user.id,
-      poolName: settlement.poolName,
-      message: `$${transferAmount.toLocaleString()} from ${settlement.cycleName} is now in your Funding Wallet.`,
-      poolId: settlement.fundId,
-    });
+    if (result?.created !== false) {
+      await communicationTriggers.investmentUpdated({
+        userId: user.id,
+        poolName: settlement.poolName,
+        message: `$${reinvested.toLocaleString()} from ${settlement.cycleName} is queued for the next funding cycle.`,
+        poolId: settlement.fundId,
+      });
+    }
 
-    return { transferred: transferAmount };
+    return { reinvested, queued: true };
   },
 
   async reinvestCapital(settlementId: string): Promise<{ reinvested: number }> {
@@ -786,53 +788,37 @@ export const cycleInvestorSettlementService = {
       throw new Error("No capital available to return.");
     }
 
-    if (settlement.status === "capital_withdrawal_requested") {
-      throw new Error("Capital return is already pending admin approval.");
-    }
-
     const amount = roundMoney(settlement.principalAmount);
     const db = createAdminClient();
     const notes = `Cycle capital return to Funding Wallet — ${settlement.cycleName} (${settlement.poolName})`;
 
-    const { data: tx, error: txError } = await db
-      .from("transactions")
-      .insert({
-        user_id: user.id,
-        fund_id: settlement.fundId,
-        type: "adjustment",
-        amount,
-        status: "pending",
-        payment_method: "cycle_capital_return",
-        notes,
-        metadata: { settlement_id: settlement.id, cycle_id: settlement.investmentCycleId },
-      } as never)
-      .select("id")
-      .single();
-
-    if (txError || !tx) {
-      throw new Error(txError?.message ?? "Failed to submit capital return request.");
-    }
-
-    await attachTransactionReference(db, (tx as { id: string }).id, {
-      type: "adjustment",
-      payment_method: "cycle_capital_return",
-      notes,
-    });
-
-    await updateSettlement(settlement.id, {
-      status: "capital_withdrawal_requested",
-      capital_withdrawal_transaction_id: (tx as { id: string }).id,
-    });
+    const { data: requestResult, error: requestError } = await db.rpc(
+      "request_cycle_capital_return_atomic" as never,
+      {
+        p_settlement_id: settlement.id,
+        p_investor_id: user.id,
+        p_notes: notes,
+      } as never
+    );
+    if (requestError) throw new Error(requestError.message);
+    const result = requestResult as unknown as {
+      request_id?: string;
+      created?: boolean;
+    } | null;
+    const requestId = result?.request_id;
+    if (!requestId) throw new Error("Failed to submit capital return request.");
 
     const { adminNotifyService } = await import("@/services/communication/admin-notify.service");
-    await adminNotifyService.newWithdrawal({
-      amount: formatMoney(amount),
-      userName: user.email ?? user.id,
-      transactionId: (tx as { id: string }).id,
-      triggeredBy: user.id,
-    });
+    if (result?.created !== false) {
+      await adminNotifyService.newWithdrawal({
+        amount: formatMoney(amount),
+        userName: user.email ?? user.id,
+        transactionId: requestId,
+        triggeredBy: user.id,
+      });
+    }
 
-    return { requestId: (tx as { id: string }).id };
+    return { requestId };
   },
 
   async approveCapitalReturn(settlementId: string): Promise<void> {
@@ -848,64 +834,43 @@ export const cycleInvestorSettlementService = {
     if (!row) throw new Error("Settlement not found.");
 
     const settlement = (await resolveSettlementMeta(db, [row as SettlementRow]))[0]!;
-    if (settlement.status !== "capital_withdrawal_requested" || settlement.capitalResolved) {
+    if (settlement.capitalResolved) {
+      return;
+    }
+    if (settlement.status !== "capital_withdrawal_requested") {
       throw new Error("This capital return is not pending approval.");
     }
 
     const txId = settlement.capitalWithdrawalTransactionId;
     if (!txId) throw new Error("Missing capital return transaction.");
 
-    const { data: tx } = await db
-      .from("transactions")
-      .select("id, status, user_id, amount")
-      .eq("id", txId)
-      .maybeSingle();
-
-    const txRow = tx as {
-      id: string;
-      status: string;
-      user_id: string;
-      amount: number | string;
+    const { ledgerAccountService } = await import("@/services/ledger-account.service");
+    const investorAccounts = await ledgerAccountService.ensureInvestorAccounts(
+      settlement.investorId
+    );
+    const suspenseAccount = await ledgerAccountService.ensurePlatformSuspenseAccount();
+    const description = `Cycle capital return approved — ${settlement.cycleName}`;
+    const { data: approvalResult, error: approvalError } = await db.rpc(
+      "approve_cycle_capital_return_atomic" as never,
+      {
+        p_settlement_id: settlement.id,
+        p_admin_id: admin.id,
+        p_available_account_id: investorAccounts.available.id,
+        p_suspense_account_id: suspenseAccount.id,
+        p_description: description,
+      } as never
+    );
+    if (approvalError) throw new Error(approvalError.message);
+    const result = approvalResult as unknown as {
+      amount?: number | string;
+      investor_id?: string;
+      created?: boolean;
     } | null;
-
-    if (!txRow || txRow.status !== "pending") {
-      throw new Error("Capital return transaction is not pending.");
-    }
-
-    const amount = toNumber(txRow.amount);
-    const { fundingWalletService } = await import("@/services/funding-wallet.service");
-    await fundingWalletService.creditAvailable({
-      investorId: txRow.user_id,
-      amount,
-      description: `Cycle capital return approved — ${settlement.cycleName}`,
-      sourceType: "cycle_capital_return",
-      sourceId: txId,
-      actorId: admin.id,
-    });
-
-    const now = new Date().toISOString();
-    await db
-      .from("transactions")
-      .update({
-        status: "completed",
-        processed_at: now,
-        processed_by: admin.id,
-        approved_by: admin.id,
-      } as never)
-      .eq("id", txId);
-
-    const nextStatus = resolveClosedStatus({
-      ...settlement,
-      capitalResolved: true,
-    });
-
-    await updateSettlement(settlement.id, {
-      capital_resolved: true,
-      status: nextStatus === "closed" ? "closed" : "capital_withdrawn",
-    });
+    const amount = toNumber(result?.amount);
+    const investorId = result?.investor_id ?? settlement.investorId;
 
     await communicationTriggers.investmentUpdated({
-      userId: txRow.user_id,
+      userId: investorId,
       poolName: settlement.poolName,
       message: `$${amount.toLocaleString()} from ${settlement.cycleName} has been returned to your Funding Wallet.`,
       poolId: settlement.fundId,

@@ -822,6 +822,7 @@ export const profitDistributionService = {
         transactionType: "profit_settlement",
         sourceType: "profit_settlement",
         sourceId: settlementId,
+        idempotencyKey: `profit-settlement:${settlementId}:confirm`,
         actorId,
         metadata: {
           grossTradingProfit: settlement.grossTradingProfit,
@@ -833,7 +834,7 @@ export const profitDistributionService = {
       ledgerTransactionId = transaction.id;
 
       if (settlement.platformServiceFee > 0) {
-        await db.from("platform_revenue_entries").insert({
+        await db.from("platform_revenue_entries").upsert({
           profit_settlement_id: settlementId,
           investment_cycle_id: settlement.investmentCycleId,
           fund_id: settlement.fundId,
@@ -841,7 +842,10 @@ export const profitDistributionService = {
           amount: settlement.platformServiceFee,
           currency: settlement.currency,
           ledger_transaction_id: transaction.id,
-        } as never);
+        } as never, {
+          onConflict: "profit_settlement_id,ledger_transaction_id",
+          ignoreDuplicates: true,
+        });
       }
     }
 
@@ -937,7 +941,8 @@ export const profitDistributionService = {
           alloc.investorId,
           settlement.fundId,
           alloc.profitShare,
-          cycle.id
+          cycle.id,
+          `profit-allocation:${alloc.id}:wallet-credit`
         );
 
         const poolProfitAccount = await ledgerAccountService.ensureInvestorPoolProfitAccount(
@@ -951,6 +956,7 @@ export const profitDistributionService = {
           transactionType: "profit_distribution",
           sourceType: "profit_settlement_allocation",
           sourceId: alloc.id,
+          idempotencyKey: `profit-allocation:${alloc.id}:ledger-credit`,
           actorId,
           metadata: {
             cycleId: cycle.id,
