@@ -1,4 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  managerRowToIdentity,
+  resolvePoolManagerPublicLabel,
+  resolvePublicManagerName,
+} from "@/domain/pool-manager/public-profile";
 import type { CommunicationChannel } from "@/domain/communication/types";
 import type { AutomationRuleAction, PlatformEvent } from "@/domain/platform-events/types";
 import { communicationService } from "@/services/communication/communication.service";
@@ -83,15 +88,21 @@ async function readCycle(cycleId: string): Promise<CycleRow> {
 }
 
 async function managerName(managerId: string | null, fallback?: string | null): Promise<string> {
-  if (!managerId) return fallback?.trim() || "RyvonX Pool Manager";
+  if (!managerId) return resolvePublicManagerName(null, fallback) ?? "RyvonX Pool Manager";
   const db = createAdminClient();
   const { data } = await db
     .from("pool_managers")
-    .select("display_name, username")
+    .select("display_name, username, slug, show_full_name")
     .eq("id", managerId)
     .maybeSingle();
-  const row = data as { display_name?: string | null; username?: string | null } | null;
-  return row?.display_name?.trim() || row?.username?.trim() || fallback?.trim() || "RyvonX Pool Manager";
+  const row = data as {
+    display_name: string;
+    username?: string | null;
+    slug?: string | null;
+    show_full_name?: boolean | null;
+  } | null;
+  if (row) return resolvePoolManagerPublicLabel(managerRowToIdentity(row));
+  return resolvePublicManagerName(null, fallback) ?? "RyvonX Pool Manager";
 }
 
 function basePoolVariables(pool: PoolRow, manager: string) {
