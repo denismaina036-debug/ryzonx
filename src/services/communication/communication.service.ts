@@ -234,6 +234,102 @@ export const communicationService = {
     return { communicationId, status: finalStatus, deliveries: deliveryResults };
   },
 
+  /** One public Telegram post per composer submission, never one per audience member. */
+  async sendTelegramBroadcast(input: {
+    requestId: string;
+    heading: string;
+    html: string;
+    plainText: string;
+    triggeredBy: string;
+  }): Promise<CommunicationSendResult> {
+    await requireRole(USER_ROLES.ADMINISTRATOR);
+    if (!UUID_PATTERN.test(input.requestId)) throw new Error("Invalid publication request identifier.");
+    const db = (await import("@/lib/supabase/admin")).createAdminClient();
+    const { data: prior } = await db
+      .from("communications")
+      .select("id, status, communication_deliveries(id, channel, status, notification_id, error_message)")
+      .eq("related_entity_type", "admin_telegram_broadcast")
+      .eq("related_entity_id", input.requestId)
+      .maybeSingle();
+    if (prior) {
+      const row = prior as Record<string, unknown>;
+      const deliveries = ((row.communication_deliveries ?? []) as Array<Record<string, unknown>>).map((delivery) => ({
+        channel: delivery.channel as CommunicationChannel,
+        status: delivery.status as CommunicationStatus,
+        deliveryId: String(delivery.id),
+        notificationId: delivery.notification_id ? String(delivery.notification_id) : undefined,
+        error: delivery.error_message ? String(delivery.error_message) : undefined,
+      }));
+      return { communicationId: String(row.id), status: row.status as CommunicationStatus, deliveries };
+    }
+
+    let communicationId: string;
+    try {
+      communicationId = await communicationRepository.createCommunication({
+        recipientUserId: input.triggeredBy,
+        templateId: null,
+        templateSlug: "admin_announcement",
+        category: "announcements",
+        priority: "normal",
+        variables: { announcement_title: input.heading },
+        renderedSubject: input.heading,
+        renderedBody: input.plainText,
+        renderedInAppTitle: null,
+        renderedInAppBody: null,
+        metadata: {
+          admin_message: true,
+          telegram_broadcast: true,
+          audience: "all",
+          telegram_heading: input.heading,
+          telegram_html: input.html,
+          rendered_plain_text: input.plainText,
+        },
+        relatedEntityType: "admin_telegram_broadcast",
+        relatedEntityId: input.requestId,
+        triggeredBy: input.triggeredBy,
+      });
+    } catch (error) {
+      const { data: raced } = await db
+        .from("communications")
+        .select("id")
+        .eq("related_entity_type", "admin_telegram_broadcast")
+        .eq("related_entity_id", input.requestId)
+        .maybeSingle();
+      if (!raced) throw error;
+      return this.sendTelegramBroadcast(input);
+    }
+
+    const deliveryId = await communicationRepository.createDelivery({ communicationId, channel: "telegram", status: "sending" });
+    const adapter = getChannelAdapter("telegram");
+    if (!adapter) throw new Error("Telegram channel is unavailable.");
+    const result = await adapter.dispatch({
+      communicationId,
+      deliveryId,
+      recipientUserId: input.triggeredBy,
+      recipientEmail: null,
+      rendered: { subject: input.heading, body: input.plainText, html: input.html, plainText: input.plainText, inAppTitle: null, inAppBody: null },
+      notificationType: "announcement",
+      category: "announcements",
+      priority: "normal",
+      metadata: { admin_message: true, telegram_broadcast: true, audience: "all", telegram_heading: input.heading, telegram_html: input.html },
+    });
+    const now = new Date().toISOString();
+    await communicationRepository.updateDelivery(deliveryId, {
+      status: result.status,
+      externalId: result.externalId,
+      errorMessage: result.error,
+      sentAt: result.status === "sent" || result.status === "delivered" ? now : undefined,
+      deliveredAt: result.status === "delivered" ? now : undefined,
+      nextRetryAt: result.status === "failed" ? new Date(Date.now() + RETRY_DELAY_MS).toISOString() : null,
+    });
+    await communicationRepository.updateCommunicationStatus(communicationId, result.status, result.error);
+    return {
+      communicationId,
+      status: result.status,
+      deliveries: [{ channel: "telegram", status: result.status, deliveryId, error: result.error }],
+    };
+  },
+
   async getDashboardStats() {
     await requireRole(USER_ROLES.ADMINISTRATOR);
     const db = (await import("@/lib/supabase/admin")).createAdminClient();
@@ -438,6 +534,7 @@ export const communicationService = {
     await communicationRepository.updateDelivery(deliveryId, {
       status: result.status,
       notificationId: result.notificationId,
+      externalId: result.externalId,
       errorMessage: result.error,
       sentAt: result.status !== "failed" ? now : undefined,
       deliveredAt: result.status === "delivered" ? now : undefined,

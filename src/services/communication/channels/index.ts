@@ -1,8 +1,9 @@
 import { inAppChannel } from "./in-app.channel";
 import { emailChannel } from "./email.channel";
+import { telegramChannel } from "./telegram.channel";
 import type { CommunicationChannelAdapter } from "./types";
 
-const adapters: CommunicationChannelAdapter[] = [inAppChannel, emailChannel];
+const adapters: CommunicationChannelAdapter[] = [inAppChannel, emailChannel, telegramChannel];
 
 export function getChannelAdapter(
   channel: string
@@ -10,4 +11,4 @@ export function getChannelAdapter(
   return adapters.find((a) => a.channel === channel);
 }
 
-export { inAppChannel, emailChannel };
+export { inAppChannel, emailChannel, telegramChannel };

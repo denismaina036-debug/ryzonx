@@ -22,6 +22,7 @@ export type CommunicationChannel =
   | "push"
   | "whatsapp"
   | "slack"
+  | "telegram"
   | "webhook";
 
 export type CommunicationStatus =

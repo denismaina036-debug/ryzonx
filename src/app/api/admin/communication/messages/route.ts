@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
       channels,
       heading: body.heading ?? "",
       content: body.content ?? "",
+      requestId: body.requestId,
     });
 
     return NextResponse.json(result);

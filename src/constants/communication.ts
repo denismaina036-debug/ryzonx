@@ -40,6 +40,7 @@ export const COMMUNICATION_CHANNELS: CommunicationChannel[] = [
   "push",
   "whatsapp",
   "slack",
+  "telegram",
   "webhook",
 ];
 
@@ -50,11 +51,12 @@ export const COMMUNICATION_CHANNEL_LABELS: Record<CommunicationChannel, string> 
   push: "Push Notification",
   whatsapp: "WhatsApp",
   slack: "Slack",
+  telegram: "Telegram",
   webhook: "Webhook",
 };
 
 /** Channels implemented in Phase 5.5.1 */
-export const ACTIVE_CHANNELS: CommunicationChannel[] = ["in_app", "email"];
+export const ACTIVE_CHANNELS: CommunicationChannel[] = ["in_app", "email", "telegram"];
 
 export const COMMUNICATION_STATUSES: CommunicationStatus[] = [
   "draft",

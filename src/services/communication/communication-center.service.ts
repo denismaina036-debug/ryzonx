@@ -53,6 +53,7 @@ export interface AdminMessageSendResult {
   failed: number;
   recipientCount: number;
   status: "sent" | "partial" | "failed";
+  channels: Array<{ channel: CommunicationChannel; status: string; error?: string }>;
 }
 
 export interface NotificationHistoryRow {
@@ -163,7 +164,7 @@ export const communicationCenterService = {
     const { data } = await db
       .from("communications")
       .select(
-        `id, recipient_user_id, template_slug, category, priority, status, rendered_subject, created_at, triggered_by,
+        `id, recipient_user_id, template_slug, category, priority, status, rendered_subject, created_at, triggered_by, metadata,
          communication_deliveries (id, channel, status, sent_at, error_message)`
       )
       .order("created_at", { ascending: false })
@@ -179,11 +180,13 @@ export const communicationCenterService = {
     );
 
     return rows.map((row) => {
+      const metadata = (row.metadata ?? {}) as Record<string, unknown>;
+      const telegramBroadcast = metadata.telegram_broadcast === true;
       const profile = profileMap.get(row.recipient_user_id as string);
       return {
         ...row,
-        recipientName: profile?.full_name ?? "User",
-        recipientEmail: profile?.email ?? "",
+        recipientName: telegramBroadcast ? "Telegram Channel" : profile?.full_name ?? "User",
+        recipientEmail: telegramBroadcast ? "Public announcement" : profile?.email ?? "",
       };
     });
   },
@@ -300,7 +303,10 @@ export const communicationCenterService = {
   async updateSettings(patch: Record<string, unknown>) {
     const admin = await requireRole(USER_ROLES.ADMINISTRATOR);
     const db = createAdminClient();
-    for (const [key, value] of Object.entries(patch)) {
+    const allowedKeys = new Set(["sender", "support", "footer", "social", "defaults"]);
+    const entries = Object.entries(patch);
+    if (entries.some(([key]) => !allowedKeys.has(key))) throw new Error("Unsupported communication setting.");
+    for (const [key, value] of entries) {
       await db
         .from("communication_settings")
         .upsert({ key, value: value as never, updated_by: admin.id, updated_at: new Date().toISOString() } as never);
@@ -469,6 +475,7 @@ export const communicationCenterService = {
     channels: CommunicationChannel[];
     heading: string;
     content: string;
+    requestId?: string;
   }): Promise<AdminMessageSendResult> {
     const admin = await requireRole(USER_ROLES.ADMINISTRATOR);
     const db = createAdminClient();
@@ -485,6 +492,16 @@ export const communicationCenterService = {
     if (input.channels.length === 0) {
       throw new Error("Select at least one channel.");
     }
+    const allowedChannels: CommunicationChannel[] = ["email", "in_app", "telegram"];
+    if (input.channels.some((channel) => !allowedChannels.includes(channel))) {
+      throw new Error("Unsupported announcement channel.");
+    }
+    const includesTelegram = input.channels.includes("telegram");
+    if (includesTelegram && input.audience === "individual") {
+      throw new Error("Telegram channel publishing is available for general announcements only.");
+    }
+    if (includesTelegram && !input.requestId) throw new Error("Publication request identifier is required.");
+    const userChannels = input.channels.filter((channel) => channel !== "telegram");
 
     await emailTemplateService.ensureCatalogTemplate(ADMIN_ANNOUNCEMENT_TEMPLATE_SLUG);
 
@@ -502,12 +519,9 @@ export const communicationCenterService = {
       recipientIds = ((data ?? []) as Array<{ id: string }>).map((row) => row.id);
     }
 
-    if (recipientIds.length === 0) {
-      return { sent: 0, failed: 0, recipientCount: 0, status: "failed" };
-    }
-
     let sent = 0;
     let failed = 0;
+    const channelResults: AdminMessageSendResult["channels"] = [];
     const batchSize = 10;
     const announcementVariables = {
       announcement_title: heading,
@@ -515,7 +529,12 @@ export const communicationCenterService = {
       announcement_body_plain: preparedContent.plainText,
     };
 
-    for (let index = 0; index < recipientIds.length; index += batchSize) {
+    if (userChannels.length > 0 && recipientIds.length === 0) {
+      failed += 1;
+      for (const channel of userChannels) channelResults.push({ channel, status: "failed", error: "No eligible recipients found." });
+    }
+
+    for (let index = 0; userChannels.length > 0 && index < recipientIds.length; index += batchSize) {
       const batch = recipientIds.slice(index, index + batchSize);
       await Promise.all(
         batch.map(async (recipientUserId) => {
@@ -528,7 +547,7 @@ export const communicationCenterService = {
               templateSlug: ADMIN_ANNOUNCEMENT_TEMPLATE_SLUG,
               recipientUserId,
               variables,
-              channels: input.channels,
+              channels: userChannels,
               category: "announcements",
               priority: "normal",
               triggeredBy: admin.id,
@@ -543,9 +562,36 @@ export const communicationCenterService = {
       );
     }
 
-    for (let pass = 0; pass < 20; pass += 1) {
-      const queueResult = await emailQueueService.processPending(50);
-      if (queueResult.processed === 0) break;
+    if (userChannels.length > 0 && recipientIds.length > 0) {
+      for (const channel of userChannels) {
+        channelResults.push({ channel, status: failed === 0 ? "sent" : sent === 0 ? "failed" : "partial" });
+      }
+    }
+
+    if (includesTelegram) {
+      try {
+        const telegram = await communicationService.sendTelegramBroadcast({
+          requestId: input.requestId!,
+          heading,
+          html: content,
+          plainText: preparedContent.plainText,
+          triggeredBy: admin.id,
+        });
+        const delivery = telegram.deliveries[0];
+        channelResults.push({ channel: "telegram", status: delivery?.status ?? telegram.status, error: delivery?.error });
+        if (telegram.status === "failed") failed += 1;
+        else sent += 1;
+      } catch (error) {
+        failed += 1;
+        channelResults.push({ channel: "telegram", status: "failed", error: error instanceof Error ? error.message : "Telegram delivery failed." });
+      }
+    }
+
+    if (userChannels.includes("email")) {
+      for (let pass = 0; pass < 20; pass += 1) {
+        const queueResult = await emailQueueService.processPending(50);
+        if (queueResult.processed === 0) break;
+      }
     }
 
     await auditService.log({
@@ -559,6 +605,7 @@ export const communicationCenterService = {
         recipient_count: recipientIds.length,
         sent,
         failed,
+        channels: channelResults.map((result) => ({ channel: result.channel, status: result.status })),
       },
     });
 
@@ -570,6 +617,7 @@ export const communicationCenterService = {
       failed,
       recipientCount: recipientIds.length,
       status,
+      channels: channelResults,
     };
   },
 

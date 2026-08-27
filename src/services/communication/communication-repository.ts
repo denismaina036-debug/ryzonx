@@ -274,7 +274,7 @@ export const communicationRepository = {
       .select("enabled")
       .eq("user_id", userId)
       .eq("category", category)
-      .eq("channel", channel)
+      .eq("channel", channel as never)
       .maybeSingle();
 
     if (!data) return true;

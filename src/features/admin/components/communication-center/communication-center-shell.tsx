@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Mail, Megaphone, Bell, Headphones, Radio } from "lucide-react";
+import { Mail, Megaphone, Bell, Headphones, Radio, Settings } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { label: "Campaigns", href: ROUTES.adminCommunicationCampaigns, icon: Megaphone },
   { label: "Notifications", href: ROUTES.adminCommunicationNotifications, icon: Bell },
   { label: "Support", href: ROUTES.adminCommunicationSupport, icon: Headphones },
+  { label: "Settings", href: ROUTES.adminCommunicationSettings, icon: Settings },
 ] as const;
 
 export function CommunicationCenterShell({
