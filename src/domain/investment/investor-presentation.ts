@@ -60,6 +60,9 @@ export interface InvestorAllocationView {
   managerName: string;
   canCancel: boolean;
   ownershipSharePct: number | null;
+  returnedCapitalAmount: number;
+  returnableCapitalAmount: number;
+  capitalReturnedAt: string | null;
 }
 
 export interface InvestorPortfolioData {

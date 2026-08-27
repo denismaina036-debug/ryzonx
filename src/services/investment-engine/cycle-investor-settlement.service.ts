@@ -784,11 +784,10 @@ export const cycleInvestorSettlementService = {
     const user = await requireAuth();
     const settlement = await getSettlementForInvestor(settlementId, user.id);
 
-    if (settlement.capitalResolved || settlement.principalAmount <= 0) {
+    if (settlement.capitalResolved) {
       throw new Error("No capital available to return.");
     }
 
-    const amount = roundMoney(settlement.principalAmount);
     const db = createAdminClient();
     const notes = `Cycle capital return to Funding Wallet — ${settlement.cycleName} (${settlement.poolName})`;
 
@@ -803,10 +802,12 @@ export const cycleInvestorSettlementService = {
     if (requestError) throw new Error(requestError.message);
     const result = requestResult as unknown as {
       request_id?: string;
+      amount?: number | string;
       created?: boolean;
     } | null;
     const requestId = result?.request_id;
     if (!requestId) throw new Error("Failed to submit capital return request.");
+    const amount = roundMoney(toNumber(result?.amount ?? settlement.principalAmount));
 
     const { adminNotifyService } = await import("@/services/communication/admin-notify.service");
     if (result?.created !== false) {
@@ -864,17 +865,20 @@ export const cycleInvestorSettlementService = {
     const result = approvalResult as unknown as {
       amount?: number | string;
       investor_id?: string;
+      ledger_transaction_id?: string;
       created?: boolean;
     } | null;
     const amount = toNumber(result?.amount);
     const investorId = result?.investor_id ?? settlement.investorId;
 
-    await communicationTriggers.investmentUpdated({
-      userId: investorId,
-      poolName: settlement.poolName,
-      message: `$${amount.toLocaleString()} from ${settlement.cycleName} has been returned to your Funding Wallet.`,
-      poolId: settlement.fundId,
-    });
+    if (result?.created !== false) {
+      await communicationTriggers.investmentUpdated({
+        userId: investorId,
+        poolName: settlement.poolName,
+        message: `$${amount.toLocaleString()} from ${settlement.cycleName} has been returned to your Funding Wallet.`,
+        poolId: settlement.fundId,
+      });
+    }
   },
 
   async rejectCapitalReturn(settlementId: string, adminNotes?: string): Promise<void> {

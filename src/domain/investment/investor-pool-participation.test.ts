@@ -83,6 +83,38 @@ describe("resolveInvestorCapitalExposure", () => {
       )
     ).toBe(400);
   });
+
+  it("does not count capital that has already been returned", () => {
+    expect(
+      resolveInvestorCapitalExposure(
+        [{ fundId: "f1", amountInvested: 200 }],
+        [
+          {
+            fundId: "f1",
+            amount: 200,
+            returnedCapitalAmount: 200,
+            status: "distributed",
+          },
+        ]
+      )
+    ).toBe(0);
+  });
+
+  it("counts only the remaining returnable capital", () => {
+    expect(
+      resolveInvestorCapitalExposure(
+        [{ fundId: "f1", amountInvested: 500 }],
+        [
+          {
+            fundId: "f1",
+            amount: 500,
+            returnedCapitalAmount: 200,
+            status: "distributed",
+          },
+        ]
+      )
+    ).toBe(300);
+  });
 });
 
 describe("resolvePostCycleCapitalAmount", () => {

@@ -31,6 +31,9 @@ type AllocationRow = {
   funding_confirmed_at: string | null;
   settled_at: string | null;
   settlement_transaction_id: string | null;
+  returned_capital_amount: number | string;
+  capital_returned_at: string | null;
+  capital_return_ledger_transaction_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -54,6 +57,9 @@ function mapAllocation(row: AllocationRow): InvestmentAllocation {
     fundingConfirmedAt: row.funding_confirmed_at,
     settledAt: row.settled_at,
     settlementTransactionId: row.settlement_transaction_id,
+    returnedCapitalAmount: toNumber(row.returned_capital_amount),
+    capitalReturnedAt: row.capital_returned_at,
+    capitalReturnLedgerTransactionId: row.capital_return_ledger_transaction_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

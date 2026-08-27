@@ -1,5 +1,4 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DEFAULT_FUND_ID } from "@/constants/funds";
 import { requireAuth } from "@/lib/auth/session";
 import type { ManagedPoolConfig } from "@/domain/pools/managed-pool";
 import { formatExpectedDurationLabel } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
@@ -91,8 +90,67 @@ export const walletService = {
     const projection = await walletProjectionService.getForInvestor(user.id);
     const balance = projection.available;
 
+    const { data: allocationRows, error: allocationError } = await db
+      .from("investment_allocations")
+      .select("investment_cycle_id, amount, returned_capital_amount, status")
+      .eq("investor_id", user.id)
+      .in("status", [
+        "pending",
+        "funding_confirmed",
+        "confirmed",
+        "settled",
+        "locked",
+        "distributed",
+      ]);
+    if (allocationError) throw new Error(allocationError.message);
+
+    const capitalAllocations = (allocationRows ?? []) as Array<{
+      investment_cycle_id: string;
+      amount: number | string;
+      returned_capital_amount: number | string;
+      status: string;
+    }>;
+    const allocationCycleIds = [
+      ...new Set(capitalAllocations.map((allocation) => allocation.investment_cycle_id)),
+    ];
+    const allocationCycleFund = new Map<string, string>();
+    if (allocationCycleIds.length > 0) {
+      const { data: allocationCycles, error: cycleError } = await db
+        .from("investment_cycles")
+        .select("id, fund_id")
+        .in("id", allocationCycleIds);
+      if (cycleError) throw new Error(cycleError.message);
+      for (const cycle of (allocationCycles ?? []) as Array<{
+        id: string;
+        fund_id: string | null;
+      }>) {
+        if (cycle.fund_id) allocationCycleFund.set(cycle.id, cycle.fund_id);
+      }
+    }
+
+    const allocationFundIds = new Set<string>();
+    const returnableCapitalByFund = new Map<string, number>();
+    for (const allocation of capitalAllocations) {
+      const fundId = allocationCycleFund.get(allocation.investment_cycle_id);
+      if (!fundId) continue;
+      allocationFundIds.add(fundId);
+      if (allocation.status === "pending") continue;
+      const returnable = roundMoney(
+        Math.max(0, toNumber(allocation.amount) - toNumber(allocation.returned_capital_amount))
+      );
+      returnableCapitalByFund.set(
+        fundId,
+        roundMoney((returnableCapitalByFund.get(fundId) ?? 0) + returnable)
+      );
+    }
+
     const participationRows = allRows
-      .filter((row) => toNumber(row.total_invested) > 0)
+      .filter((row) => {
+        if (allocationFundIds.has(row.fund_id)) {
+          return (returnableCapitalByFund.get(row.fund_id) ?? 0) > 0;
+        }
+        return toNumber(row.total_invested) > 0;
+      })
       .sort((a, b) => {
         const aTime = a.last_deposit_at ? new Date(a.last_deposit_at).getTime() : 0;
         const bTime = b.last_deposit_at ? new Date(b.last_deposit_at).getTime() : 0;
@@ -145,7 +203,9 @@ export const walletService = {
     let poolProfit = 0;
     const participations: WalletPoolParticipation[] = participationRows.map((row) => {
       const fund = fundMap.get(row.fund_id);
-      const invested = toNumber(row.total_invested);
+      const invested = allocationFundIds.has(row.fund_id)
+        ? returnableCapitalByFund.get(row.fund_id) ?? 0
+        : toNumber(row.total_invested);
       const walletProfit = profitWalletTotals.get(row.fund_id) ?? 0;
       const profit = resolveAvailablePoolProfit({
         invested,

@@ -2112,6 +2112,8 @@ export type Database = {
         Row: {
           allocated_at: string
           amount: number
+          capital_return_ledger_transaction_id: string | null
+          capital_returned_at: string | null
           cumulative_realised_return: number
           created_at: string
           currency: string
@@ -2123,6 +2125,7 @@ export type Database = {
           locked_at: string | null
           projected_payout: number | null
           reference_number: string
+          returned_capital_amount: number
           roi_multiplier: number | null
           settled_at: string | null
           settlement_transaction_id: string | null
@@ -2133,6 +2136,8 @@ export type Database = {
         Insert: {
           allocated_at?: string
           amount: number
+          capital_return_ledger_transaction_id?: string | null
+          capital_returned_at?: string | null
           cumulative_realised_return?: number
           created_at?: string
           currency?: string
@@ -2144,6 +2149,7 @@ export type Database = {
           locked_at?: string | null
           projected_payout?: number | null
           reference_number: string
+          returned_capital_amount?: number
           roi_multiplier?: number | null
           settled_at?: string | null
           settlement_transaction_id?: string | null
@@ -2154,6 +2160,8 @@ export type Database = {
         Update: {
           allocated_at?: string
           amount?: number
+          capital_return_ledger_transaction_id?: string | null
+          capital_returned_at?: string | null
           cumulative_realised_return?: number
           created_at?: string
           currency?: string
@@ -2165,6 +2173,7 @@ export type Database = {
           locked_at?: string | null
           projected_payout?: number | null
           reference_number?: string
+          returned_capital_amount?: number
           roi_multiplier?: number | null
           settled_at?: string | null
           settlement_transaction_id?: string | null
@@ -2527,6 +2536,9 @@ export type Database = {
       }
       cycle_investor_settlements: {
         Row: {
+          capital_return_ledger_transaction_id: string | null
+          capital_returned_amount: number
+          capital_returned_at: string | null
           capital_resolved: boolean
           capital_withdrawal_transaction_id: string | null
           created_at: string
@@ -2542,6 +2554,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          capital_return_ledger_transaction_id?: string | null
+          capital_returned_amount?: number
+          capital_returned_at?: string | null
           capital_resolved?: boolean
           capital_withdrawal_transaction_id?: string | null
           created_at?: string
@@ -2557,6 +2572,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          capital_return_ledger_transaction_id?: string | null
+          capital_returned_amount?: number
+          capital_returned_at?: string | null
           capital_resolved?: boolean
           capital_withdrawal_transaction_id?: string | null
           created_at?: string

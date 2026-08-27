@@ -24,21 +24,34 @@ export interface InvestorPoolParticipationView extends WalletPoolParticipation {
 /** Count each pool once — prefer cycle allocations over legacy portfolio rows. */
 export function resolveInvestorCapitalExposure(
   participations: Array<{ fundId: string; amountInvested: number }>,
-  allocations: Array<{ fundId: string; amount: number; status: InvestmentAllocationStatus | string }>
+  allocations: Array<{
+    fundId: string;
+    amount: number;
+    returnedCapitalAmount?: number;
+    status: InvestmentAllocationStatus | string;
+  }>
 ): number {
   const allocationByFund = new Map<string, number>();
+  const allocationFundIds = new Set<string>();
   for (const allocation of allocations) {
     if (!ACTIVE_INVESTOR_ALLOCATION_STATUSES.has(allocation.status as InvestmentAllocationStatus)) {
       continue;
     }
+    allocationFundIds.add(allocation.fundId);
+    const returnableAmount = Math.max(
+      0,
+      allocation.amount - (allocation.returnedCapitalAmount ?? 0)
+    );
+    if (returnableAmount <= 0) continue;
     allocationByFund.set(
       allocation.fundId,
-      (allocationByFund.get(allocation.fundId) ?? 0) + allocation.amount
+      (allocationByFund.get(allocation.fundId) ?? 0) + returnableAmount
     );
   }
 
   const fundIds = new Set([
     ...participations.map((participation) => participation.fundId),
+    ...allocationFundIds,
     ...allocationByFund.keys(),
   ]);
 
@@ -47,7 +60,7 @@ export function resolveInvestorCapitalExposure(
     const allocationTotal = allocationByFund.get(fundId);
     const portfolioAmount =
       participations.find((participation) => participation.fundId === fundId)?.amountInvested ?? 0;
-    total += allocationTotal != null && allocationTotal > 0 ? allocationTotal : portfolioAmount;
+    total += allocationFundIds.has(fundId) ? allocationTotal ?? 0 : portfolioAmount;
   }
 
   return total;

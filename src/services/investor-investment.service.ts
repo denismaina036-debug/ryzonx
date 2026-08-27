@@ -202,6 +202,9 @@ async function enrichAllocations(allocations: InvestmentAllocation[]): Promise<I
       managerName: managerPublicName(manager),
       canCancel,
       ownershipSharePct: computeInvestorOwnershipShare(allocation.amount, cycle.targetCapital),
+      returnedCapitalAmount: allocation.returnedCapitalAmount,
+      returnableCapitalAmount: Math.max(0, allocation.amount - allocation.returnedCapitalAmount),
+      capitalReturnedAt: allocation.capitalReturnedAt,
     };
   });
 }
@@ -291,17 +294,18 @@ export const investorInvestmentService = {
         assetsUnderManagement: m.assetsUnderManagement,
         activeInvestors: m.activeInvestors,
         tradingStyle: m.tradingStyle,
-      }));
+    }));
 
     const pendingAllocations = allocationViews.filter((a) => a.status === "pending");
-    const activeAllocations = allocationViews.filter(
-      (a) => a.status !== "cancelled" && a.status !== "distributed"
+    const exposureAllocations = allocationViews.filter(
+      (a) => a.status !== "cancelled" && a.status !== "rejected"
     );
     const cycleCommitted = resolveInvestorCapitalExposure(
       wallet.participations,
-      activeAllocations.map((allocation) => ({
+      exposureAllocations.map((allocation) => ({
         fundId: allocation.fundId,
         amount: allocation.amount,
+        returnedCapitalAmount: allocation.returnedCapitalAmount,
         status: allocation.status,
       }))
     );
@@ -332,15 +336,22 @@ export const investorInvestmentService = {
 
     const allocationViews = await enrichAllocations(allocations);
     const active = allocationViews.filter(
-      (a) => a.status !== "cancelled" && a.status !== "distributed"
+      (a) =>
+        a.status !== "cancelled" &&
+        a.status !== "distributed" &&
+        a.returnableCapitalAmount > 0
+    );
+    const exposureAllocations = allocationViews.filter(
+      (a) => a.status !== "cancelled" && a.status !== "rejected"
     );
     const pending = allocationViews.filter((a) => a.status === "pending");
     const legacyInvested = wallet.participations.reduce((s, p) => s + p.amountInvested, 0);
     const totalCommitted = resolveInvestorCapitalExposure(
       wallet.participations,
-      active.map((allocation) => ({
+      exposureAllocations.map((allocation) => ({
         fundId: allocation.fundId,
         amount: allocation.amount,
+        returnedCapitalAmount: allocation.returnedCapitalAmount,
         status: allocation.status,
       }))
     );
@@ -461,10 +472,11 @@ export const investorInvestmentService = {
           return (
             cycle?.fundId === fundId &&
             a.status !== "cancelled" &&
-            a.status !== "rejected"
+            a.status !== "rejected" &&
+            a.returnableCapitalAmount > 0
           );
         })
-        .reduce((sum, a) => sum + a.amount, 0);
+        .reduce((sum, a) => sum + a.returnableCapitalAmount, 0);
       return legacy + cycleTotal;
     }
 
@@ -491,7 +503,11 @@ export const investorInvestmentService = {
       .filter((c) => {
         if (!isCycleTradingPhase(c.status)) return false;
         const allocation = allocationByCycleId.get(c.id);
-        return allocation != null && ACTIVE_ALLOCATION_STATUSES.has(allocation.status);
+        return (
+          allocation != null &&
+          allocation.returnableCapitalAmount > 0 &&
+          ACTIVE_ALLOCATION_STATUSES.has(allocation.status)
+        );
       })
       .sort((a, b) => b.cycleNumber - a.cycleNumber)[0];
 

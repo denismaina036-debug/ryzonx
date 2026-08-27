@@ -84,6 +84,9 @@ export interface InvestmentAllocation {
   fundingConfirmedAt: string | null;
   settledAt: string | null;
   settlementTransactionId: string | null;
+  returnedCapitalAmount: number;
+  capitalReturnedAt: string | null;
+  capitalReturnLedgerTransactionId: string | null;
   createdAt: string;
   updatedAt: string;
 }
