@@ -7,13 +7,15 @@ import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/ui/form-field";
 import { SectionContainer, SectionHeader } from "@/components/layouts/section";
 import { toast } from "sonner";
-import { useOptionalLandingContent } from "@/providers/landing-content-provider";
-import { DEFAULT_LANDING_PAGE_CONTENT } from "@/domain/landing-page/defaults";
+import type { LandingContactInfo, LandingSectionHeader } from "@/domain/landing-page/types";
 
-export function ContactSection({ className }: { className?: string } = {}) {
-  const landing = useOptionalLandingContent();
-  const copy = landing?.copy.contact ?? DEFAULT_LANDING_PAGE_CONTENT.copy.contact;
-  const contact = landing?.contact ?? DEFAULT_LANDING_PAGE_CONTENT.contact;
+interface ContactSectionProps {
+  contact: LandingContactInfo;
+  copy: LandingSectionHeader;
+  className?: string;
+}
+
+export function ContactSection({ contact, copy, className }: ContactSectionProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {

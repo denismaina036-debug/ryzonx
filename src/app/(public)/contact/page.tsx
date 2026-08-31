@@ -4,6 +4,7 @@ import { SectionContainer } from "@/components/layouts/section";
 import { ContactSection } from "@/features/public/components/contact-section";
 import { ROUTES } from "@/constants/routes";
 import { buildPageMetadata } from "@/lib/seo/metadata";
+import { landingPageService } from "@/services/landing-page.service";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Contact",
@@ -12,7 +13,9 @@ export const metadata: Metadata = buildPageMetadata({
   keywords: ["contact RyvonX", "investor support", "RyvonX help"],
 });
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const content = await landingPageService.getRawContent();
+
   return (
     <>
       <SectionContainer className="!pb-0 !pt-8">
@@ -21,7 +24,7 @@ export default function ContactPage() {
           description="We're here to answer your questions about Ryvonx."
         />
       </SectionContainer>
-      <ContactSection className="!pt-8" />
+      <ContactSection contact={content.contact} copy={content.copy.contact} className="!pt-8" />
     </>
   );
 }

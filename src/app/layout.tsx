@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { QueryProvider } from "@/providers/query-provider";
 import { ToastProvider } from "@/providers/toast-provider";
 import { BRAND_DESCRIPTION, BRAND_NAME } from "@/constants/brand";
 import { ROOT_SITE_METADATA } from "@/lib/seo/metadata";
 import { SiteJsonLd } from "@/components/seo/site-json-ld";
+import { WhatsAppSupport } from "@/components/support/whatsapp-support";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
@@ -37,6 +39,9 @@ export default function RootLayout({
         <QueryProvider>
           <ToastProvider>{children}</ToastProvider>
         </QueryProvider>
+        <Suspense fallback={null}>
+          <WhatsAppSupport />
+        </Suspense>
       </body>
     </html>
   );

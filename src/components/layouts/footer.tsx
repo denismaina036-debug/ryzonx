@@ -12,6 +12,7 @@ import {
 import { useOptionalLandingContent } from "@/providers/landing-content-provider";
 import { useFooterLegalLinks } from "@/providers/legal-links-provider";
 import { DEFAULT_LANDING_PAGE_CONTENT } from "@/domain/landing-page/defaults";
+import type { LandingContactInfo } from "@/domain/landing-page/types";
 
 function DiscordIcon({ className }: { className?: string }) {
   return (
@@ -29,10 +30,9 @@ function TelegramIcon({ className }: { className?: string }) {
   );
 }
 
-export function Footer() {
+export function Footer({ contact }: { contact: LandingContactInfo }) {
   const landing = useOptionalLandingContent();
   const footer = landing?.footer ?? DEFAULT_LANDING_PAGE_CONTENT.footer;
-  const contact = landing?.contact ?? DEFAULT_LANDING_PAGE_CONTENT.contact;
   const social = landing?.social ?? DEFAULT_LANDING_PAGE_CONTENT.social;
   const legalLinks = useFooterLegalLinks();
 

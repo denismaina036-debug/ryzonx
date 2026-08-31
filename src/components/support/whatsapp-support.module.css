@@ -1,0 +1,108 @@
+.button {
+  position: fixed;
+  right: calc(1rem + env(safe-area-inset-right, 0px));
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  /* Stay underneath dialogs, menus and the dashboard quick-action overlay. */
+  z-index: 35;
+  display: grid;
+  width: 3.5rem;
+  height: 3.5rem;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 40%);
+  border-radius: 50%;
+  background: #25d366;
+  color: #fff;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 20%), 0 0 0 3px rgb(255 255 255 / 10%);
+  text-decoration: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.button:focus-visible {
+  outline: 3px solid #128c7e;
+  outline-offset: 4px;
+  box-shadow: 0 0 0 4px #fff, 0 4px 16px rgb(0 0 0 / 20%);
+}
+
+.button:active {
+  transform: scale(0.96);
+}
+
+.label {
+  position: absolute;
+  right: calc(100% + 0.75rem);
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 0.625rem;
+  background: #0a1929;
+  color: #fff;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 150ms ease, visibility 150ms ease;
+}
+
+.button:focus-visible .label {
+  visibility: visible;
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  .button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgb(0 0 0 / 24%), 0 0 0 3px rgb(255 255 255 / 10%);
+  }
+
+  .button:hover:active {
+    transform: scale(0.96);
+  }
+
+  .button:hover .label {
+    visibility: visible;
+    opacity: 1;
+  }
+}
+
+@media (min-width: 1024px) {
+  .button {
+    right: calc(1.5rem + env(safe-area-inset-right, 0px));
+    bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* The preview's developer-tool launcher also occupies the bottom-right corner. */
+:global(:where(body:has(button[aria-label="Open Tanstack query devtools"]))) .button {
+  bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 1023px) {
+  /* Public marketplace routes can also render inside an authenticated shell. */
+  :global(body:has(.investor-dashboard, .pool-manager-workspace)) .button {
+    bottom: calc(var(--mobile-nav-height, 5.5rem) + 1rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .label {
+    transition: none;
+  }
+
+  .button:hover,
+  .button:active,
+  .button:hover:active {
+    transform: none;
+  }
+}
+
+@media print {
+  .button {
+    display: none;
+  }
+}

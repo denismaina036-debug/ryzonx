@@ -120,7 +120,7 @@ export default async function HomePage() {
       ) : null}
       {sections.contact ? (
         <div className="order-15 w-full min-w-0">
-          <ContactSection />
+          <ContactSection contact={content.contact} copy={content.copy.contact} />
         </div>
       ) : null}
     </div>
