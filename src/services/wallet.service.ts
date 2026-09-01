@@ -213,6 +213,7 @@ export const walletService = {
         realizedPnl: toNumber(row.realized_pnl),
         unrealizedPnl: toNumber(row.unrealized_pnl),
         profitWalletBalance: walletProfit,
+        hasProfitWalletHistory: profitWalletTotals.has(row.fund_id),
       });
       const currentValue = roundMoney(invested + profit);
       poolProfit += profit;

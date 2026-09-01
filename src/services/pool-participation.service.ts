@@ -756,9 +756,11 @@ export const poolParticipationService = {
     const poolName = (fund as { name?: string } | null)?.name ?? "Pool";
 
     const poolRow = await getPoolParticipation(db, user.id, fundId);
-    const profitWalletBalance = await investorProfitWalletService.getTotalBalanceForFund(
-      user.id,
-      fundId
+    const fundProfitWallets = (await investorProfitWalletService.listForInvestor(user.id)).filter(
+      (wallet) => wallet.fundId === fundId
+    );
+    const profitWalletBalance = roundMoney(
+      fundProfitWallets.reduce((sum, wallet) => sum + wallet.balance, 0)
     );
     const availableProfit = resolveAvailablePoolProfit({
       invested: toNumber(poolRow.total_invested),
@@ -766,6 +768,7 @@ export const poolParticipationService = {
       realizedPnl: toNumber(poolRow.realized_pnl),
       unrealizedPnl: toNumber(poolRow.unrealized_pnl),
       profitWalletBalance,
+      hasProfitWalletHistory: fundProfitWallets.length > 0,
     });
 
     if (availableProfit <= 0) {
@@ -958,9 +961,11 @@ export const poolParticipationService = {
 
     const poolName = fundRow?.name ?? "Pool";
     const poolRow = await getPoolParticipation(db, user.id, fundId);
-    const profitWalletBalance = await investorProfitWalletService.getTotalBalanceForFund(
-      user.id,
-      fundId
+    const fundProfitWallets = (await investorProfitWalletService.listForInvestor(user.id)).filter(
+      (wallet) => wallet.fundId === fundId
+    );
+    const profitWalletBalance = roundMoney(
+      fundProfitWallets.reduce((sum, wallet) => sum + wallet.balance, 0)
     );
     const availableProfit = resolveAvailablePoolProfit({
       invested: toNumber(poolRow.total_invested),
@@ -968,6 +973,7 @@ export const poolParticipationService = {
       realizedPnl: toNumber(poolRow.realized_pnl),
       unrealizedPnl: toNumber(poolRow.unrealized_pnl),
       profitWalletBalance,
+      hasProfitWalletHistory: fundProfitWallets.length > 0,
     });
 
     if (availableProfit <= 0) {

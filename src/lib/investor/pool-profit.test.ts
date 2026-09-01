@@ -28,6 +28,32 @@ describe("resolveAvailablePoolProfit", () => {
       })
     ).toBe(103_182);
   });
+
+  it("does not revive transferred profit from a stale portfolio value", () => {
+    expect(
+      resolveAvailablePoolProfit({
+        invested: 5_500,
+        currentValue: 15_180.64,
+        realizedPnl: 0,
+        unrealizedPnl: 0,
+        profitWalletBalance: 0,
+        hasProfitWalletHistory: true,
+      })
+    ).toBe(0);
+  });
+
+  it("uses only the remaining cycle wallet balance after a partial disposal", () => {
+    expect(
+      resolveAvailablePoolProfit({
+        invested: 5_500,
+        currentValue: 15_180.64,
+        realizedPnl: 9_680.64,
+        unrealizedPnl: 0,
+        profitWalletBalance: 1_200,
+        hasProfitWalletHistory: true,
+      })
+    ).toBe(1_200);
+  });
 });
 
 describe("normalizeProfitTransferAmount", () => {

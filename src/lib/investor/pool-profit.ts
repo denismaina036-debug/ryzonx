@@ -6,12 +6,17 @@ export type PoolProfitInputs = {
   realizedPnl: number;
   unrealizedPnl: number;
   profitWalletBalance: number;
+  /** Once a cycle profit wallet exists, it is the authoritative disposable balance. */
+  hasProfitWalletHistory?: boolean;
 };
 
 /** Match investor wallet summary profit display for a pool participation row. */
 export function resolveAvailablePoolProfit(input: PoolProfitInputs): number {
   const invested = roundMoney(input.invested);
   const walletProfit = roundMoney(input.profitWalletBalance);
+  if (input.hasProfitWalletHistory) {
+    return Math.max(0, walletProfit);
+  }
   const legacyProfit = roundMoney(input.realizedPnl + input.unrealizedPnl);
   const storedValue = roundMoney(input.currentValue);
 
