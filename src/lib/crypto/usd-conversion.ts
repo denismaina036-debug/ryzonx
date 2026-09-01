@@ -21,3 +21,11 @@ export function formatCryptoAmount(amount: number, symbol: string): string {
     maximumFractionDigits: decimals,
   });
 }
+
+/** Preserve the recorded asset precision used in wallet transaction history. */
+export function formatTransferAssetAmount(amount: number): string {
+  return amount.toLocaleString("en-US", {
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: 8,
+  });
+}

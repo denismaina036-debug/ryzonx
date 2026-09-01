@@ -277,6 +277,11 @@ function mapAdminWithdrawal(
     available_balance: number | null;
   }
 ): AdminWithdrawalRequest {
+  const transactionFee =
+    typeof row.metadata?.network_fee === "string" && row.metadata.network_fee.trim()
+      ? row.metadata.network_fee.trim()
+      : null;
+
   return {
     id: row.id,
     investorId: row.user_id,
@@ -287,6 +292,9 @@ function mapAdminWithdrawal(
     amount: toNumber(row.amount),
     withdrawableBalance: row.available_balance ?? 0,
     destination: row.destination ?? row.reference ?? "—",
+    cryptoSymbol: row.crypto_symbol,
+    cryptoNetwork: row.crypto_network,
+    transactionFee,
     notes: row.notes,
     adminNotes: row.admin_notes,
     status: row.status as TransactionStatus,
@@ -851,7 +859,10 @@ export const transactionService = {
     });
   },
 
-  async approveWithdrawal(transactionId: string): Promise<void> {
+  async approveWithdrawal(
+    transactionId: string,
+    transactionFee?: { amount: number; currency: string }
+  ): Promise<void> {
     const admin = await requireRole("administrator");
     const db = createAdminClient();
 
@@ -875,12 +886,33 @@ export const transactionService = {
     const now = new Date().toISOString();
     const usesLedger = await hasLedgerWithdrawalReservation(transactionId);
 
+    if (
+      transactionFee &&
+      (!Number.isFinite(transactionFee.amount) ||
+        transactionFee.amount < 0 ||
+        !/^[A-Z0-9]{2,10}$/i.test(transactionFee.currency.trim()))
+    ) {
+      throw new Error("Enter a valid transaction fee and currency.");
+    }
+
     if (usesLedger) {
       await finalizeWithdrawalOnLedger(row.user_id, amount, transactionId, admin.id);
     }
 
     const wasPending = row.status === "pending";
     if (wasPending) {
+      const feeCurrency = transactionFee?.currency.trim().toUpperCase();
+      const feeMetadata = transactionFee
+        ? {
+            ...(row.metadata ?? {}),
+            network_fee: `${transactionFee.amount.toLocaleString("en-US", {
+              maximumFractionDigits: 8,
+              useGrouping: false,
+            })} ${feeCurrency}`,
+            network_fee_amount: transactionFee.amount,
+            network_fee_currency: feeCurrency,
+          }
+        : row.metadata ?? {};
       const { data: transitioned, error: updateError } = await db
         .from("transactions")
         .update({
@@ -888,6 +920,7 @@ export const transactionService = {
           processed_at: now,
           processed_by: admin.id,
           approved_by: admin.id,
+          metadata: feeMetadata,
         } as never)
         .eq("id", transactionId)
         .eq("status", "pending")

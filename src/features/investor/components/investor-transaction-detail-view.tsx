@@ -1,14 +1,16 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
-import { ArrowLeft, ArrowUpRight, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, Share2, X } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import type { InvestorTransactionDetail } from "@/domain/transaction/types";
 import { TransactionCopyField } from "@/features/investor/components/transactions/transaction-copy-field";
 import { TransactionIcon } from "@/features/investor/components/transactions/transaction-icon";
 import { TransactionStatusPill } from "@/features/investor/components/transactions/transaction-status-pill";
-import { cn } from "@/lib/utils";
-import { formatCryptoAmount } from "@/lib/crypto/usd-conversion";
+import { cn, formatCurrency } from "@/lib/utils";
+import { formatTransferAssetAmount } from "@/lib/crypto/usd-conversion";
 
 function maskWalletAddress(address: string): string {
   const trimmed = address.trim();
@@ -70,99 +72,101 @@ function WalletTransferDetail({
 }: {
   transaction: InvestorTransactionDetail;
 }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   const isDeposit = transaction.category === "deposit";
   const counterpartyLabel = isDeposit ? "Sender" : "Recipient";
   const counterparty = fieldValue(transaction, counterpartyLabel) ?? "External wallet";
   const date = fieldValue(transaction, "Date") ?? new Date(transaction.createdAt).toLocaleString();
   const status = detailStatusLabel(fieldValue(transaction, "Status") ?? transaction.statusLabel);
   const networkFee = fieldValue(transaction, "Network Fee");
-  const excluded = new Set(["Date", "Status", counterpartyLabel, "Network Fee"]);
-  const remainingFields = transaction.detailFields.filter((field) => !excluded.has(field.label));
-  const secondaryAmount =
-    transaction.cryptoAmount != null && transaction.cryptoAmount > 0 && transaction.cryptoSymbol
-      ? `${transaction.amountPrefix}${formatCryptoAmount(
-          transaction.cryptoAmount,
-          transaction.cryptoSymbol
-        )} ${transaction.cryptoSymbol}`
-      : null;
+  const assetSymbol = transaction.cryptoSymbol || transaction.amountSuffix || "USDT";
+  const assetAmount =
+    transaction.cryptoAmount != null && transaction.cryptoAmount > 0
+      ? transaction.cryptoAmount
+      : transaction.amount;
+  const secondaryAmount = `${transaction.amountPrefix}${formatTransferAssetAmount(
+    assetAmount
+  )} ${assetSymbol}`;
 
-  return (
-    <div className="overflow-hidden rounded-[28px] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow-lg)]">
-      <div className="relative px-5 pb-8 pt-6 text-center sm:px-8 sm:pb-10">
-        <span className="absolute left-5 top-5 flex h-11 w-11 items-center justify-center rounded-full bg-[var(--id-surface-muted)] text-[var(--id-text)] sm:left-7 sm:top-6">
-          <ArrowUpRight className={cn("h-5 w-5", isDeposit && "rotate-180")} />
-        </span>
-        <p className="text-lg font-semibold tracking-tight text-[var(--id-text)]">
-          {isDeposit ? "Received" : "Sent"}
-        </p>
-        <div className="mt-16 sm:mt-14">
-          <p className="font-mono text-3xl font-semibold tabular-nums tracking-tight text-[var(--id-text)] sm:text-4xl">
-            {transaction.displayAmount}
+  if (!mounted) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[1000] flex items-end justify-center bg-slate-950/55 backdrop-blur-[2px] sm:items-center sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="transaction-detail-title"
+    >
+      <div className="flex min-h-[66dvh] max-h-[94dvh] w-full max-w-[560px] flex-col overflow-y-auto rounded-t-[32px] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-2xl sm:min-h-0 sm:max-h-[calc(100dvh-3rem)] sm:rounded-[32px]">
+        <div className="relative px-5 pb-8 pt-7 text-center sm:px-8 sm:pb-10">
+          <span className="absolute left-5 top-5 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--id-surface-muted)] text-[var(--id-text)] sm:left-7 sm:top-6">
+            <Share2 className="h-5 w-5" />
+          </span>
+          <Link
+            href={ROUTES.transactions}
+            aria-label="Close transaction details"
+            className="absolute right-5 top-5 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--id-surface-muted)] text-[var(--id-text)] transition-colors hover:bg-[var(--id-surface-hover)] sm:right-7 sm:top-6"
+          >
+            <X className="h-6 w-6" />
+          </Link>
+          <p
+            id="transaction-detail-title"
+            className="text-xl font-semibold tracking-tight text-[var(--id-text)]"
+          >
+            {isDeposit ? "Received" : "Sent"}
           </p>
-          {secondaryAmount && (
-            <p className="mt-2 font-mono text-lg tabular-nums text-[var(--id-text-muted)] sm:text-xl">
+          <div className="mt-20 sm:mt-16">
+            <p className="font-mono text-4xl font-semibold tabular-nums tracking-tight text-[var(--id-text)]">
+              ≈ {formatCurrency(transaction.amount)}
+            </p>
+            <p className="mt-2 font-mono text-xl tabular-nums text-[var(--id-text-muted)]">
               {secondaryAmount}
             </p>
+          </div>
+        </div>
+
+        <div className="flex flex-1 flex-col gap-4 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-7">
+          <div className="rounded-[24px] bg-[var(--id-surface-muted)] px-4 py-2.5 sm:px-5">
+            <TransferInfoRow label="Date" value={date} />
+            <TransferInfoRow label="Status" value={status} accent={status === "Completed"} />
+            <TransferInfoRow
+              label={counterpartyLabel}
+              value={counterparty}
+              mono={counterparty !== "External wallet" && counterparty !== "M-Pesa"}
+            />
+          </div>
+
+          {networkFee && (
+            <div className="rounded-[24px] bg-[var(--id-surface-muted)] px-4 py-2.5 sm:px-5">
+              <TransferInfoRow label="Network fee" value={networkFee} mono />
+            </div>
+          )}
+
+          {transaction.blockchainExplorerUrl && (
+            <a
+              href={transaction.blockchainExplorerUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-auto flex min-h-16 items-center justify-center gap-2 rounded-[22px] border border-dashed border-[var(--id-border-strong)] text-base font-semibold text-[var(--id-accent-text)] transition-colors hover:bg-[var(--id-accent-soft)]"
+            >
+              View on block explorer
+              <ExternalLink className="h-4 w-4" />
+            </a>
           )}
         </div>
       </div>
-
-      <div className="space-y-4 px-4 pb-5 sm:px-6 sm:pb-7">
-        <div className="rounded-2xl bg-[var(--id-surface-muted)] px-4 py-2 sm:px-5">
-          <TransferInfoRow label="Date" value={date} />
-          <TransferInfoRow label="Status" value={status} accent={status === "Completed"} />
-          <TransferInfoRow
-            label={counterpartyLabel}
-            value={maskWalletAddress(counterparty)}
-            mono={counterparty !== "External wallet" && counterparty !== "M-Pesa"}
-          />
-        </div>
-
-        {networkFee && (
-          <div className="rounded-2xl bg-[var(--id-surface-muted)] px-4 py-2 sm:px-5">
-            <TransferInfoRow label="Network fee" value={networkFee} />
-          </div>
-        )}
-
-        {remainingFields.length > 0 && (
-          <div className="divide-y divide-[var(--id-border)] rounded-2xl border border-[var(--id-border)] px-4 py-1 sm:px-5">
-            {remainingFields.map((field) => {
-              const displayValue = PRIVATE_ADDRESS_LABELS.has(field.label)
-                ? maskWalletAddress(field.value)
-                : field.label === "Status"
-                  ? detailStatusLabel(field.value)
-                  : field.value;
-              return (
-                <div key={field.label} className="py-3.5">
-                  {field.copyable ? (
-                    <TransactionCopyField
-                      label={field.label}
-                      value={displayValue}
-                      copyValue={field.value}
-                      mono={field.mono}
-                    />
-                  ) : (
-                    <TransferInfoRow label={field.label} value={displayValue} mono={field.mono} />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {transaction.blockchainExplorerUrl && (
-          <a
-            href={transaction.blockchainExplorerUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-dashed border-[var(--id-border-strong)] text-sm font-semibold text-[var(--id-accent-text)] transition-colors hover:bg-[var(--id-accent-soft)]"
-          >
-            View on block explorer
-            <ExternalLink className="h-4 w-4" />
-          </a>
-        )}
-      </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -171,11 +175,14 @@ export function InvestorTransactionDetailView({
 }: {
   transaction: InvestorTransactionDetail;
 }) {
+  const transferDetail = isTransferDetail(transaction);
+  if (transferDetail) {
+    return <WalletTransferDetail transaction={transaction} />;
+  }
+
   const amountTone = transaction.isCredit
     ? "text-[var(--id-success)]"
     : "text-[var(--id-text)]";
-
-  const transferDetail = isTransferDetail(transaction);
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[560px]">
@@ -187,10 +194,7 @@ export function InvestorTransactionDetailView({
         Back to activity
       </Link>
 
-      {transferDetail ? (
-        <WalletTransferDetail transaction={transaction} />
-      ) : (
-        <div className="overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow-lg)]">
+      <div className="overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow-lg)]">
           <div className="border-b border-[var(--id-border)] px-5 py-8 text-center sm:px-8">
             <div className="mx-auto flex max-w-md flex-col items-center">
               <TransactionIcon kind={transaction.iconKind} />
@@ -246,8 +250,7 @@ export function InvestorTransactionDetailView({
               </div>
             ))}
           </dl>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

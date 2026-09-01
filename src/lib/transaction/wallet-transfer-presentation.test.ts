@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { formatTransferAssetAmount } from "@/lib/crypto/usd-conversion";
 import { buildInvestorTransactionDetail, buildTransactionPresentation } from "./presentation";
 
 const baseInput = {
@@ -20,6 +21,11 @@ const baseInput = {
 };
 
 describe("wallet transfer transaction presentation", () => {
+  it("preserves recorded wallet asset precision", () => {
+    expect(formatTransferAssetAmount(986.3437)).toBe("986.3437");
+    expect(formatTransferAssetAmount(1000)).toBe("1,000");
+  });
+
   it("presents deposits as received from the stored sender wallet", () => {
     const input = {
       ...baseInput,

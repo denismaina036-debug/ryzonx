@@ -5,6 +5,15 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
   Table,
   TableBody,
   TableCell,
@@ -23,25 +32,62 @@ export function WithdrawalsTable({
 }) {
   const router = useRouter();
   const [actingId, setActingId] = useState<string | null>(null);
+  const [approvalTarget, setApprovalTarget] = useState<AdminWithdrawalRequest | null>(null);
+  const [feeAmount, setFeeAmount] = useState("");
+  const [feeCurrency, setFeeCurrency] = useState("USDT");
 
-  async function handleAction(action: "approve" | "reject", id: string) {
+  function openApproval(withdrawal: AdminWithdrawalRequest) {
+    setApprovalTarget(withdrawal);
+    setFeeAmount("");
+    setFeeCurrency(withdrawal.cryptoSymbol?.toUpperCase() || "USDT");
+  }
+
+  async function handleAction(
+    action: "approve" | "reject",
+    id: string,
+    fee?: { amount: number; currency: string }
+  ) {
     setActingId(id);
     try {
       const res = await fetch(`/api/admin/withdrawals/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({
+          action,
+          transactionFee: fee?.amount,
+          feeCurrency: fee?.currency,
+        }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Action failed");
 
       toast.success(`Withdrawal ${action === "approve" ? "approved" : "rejected"}`);
+      if (action === "approve") setApprovalTarget(null);
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Action failed");
     } finally {
       setActingId(null);
     }
+  }
+
+  function confirmApproval() {
+    if (!approvalTarget) return;
+    const parsedFee = Number(feeAmount);
+    const normalizedCurrency = feeCurrency.trim().toUpperCase();
+    if (
+      feeAmount.trim() === "" ||
+      !Number.isFinite(parsedFee) ||
+      parsedFee < 0 ||
+      !/^[A-Z0-9]{2,10}$/.test(normalizedCurrency)
+    ) {
+      toast.error("Enter a valid transaction fee and currency");
+      return;
+    }
+    void handleAction("approve", approvalTarget.id, {
+      amount: parsedFee,
+      currency: normalizedCurrency,
+    });
   }
 
   if (withdrawals.length === 0) {
@@ -53,7 +99,8 @@ export function WithdrawalsTable({
   }
 
   return (
-    <Table>
+    <>
+      <Table>
       <TableHeader>
         <TableRow>
           <TableHead>Investor</TableHead>
@@ -96,7 +143,7 @@ export function WithdrawalsTable({
                     size="sm"
                     variant="success"
                     disabled={actingId === w.id}
-                    onClick={() => handleAction("approve", w.id)}
+                    onClick={() => openApproval(w)}
                   >
                     Approve
                   </Button>
@@ -104,7 +151,7 @@ export function WithdrawalsTable({
                     size="sm"
                     variant="destructive"
                     disabled={actingId === w.id}
-                    onClick={() => handleAction("reject", w.id)}
+                    onClick={() => void handleAction("reject", w.id)}
                   >
                     Reject
                   </Button>
@@ -114,6 +161,85 @@ export function WithdrawalsTable({
           </TableRow>
         ))}
       </TableBody>
-    </Table>
+      </Table>
+
+      <Dialog
+        open={Boolean(approvalTarget)}
+        onOpenChange={(open) => {
+          if (!open && !actingId) setApprovalTarget(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Approve withdrawal</DialogTitle>
+            <DialogDescription>
+              Record the actual network transaction fee. This is displayed to the investor and
+              does not change their approved withdrawal amount.
+            </DialogDescription>
+          </DialogHeader>
+
+          {approvalTarget && (
+            <div className="space-y-5">
+              <div className="rounded-xl border border-navy-100 bg-navy-50/70 p-4 text-sm">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-navy-500">Withdrawal</span>
+                  <span className="font-mono font-semibold text-navy-950">
+                    {formatCurrency(approvalTarget.amount)}
+                  </span>
+                </div>
+                <div className="mt-3 border-t border-navy-100 pt-3">
+                  <p className="text-xs text-navy-500">Recipient wallet</p>
+                  <p className="mt-1 break-all font-mono text-xs text-navy-950">
+                    {approvalTarget.destination}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-navy-800">Transaction fee</span>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    value={feeAmount}
+                    onChange={(event) => setFeeAmount(event.target.value)}
+                    placeholder="0.00"
+                    autoFocus
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-navy-800">Currency</span>
+                  <Input
+                    value={feeCurrency}
+                    onChange={(event) => setFeeCurrency(event.target.value.toUpperCase())}
+                    maxLength={10}
+                    placeholder="USDT"
+                  />
+                </label>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={Boolean(actingId)}
+              onClick={() => setApprovalTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="success"
+              disabled={!approvalTarget || actingId === approvalTarget.id}
+              onClick={confirmApproval}
+            >
+              {actingId === approvalTarget?.id ? "Approving…" : "Approve withdrawal"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

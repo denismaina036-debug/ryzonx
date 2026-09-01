@@ -29,6 +29,12 @@
   transform: scale(0.96);
 }
 
+/* Transaction details use a full mobile wallet sheet; keep support controls behind it. */
+:global(body:has(#transaction-detail-title)) .button {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .label {
   position: absolute;
   right: calc(100% + 0.75rem);

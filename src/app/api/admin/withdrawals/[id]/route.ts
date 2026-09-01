@@ -12,6 +12,8 @@ export async function PATCH(
     const body = (await request.json()) as {
       action: "approve" | "reject";
       adminNotes?: string;
+      transactionFee?: number;
+      feeCurrency?: string;
     };
 
     if (!body.action) {
@@ -19,7 +21,22 @@ export async function PATCH(
     }
 
     if (body.action === "approve") {
-      await transactionService.approveWithdrawal(id);
+      const transactionFee = Number(body.transactionFee);
+      const feeCurrency = body.feeCurrency?.trim().toUpperCase() ?? "";
+      if (
+        !Number.isFinite(transactionFee) ||
+        transactionFee < 0 ||
+        !/^[A-Z0-9]{2,10}$/.test(feeCurrency)
+      ) {
+        return NextResponse.json(
+          { error: "Enter a valid transaction fee and currency." },
+          { status: 400 }
+        );
+      }
+      await transactionService.approveWithdrawal(id, {
+        amount: transactionFee,
+        currency: feeCurrency,
+      });
     } else {
       await transactionService.rejectWithdrawal(id, body.adminNotes);
     }

@@ -61,6 +61,9 @@ export interface AdminWithdrawalRequest {
   amount: number;
   withdrawableBalance: number;
   destination: string;
+  cryptoSymbol: string | null;
+  cryptoNetwork: string | null;
+  transactionFee: string | null;
   notes: string | null;
   adminNotes: string | null;
   status: TransactionStatus;

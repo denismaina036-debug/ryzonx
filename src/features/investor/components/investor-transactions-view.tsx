@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowLeftRight, ChevronRight } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { cn, formatCurrency } from "@/lib/utils";
-import { formatCryptoAmount } from "@/lib/crypto/usd-conversion";
+import { formatTransferAssetAmount } from "@/lib/crypto/usd-conversion";
 import { tapRow } from "@/lib/ui/interaction";
 import type { InvestorTransaction } from "@/features/investor/types/wallet";
 import { TransactionIcon } from "@/features/investor/components/transactions/transaction-icon";
@@ -93,10 +93,14 @@ export function InvestorTransactionsView({
               </h2>
               <ul className="space-y-1">
                 {group.map((tx) => {
-                  const hasCryptoAmount =
-                    tx.cryptoAmount != null &&
-                    tx.cryptoAmount > 0 &&
-                    Boolean(tx.cryptoSymbol);
+                  const isWalletTransfer =
+                    tx.category === "deposit" || tx.category === "withdrawal";
+                  const assetSymbol = tx.cryptoSymbol || (isWalletTransfer ? tx.amountSuffix : "");
+                  const assetAmount =
+                    tx.cryptoAmount != null && tx.cryptoAmount > 0
+                      ? tx.cryptoAmount
+                      : tx.amount;
+                  const showAssetAmount = Boolean(assetSymbol) && isWalletTransfer;
                   const settled = ["approved", "completed"].includes(
                     tx.statusLabel.toLowerCase()
                   );
@@ -132,15 +136,14 @@ export function InvestorTransactionsView({
                                 : "text-[var(--id-text)]"
                             )}
                           >
-                            {hasCryptoAmount
-                              ? `${tx.amountPrefix}${formatCryptoAmount(
-                                  tx.cryptoAmount ?? 0,
-                                  tx.cryptoSymbol ?? ""
-                                )} ${tx.cryptoSymbol}`
+                            {showAssetAmount
+                              ? `${tx.amountPrefix}${formatTransferAssetAmount(
+                                  assetAmount
+                                )} ${assetSymbol}`
                               : `${tx.amountPrefix}${formatCurrency(tx.amount)}`}
                           </p>
                           <p className="mt-0.5 text-xs tabular-nums text-[var(--id-text-muted)]">
-                            {hasCryptoAmount
+                            {showAssetAmount
                               ? `≈ ${formatCurrency(tx.amount)}`
                               : new Date(tx.createdAt).toLocaleTimeString("en-US", {
                                   hour: "numeric",
