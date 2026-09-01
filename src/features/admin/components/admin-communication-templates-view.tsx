@@ -8,12 +8,15 @@ import {
   MessageSquare,
   Monitor,
   RefreshCw,
+  Save,
   Send,
   Smartphone,
   Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   COMMUNICATION_CATEGORIES,
   COMMUNICATION_CATEGORY_LABELS,
@@ -39,6 +42,34 @@ interface PreviewPayload {
   email?: { html: string; plainText: string };
 }
 
+interface TemplateEditorDraft {
+  name: string;
+  description: string;
+  subjectTemplate: string;
+  bodyTemplate: string;
+  emailTitle: string;
+  emailIntro: string;
+  inAppTitleTemplate: string;
+  inAppBodyTemplate: string;
+  isActive: boolean;
+  changeNotes: string;
+}
+
+function createEditorDraft(template?: CommunicationTemplate | null): TemplateEditorDraft {
+  return {
+    name: template?.name ?? "",
+    description: template?.description ?? "",
+    subjectTemplate: template?.subjectTemplate ?? "",
+    bodyTemplate: template?.bodyTemplate ?? "",
+    emailTitle: template?.emailSpec?.title ?? "",
+    emailIntro: template?.emailSpec?.intro ?? "",
+    inAppTitleTemplate: template?.inAppTitleTemplate ?? "",
+    inAppBodyTemplate: template?.inAppBodyTemplate ?? "",
+    isActive: template?.isActive ?? true,
+    changeNotes: "",
+  };
+}
+
 export function AdminCommunicationTemplatesView({
   initialTemplates,
 }: AdminCommunicationTemplatesViewProps) {
@@ -56,6 +87,11 @@ export function AdminCommunicationTemplatesView({
   const [testSending, setTestSending] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [showVersions, setShowVersions] = useState(false);
+  const [editorDraft, setEditorDraft] = useState<TemplateEditorDraft>(() =>
+    createEditorDraft(initialTemplates[0])
+  );
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [saveResult, setSaveResult] = useState<string | null>(null);
 
   const filteredTemplates = useMemo(() => {
     if (categoryFilter === "all") return templates;
@@ -107,6 +143,8 @@ export function AdminCommunicationTemplatesView({
   useEffect(() => {
     if (!selected) return;
     initVariables(selected);
+    setEditorDraft(createEditorDraft(selected));
+    setSaveResult(null);
   }, [selected, initVariables]);
 
   useEffect(() => {
@@ -162,6 +200,57 @@ export function AdminCommunicationTemplatesView({
       setTestResult(err instanceof Error ? err.message : "Test send failed");
     } finally {
       setTestSending(false);
+    }
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!selected) return;
+    setSavingTemplate(true);
+    setSaveResult(null);
+    try {
+      const payload: Record<string, unknown> = {
+        name: editorDraft.name.trim(),
+        description: editorDraft.description.trim() || null,
+        subjectTemplate: editorDraft.subjectTemplate.trim() || null,
+        bodyTemplate: editorDraft.bodyTemplate,
+        inAppTitleTemplate: editorDraft.inAppTitleTemplate.trim() || null,
+        inAppBodyTemplate: editorDraft.inAppBodyTemplate.trim() || null,
+        isActive: editorDraft.isActive,
+        changeNotes: editorDraft.changeNotes.trim() || "Updated from Automated Messages",
+      };
+
+      if (selected.emailSpec) {
+        payload.emailSpec = {
+          ...selected.emailSpec,
+          title: editorDraft.emailTitle,
+          intro: editorDraft.emailIntro,
+        };
+      }
+
+      const res = await fetch(`/api/admin/communication/templates/${selected.slug}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = (await res.json()) as {
+        template?: CommunicationTemplate;
+        error?: string;
+      };
+      if (!res.ok || !data.template) {
+        throw new Error(data.error ?? "Could not save automated message");
+      }
+
+      const updatedTemplate = data.template;
+      setTemplates((current) =>
+        current.map((template) =>
+          template.slug === updatedTemplate.slug ? updatedTemplate : template
+        )
+      );
+      setSaveResult("Automated message saved.");
+    } catch (error) {
+      setSaveResult(error instanceof Error ? error.message : "Could not save automated message");
+    } finally {
+      setSavingTemplate(false);
     }
   };
 
@@ -269,6 +358,175 @@ export function AdminCommunicationTemplatesView({
 
               <div className="grid gap-6 xl:grid-cols-2">
                 <div className="space-y-6">
+                  <div className="rounded-xl border border-border bg-card p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-navy-800">Message details</p>
+                        <p className="mt-1 text-xs text-navy-500">
+                          Changes apply to future automated messages that use this template.
+                        </p>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs font-medium text-navy-700">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-royal-600"
+                          checked={editorDraft.isActive}
+                          onChange={(event) =>
+                            setEditorDraft((draft) => ({
+                              ...draft,
+                              isActive: event.target.checked,
+                            }))
+                          }
+                        />
+                        Active
+                      </label>
+                    </div>
+
+                    <div className="mt-4 space-y-4">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="automated-message-name">Internal name</Label>
+                        <Input
+                          id="automated-message-name"
+                          value={editorDraft.name}
+                          onChange={(event) =>
+                            setEditorDraft((draft) => ({ ...draft, name: event.target.value }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="automated-message-description">Description</Label>
+                        <Textarea
+                          id="automated-message-description"
+                          rows={2}
+                          value={editorDraft.description}
+                          onChange={(event) =>
+                            setEditorDraft((draft) => ({
+                              ...draft,
+                              description: event.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="automated-message-subject">Email subject</Label>
+                        <Input
+                          id="automated-message-subject"
+                          value={editorDraft.subjectTemplate}
+                          onChange={(event) =>
+                            setEditorDraft((draft) => ({
+                              ...draft,
+                              subjectTemplate: event.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+
+                      {selected.emailSpec ? (
+                        <>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="automated-message-email-title">Email heading</Label>
+                            <Input
+                              id="automated-message-email-title"
+                              value={editorDraft.emailTitle}
+                              onChange={(event) =>
+                                setEditorDraft((draft) => ({
+                                  ...draft,
+                                  emailTitle: event.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="automated-message-email-intro">Email message</Label>
+                            <Textarea
+                              id="automated-message-email-intro"
+                              rows={4}
+                              value={editorDraft.emailIntro}
+                              onChange={(event) =>
+                                setEditorDraft((draft) => ({
+                                  ...draft,
+                                  emailIntro: event.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <div className="space-y-1.5">
+                          <Label htmlFor="automated-message-body">Email message</Label>
+                          <Textarea
+                            id="automated-message-body"
+                            rows={5}
+                            value={editorDraft.bodyTemplate}
+                            onChange={(event) =>
+                              setEditorDraft((draft) => ({
+                                ...draft,
+                                bodyTemplate: event.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                      )}
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="automated-message-in-app-title">In-app title</Label>
+                          <Input
+                            id="automated-message-in-app-title"
+                            value={editorDraft.inAppTitleTemplate}
+                            onChange={(event) =>
+                              setEditorDraft((draft) => ({
+                                ...draft,
+                                inAppTitleTemplate: event.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="automated-message-in-app-body">In-app message</Label>
+                          <Textarea
+                            id="automated-message-in-app-body"
+                            rows={2}
+                            value={editorDraft.inAppBodyTemplate}
+                            onChange={(event) =>
+                              setEditorDraft((draft) => ({
+                                ...draft,
+                                inAppBodyTemplate: event.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="automated-message-notes">Change note</Label>
+                        <Input
+                          id="automated-message-notes"
+                          placeholder="Optional note for version history"
+                          value={editorDraft.changeNotes}
+                          onChange={(event) =>
+                            setEditorDraft((draft) => ({
+                              ...draft,
+                              changeNotes: event.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={savingTemplate || !editorDraft.name.trim()}
+                        onClick={handleSaveTemplate}
+                      >
+                        <Save className={cn("mr-1.5 h-3.5 w-3.5", savingTemplate && "animate-pulse")} />
+                        {savingTemplate ? "Saving…" : "Save message"}
+                      </Button>
+                      {saveResult && <p className="text-xs text-navy-600">{saveResult}</p>}
+                    </div>
+                  </div>
+
                   <div className="rounded-xl border border-border bg-card p-5">
                     <p className="mb-4 text-sm font-semibold text-navy-800">Variables</p>
                     <div className="max-h-64 space-y-3 overflow-y-auto">

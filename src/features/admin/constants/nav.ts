@@ -35,6 +35,10 @@ import {
   Trophy,
   Award,
   FileEdit,
+  Zap,
+  Activity,
+  ListChecks,
+  Webhook,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -55,6 +59,7 @@ export interface AdminNavLink {
   icon: LucideIcon;
   badgeKey?: AdminBadgeKey;
   matchPrefix?: string;
+  exact?: boolean;
 }
 
 export interface AdminNavDepartment {
@@ -85,6 +90,7 @@ export const ADMIN_DEPARTMENTS: AdminNavDepartment[] = [
         label: "Overview",
         href: ROUTES.adminFinance,
         icon: LayoutDashboard,
+        exact: true,
       },
       {
         label: "Deposits",
@@ -129,6 +135,7 @@ export const ADMIN_DEPARTMENTS: AdminNavDepartment[] = [
         label: "Overview",
         href: ROUTES.adminPoolManagers,
         icon: LayoutDashboard,
+        exact: true,
       },
       {
         label: "Applications",
@@ -175,6 +182,45 @@ export const ADMIN_DEPARTMENTS: AdminNavDepartment[] = [
       },
     ],
   },
+  {
+    id: "automation",
+    label: "Automation",
+    icon: Zap,
+    href: ROUTES.adminAutomation,
+    items: [
+      {
+        label: "Overview",
+        href: ROUTES.adminAutomation,
+        icon: LayoutDashboard,
+        exact: true,
+      },
+      {
+        label: "Automation Rules",
+        href: ROUTES.adminAutomationRules,
+        icon: ListChecks,
+      },
+      {
+        label: "Event Explorer",
+        href: ROUTES.adminAutomationEvents,
+        icon: Activity,
+      },
+      {
+        label: "Queue Monitor",
+        href: ROUTES.adminAutomationQueue,
+        icon: Inbox,
+      },
+      {
+        label: "Webhooks",
+        href: ROUTES.adminAutomationWebhooks,
+        icon: Webhook,
+      },
+      {
+        label: "Notification Center",
+        href: ROUTES.adminAutomationNotifications,
+        icon: Bell,
+      },
+    ],
+  },
 ];
 
 export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
@@ -189,7 +235,24 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
   {
     title: "Administration",
     entries: [
-      { type: "link", link: { label: "Pool Review", href: ROUTES.adminFunds, icon: Landmark, matchPrefix: "/admin/funds" } },
+      {
+        type: "link",
+        link: {
+          label: "Strategy Review",
+          href: ROUTES.adminStrategies,
+          icon: FileText,
+          matchPrefix: "/admin/strategies",
+        },
+      },
+      {
+        type: "link",
+        link: {
+          label: "Cycle Review",
+          href: ROUTES.adminInvestmentCycles,
+          icon: RefreshCw,
+          matchPrefix: "/admin/investment-cycles",
+        },
+      },
     ],
   },
   {
@@ -267,7 +330,12 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
     entries: [
       {
         type: "link",
-        link: { label: "Overview", href: ROUTES.adminCommunicationDashboard, icon: Radio },
+        link: {
+          label: "Overview",
+          href: ROUTES.adminCommunicationDashboard,
+          icon: Radio,
+          exact: true,
+        },
       },
       {
         type: "link",
@@ -288,6 +356,23 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
       {
         type: "link",
         link: { label: "Support", href: ROUTES.adminCommunicationSupport, icon: Headphones },
+      },
+      {
+        type: "link",
+        link: {
+          label: "Automated Messages",
+          href: ROUTES.adminCommunicationTemplates,
+          icon: FileEdit,
+          matchPrefix: "/admin/communication/templates",
+        },
+      },
+      {
+        type: "link",
+        link: {
+          label: "Communication Settings",
+          href: ROUTES.adminCommunicationSettings,
+          icon: Settings,
+        },
       },
     ],
   },

@@ -83,6 +83,7 @@ export interface InvestorTransactionDetail extends TransactionPresentationInput 
   detailFields: TransactionDetailField[];
   walletLabel: string;
   blockchainTxId: string | null;
+  blockchainExplorerUrl: string | null;
   poolManagerName: string | null;
   investorSharePct: number | null;
   investmentCycleLabel: string | null;

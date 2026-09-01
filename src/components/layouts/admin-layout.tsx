@@ -33,10 +33,16 @@ function getBadgeCount(
   return counts[badgeKey] ?? 0;
 }
 
-function isLinkActive(pathname: string, href: string, matchPrefix?: string): boolean {
+function isLinkActive(
+  pathname: string,
+  href: string,
+  matchPrefix?: string,
+  exact?: boolean
+): boolean {
   if (matchPrefix) {
     return pathname === matchPrefix || pathname.startsWith(`${matchPrefix}/`);
   }
+  if (exact) return pathname === href;
   if (href === "/admin") return pathname === "/admin";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -45,7 +51,9 @@ function isDepartmentActive(pathname: string, department: AdminNavDepartment): b
   return (
     pathname === department.href ||
     pathname.startsWith(`${department.href}/`) ||
-    department.items.some((item) => isLinkActive(pathname, item.href, item.matchPrefix))
+    department.items.some((item) =>
+      isLinkActive(pathname, item.href, item.matchPrefix, item.exact)
+    )
   );
 }
 
@@ -168,7 +176,7 @@ function NavLinkItem({
   badgeCounts: Record<AdminBadgeKey, number>;
   nested?: boolean;
 }) {
-  const isActive = isLinkActive(pathname, item.href, item.matchPrefix);
+  const isActive = isLinkActive(pathname, item.href, item.matchPrefix, item.exact);
   const Icon = item.icon;
   const badge = getBadgeCount(item.badgeKey, badgeCounts);
 

@@ -29,6 +29,13 @@ export async function PATCH(
     await requireRole(USER_ROLES.ADMINISTRATOR);
     const { slug } = await params;
     const body = await request.json();
+    const existing = await emailTemplateService.getTemplate(slug);
+    if (!existing) {
+      return NextResponse.json({ error: "Template not found" }, { status: 404 });
+    }
+    if (existing.id.startsWith("catalog-")) {
+      await emailTemplateService.ensureCatalogTemplate(slug);
+    }
     const template = await emailTemplateService.updateTemplate(slug, body);
     return NextResponse.json({ template });
   } catch (error) {

@@ -9,7 +9,6 @@ import type {
   InvestorTransactionDetail,
 } from "@/domain/transaction/types";
 import { formatCurrency } from "@/lib/utils";
-import { formatCryptoAmount } from "@/lib/crypto/usd-conversion";
 
 const FUNDING_WALLET_LABEL = "RyvonX Funding Wallet";
 
@@ -38,6 +37,48 @@ function readMetadataString(
 ): string | null {
   const value = metadata?.[key];
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function readFirstMetadataString(
+  metadata: Record<string, unknown> | null | undefined,
+  keys: string[]
+): string | null {
+  for (const key of keys) {
+    const value = readMetadataString(metadata, key);
+    if (value) return value;
+  }
+  return null;
+}
+
+function maskWalletAddress(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length <= 8) return trimmed;
+  return `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`;
+}
+
+function resolveDepositSender(input: TransactionPresentationInput): string {
+  if ((input.paymentMethod ?? "").toLowerCase() === "mpesa") return "M-Pesa";
+  return (
+    readFirstMetadataString(input.metadata, [
+      "sender_wallet",
+      "sender_address",
+      "from_address",
+      "from_wallet",
+    ]) ?? "External wallet"
+  );
+}
+
+function resolveWithdrawalRecipient(input: TransactionPresentationInput): string {
+  return (
+    input.destination?.trim() ||
+    readFirstMetadataString(input.metadata, [
+      "recipient_wallet",
+      "recipient_address",
+      "wallet_address",
+      "to_address",
+    ]) ||
+    "External wallet"
+  );
 }
 
 export function resolveWalletLabel(input: TransactionPresentationInput): string {
@@ -78,8 +119,8 @@ export function resolveTransactionCategory(input: {
 }
 
 const CATEGORY_TITLES: Record<TransactionDisplayCategory, string> = {
-  deposit: "Deposit",
-  withdrawal: "Withdrawal",
+  deposit: "Received",
+  withdrawal: "Sent",
   pool_investment: "Pool Investment",
   pool_settlement: "Pool Settlement",
   profit_distribution: "Profit Distribution",
@@ -113,8 +154,9 @@ function resolveSubtitle(
   category: TransactionDisplayCategory,
   input: TransactionPresentationInput
 ): string {
-  if (category === "deposit" || category === "withdrawal") {
-    return resolveWalletLabel(input);
+  if (category === "deposit") return `From: ${maskWalletAddress(resolveDepositSender(input))}`;
+  if (category === "withdrawal") {
+    return `To: ${maskWalletAddress(resolveWithdrawalRecipient(input))}`;
   }
   if (
     category === "pool_investment" ||
@@ -252,6 +294,21 @@ function resolveBlockchainTxId(input: TransactionPresentationInput): string | nu
   return null;
 }
 
+function resolveBlockchainExplorerUrl(input: TransactionPresentationInput): string | null {
+  const value = readFirstMetadataString(input.metadata, [
+    "explorer_url",
+    "block_explorer_url",
+    "blockchain_explorer_url",
+  ]);
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 function resolveTransactionId(input: TransactionPresentationInput): string {
   return input.transactionReference ?? input.id;
 }
@@ -287,15 +344,25 @@ export function buildTransactionDetailFields(
     input.cryptoSymbol ??
     readMetadataString(input.metadata ?? null, "currency") ??
     "USDT";
-  const fields: TransactionDetailField[] = [
-    { label: "Transaction ID", value: txId, copyable: true, mono: true },
-  ];
+  const fields: TransactionDetailField[] = [];
 
   const push = (field: TransactionDetailField | null) => {
     if (field) fields.push(field);
   };
 
   if (category === "deposit") {
+    const sender = resolveDepositSender(input);
+    const hasSenderAddress = sender !== "External wallet" && sender !== "M-Pesa";
+    fields.push(
+      { label: "Date", value: `${date}, ${time}` },
+      { label: "Status", value: normalizeStatus(input.status) },
+      {
+        label: "Sender",
+        value: sender,
+        copyable: hasSenderAddress,
+        mono: hasSenderAddress,
+      }
+    );
     push(optionalField("Blockchain TXID", blockchainTxId, { copyable: true, mono: true }));
     push(
       optionalField(
@@ -311,32 +378,29 @@ export function buildTransactionDetailFields(
         { copyable: true, mono: true }
       )
     );
-    fields.push(
-      { label: "Currency", value: "USD" },
-      { label: "Date", value: date },
-      { label: "Time", value: time },
-      { label: "Status", value: normalizeStatus(input.status) }
+    push(
+      optionalField(
+        "Network Fee",
+        readFirstMetadataString(input.metadata, ["network_fee", "transaction_fee"])
+      )
     );
-    if (
-      input.cryptoSymbol &&
-      input.cryptoAmount != null &&
-      input.cryptoAmount > 0 &&
-      input.cryptoSymbol !== "USD"
-    ) {
-      fields.splice(fields.length - 3, 0, {
-        label: "Crypto to send (estimate)",
-        value: `${formatCryptoAmount(input.cryptoAmount, input.cryptoSymbol)} ${input.cryptoSymbol}`,
-      });
-    }
+    fields.push({ label: "Currency", value: "USD" });
+    fields.push({ label: "Transaction ID", value: txId, copyable: true, mono: true });
     return fields;
   }
 
   if (category === "withdrawal") {
+    const recipient = resolveWithdrawalRecipient(input);
+    const hasRecipientAddress = recipient !== "External wallet";
+    fields.push(
+      { label: "Date", value: `${date}, ${time}` },
+      { label: "Status", value: normalizeStatus(input.status) }
+    );
     push(
       optionalField(
-        "Wallet Address",
-        input.destination ?? readMetadataString(input.metadata ?? null, "wallet_address"),
-        { copyable: true, mono: true }
+        "Recipient",
+        recipient,
+        { copyable: hasRecipientAddress, mono: hasRecipientAddress }
       )
     );
     push(
@@ -347,16 +411,11 @@ export function buildTransactionDetailFields(
     );
     push(
       optionalField(
-        "Withdrawal Fee",
-        readMetadataString(input.metadata ?? null, "withdrawal_fee")
+        "Network Fee",
+        readFirstMetadataString(input.metadata, ["network_fee", "withdrawal_fee", "transaction_fee"])
       )
     );
-    fields.push(
-      { label: "Currency", value: currency },
-      { label: "Date", value: date },
-      { label: "Time", value: time },
-      { label: "Status", value: normalizeStatus(input.status) }
-    );
+    fields.push({ label: "Currency", value: currency });
     push(
       optionalField(
         "Reference Number",
@@ -366,6 +425,8 @@ export function buildTransactionDetailFields(
         { copyable: true, mono: true }
       )
     );
+    push(optionalField("Blockchain TXID", blockchainTxId, { copyable: true, mono: true }));
+    fields.push({ label: "Transaction ID", value: txId, copyable: true, mono: true });
     return fields;
   }
 
@@ -450,6 +511,7 @@ export function buildInvestorTransactionDetail(
     detailFields,
     walletLabel: resolveWalletLabel(input),
     blockchainTxId: resolveBlockchainTxId(input),
+    blockchainExplorerUrl: resolveBlockchainExplorerUrl(input),
     poolManagerName: extras?.poolManagerName ?? null,
     investorSharePct: extras?.investorSharePct ?? null,
     investmentCycleLabel: extras?.investmentCycleLabel ?? null,

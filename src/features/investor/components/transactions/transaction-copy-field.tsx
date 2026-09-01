@@ -7,15 +7,17 @@ import { cn } from "@/lib/utils";
 export function TransactionCopyField({
   label,
   value,
+  copyValue,
   mono = true,
 }: {
   label: string;
   value: string;
+  copyValue?: string;
   mono?: boolean;
 }) {
   async function handleCopy() {
     try {
-      await navigator.clipboard.writeText(value);
+      await navigator.clipboard.writeText(copyValue ?? value);
       toast.success(`${label} copied`);
     } catch {
       toast.error(`Could not copy ${label.toLowerCase()}`);
