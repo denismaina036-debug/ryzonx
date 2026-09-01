@@ -42,6 +42,7 @@ export interface AdminDepositRequest {
   cryptoAmount: number | null;
   paymentMethod: string;
   reference: string | null;
+  senderWallet?: string | null;
   paymentProof: string | null;
   notes: string | null;
   adminNotes: string | null;

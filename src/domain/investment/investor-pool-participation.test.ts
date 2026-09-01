@@ -129,7 +129,7 @@ describe("resolvePostCycleCapitalAmount", () => {
 });
 
 describe("shouldShowPostCycleChoices", () => {
-  it("hides choices while a trading cycle is active", () => {
+  it("hides capital-only choices while a trading cycle is active", () => {
     expect(
       shouldShowPostCycleChoices({
         hasActiveTradingCycle: true,
@@ -198,6 +198,32 @@ describe("shouldShowPostCycleChoices", () => {
         poolProfit: 0,
       })
     ).toBe(false);
+  });
+
+  it("keeps completed-cycle profit actionable while a newer cycle is trading", () => {
+    expect(
+      shouldShowPostCycleChoices({
+        hasActiveTradingCycle: true,
+        pendingSettlement: {
+          ...sampleSettlement,
+          profitAmount: 9_780.64,
+          profitResolved: false,
+        },
+        displayCapitalInvested: 20_000,
+        poolProfit: 9_780.64,
+      })
+    ).toBe(true);
+  });
+
+  it("keeps wallet-backed pool profit actionable while a newer cycle is trading", () => {
+    expect(
+      shouldShowPostCycleChoices({
+        hasActiveTradingCycle: true,
+        pendingSettlement: null,
+        displayCapitalInvested: 20_000,
+        poolProfit: 9_780.64,
+      })
+    ).toBe(true);
   });
 
   it("shows choices when distributed pool profit remains even if a funding cycle is open", () => {

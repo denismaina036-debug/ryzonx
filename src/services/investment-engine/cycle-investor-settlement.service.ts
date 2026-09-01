@@ -487,6 +487,93 @@ export const cycleInvestorSettlementService = {
     return pending.find((settlement) => settlement.fundId === fundId) ?? null;
   },
 
+  /**
+   * Resolve distributed profit independently from post-cycle capital.
+   * A newer funding or trading cycle must not make an older cycle's profit
+   * unavailable. Cycle-backed profit wallets remain the source of truth.
+   */
+  async ensureProfitSettlementForFund(
+    investorId: string,
+    fundId: string
+  ): Promise<CycleInvestorSettlement | null> {
+    const pending = await this.listPendingForInvestor(investorId);
+    const existing = pending.find(
+      (settlement) =>
+        settlement.fundId === fundId &&
+        !settlement.profitResolved &&
+        settlement.profitAmount > 0
+    );
+    if (existing) return existing;
+
+    const wallets = (await investorProfitWalletService.listForInvestor(investorId)).filter(
+      (wallet) => wallet.fundId === fundId && wallet.balance > 0
+    );
+    if (wallets.length === 0) return null;
+
+    const db = createAdminClient();
+    for (const wallet of wallets) {
+      const fallbackMeta = wallet.sourceCycleId
+        ? null
+        : await resolveSettlementCycleMeta(db, fundId, investorId);
+      const cycleId = wallet.sourceCycleId ?? fallbackMeta?.cycleId;
+      if (!cycleId) continue;
+
+      const { data: cycle, error: cycleError } = await db
+        .from("investment_cycles")
+        .select("id, fund_id")
+        .eq("id", cycleId)
+        .eq("fund_id", fundId)
+        .maybeSingle();
+      if (cycleError) throw new Error(cycleError.message);
+      if (!cycle) continue;
+
+      const { data: row, error: rowError } = await settlementsTable(db)
+        .select("*")
+        .eq("investment_cycle_id", cycleId)
+        .eq("investor_id", investorId)
+        .maybeSingle();
+      if (rowError) throw new Error(rowError.message);
+
+      if (row) {
+        const current = row as SettlementRow;
+        const preserveCapitalRequest =
+          current.status === "capital_withdrawal_requested" &&
+          !Boolean(current.capital_resolved);
+        const { error: updateError } = await settlementsTable(db)
+          .update({
+            profit_amount: roundMoney(wallet.balance),
+            profit_resolved: false,
+            status: preserveCapitalRequest ? current.status : "pending_choice",
+            updated_at: new Date().toISOString(),
+          } as never)
+          .eq("id", String(current.id));
+        if (updateError) throw new Error(updateError.message);
+      } else {
+        const { error: insertError } = await settlementsTable(db).insert({
+          investment_cycle_id: cycleId,
+          fund_id: fundId,
+          investor_id: investorId,
+          principal_amount: 0,
+          profit_amount: roundMoney(wallet.balance),
+          status: "pending_choice",
+          profit_resolved: false,
+          capital_resolved: true,
+        } as never);
+        if (insertError) throw new Error(insertError.message);
+      }
+    }
+
+    const refreshed = await this.listPendingForInvestor(investorId);
+    return (
+      refreshed.find(
+        (settlement) =>
+          settlement.fundId === fundId &&
+          !settlement.profitResolved &&
+          settlement.profitAmount > 0
+      ) ?? null
+    );
+  },
+
   async listPendingCapitalReturns(): Promise<
     Array<
       CycleInvestorSettlement & {

@@ -98,23 +98,29 @@ export function shouldShowPostCycleChoices(input: {
   displayCapitalInvested: number;
   poolProfit?: number;
 }): boolean {
+  const profitPending =
+    input.pendingSettlement != null &&
+    input.pendingSettlement.profitAmount > 0 &&
+    !input.pendingSettlement.profitResolved;
+
+  // Profit from a completed cycle remains actionable even when a newer cycle
+  // is trading. A newer cycle must never lock historical distributed profit.
+  if (profitPending || (input.poolProfit ?? 0) > 0) return true;
+
+  // Capital choices remain post-cycle only and are intentionally hidden while
+  // capital is deployed in a trading cycle.
   if (input.hasActiveTradingCycle) return false;
 
   if (input.pendingSettlement) {
-    const profitPending =
-      input.pendingSettlement.profitAmount > 0 && !input.pendingSettlement.profitResolved;
     const capitalPending =
       input.pendingSettlement.principalAmount > 0 && !input.pendingSettlement.capitalResolved;
     if (
-      profitPending ||
       capitalPending ||
       input.pendingSettlement.status === "capital_withdrawal_requested"
     ) {
       return true;
     }
   }
-
-  if ((input.poolProfit ?? 0) > 0) return true;
 
   if (input.hasActiveFundingCycle) return false;
 

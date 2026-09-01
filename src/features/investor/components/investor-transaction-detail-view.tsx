@@ -102,7 +102,7 @@ function WalletTransferDetail({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[1000] flex items-end justify-center bg-slate-950/55 backdrop-blur-[2px] sm:items-center sm:p-6"
+      className="fixed inset-0 z-[1000] flex items-end justify-center bg-slate-950/20 sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="transaction-detail-title"

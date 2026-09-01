@@ -260,6 +260,10 @@ function mapAdminDeposit(
     cryptoAmount: meta.cryptoAmount,
     paymentMethod: row.payment_method ?? "—",
     reference: row.reference,
+    senderWallet:
+      typeof row.metadata?.sender_wallet === "string" && row.metadata.sender_wallet.trim()
+        ? row.metadata.sender_wallet.trim()
+        : null,
     paymentProof: null,
     notes: row.notes,
     adminNotes: row.admin_notes,
@@ -668,7 +672,7 @@ export const transactionService = {
     return { id: txId };
   },
 
-  async approveDeposit(transactionId: string): Promise<void> {
+  async approveDeposit(transactionId: string, senderWallet?: string): Promise<void> {
     const admin = await requireRole("administrator");
     const db = createAdminClient();
 
@@ -690,6 +694,13 @@ export const transactionService = {
 
     const amount = toNumber(row.amount);
     const now = new Date().toISOString();
+    const normalizedSenderWallet = senderWallet?.trim() || null;
+    if (
+      normalizedSenderWallet &&
+      (!/^\S{6,160}$/.test(normalizedSenderWallet) || /[<>]/.test(normalizedSenderWallet))
+    ) {
+      throw new Error("Enter a valid sender wallet address.");
+    }
 
     const { data: challengeEnrollment } = await db
       .from("trader_challenge_enrollments")
@@ -758,7 +769,19 @@ export const transactionService = {
       actorId: admin.id,
     });
 
-    const { error: updateError } = await db.from("transactions").update({ status: "approved", processed_at: now, processed_by: admin.id, approved_by: admin.id } as never).eq("id", transactionId);
+    const approvalMetadata = normalizedSenderWallet
+      ? { ...(row.metadata ?? {}), sender_wallet: normalizedSenderWallet }
+      : row.metadata ?? {};
+    const { error: updateError } = await db
+      .from("transactions")
+      .update({
+        status: "approved",
+        processed_at: now,
+        processed_by: admin.id,
+        approved_by: admin.id,
+        metadata: approvalMetadata,
+      } as never)
+      .eq("id", transactionId);
     if (updateError) throw new Error(updateError.message);
 
     const { error: portfolioError } = await db

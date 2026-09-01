@@ -732,7 +732,7 @@ export const poolParticipationService = {
     const { cycleInvestorSettlementService } = await import(
       "@/services/investment-engine/cycle-investor-settlement.service"
     );
-    const cycleSettlement = await cycleInvestorSettlementService.ensureSettlementForFund(
+    const cycleSettlement = await cycleInvestorSettlementService.ensureProfitSettlementForFund(
       user.id,
       fundId
     );

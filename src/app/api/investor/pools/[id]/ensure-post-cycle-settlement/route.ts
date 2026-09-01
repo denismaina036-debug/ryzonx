@@ -3,7 +3,7 @@ import { requireAuth } from "@/lib/auth/session";
 import { cycleInvestorSettlementService } from "@/services/investment-engine/cycle-investor-settlement.service";
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -13,14 +13,22 @@ export async function POST(
       return NextResponse.json({ error: "Pool id is required." }, { status: 400 });
     }
 
-    const settlement = await cycleInvestorSettlementService.ensureSettlementForFund(
-      user.id,
-      fundId
-    );
+    const body = (await request.json().catch(() => ({}))) as {
+      purpose?: "capital" | "profit";
+    };
+    const settlement =
+      body.purpose === "profit"
+        ? await cycleInvestorSettlementService.ensureProfitSettlementForFund(user.id, fundId)
+        : await cycleInvestorSettlementService.ensureSettlementForFund(user.id, fundId);
 
     if (!settlement) {
       return NextResponse.json(
-        { error: "No post-cycle capital is available for this pool." },
+        {
+          error:
+            body.purpose === "profit"
+              ? "No pool profit is available to reinvest."
+              : "No post-cycle capital is available for this pool.",
+        },
         { status: 400 }
       );
     }

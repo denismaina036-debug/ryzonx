@@ -10,6 +10,7 @@ export async function PATCH(
     const body = (await request.json()) as {
       action: "approve" | "reject";
       adminNotes?: string;
+      senderWallet?: string;
     };
 
     if (!body.action) {
@@ -17,7 +18,7 @@ export async function PATCH(
     }
 
     if (body.action === "approve") {
-      await transactionService.approveDeposit(id);
+      await transactionService.approveDeposit(id, body.senderWallet);
     } else {
       await transactionService.rejectDeposit(id, body.adminNotes);
     }

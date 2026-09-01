@@ -43,11 +43,13 @@ export function PoolPostCycleChoices({
     return null;
   }
 
-  async function resolveSettlementId(): Promise<string> {
+  async function resolveSettlementId(purpose: "capital" | "profit" = "capital"): Promise<string> {
     if (settlement?.id) return settlement.id;
 
     const res = await fetch(`/api/investor/pools/${fundId}/ensure-post-cycle-settlement`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ purpose }),
     });
     const data = await res.json();
     if (!res.ok || !data.settlement?.id) {
@@ -97,11 +99,11 @@ export function PoolPostCycleChoices({
   async function transferProfit() {
     setLoading("transfer-profit");
     try {
-      const settlementId = await resolveSettlementId();
-      const res = await fetch(
-        `/api/investor/cycle-settlements/${settlementId}/transfer-profit`,
-        { method: "POST" }
-      );
+      const res = await fetch(`/api/investor/pools/${fundId}/transfer-profit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: profitAmount }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Request failed");
       toast.success(
@@ -118,7 +120,7 @@ export function PoolPostCycleChoices({
   async function reinvestProfit() {
     setLoading("reinvest-profit");
     try {
-      const settlementId = await resolveSettlementId();
+      const settlementId = await resolveSettlementId("profit");
       const res = await fetch(
         `/api/investor/cycle-settlements/${settlementId}/reinvest-profit`,
         { method: "POST" }
