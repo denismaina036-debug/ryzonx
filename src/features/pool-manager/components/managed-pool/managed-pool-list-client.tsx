@@ -271,7 +271,8 @@ function PoolContainer({
           <ul className="mt-5 space-y-3">
             {sortedCycles.map((cycle) => {
               const detailHref = `${ROUTES.poolManagerInvestmentCycles}/${cycle.id}`;
-              const showStartTrading = pool.lifecycleStatus === "live" && canStartTrading(cycle);
+              const showStartTrading =
+                pool.lifecycleStatus === "live" && canStartTrading(cycle, cycles);
               const showJournal = pool.lifecycleStatus === "live" && canOpenJournal(cycle);
 
               return (

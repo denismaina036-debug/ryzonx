@@ -135,6 +135,37 @@ describe("ROI v2 distribution", () => {
     expect(result.investorAllocations[1]?.profitShare).toBe(-250);
   });
 
+  it("gives each investor only their proportional share of a cycle loss", () => {
+    const result = calculateRoiV2Distribution({
+      grossTradingProfit: -400,
+      allocations: [
+        {
+          allocationId: "a1",
+          investorId: "i1",
+          capitalBasis: 500,
+          roiMultiplier: 2,
+          cumulativeRealisedReturn: 0,
+          targetFulfilled: false,
+          investmentLevelId: "starter",
+        },
+        {
+          allocationId: "a2",
+          investorId: "i2",
+          capitalBasis: 500,
+          roiMultiplier: 2,
+          cumulativeRealisedReturn: 0,
+          targetFulfilled: false,
+          investmentLevelId: "starter",
+        },
+      ],
+    });
+
+    expect(result.investorAllocations.map((allocation) => allocation.profitShare)).toEqual([
+      -200,
+      -200,
+    ]);
+  });
+
   it("caps investor profit at remaining target and sends surplus to PM", () => {
     const result = calculateRoiV2Distribution({
       grossTradingProfit: 50000,

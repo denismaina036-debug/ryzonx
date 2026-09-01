@@ -280,7 +280,8 @@ export const cycleInvestorSettlementService = {
         .from("profit_settlement_allocations")
         .select("investor_id, profit_share")
         .eq("profit_settlement_id", settlementId)
-        .eq("status", "transferred");
+        .eq("status", "transferred")
+        .gt("profit_share", 0);
       for (const row of (profitRows ?? []) as Array<{
         investor_id: string;
         profit_share: number | string;

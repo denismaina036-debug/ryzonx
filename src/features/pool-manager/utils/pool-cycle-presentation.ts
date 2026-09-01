@@ -20,8 +20,19 @@ export function resolveActivePoolCycle(cycles: InvestmentCycle[]): InvestmentCyc
   return cycles[cycles.length - 1] ?? null;
 }
 
-export function canStartTrading(cycle: InvestmentCycle | null): boolean {
-  return cycle != null && (cycle.status === "approved" || cycle.status === "funding");
+export function canStartTrading(
+  cycle: InvestmentCycle | null,
+  siblingCycles: readonly InvestmentCycle[] = []
+): boolean {
+  if (cycle == null || (cycle.status !== "approved" && cycle.status !== "funding")) {
+    return false;
+  }
+
+  return !siblingCycles.some(
+    (sibling) =>
+      sibling.id !== cycle.id &&
+      (sibling.status === "trading" || sibling.status === "distribution")
+  );
 }
 
 export function canOpenJournal(cycle: InvestmentCycle | null): boolean {

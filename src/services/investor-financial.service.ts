@@ -93,10 +93,14 @@ export const investorFinancialService = {
             const cycleId = r.settlement?.investment_cycle_id;
             const cycle = cycleId ? await investmentCycleService.getById(cycleId) : null;
             const fundName = cycle?.name ?? "Pool";
+            const amount = Number(r.profit_share);
             return {
-              label: `Investment Profit Distribution — ${fundName}`,
+              label:
+                amount < 0
+                  ? `Pool Loss — ${fundName}`
+                  : `Investment Profit Distribution — ${fundName}`,
               occurredAt: r.transferred_at!,
-              amount: Number(r.profit_share),
+              amount,
             };
           })
       )),

@@ -27,6 +27,7 @@ export function resolveReferencePrefix(input: {
   if (method === "pool_allocation" || method === "profit_reinvest") return "INV";
   if (method === "pool_exit") return "STL";
   if (method === "profit_transfer") return "PFT";
+  if (method === "cycle_loss") return "LSS";
   if (method === "trade_profit") return notes.includes("loss") ? "LSS" : "PFT";
   if (method === "pm_admission_fee" || method === "challenge_fee") return "COM";
   if (method === "reward") return "RWD";

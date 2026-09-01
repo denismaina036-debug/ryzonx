@@ -263,7 +263,11 @@ export function PmCreateCycleClient({
 
       {!canCreate && selected && (
         <PmFormMessage
-          message="Finish the current cycle in this pool (distribute profits and close it) before opening the next funding round."
+          message={
+            lastCycle?.status === "funding"
+              ? "The current funding cycle must be full or moved to trading before another funding round opens."
+              : "Finish the current cycle transition before opening the next funding round."
+          }
           variant="error"
         />
       )}

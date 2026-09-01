@@ -29,6 +29,7 @@ import { ledgerService } from "@/services/ledger.service";
 import { ledgerAccountService } from "@/services/ledger-account.service";
 import { attachTransactionReference } from "@/lib/transaction/insert";
 import { publishPlatformEvent, PLATFORM_EVENT_TYPES } from "@/lib/platform-events/publish";
+import { assertCycleLossWithinCapital } from "@/domain/investment/cycle-loss-policy";
 import type {
   ProfitSettlement,
   ProfitSettlementAllocation,
@@ -412,6 +413,17 @@ export const profitDistributionService = {
       };
     });
 
+    if (grossTradingProfit < 0) {
+      const lossBearingCapital = roundMoney(
+        allocationInput.reduce((sum, allocation) => sum + allocation.capitalBasis, 0)
+      );
+      assertCycleLossWithinCapital({
+        capital: lossBearingCapital,
+        recordedLoss: Math.abs(grossTradingProfit),
+        resultingCyclePnl: grossTradingProfit,
+      });
+    }
+
     const breakdown = hasRoiMultipliers
       ? calculateRoiV2Distribution({
           grossTradingProfit,
@@ -547,18 +559,20 @@ export const profitDistributionService = {
       },
     });
 
-    publishPlatformEvent({
-      eventType: PLATFORM_EVENT_TYPES.CYCLE_STATUS_CHANGED,
-      category: "financial",
-      entityType: "profit_settlement",
-      entityId: settlement.id,
-      actorId,
-      payload: {
-        cycleId,
-        cycleName: cycle.name,
-        summary: `Profit settlement calculated for ${cycle.name}`,
-      },
-    });
+    if (grossTradingProfit >= 0) {
+      publishPlatformEvent({
+        eventType: PLATFORM_EVENT_TYPES.CYCLE_STATUS_CHANGED,
+        category: "financial",
+        entityType: "profit_settlement",
+        entityId: settlement.id,
+        actorId,
+        payload: {
+          cycleId,
+          cycleName: cycle.name,
+          summary: `Profit settlement calculated for ${cycle.name}`,
+        },
+      });
+    }
 
     return settlement;
   },
@@ -925,18 +939,39 @@ export const profitDistributionService = {
     const cycle = await investmentCycleService.getById(settlement.investmentCycleId);
     if (!cycle) throw new Error("Cycle not found.");
 
-    const profitPayable = await ledgerAccountService.ensureCycleProfitPayableAccount(
-      cycle.id,
-      cycle.name
-    );
-
     const pending = await this.listAllocations(settlementId);
     const toTransfer = pending.filter((a) => a.status === "pending" && a.profitShare > 0);
     const poolName =
       settlement.fundId != null ? await readPoolName(settlement.fundId) : cycle.name;
 
-    for (const alloc of toTransfer) {
-      if (settlement.fundId) {
+    if (settlement.grossTradingProfit < 0) {
+      const { data: lossResult, error: lossError } = await db.rpc(
+        "apply_cycle_loss_distribution_atomic" as never,
+        {
+          p_settlement_id: settlementId,
+          p_actor_id: actorId,
+        } as never
+      );
+      if (lossError) throw new Error(lossError.message);
+
+      await auditService.log({
+        actorId,
+        action: "cycle_loss_distributed",
+        entityType: "profit_settlement",
+        entityId: settlementId,
+        newValues: (lossResult ?? {}) as Record<string, unknown>,
+      });
+    } else {
+      const profitPayable = await ledgerAccountService.ensureCycleProfitPayableAccount(
+        cycle.id,
+        cycle.name
+      );
+
+      for (const alloc of toTransfer) {
+        if (!settlement.fundId) {
+          throw new Error("Settlement fund is required to credit investor pool profit.");
+        }
+
         const wallet = await investorProfitWalletService.credit(
           alloc.investorId,
           settlement.fundId,
@@ -1014,10 +1049,7 @@ export const profitDistributionService = {
           entityId: alloc.id,
           newValues: { amount: alloc.profitShare, ledgerTransactionId: transaction.id },
         });
-        continue;
       }
-
-      throw new Error("Settlement fund is required to credit investor pool profit.");
     }
 
     const { data: completed, error } = await db
@@ -1047,19 +1079,21 @@ export const profitDistributionService = {
       /* queue processing / next cycle should not block distribution record */
     }
 
-    publishPlatformEvent({
-      eventType: PLATFORM_EVENT_TYPES.DISTRIBUTION_COMPLETED,
-      category: "financial",
-      entityType: "profit_settlement",
-      entityId: settlementId,
-      actorId,
-      payload: {
-        cycleId: settlement.investmentCycleId,
-        fundId: settlement.fundId,
-        distributedProfit: settlement.investorDistributionTotal,
-        summary: `Profit distribution completed for ${cycle.name}`,
-      },
-    });
+    if (settlement.grossTradingProfit >= 0) {
+      publishPlatformEvent({
+        eventType: PLATFORM_EVENT_TYPES.DISTRIBUTION_COMPLETED,
+        category: "financial",
+        entityType: "profit_settlement",
+        entityId: settlementId,
+        actorId,
+        payload: {
+          cycleId: settlement.investmentCycleId,
+          fundId: settlement.fundId,
+          distributedProfit: settlement.investorDistributionTotal,
+          summary: `Profit distribution completed for ${cycle.name}`,
+        },
+      });
+    }
 
     return mapSettlement(completed as SettlementRow);
   },

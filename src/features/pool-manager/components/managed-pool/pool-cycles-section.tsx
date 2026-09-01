@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import type { InvestmentCycle } from "@/domain/investment/types";
+import { evaluateCycleCreation } from "@/domain/investment/cycle-creation-policy";
 import type { PlatformInvestmentLevel } from "@/domain/roi";
 import { cn, formatCurrency } from "@/lib/utils";
 import { isCycleFundingPhase, isCycleTradingPhase } from "@/lib/investment/cycle-display-phase";
@@ -28,12 +29,15 @@ function sortCyclesChronologically(cycles: InvestmentCycle[]): InvestmentCycle[]
 }
 
 function resolveCanCreateCycle(cycles: InvestmentCycle[], isLive: boolean): boolean {
-  if (!isLive) return false;
-  const lastCycle = [...cycles].sort((a, b) => b.cycleNumber - a.cycleNumber)[0];
-  if (!lastCycle) return true;
-  if (["completed", "archived"].includes(lastCycle.status)) return true;
-  if (lastCycle.maxCapacity != null && lastCycle.raisedCapital >= lastCycle.maxCapacity) return true;
-  return false;
+  return evaluateCycleCreation(
+    cycles.map((cycle) => ({
+      cycleNumber: cycle.cycleNumber,
+      status: cycle.status,
+      raisedCapital: cycle.raisedCapital,
+      maxCapacity: cycle.maxCapacity,
+    })),
+    isLive
+  ).allowed;
 }
 
 export function ManagedPoolCyclesPanel({
@@ -235,8 +239,9 @@ export function ManagedPoolCyclesPanel({
 
       {isLive && !canCreate && lastCycle && !["completed", "archived"].includes(lastCycle.status) && (
         <p className="text-sm text-[var(--id-text-muted)]">
-          Finish the current cycle (distribute profits and close it) before opening the next funding
-          round.
+          {lastCycle.status === "funding"
+            ? "The current funding cycle must be full or moved to trading before another funding round opens."
+            : "Finish the current cycle transition before opening the next funding round."}
         </p>
       )}
     </div>

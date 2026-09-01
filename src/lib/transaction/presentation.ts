@@ -66,6 +66,7 @@ export function resolveTransactionCategory(input: {
   if (method === "profit_reinvest") return "pool_investment";
   if (method === "pool_exit") return "pool_settlement";
   if (method === "cycle_profit") return "pool_profit";
+  if (method === "cycle_loss") return "pool_loss";
   if (method === "profit_transfer") return "profit_distribution";
   if (method === "trade_profit") return notes.includes("loss") ? "pool_loss" : "pool_profit";
   if (method === "pm_admission_fee" || method === "challenge_fee") return "commission";

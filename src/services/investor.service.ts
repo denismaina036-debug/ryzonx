@@ -24,6 +24,7 @@ import {
   RAISED_CAPITAL_ALLOCATION_STATUSES,
 } from "@/domain/investment/cycle-metrics";
 import type { InvestmentAllocationStatus } from "@/constants/investment-allocation";
+import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 import { mapRawTransactionToActivityItem, type RawTransactionRow } from "@/lib/transaction/map";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeLifetimePoolPerformance } from "@/lib/investor/lifetime-pool-performance";
@@ -234,12 +235,19 @@ export const investorService = {
             const admin = createAdminClient();
             const { data } = await admin
               .from("transactions")
-              .select("amount, created_at")
+              .select("amount, created_at, payment_method")
               .eq("user_id", user.id)
               .eq("status", "completed")
-              .in("payment_method", ["cycle_profit", "trade_profit"])
+              .in("payment_method", ["cycle_profit", "trade_profit", "cycle_loss"])
               .in("fund_id", participationFundIds);
-            return (data ?? []) as Array<{ amount: number | string; created_at: string }>;
+            return ((data ?? []) as Array<{
+              amount: number | string;
+              created_at: string;
+              payment_method: string | null;
+            }>).map((row) => ({
+              amount: row.payment_method === "cycle_loss" ? -toNumber(row.amount) : row.amount,
+              created_at: row.created_at,
+            }));
           })()
         : Promise.resolve([]),
     ]);
@@ -347,16 +355,21 @@ export const investorService = {
     const adminClient = createAdminClient();
     const { data: todayProfitRows } = await adminClient
       .from("transactions")
-      .select("amount, fund_id")
+      .select("amount, fund_id, payment_method")
       .eq("user_id", user.id)
-      .eq("payment_method", "cycle_profit")
+      .in("payment_method", ["cycle_profit", "cycle_loss"])
       .eq("status", "completed")
       .gte("created_at", todayStart.toISOString());
 
     let dailyProfit = 0;
-    for (const row of (todayProfitRows ?? []) as Array<{ amount: number | string; fund_id: string }>) {
+    for (const row of (todayProfitRows ?? []) as Array<{
+      amount: number | string;
+      fund_id: string;
+      payment_method: string | null;
+    }>) {
       if (!primaryFundId || row.fund_id === primaryFundId) {
-        dailyProfit += toNumber(row.amount);
+        dailyProfit +=
+          row.payment_method === "cycle_loss" ? -toNumber(row.amount) : toNumber(row.amount);
       }
     }
 
@@ -517,16 +530,29 @@ export const investorService = {
     const activeCycleFundIds = [...new Set([...tradingFundIds, ...fundingFundIds])];
     const { data: activeCycles } = await admin
       .from("investment_cycles")
-      .select("id, fund_id")
+      .select("id, fund_id, status, cycle_number")
       .in("fund_id", activeCycleFundIds)
-      .in("status", ["funding", "trading", "distribution"]);
+      .in("status", ["funding", "approved", "trading", "distribution"])
+      .order("cycle_number", { ascending: false });
 
-    const cycleIdByFund = new Map(
-      ((activeCycles ?? []) as Array<{ id: string; fund_id: string }>).map((row) => [
-        row.fund_id,
-        row.id,
-      ])
-    );
+    const activeCycleRows = (activeCycles ?? []) as Array<{
+      id: string;
+      fund_id: string;
+      status: InvestmentCycleStatus;
+      cycle_number: number;
+    }>;
+    const cycleIdByFund = new Map<string, string>();
+    for (const fundId of activeCycleFundIds) {
+      for (const status of ["funding", "approved", "trading", "distribution"] as const) {
+        const cycle = activeCycleRows.find(
+          (row) => row.fund_id === fundId && row.status === status
+        );
+        if (cycle) {
+          cycleIdByFund.set(fundId, cycle.id);
+          break;
+        }
+      }
+    }
 
     const allocationByFund = new Map<string, number>();
     const cycleIds = [...cycleIdByFund.values()];

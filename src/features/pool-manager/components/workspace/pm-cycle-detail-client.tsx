@@ -69,11 +69,14 @@ export function PmCycleDetailClient({
   const canCloseCycle =
     (cycle.status === "trading" && openTradeCount === 0) || cycle.status === "distribution";
   const hasInvestors = cycle.investorCount > 0;
-  const canDistributeProfit = cycle.status === "trading" && !profitDistributed;
-
   const currentProfit = liveMetrics?.currentCycleProfit ?? cycle.currentCycleProfit;
   const currentCapital = liveMetrics?.currentCapital ?? cycle.raisedCapital;
   const tradesRecorded = liveMetrics?.tradesRecorded ?? 0;
+  const isLossResult = currentProfit < 0;
+  const canDistributeProfit =
+    cycle.status === "trading" &&
+    !profitDistributed &&
+    (hasInvestors || currentProfit > 0);
   const profitTone =
     currentProfit > 0
       ? "text-emerald-600 dark:text-emerald-400"
@@ -253,13 +256,15 @@ export function PmCycleDetailClient({
               onClick={() => {
                 void runAction(
                   () => distributeCycleProfit(cycle.id),
-                  hasInvestors
+                  isLossResult
+                    ? "Loss distributed and investor capital updated"
+                    : hasInvestors
                     ? "Profits distributed to investors"
                     : "Profit sent to your manager earnings"
                 ).then(() => setProfitDistributed(true));
               }}
             >
-              Distribute Profit
+              {isLossResult ? "Distribute Loss" : "Distribute Profit"}
             </ActionButton>
           )}
 
@@ -304,7 +309,7 @@ export function PmCycleDetailClient({
             <DialogTitle>Close cycle</DialogTitle>
             <DialogDescription className="text-[var(--id-text-secondary)]">
               {hasInvestors
-                ? "Distribute profits first, then close this cycle. Capital is not reinvested automatically. Open the next funding round separately from the pool page when you are ready."
+                ? "Distribute the cycle result first, then close this cycle. Capital is not reinvested automatically. Open the next funding round separately from the pool page when you are ready."
                 : "This cycle has no investors. Closing will send trading profit to your manager earnings (after platform fees) and let you open the next funding round."}
             </DialogDescription>
           </DialogHeader>
@@ -318,7 +323,7 @@ export function PmCycleDetailClient({
             </Button>
             {hasInvestors && !profitDistributed && (
               <p className="text-xs text-[var(--id-text-muted)]">
-                Distribute profits before closing this cycle.
+                Distribute the cycle result before closing this cycle.
               </p>
             )}
           </DialogFooter>

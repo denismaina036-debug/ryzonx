@@ -4,6 +4,7 @@ import { userOwnsPoolManager } from "@/lib/auth/pool-manager-access";
 import { USER_ROLES } from "@/constants/roles";
 import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 import { INVESTMENT_CYCLE_ALLOCATABLE_STATUSES } from "@/constants/investment-cycle";
+import { evaluateCycleCreation } from "@/domain/investment/cycle-creation-policy";
 import { auditService } from "@/services/audit.service";
 import { strategyService } from "@/services/strategy.service";
 import { tradingJournalService } from "@/services/trading-journal.service";
@@ -396,44 +397,45 @@ async function insertCycleFromPoolFund(
 
   const { data: existingCycles } = await db
     .from("investment_cycles")
-    .select("cycle_number, status")
+    .select("cycle_number, status, raised_capital, max_capacity")
     .eq("fund_id", fundId)
     .order("cycle_number", { ascending: false })
     .limit(1);
 
   const lastCycle = (existingCycles ?? [])[0] as
-    | { cycle_number: number; status: InvestmentCycleStatus }
+    | {
+        cycle_number: number;
+        status: InvestmentCycleStatus;
+        raised_capital: number | string;
+        max_capacity: number | string | null;
+      }
     | undefined;
 
   if (lastCycle) {
-    const canCreate = ["completed", "archived"].includes(lastCycle.status);
-    const atCapacity =
-      lastCycle.status === "funding" || lastCycle.status === "trading";
-    if (!canCreate && !atCapacity) {
-      throw new Error(
-        "A new cycle can only be created when the current cycle is completed or at capacity."
-      );
-    }
-    if (atCapacity) {
-      const { data: fullLast } = await db
-        .from("investment_cycles")
-        .select("raised_capital, max_capacity, status")
-        .eq("fund_id", fundId)
-        .eq("cycle_number", lastCycle.cycle_number)
-        .maybeSingle();
-      const row = fullLast as {
-        raised_capital: number;
-        max_capacity: number | null;
-        status: InvestmentCycleStatus;
-      } | null;
-      const full =
-        row?.max_capacity != null &&
-        toNumber(row.raised_capital) >= toNumber(row.max_capacity);
-      if (!full && !canCreate) {
+    const decision = evaluateCycleCreation(
+      [
+        {
+          cycleNumber: lastCycle.cycle_number,
+          status: lastCycle.status,
+          raisedCapital: toNumber(lastCycle.raised_capital),
+          maxCapacity:
+            lastCycle.max_capacity == null ? null : toNumber(lastCycle.max_capacity),
+        },
+      ],
+      true
+    );
+    if (!decision.allowed) {
+      if (decision.reason === "funding_cycle_open") {
         throw new Error(
-          "The current investment cycle must be completed or full before opening a new one."
+          "The current funding cycle must be full or moved to trading before opening another funding cycle."
         );
       }
+      if (decision.reason === "distribution_in_progress") {
+        throw new Error(
+          "Complete the current cycle distribution before opening another funding cycle."
+        );
+      }
+      throw new Error("Finish the current cycle transition before opening a new cycle.");
     }
   }
 
@@ -540,6 +542,31 @@ async function insertCycleFromPoolFund(
   }
 
   return cycle;
+}
+
+async function assertNoOtherCycleIsTrading(
+  fundId: string | null,
+  cycleId: string
+): Promise<void> {
+  if (!fundId) return;
+
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("investment_cycles")
+    .select("id, name, status")
+    .eq("fund_id", fundId)
+    .neq("id", cycleId)
+    .in("status", ["trading", "distribution"])
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (data) {
+    const active = data as { name: string; status: InvestmentCycleStatus };
+    throw new Error(
+      `${active.name} is still ${active.status}. Keep this cycle in funding until the active trading cycle is closed.`
+    );
+  }
 }
 
 export type CloseInvestmentCycleAction = "create_new_cycle";
@@ -987,6 +1014,10 @@ export const investmentCycleService = {
 
     assertInvestmentCycleTransition(existing.status, nextStatus, actor);
 
+    if (nextStatus === "trading") {
+      await assertNoOtherCycleIsTrading(existing.fundId, existing.id);
+    }
+
     if (
       actor === "manager" &&
       (nextStatus === "funding" || nextStatus === "completed") &&
@@ -1143,6 +1174,10 @@ export const investmentCycleService = {
 
     assertInvestmentCycleTransition(existing.status, nextStatus, "admin");
 
+    if (nextStatus === "trading") {
+      await assertNoOtherCycleIsTrading(existing.fundId, existing.id);
+    }
+
     const now = new Date().toISOString();
     const db = createAdminClient();
     const { data, error } = await db
@@ -1272,13 +1307,13 @@ export const investmentCycleService = {
     return this.transition(id, "submitted", "manager");
   },
 
-  /** Distribute cycle profits without closing the cycle. */
+  /** Distribute the cycle result without closing the cycle. */
   async distributeProfits(id: string, actor: "manager" | "admin"): Promise<InvestmentCycle> {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Investment cycle not found.");
 
     if (existing.status !== "trading" && existing.status !== "distribution") {
-      throw new Error("Profits can only be distributed while the cycle is trading.");
+      throw new Error("Cycle results can only be distributed while the cycle is trading.");
     }
 
     let actorId: string;
@@ -1301,7 +1336,7 @@ export const investmentCycleService = {
     return refreshed;
   },
 
-  /** Mark a cycle completed after profits are distributed. Investors then choose reinvest, withdraw, or move capital. */
+  /** Mark a cycle completed after its result is distributed. Investors then choose reinvest, withdraw, or move capital. */
   async closeCycle(
     id: string,
     actor: "manager" | "admin"
@@ -1336,7 +1371,7 @@ export const investmentCycleService = {
     if (hasInvestorAllocations) {
       const settlement = await profitDistributionService.getByCycleId(id);
       if (!settlement || settlement.status !== "completed") {
-        throw new Error("Distribute cycle profits before closing this cycle.");
+        throw new Error("Distribute the cycle result before closing this cycle.");
       }
     } else {
       const grossProfit = await profitDistributionService.getCycleGrossTradingProfit(id);

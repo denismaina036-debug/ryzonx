@@ -16,7 +16,9 @@ import { generateTradeReference } from "@/lib/investment/utils";
 import { computeTradeRealizedPnl } from "@/lib/financial/profit-distribution-calculator";
 import { tradeLossAllocationService } from "@/services/trade-loss-allocation.service";
 import { cycleProfitService } from "@/services/investment-engine/cycle-profit.service";
+import { investmentCycleMetricsService } from "@/services/investment-cycle-metrics.service";
 import { poolManagerPerformanceStatsService } from "@/services/pool-manager-performance-stats.service";
+import { assertCycleLossWithinCapital } from "@/domain/investment/cycle-loss-policy";
 import type {
   CloseTradeEntryInput,
   CreateTradeEntryInput,
@@ -56,6 +58,27 @@ type EntryRow = {
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
   return typeof value === "number" ? value : Number(value);
+}
+
+async function assertRecordedLossFitsCycleCapital(
+  cycleId: string,
+  realizedPnl: number
+): Promise<void> {
+  if (realizedPnl >= 0) return;
+
+  const [committedCapital, cycle, currentCyclePnl] = await Promise.all([
+    investmentCycleMetricsService.sumCommittedCapitalForCycle(cycleId),
+    investmentCycleService.getById(cycleId),
+    cycleProfitService.getCycleProfit(cycleId),
+  ]);
+  if (!cycle) throw new Error("Cycle not found.");
+
+  const lossBearingCapital = committedCapital > 0 ? committedCapital : cycle.raisedCapital;
+  assertCycleLossWithinCapital({
+    capital: lossBearingCapital,
+    recordedLoss: Math.abs(realizedPnl),
+    resultingCyclePnl: currentCyclePnl + realizedPnl,
+  });
 }
 
 function mapEntry(row: EntryRow): TradeEntry {
@@ -577,6 +600,7 @@ export const tradeEntryService = {
       input.realizedPnlUsd != null
         ? input.realizedPnlUsd
         : computeTradeRealizedPnl(draftEntry);
+    await assertRecordedLossFitsCycleCapital(existing.investmentCycleId, realizedPnl);
     const tradeResult = tradeLossAllocationService.resolveTradeResult(
       realizedPnl,
       input.tradeResult

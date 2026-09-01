@@ -164,7 +164,8 @@ async function enrichPoolCards(
       "id, fund_id, status, cycle_number, name, opening_date, closing_date, funding_deadline, funding_started_at, raised_capital, target_capital, min_investment, investor_count, max_capacity, duration_days, pool_config_snapshot"
     )
     .in("fund_id", poolIds)
-    .in("status", ["funding", "trading", "distribution", "approved"]);
+    .in("status", ["funding", "trading", "distribution", "approved"])
+    .order("cycle_number", { ascending: false });
 
   const cycles = (cycleRows ?? []) as CycleRow[];
   const activeCycleIds = [
