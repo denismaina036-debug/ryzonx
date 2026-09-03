@@ -13,6 +13,8 @@ type SettingRow = {
 };
 
 const SETTING_GROUPS: Record<string, string> = {
+  mpesa_min_deposit_usd: "Financial",
+  crypto_min_deposit_usd: "Financial",
   platform_service_fee_pct: "Financial",
   min_investment: "Financial",
   min_withdrawal: "Financial",
@@ -31,6 +33,8 @@ const SETTING_GROUPS: Record<string, string> = {
 };
 
 const SETTING_LABELS: Record<string, string> = {
+  mpesa_min_deposit_usd: "M-Pesa Minimum Deposit (USD)",
+  crypto_min_deposit_usd: "Crypto Minimum Deposit (USD)",
   platform_service_fee_pct: "Platform Service Fee (%)",
   platform_name: "Platform Name",
   support_email: "Support Email",
@@ -65,6 +69,11 @@ function mapRow(row: SettingRow): PlatformSetting {
 }
 
 export const platformSettingsService = {
+  async getDepositMinimum(method: "mpesa" | "crypto"): Promise<number> {
+    const raw = await this.get(`${method}_min_deposit_usd`);
+    const value = Number(raw ?? 100);
+    return Number.isFinite(value) && value > 0 ? value : 100;
+  },
   async list(): Promise<PlatformSetting[]> {
     await requirePermission("MANAGE_SETTINGS");
     const db = createAdminClient();
@@ -114,12 +123,20 @@ export const platformSettingsService = {
           throw new Error("Referral reward must be a valid amount of zero or more.");
         }
       }
+      if (key === "mpesa_min_deposit_usd" || key === "crypto_min_deposit_usd") {
+        const minimum = Number(value);
+        if (!Number.isFinite(minimum) || minimum <= 0) {
+          throw new Error("Deposit minimum must be greater than zero.");
+        }
+      }
 
       const jsonValue =
         typeof value === "string" &&
         (key === "branding" || key === "landing_content" || key === "feature_flags")
           ? JSON.parse(value)
           : key === "platform_service_fee_pct" ||
+              key === "mpesa_min_deposit_usd" ||
+              key === "crypto_min_deposit_usd" ||
               key === "min_investment" ||
               key === "min_withdrawal" ||
               key === "referral_reward_amount"

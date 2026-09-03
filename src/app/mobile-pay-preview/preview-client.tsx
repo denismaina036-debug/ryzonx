@@ -45,9 +45,10 @@ export function MobilePayPreview() {
             <button type="button" onClick={() => setMethod(null)} className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--id-accent-text)] hover:underline"><ArrowLeft className="h-4 w-4" /> Change deposit method</button>
             <MpesaDepositPanel
               config={{
-                enabled: true,
-                providerConfigured: false,
-                kesPerUsd: 130,
+              enabled: true,
+              providerConfigured: false,
+              kesPerUsd: 130,
+              minimumDepositUsd: 100,
                 methods: [
                   { id: "mpesa", name: "M-Pesa", active: true, description: "Secure STK push to your phone" },
                   { id: "airtel_money", name: "Airtel Money", active: false, description: "Coming soon" },
@@ -68,4 +69,3 @@ export function MobilePayPreview() {
     </main>
   );
 }
-

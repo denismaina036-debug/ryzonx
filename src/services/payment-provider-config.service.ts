@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/auth/authorization";
 import { auditService } from "@/services/audit.service";
 import { decryptSecret, encryptSecret } from "@/lib/security/secret-encryption";
+import { platformSettingsService } from "@/services/platform-settings.service";
 
 type ProviderConfigRow = {
   provider: "megapay";
@@ -24,6 +25,7 @@ export type MegaPayAdminConfig = {
   enabled: boolean;
   accountEmail: string;
   kesPerUsd: number | null;
+  minimumDepositUsd: number;
   apiKeyConfigured: boolean;
   apiKeyLastFour: string | null;
   source: "database" | "environment" | "none";
@@ -59,6 +61,7 @@ const updateSchema = z.object({
   requestTimeoutMs: z.coerce.number().int().min(5000).max(60000),
   merchantDisplayName: z.string().trim().min(1).max(100),
   webhookRegistered: z.boolean(),
+  minimumDepositUsd: z.coerce.number().positive().max(1_000_000),
 });
 
 function dbClient(): SupabaseClient {
@@ -107,10 +110,12 @@ export const paymentProviderConfigService = {
     const enabled = stored?.is_enabled ?? process.env.ENABLE_MOBILE_PAYMENTS !== "false";
     const webhookRegistered = stored?.webhook_registered ?? false;
     const merchantDisplayName = stored?.merchant_display_name ?? "RYVONX";
+    const minimumDepositUsd = await platformSettingsService.getDepositMinimum("mpesa");
     return {
       enabled,
       accountEmail,
       kesPerUsd,
+      minimumDepositUsd,
       apiKeyConfigured,
       apiKeyLastFour: stored?.api_key_last_four ?? (environmentConfigured ? process.env.MEGAPAY_API_KEY!.slice(-4) : null),
       source: stored?.encrypted_api_key ? "database" : environmentConfigured ? "environment" : "none",
@@ -173,6 +178,11 @@ export const paymentProviderConfigService = {
     const { error } = await dbClient().from("payment_provider_configs").upsert(payload, { onConflict: "provider" });
     if (error) throw new Error(error.message);
 
+    await platformSettingsService.upsertMany(
+      [{ key: "mpesa_min_deposit_usd", value: parsed.minimumDepositUsd }],
+      actorId
+    );
+
     await auditService.log({
       actorId,
       action: "payment_provider_config_updated",
@@ -183,6 +193,7 @@ export const paymentProviderConfigService = {
         enabled: parsed.enabled,
         accountEmailChanged: parsed.accountEmail !== (existing?.account_email ?? process.env.MEGAPAY_ACCOUNT_EMAIL ?? ""),
         exchangeRate: parsed.kesPerUsd,
+        minimumDepositUsd: parsed.minimumDepositUsd,
         apiKeyRotated: Boolean(apiKey),
         endpointsChanged:
           parsed.initiateUrl !== (existing?.initiate_url ?? envInitiateUrl()) ||

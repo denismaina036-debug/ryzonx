@@ -13,6 +13,7 @@ export interface MobilePaymentConfig {
   enabled: boolean;
   providerConfigured: boolean;
   kesPerUsd: number | null;
+  minimumDepositUsd: number;
   methods: Array<{
     id: "mpesa" | "airtel_money";
     name: string;
@@ -40,4 +41,3 @@ export interface MobilePaymentStatusResponse {
   responseDescription: string | null;
   receipt: string | null;
 }
-

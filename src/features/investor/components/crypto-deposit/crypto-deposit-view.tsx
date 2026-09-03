@@ -67,7 +67,7 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
     [data.assets]
   );
 
-  const minDepositUsd = data.minInvestment;
+  const minDepositUsd = data.cryptoMinimumDepositUsd;
   const parsedAmount = Number(amount);
   const amountValid =
     amount.trim() !== "" &&
@@ -164,7 +164,7 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
     <div className="mx-auto max-w-[1200px]">
       <RyvonxPageHeader
         title="Deposit Funds"
-        description={`${data.fundName} · Minimum deposit ${formatCurrency(data.minInvestment)} · ${mobilePayEnabled ? "Choose how you want to fund your Ryvonx wallet." : "Deposit crypto directly to your Ryvonx wallet."}`}
+        description={`${data.fundName} · Crypto minimum ${formatCurrency(data.cryptoMinimumDepositUsd)} · ${mobilePayEnabled ? "Choose how you want to fund your Ryvonx wallet." : "Deposit crypto directly to your Ryvonx wallet."}`}
       />
 
       <div className="mb-6 rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] px-5 py-4 shadow-[var(--id-shadow)]">
@@ -203,7 +203,7 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
       ) : null}
 
       {mobilePayEnabled && fundingMethod === "mobile" && (
-        <MpesaDepositPanel config={data.mobilePayment} minimumUsd={data.minInvestment} onCompleted={() => router.refresh()} />
+        <MpesaDepositPanel config={data.mobilePayment} minimumUsd={data.mobilePayment.minimumDepositUsd} onCompleted={() => router.refresh()} />
       )}
 
       {fundingMethod === "crypto" && <div className="grid gap-6 lg:grid-cols-[1fr_280px]">

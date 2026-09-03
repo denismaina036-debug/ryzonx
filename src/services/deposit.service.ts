@@ -25,6 +25,7 @@ import type {
 } from "@/features/investor/types/deposit";
 import type { Tables } from "@/types/database.types";
 import { mobilePaymentService } from "@/services/mobile-payment.service";
+import { platformSettingsService } from "@/services/platform-settings.service";
 
 type WalletRow = Tables<"crypto_deposit_wallets">;
 
@@ -203,7 +204,7 @@ export const depositService = {
     const supabase = await createClient();
     const { walletProjectionService } = await import("@/services/wallet-projection.service");
 
-    const [walletsResult, recentRows, fundResult, projection] = await Promise.all([
+    const [walletsResult, recentRows, fundResult, projection, cryptoMinimumDepositUsd] = await Promise.all([
       supabase
         .from("crypto_deposit_wallets")
         .select("*")
@@ -216,6 +217,7 @@ export const depositService = {
         .eq("id", DEFAULT_FUND_ID)
         .maybeSingle(),
       walletProjectionService.getForInvestor(user.id),
+      platformSettingsService.getDepositMinimum("crypto"),
     ]);
 
     const walletRows = (walletsResult.data ?? []) as WalletRow[];
@@ -239,6 +241,7 @@ export const depositService = {
       recentDeposits,
       faqItems: MOCK_DEPOSIT_FAQ,
       minInvestment: toNumber(fund?.min_investment) || 100,
+      cryptoMinimumDepositUsd,
       fundName: fund?.name ?? DEFAULT_FUND_NAME,
       fundingWalletBalance: projection.available,
       mobilePayment: await mobilePaymentService.getConfig(),
@@ -253,16 +256,7 @@ export const depositService = {
     const supabase = await createClient();
     await resolveActiveWallet(supabase, input);
 
-    const db = createAdminClient();
-    const { data: fund } = await db
-      .from("funds")
-      .select("min_investment")
-      .eq("id", DEFAULT_FUND_ID)
-      .maybeSingle();
-
-    const minDepositUsd = toNumber(
-      (fund as { min_investment?: number } | null)?.min_investment
-    ) || 100;
+    const minDepositUsd = await platformSettingsService.getDepositMinimum("crypto");
 
     const usdAmount = input.amount;
     if (usdAmount < minDepositUsd) {

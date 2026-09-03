@@ -8,6 +8,7 @@ import { communicationTriggers } from "@/services/communication";
 import { formatMoney } from "@/services/communication/user-variables";
 import { megaPayService } from "@/services/megapay.service";
 import { paymentProviderConfigService } from "@/services/payment-provider-config.service";
+import { platformSettingsService } from "@/services/platform-settings.service";
 import { maskPhone, normalizeKenyanPhone } from "@/lib/mobile-payments/mpesa";
 import type {
   MobilePaymentConfig,
@@ -42,12 +43,14 @@ function numberValue(value: string | number): number {
 
 async function paymentConfig(): Promise<MobilePaymentConfig> {
   const stored = await paymentProviderConfigService.getRuntimeConfig();
+  const minimumDepositUsd = await platformSettingsService.getDepositMinimum("mpesa");
   const rate = stored.kesPerUsd;
   const enabled = stored.enabled;
   return {
     enabled,
     providerConfigured: enabled && await megaPayService.isConfigured() && rate !== null,
     kesPerUsd: rate,
+    minimumDepositUsd,
     methods: [
       { id: "mpesa", name: "M-Pesa", active: enabled, description: "Secure STK push to your phone" },
       { id: "airtel_money", name: "Airtel Money", active: false, description: "Coming soon" },
@@ -165,8 +168,7 @@ export const mobilePaymentService = {
       .eq("user_id", user.id).gte("created_at", oneMinuteAgo);
     if ((count ?? 0) >= 3) throw new Error("Too many payment attempts. Wait one minute and try again.");
 
-    const { data: fund } = await db.from("funds").select("min_investment").eq("id", DEFAULT_FUND_ID).maybeSingle();
-    const minimumUsd = Number((fund as { min_investment?: number | string } | null)?.min_investment ?? 100);
+    const minimumUsd = config.minimumDepositUsd;
     if (amountUsd < minimumUsd) throw new Error(`Minimum deposit is ${formatMoney(minimumUsd)}.`);
 
     const reference = `RVX-MP-${Date.now().toString(36).toUpperCase()}-${randomUUID().slice(0, 8).toUpperCase()}`;

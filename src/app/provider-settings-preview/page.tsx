@@ -17,6 +17,7 @@ export default function ProviderSettingsPreviewPage() {
             enabled: true,
             accountEmail: "payments@ryvonx.com",
             kesPerUsd: 130,
+            minimumDepositUsd: 100,
             apiKeyConfigured: true,
             apiKeyLastFour: "6IXT",
             source: "database",

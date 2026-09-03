@@ -18,7 +18,13 @@ export default async function AdminSettingsPage() {
       />
       <MegaPaySettingsCard initialConfig={megaPayConfig} />
       <AdminInvestmentLevelsManager />
-      <SettingsForm settings={settings} />
+      <SettingsForm
+        settings={settings.filter(
+          (setting) =>
+            setting.key !== "mpesa_min_deposit_usd" &&
+            setting.key !== "crypto_min_deposit_usd"
+        )}
+      />
     </div>
   );
 }

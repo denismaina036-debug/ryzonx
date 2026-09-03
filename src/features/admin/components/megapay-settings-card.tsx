@@ -14,6 +14,7 @@ export function MegaPaySettingsCard({ initialConfig, preview = false }: { initia
   const [enabled, setEnabled] = useState(initialConfig.enabled);
   const [accountEmail, setAccountEmail] = useState(initialConfig.accountEmail);
   const [kesPerUsd, setKesPerUsd] = useState(String(initialConfig.kesPerUsd ?? ""));
+  const [minimumDepositUsd, setMinimumDepositUsd] = useState(String(initialConfig.minimumDepositUsd));
   const [apiKey, setApiKey] = useState("");
   const [initiateUrl, setInitiateUrl] = useState(initialConfig.initiateUrl);
   const [statusUrl, setStatusUrl] = useState(initialConfig.statusUrl);
@@ -42,6 +43,7 @@ export function MegaPaySettingsCard({ initialConfig, preview = false }: { initia
           enabled,
           accountEmail,
           kesPerUsd: kesPerUsd.trim() ? Number(kesPerUsd) : null,
+          minimumDepositUsd: Number(minimumDepositUsd),
           ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
           initiateUrl,
           statusUrl,
@@ -101,6 +103,11 @@ export function MegaPaySettingsCard({ initialConfig, preview = false }: { initia
         )}
 
         <div className="grid gap-5 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="megapay-minimum" required>Minimum M-Pesa deposit (USD)</Label>
+            <Input id="megapay-minimum" type="number" min="0.01" step="0.01" value={minimumDepositUsd} onChange={(event) => setMinimumDepositUsd(event.target.value)} placeholder="100" />
+            <p className="text-xs text-[var(--id-text-muted)]">Deposits below this USD amount are rejected before an STK prompt is sent.</p>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="megapay-email" required>MegaPay merchant-login email</Label>
             <Input id="megapay-email" type="email" value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} placeholder="payments@ryvonx.com" autoComplete="off" />
@@ -178,7 +185,7 @@ export function MegaPaySettingsCard({ initialConfig, preview = false }: { initia
 
         <div className="flex items-center justify-between gap-4 border-t border-[var(--id-border)] pt-5">
           <p className="text-xs text-[var(--id-text-faint)]">{config.updatedAt ? `Last updated ${new Date(config.updatedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC` : "Using rollout configuration"}</p>
-          <Button type="button" onClick={() => void save()} disabled={preview || saving || !initiateUrl || !statusUrl || !requestTimeoutMs || !merchantDisplayName.trim() || (enabled && (!accountEmail.trim() || !kesPerUsd || !webhookRegistered || (!config.apiKeyConfigured && !apiKey.trim())))}>{saving ? "Saving…" : "Save MegaPay Settings"}</Button>
+          <Button type="button" onClick={() => void save()} disabled={preview || saving || !minimumDepositUsd || Number(minimumDepositUsd) <= 0 || !initiateUrl || !statusUrl || !requestTimeoutMs || !merchantDisplayName.trim() || (enabled && (!accountEmail.trim() || !kesPerUsd || !webhookRegistered || (!config.apiKeyConfigured && !apiKey.trim())))}>{saving ? "Saving…" : "Save MegaPay Settings"}</Button>
         </div>
       </CardContent>
     </Card>

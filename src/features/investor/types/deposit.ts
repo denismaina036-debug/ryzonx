@@ -49,6 +49,7 @@ export interface CryptoDepositPageData {
   recentDeposits: RecentCryptoDeposit[];
   faqItems: DepositFaqItem[];
   minInvestment: number;
+  cryptoMinimumDepositUsd: number;
   fundName: string;
   fundingWalletBalance: number;
   mobilePayment: MobilePaymentConfig;
