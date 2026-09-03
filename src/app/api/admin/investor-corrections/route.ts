@@ -24,10 +24,10 @@ export async function POST(request: Request) {
     const admin = await requireRole(USER_ROLES.ADMINISTRATOR);
     const { investorId } = await request.json() as { investorId: string };
     if (!investorId) return NextResponse.json({ error: "Investor is required." }, { status: 400 });
-    const { createAdminClient } = await import("@/lib/supabase/admin");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- migration 00072 is live; generated types are pending.
-    const { error } = await (createAdminClient() as any).from("investor_correction_withdrawal_holds").upsert({ investor_id: investorId, is_withdrawal_allowed: true, released_at: new Date().toISOString(), released_by: admin.id });
-    if (error) throw new Error(error.message);
-    return NextResponse.json({ ok: true });
+    const withdrawalHold = await adminInvestorCorrectionService.allowWithdrawals(
+      investorId,
+      admin.id
+    );
+    return NextResponse.json({ ok: true, withdrawalHold });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Release failed" }, { status: 400 }); }
 }
