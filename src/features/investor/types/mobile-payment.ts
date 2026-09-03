@@ -15,7 +15,7 @@ export interface MobilePaymentConfig {
   kesPerUsd: number | null;
   minimumDepositUsd: number;
   methods: Array<{
-    id: "mpesa" | "airtel_money";
+    id: "mpesa" | "airtel_money" | "mtn_momo" | "orange_money";
     name: string;
     active: boolean;
     description: string;

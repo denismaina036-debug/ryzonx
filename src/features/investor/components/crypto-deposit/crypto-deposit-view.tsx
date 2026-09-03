@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Bitcoin, ChevronRight, Copy, Search, Smartphone } from "lucide-react";
+import { ArrowLeft, Bitcoin, ChevronRight, Copy, CreditCard, Search, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,7 @@ import type {
   CryptoDepositPageData,
 } from "@/features/investor/types/deposit";
 import { MpesaDepositPanel } from "@/features/investor/components/mobile-payment/mpesa-deposit-panel";
+import { CardDepositPanel } from "@/features/investor/components/card-deposit/card-deposit-panel";
 
 interface CryptoDepositViewProps {
   data: CryptoDepositPageData;
@@ -34,9 +35,7 @@ const POPULAR_SYMBOLS = ["USDT", "USDC", "BNB", "BTC", "SOL"];
 export function CryptoDepositView({ data }: CryptoDepositViewProps) {
   const router = useRouter();
   const mobilePayEnabled = data.mobilePayment.enabled;
-  const [fundingMethod, setFundingMethod] = useState<"crypto" | "mobile" | null>(
-    mobilePayEnabled ? null : "crypto"
-  );
+  const [fundingMethod, setFundingMethod] = useState<"crypto" | "mobile" | "card" | null>(null);
   const [search, setSearch] = useState("");
   const [selectedAsset, setSelectedAsset] = useState<CryptoDepositAsset | null>(null);
   const [selectedNetwork, setSelectedNetwork] = useState<CryptoDepositNetwork | null>(null);
@@ -179,11 +178,13 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
         </p>
       </div>
 
-      {mobilePayEnabled && !fundingMethod ? (
+      {!fundingMethod ? (
         <section className="mb-8">
-          <h2 className="text-base font-semibold text-[var(--id-text)]">Choose a deposit method</h2>
-          <p className="mt-1 text-sm text-[var(--id-text-muted)]">Both methods credit the same USD Funding Wallet after confirmation.</p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="flex items-end justify-between gap-4">
+            <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--id-accent-text)]">Fund your wallet</p><h2 className="mt-1 text-xl font-semibold text-[var(--id-text)]">Choose a payment method</h2></div>
+            <p className="hidden text-sm text-[var(--id-text-muted)] sm:block">Secure deposits. One global balance.</p>
+          </div>
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <button type="button" onClick={() => setFundingMethod("crypto")} className="group rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5 text-left shadow-[var(--id-shadow)] transition hover:border-[var(--id-accent)]">
               <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--id-accent-soft)] text-[var(--id-accent-text)]"><Bitcoin className="h-5 w-5" /></span>
               <span className="mt-4 block text-base font-semibold text-[var(--id-text)]">Deposit Crypto</span>
@@ -193,20 +194,30 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
             <button type="button" onClick={() => setFundingMethod("mobile")} className="group rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5 text-left shadow-[var(--id-shadow)] transition hover:border-emerald-500">
               <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600"><Smartphone className="h-5 w-5" /></span>
               <span className="mt-4 block text-base font-semibold text-[var(--id-text)]">Mobile Pay</span>
-              <span className="mt-1 block text-sm leading-6 text-[var(--id-text-muted)]">Pay from your phone using M-Pesa STK Push. Airtel Money is coming soon.</span>
+              <span className="mt-1 block text-sm leading-6 text-[var(--id-text-muted)]">Choose from regional mobile wallets available around the world.</span>
               <span className="mt-4 flex items-center text-sm font-semibold text-emerald-600">Continue with mobile pay <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5" /></span>
+            </button>
+            <button type="button" onClick={() => setFundingMethod("card")} className="group rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5 text-left shadow-[var(--id-shadow)] transition hover:border-violet-500">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600"><CreditCard className="h-5 w-5" /></span>
+              <span className="mt-4 block text-base font-semibold text-[var(--id-text)]">Credit or Debit Card</span>
+              <span className="mt-1 block text-sm leading-6 text-[var(--id-text-muted)]">Use a Visa, Mastercard, or supported international card.</span>
+              <span className="mt-4 flex items-center text-sm font-semibold text-violet-600">Continue with card <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5" /></span>
             </button>
           </div>
         </section>
-      ) : mobilePayEnabled ? (
+      ) : (
         <button type="button" onClick={() => setFundingMethod(null)} className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--id-accent-text)] hover:underline"><ArrowLeft className="h-4 w-4" /> Change deposit method</button>
-      ) : null}
+      )}
 
-      {mobilePayEnabled && fundingMethod === "mobile" && (
+      {fundingMethod === "mobile" && (
         <MpesaDepositPanel config={data.mobilePayment} minimumUsd={data.mobilePayment.minimumDepositUsd} onCompleted={() => router.refresh()} />
       )}
 
-      {fundingMethod === "crypto" && <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
+      {fundingMethod === "card" && (
+        <CardDepositPanel minimumUsd={data.minInvestment} />
+      )}
+
+      {fundingMethod === "crypto" && <div>
         <div className="overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow-lg)]">
           {/* Step 1 — Select Coin */}
           <CryptoFlowStep
@@ -491,28 +502,6 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
           </CryptoFlowStep>
         </div>
 
-        <aside className="h-fit rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5 shadow-[var(--id-shadow)]">
-          <h2 className="text-sm font-semibold text-[var(--id-text)]">FAQ</h2>
-          <ul className="mt-4 space-y-3">
-            {data.faqItems.map((item) => (
-              <li key={item.id}>
-                {item.href ? (
-                  <Link
-                    href={item.href}
-                    className="flex items-center justify-between gap-2 text-sm text-[var(--id-text-secondary)] transition-colors hover:text-[var(--id-accent-text)]"
-                  >
-                    <span>{item.question}</span>
-                    <ChevronRight className="h-4 w-4 shrink-0 opacity-60" />
-                  </Link>
-                ) : (
-                  <span className="text-sm text-[var(--id-text-secondary)]">
-                    {item.question}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </aside>
       </div>}
 
       <section className="mt-8 overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow)]">

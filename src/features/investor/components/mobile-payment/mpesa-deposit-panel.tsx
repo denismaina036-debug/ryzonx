@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Clock3, Loader2, ShieldCheck, Smartphone } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock3, Globe2, Loader2, ShieldCheck, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ type Props = {
 };
 
 export function MpesaDepositPanel({ config, minimumUsd, onCompleted }: Props) {
+  const [selectedMethod, setSelectedMethod] = useState<MobilePaymentConfig["methods"][number] | null>(null);
   const [amount, setAmount] = useState("");
   const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -90,30 +91,53 @@ export function MpesaDepositPanel({ config, minimumUsd, onCompleted }: Props) {
 
   const currentStatus = status?.status ?? intent?.status;
 
+  if (!selectedMethod) {
+    return (
+      <section className="overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow-lg)]">
+        <div className="flex items-start justify-between gap-4 border-b border-[var(--id-border)] px-5 py-5 sm:px-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--id-accent-text)]">Global mobile payments</p>
+            <h2 className="mt-1 text-lg font-semibold text-[var(--id-text)]">Choose your mobile wallet</h2>
+            <p className="mt-1 text-sm text-[var(--id-text-muted)]">Select the provider connected to your mobile number.</p>
+          </div>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--id-accent-soft)] text-[var(--id-accent-text)]"><Globe2 className="h-5 w-5" /></span>
+        </div>
+        <div className="grid gap-3 p-5 sm:grid-cols-2 sm:p-6">
+          {config.methods.map((method) => (
+            <button key={method.id} type="button" onClick={() => setSelectedMethod(method)} className="group flex items-center gap-3 rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] p-4 text-left transition hover:border-[var(--id-accent)] hover:bg-[var(--id-surface-hover)]">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--id-surface)] text-[var(--id-accent-text)] shadow-sm"><Smartphone className="h-5 w-5" /></span>
+              <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-[var(--id-text)]">{method.name}</span><span className="text-xs text-[var(--id-text-muted)]">{method.description}</span></span>
+            </button>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  if (!selectedMethod.active) {
+    return (
+      <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-6 text-center shadow-[var(--id-shadow-lg)] sm:p-10">
+        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-600"><Smartphone className="h-5 w-5" /></span>
+        <h2 className="mt-4 text-lg font-semibold text-[var(--id-text)]">{selectedMethod.name} is unavailable</h2>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--id-text-muted)]">This mobile payment provider is not available for your transaction right now.</p>
+        <button type="button" onClick={() => setSelectedMethod(null)} className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--id-accent-text)] hover:underline"><ArrowLeft className="h-4 w-4" /> Choose a different mobile method</button>
+      </section>
+    );
+  }
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
       <section className="overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow-lg)]">
         <div className="border-b border-[var(--id-border)] px-5 py-5 sm:px-6">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--id-accent-text)]">Mobile Pay</p>
-          <h2 className="mt-1 text-lg font-semibold text-[var(--id-text)]">Choose a mobile payment method</h2>
-        </div>
-
-        <div className="grid gap-3 border-b border-[var(--id-border)] p-5 sm:grid-cols-2 sm:p-6">
-          <button type="button" className="flex items-center gap-3 rounded-xl border border-[var(--id-accent)] bg-[var(--id-accent-soft)] p-4 text-left">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white"><Smartphone className="h-5 w-5" /></span>
-            <span><span className="block text-sm font-semibold text-[var(--id-text)]">M-Pesa</span><span className="text-xs text-[var(--id-text-muted)]">Available · STK Push</span></span>
-          </button>
-          <button type="button" disabled className="flex cursor-not-allowed items-center gap-3 rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] p-4 text-left opacity-60">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500 text-white"><Smartphone className="h-5 w-5" /></span>
-            <span><span className="block text-sm font-semibold text-[var(--id-text)]">Airtel Money</span><span className="text-xs text-[var(--id-text-muted)]">Coming soon</span></span>
-          </button>
+          <button type="button" onClick={() => setSelectedMethod(null)} className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--id-accent-text)] hover:underline"><ArrowLeft className="h-3.5 w-3.5" /> All mobile methods</button>
+          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--id-accent-text)]">Mobile Pay · {selectedMethod.name}</p>
+          <h2 className="mt-1 text-lg font-semibold text-[var(--id-text)]">Pay from your mobile wallet</h2>
         </div>
 
         <div className="space-y-5 p-5 sm:p-6">
           <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
             <div className="flex items-start gap-3">
               <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
-              <div><p className="text-sm font-semibold text-[var(--id-text)]">Pay securely to RYVONX</p><p className="mt-1 text-xs leading-5 text-[var(--id-text-muted)]">We send a payment prompt to your phone. Enter your M-Pesa PIN only inside the official phone prompt—never on Ryvonx.</p></div>
+              <div><p className="text-sm font-semibold text-[var(--id-text)]">Pay securely to RYVONX</p><p className="mt-1 text-xs leading-5 text-[var(--id-text-muted)]">We send a secure authorization prompt to your mobile wallet. Enter your PIN only inside the official phone prompt.</p></div>
             </div>
           </div>
 
@@ -151,16 +175,6 @@ export function MpesaDepositPanel({ config, minimumUsd, onCompleted }: Props) {
           <p className="text-center text-xs text-[var(--id-text-faint)]">The displayed KES quote is locked for this payment request. Your Funding Wallet is credited only after provider verification.</p>
         </div>
       </section>
-
-      <aside className="h-fit rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5 shadow-[var(--id-shadow)]">
-        <h2 className="text-sm font-semibold text-[var(--id-text)]">How M-Pesa works</h2>
-        <ol className="mt-4 space-y-4">
-          {["Enter your amount and M-Pesa number", "Confirm the STK prompt on your phone", "Ryvonx verifies payment and credits your wallet"].map((item, index) => (
-            <li key={item} className="flex gap-3 text-sm text-[var(--id-text-secondary)]"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--id-accent-soft)] text-xs font-semibold text-[var(--id-accent-text)]">{index + 1}</span><span>{item}</span></li>
-          ))}
-        </ol>
-      </aside>
-    </div>
   );
 }
 
@@ -177,4 +191,3 @@ function PaymentProgress({ intent, status }: { intent: MobilePaymentIntentRespon
     </div>
   );
 }
-

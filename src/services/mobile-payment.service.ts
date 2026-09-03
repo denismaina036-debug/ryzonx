@@ -53,7 +53,9 @@ async function paymentConfig(): Promise<MobilePaymentConfig> {
     minimumDepositUsd,
     methods: [
       { id: "mpesa", name: "M-Pesa", active: enabled, description: "Secure STK push to your phone" },
-      { id: "airtel_money", name: "Airtel Money", active: false, description: "Coming soon" },
+      { id: "airtel_money", name: "Airtel Money", active: false, description: "Mobile wallet payment" },
+      { id: "mtn_momo", name: "MTN MoMo", active: false, description: "Mobile money payment" },
+      { id: "orange_money", name: "Orange Money", active: false, description: "Mobile wallet payment" },
     ],
   };
 }
