@@ -1,8 +1,5 @@
 import { PLATFORM_SERVICE_FEE_RATE } from "@/constants/profit-distribution";
-import {
-  isTargetFulfilled,
-  type PlatformInvestmentLevel,
-} from "@/domain/roi";
+import type { PlatformInvestmentLevel } from "@/domain/roi";
 import type {
   AllocationCapitalBasis,
   InvestorProfitAllocation,
@@ -11,6 +8,14 @@ import type {
 
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function isProfitTierFulfilled(
+  capitalBasis: number,
+  roiMultiplier: number,
+  cumulativeRealisedReturn: number
+): boolean {
+  return cumulativeRealisedReturn >= roundMoney(capitalBasis * roiMultiplier);
 }
 
 export interface RoiV2AllocationInput extends AllocationCapitalBasis {
@@ -101,50 +106,73 @@ export function calculateRoiV2Distribution(input: {
         profitShare: 0,
       }));
     } else {
-      // Distribute proportionally; cap each investor at remaining target obligation
+      const remainingTargets = input.allocations.map((alloc) =>
+        alloc.targetFulfilled
+          ? 0
+          : roundMoney(
+              Math.max(
+                0,
+                alloc.capitalBasis * alloc.roiMultiplier - alloc.cumulativeRealisedReturn
+              )
+            )
+      );
+      const totalRemainingTarget = roundMoney(
+        remainingTargets.reduce((sum, target) => sum + target, 0)
+      );
+      const shares = input.allocations.map(() => 0);
       let remainingPool = netDistributableProfit;
-      investorAllocations = [];
 
-      for (const alloc of input.allocations) {
-        const ownershipPct = alloc.capitalBasis / totalCapital;
-        const rawShare = roundMoney(netDistributableProfit * ownershipPct);
+      if (netDistributableProfit >= totalRemainingTarget) {
+        for (let i = 0; i < shares.length; i++) shares[i] = remainingTargets[i] ?? 0;
+        remainingPool = roundMoney(netDistributableProfit - totalRemainingTarget);
+      } else {
+        // When profit cannot satisfy every tier, share all available profit by
+        // client capital. Re-run after a client reaches their cap so no profit
+        // is stranded and no client receives more than their tier.
+        let active = input.allocations
+          .map((_, index) => index)
+          .filter((index) => (remainingTargets[index] ?? 0) > 0);
 
-        if (alloc.targetFulfilled) {
-          investorAllocations.push({
-            allocationId: alloc.allocationId,
-            investorId: alloc.investorId,
-            capitalBasis: alloc.capitalBasis,
-            tierReturnPct: null,
-            returnMultiplier: alloc.roiMultiplier,
-            tierWeight: 0,
-            allocationWeight: alloc.capitalBasis,
-            ownershipPct,
-            profitShare: 0,
-          });
-          continue;
+        while (remainingPool > 0 && active.length > 0) {
+          const activeCapital = active.reduce(
+            (sum, index) => sum + input.allocations[index]!.capitalBasis,
+            0
+          );
+          if (activeCapital <= 0) break;
+
+          let distributedThisPass = 0;
+          for (let position = 0; position < active.length; position++) {
+            const index = active[position]!;
+            const allocation = input.allocations[index]!;
+            const cap = roundMoney((remainingTargets[index] ?? 0) - shares[index]!);
+            const proportionalShare =
+              position === active.length - 1
+                ? roundMoney(remainingPool - distributedThisPass)
+                : roundMoney(remainingPool * (allocation.capitalBasis / activeCapital));
+            const share = roundMoney(Math.min(cap, proportionalShare));
+            shares[index] = roundMoney(shares[index]! + share);
+            distributedThisPass = roundMoney(distributedThisPass + share);
+          }
+
+          if (distributedThisPass <= 0) break;
+          remainingPool = roundMoney(remainingPool - distributedThisPass);
+          active = active.filter(
+            (index) => shares[index]! < (remainingTargets[index] ?? 0)
+          );
         }
-
-        const targetProfit = roundMoney(
-          alloc.capitalBasis * alloc.roiMultiplier - alloc.capitalBasis
-        );
-        const remainingTarget = roundMoney(
-          Math.max(0, targetProfit - alloc.cumulativeRealisedReturn)
-        );
-        const profitShare = roundMoney(Math.min(rawShare, remainingTarget));
-
-        investorAllocations.push({
-          allocationId: alloc.allocationId,
-          investorId: alloc.investorId,
-          capitalBasis: alloc.capitalBasis,
-          tierReturnPct: null,
-          returnMultiplier: alloc.roiMultiplier,
-          tierWeight: 0,
-          allocationWeight: alloc.capitalBasis,
-          ownershipPct,
-          profitShare,
-        });
-        remainingPool = roundMoney(remainingPool - profitShare);
       }
+
+      investorAllocations = input.allocations.map((alloc, index) => ({
+        allocationId: alloc.allocationId,
+        investorId: alloc.investorId,
+        capitalBasis: alloc.capitalBasis,
+        tierReturnPct: null,
+        returnMultiplier: alloc.roiMultiplier,
+        tierWeight: 0,
+        allocationWeight: alloc.capitalBasis,
+        ownershipPct: alloc.capitalBasis / totalCapital,
+        profitShare: shares[index] ?? 0,
+      }));
 
       // Any remainder from capping goes to PM if all now fulfilled, else redistribute
       const allocationUpdates = input.allocations.map((alloc, i) => {
@@ -152,7 +180,7 @@ export function calculateRoiV2Distribution(input: {
         const newCumulative = roundMoney(alloc.cumulativeRealisedReturn + Math.max(0, share));
         const fulfilled =
           alloc.targetFulfilled ||
-          isTargetFulfilled(alloc.capitalBasis, alloc.roiMultiplier, newCumulative);
+          isProfitTierFulfilled(alloc.capitalBasis, alloc.roiMultiplier, newCumulative);
         return {
           allocationId: alloc.allocationId,
           cumulativeRealisedReturn: newCumulative,
@@ -187,7 +215,7 @@ export function calculateRoiV2Distribution(input: {
       cumulativeRealisedReturn: newCumulative,
       targetFulfilled:
         alloc.targetFulfilled ||
-        isTargetFulfilled(alloc.capitalBasis, alloc.roiMultiplier, newCumulative),
+        isProfitTierFulfilled(alloc.capitalBasis, alloc.roiMultiplier, newCumulative),
     };
   });
 

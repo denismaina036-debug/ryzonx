@@ -3,12 +3,9 @@ import { requireAuth } from "@/lib/auth/session";
 import { userOwnsPoolManager } from "@/lib/auth/pool-manager-access";
 import { USER_ROLES } from "@/constants/roles";
 import type { CycleParticipantView } from "@/domain/investment/types";
-import {
-  computeProjectedProfitShares,
-  computeSingleProjectedProfitShare,
-} from "@/lib/financial/projected-cycle-profit";
 import { investmentCycleService } from "@/services/investment-cycle.service";
 import { investmentAllocationService } from "@/services/investment-allocation.service";
+import { profitDistributionService } from "@/services/profit-distribution.service";
 
 export interface CycleLiveMetrics {
   cycleId: string;
@@ -75,12 +72,14 @@ export const cycleLiveMetricsService = {
       throw new Error("Insufficient permissions");
     }
 
-    const [participants, tradesRecorded] = await Promise.all([
+    const [participants, tradesRecorded, projections] = await Promise.all([
       investmentAllocationService.listParticipantsByCycle(cycleId),
       countTradesForCycle(cycleId),
+      profitDistributionService.projectInvestorProfitForCycle(
+        cycleId,
+        cycle.currentCycleProfit
+      ),
     ]);
-
-    const projections = computeProjectedProfitShares(cycle.currentCycleProfit, participants);
 
     return {
       cycleId: cycle.id,
@@ -88,7 +87,9 @@ export const cycleLiveMetricsService = {
       currentCycleProfit: cycle.currentCycleProfit,
       tradesRecorded,
       participants: participants.map((participant) => {
-        const projection = projections.find((row) => row.id === participant.id);
+        const projection = projections.find(
+          (row) => row.allocationId === participant.id
+        );
         return {
           ...participant,
           projectedProfit: projection?.projectedProfit ?? 0,
@@ -150,14 +151,13 @@ export const cycleLiveMetricsService = {
       investorInvestment != null && poolTotal > 0
         ? Math.round((investorInvestment / poolTotal) * 10000) / 100
         : null;
-    const investorProjectedProfit =
-      investorInvestment != null
-        ? computeSingleProjectedProfitShare(
-            cycle.currentCycleProfit,
-            investorInvestment,
-            poolTotal
-          )
-        : null;
+    const projections = await profitDistributionService.projectInvestorProfitForCycle(
+      cycleId,
+      cycle.currentCycleProfit
+    );
+    const investorProjectedProfit = investorAllocation
+      ? projections.find((row) => row.allocationId === investorAllocation.id)?.projectedProfit ?? 0
+      : null;
 
     return {
       currentCycleProfit: cycle.currentCycleProfit,

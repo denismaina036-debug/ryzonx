@@ -281,6 +281,110 @@ async function listSettlementEligibleAllocations(cycleId: string) {
   );
 }
 
+async function calculateCycleDistributionBreakdown(
+  cycle: NonNullable<Awaited<ReturnType<typeof investmentCycleService.getById>>>,
+  settled: Awaited<ReturnType<typeof listSettlementEligibleAllocations>>,
+  grossTradingProfit: number
+) {
+  const snapshots = await cycleOwnershipService.getSnapshot(cycle.id);
+  const useOwnershipSnapshots = snapshots.length > 0;
+  const roiConfig = await readCycleRoiConfig(cycle);
+  const hasRoiMultipliers = roiConfig.multipliers.size > 0;
+  const cycleCapital = useOwnershipSnapshots
+    ? snapshots[0]!.poolCapitalTotal
+    : settled.reduce((sum, allocation) => sum + allocation.amount, 0);
+  const platformFeeRate = await platformSettingsService.getPlatformServiceFeeRate();
+
+  const db = createAdminClient();
+  const { data: allocationRows, error } = await db
+    .from("investment_allocations")
+    .select(
+      "id, investor_id, amount, investment_level_id, roi_multiplier, cumulative_realised_return, target_fulfilled"
+    )
+    .eq("investment_cycle_id", cycle.id)
+    .in("id", settled.map((allocation) => allocation.id));
+  if (error) throw new Error(error.message);
+
+  const roiRowMap = new Map(
+    ((allocationRows ?? []) as Array<{
+      id: string;
+      investor_id: string;
+      amount: number;
+      investment_level_id: string | null;
+      roi_multiplier: number | null;
+      cumulative_realised_return: number | null;
+      target_fulfilled: boolean | null;
+    }>).map((row) => [row.id, row])
+  );
+
+  const allocationInput: RoiV2AllocationInput[] = settled.map((allocation) => {
+    const row = roiRowMap.get(allocation.id);
+    const snapshot = useOwnershipSnapshots
+      ? snapshots.find((item) => !item.isVirtual && item.investorId === allocation.investorId)
+      : null;
+    const capitalBasis = snapshot?.capital ?? allocation.amount;
+    const levelId = row?.investment_level_id ?? null;
+    const multiplier =
+      row?.roi_multiplier != null
+        ? toNumber(row.roi_multiplier)
+        : levelId && hasRoiMultipliers
+          ? roiConfig.multipliers.get(levelId) ?? 2.0
+          : hasRoiMultipliers
+            ? 2.0
+            : 1.0;
+    return {
+      allocationId: allocation.id,
+      investorId: allocation.investorId,
+      capitalBasis,
+      roiMultiplier: multiplier,
+      cumulativeRealisedReturn: toNumber(row?.cumulative_realised_return),
+      targetFulfilled: Boolean(row?.target_fulfilled),
+      investmentLevelId: levelId,
+    };
+  });
+
+  const breakdown = hasRoiMultipliers
+    ? calculateRoiV2Distribution({
+        grossTradingProfit,
+        platformServiceFeeRate: platformFeeRate,
+        allocations: allocationInput,
+      })
+    : calculateOwnershipOnlyDistribution({
+        grossTradingProfit,
+        platformServiceFeeRate: platformFeeRate,
+        allocations: allocationInput.map((allocation) => {
+          const snapshot = useOwnershipSnapshots
+            ? snapshots.find(
+                (item) => !item.isVirtual && item.investorId === allocation.investorId
+              )
+            : null;
+          const totalCapital =
+            cycleCapital > 0
+              ? cycleCapital
+              : allocationInput.reduce((sum, item) => sum + item.capitalBasis, 0);
+          return {
+            allocationId: allocation.allocationId,
+            investorId: allocation.investorId,
+            capitalBasis: allocation.capitalBasis,
+            ownershipPct: snapshot
+              ? snapshot.ownershipPct / 100
+              : totalCapital > 0
+                ? allocation.capitalBasis / totalCapital
+                : 0,
+          };
+        }),
+      });
+
+  return {
+    allocationInput,
+    breakdown,
+    cycleCapital,
+    platformFeeRate,
+    snapshots,
+    useOwnershipSnapshots,
+  };
+}
+
 export const profitDistributionService = {
   async hasInvestorAllocationsForSettlement(cycleId: string): Promise<boolean> {
     const settled = await listSettlementEligibleAllocations(cycleId);
@@ -292,6 +396,23 @@ export const profitDistributionService = {
     options?: { grossTradingProfitOverride?: number }
   ): Promise<number> {
     return resolveCycleGrossTradingProfit(cycleId, options);
+  },
+  /** Read-only preview produced by the exact calculator used for final distribution. */
+  async projectInvestorProfitForCycle(cycleId: string, grossTradingProfit: number) {
+    const cycle = await investmentCycleService.getById(cycleId);
+    if (!cycle) throw new Error("Cycle not found.");
+    const settled = await listSettlementEligibleAllocations(cycleId);
+    if (settled.length === 0) return [];
+    const { breakdown } = await calculateCycleDistributionBreakdown(
+      cycle,
+      settled,
+      grossTradingProfit
+    );
+    return breakdown.investorAllocations.map((allocation) => ({
+      allocationId: allocation.allocationId,
+      investorId: allocation.investorId,
+      projectedProfit: allocation.profitShare,
+    }));
   },
   async getByCycleId(cycleId: string): Promise<ProfitSettlement | null> {
     const db = createAdminClient();
@@ -353,65 +474,14 @@ export const profitDistributionService = {
 
     const grossTradingProfit = await resolveCycleGrossTradingProfit(cycleId, options);
 
-    const snapshots = await cycleOwnershipService.getSnapshot(cycleId);
-    const useOwnershipSnapshots = snapshots.length > 0;
-
-    const roiConfig = await readCycleRoiConfig(cycle);
-    const hasRoiMultipliers = roiConfig.multipliers.size > 0;
-    const cycleCapital = useOwnershipSnapshots
-      ? snapshots[0]!.poolCapitalTotal
-      : settled.reduce((s, a) => s + a.amount, 0);
-    const platformFeeRate = await platformSettingsService.getPlatformServiceFeeRate();
-
-    const db = createAdminClient();
-    const { data: allocationRows } = await db
-      .from("investment_allocations")
-      .select(
-        "id, investor_id, amount, investment_level_id, roi_multiplier, cumulative_realised_return, target_fulfilled"
-      )
-      .eq("investment_cycle_id", cycleId)
-      .in(
-        "id",
-        settled.map((a) => a.id)
-      );
-
-    const roiRowMap = new Map(
-      ((allocationRows ?? []) as Array<{
-        id: string;
-        investor_id: string;
-        amount: number;
-        investment_level_id: string | null;
-        roi_multiplier: number | null;
-        cumulative_realised_return: number | null;
-        target_fulfilled: boolean | null;
-      }>).map((row) => [row.id, row])
-    );
-
-    const allocationInput: RoiV2AllocationInput[] = settled.map((a) => {
-      const row = roiRowMap.get(a.id);
-      const snapshot = useOwnershipSnapshots
-        ? snapshots.find((s) => !s.isVirtual && s.investorId === a.investorId)
-        : null;
-      const capitalBasis = snapshot?.capital ?? a.amount;
-      const levelId = row?.investment_level_id ?? null;
-      const multiplier =
-        row?.roi_multiplier != null
-          ? toNumber(row.roi_multiplier)
-          : levelId && hasRoiMultipliers
-            ? roiConfig.multipliers.get(levelId) ?? 2.0
-            : hasRoiMultipliers
-              ? 2.0
-              : 1.0;
-      return {
-        allocationId: a.id,
-        investorId: a.investorId,
-        capitalBasis,
-        roiMultiplier: multiplier,
-        cumulativeRealisedReturn: toNumber(row?.cumulative_realised_return),
-        targetFulfilled: Boolean(row?.target_fulfilled),
-        investmentLevelId: levelId,
-      };
-    });
+    const {
+      allocationInput,
+      breakdown,
+      cycleCapital,
+      platformFeeRate,
+      snapshots,
+      useOwnershipSnapshots,
+    } = await calculateCycleDistributionBreakdown(cycle, settled, grossTradingProfit);
 
     if (grossTradingProfit < 0) {
       const lossBearingCapital = roundMoney(
@@ -424,36 +494,7 @@ export const profitDistributionService = {
       });
     }
 
-    const breakdown = hasRoiMultipliers
-      ? calculateRoiV2Distribution({
-          grossTradingProfit,
-          platformServiceFeeRate: platformFeeRate,
-          allocations: allocationInput,
-        })
-      : calculateOwnershipOnlyDistribution({
-          grossTradingProfit,
-          platformServiceFeeRate: platformFeeRate,
-          allocations: allocationInput.map((a) => {
-            const snapshot = useOwnershipSnapshots
-              ? snapshots.find((s) => !s.isVirtual && s.investorId === a.investorId)
-              : null;
-            const totalCapital =
-              cycleCapital > 0
-                ? cycleCapital
-                : allocationInput.reduce((s, x) => s + x.capitalBasis, 0);
-            const ownershipPct = snapshot
-              ? snapshot.ownershipPct / 100
-              : totalCapital > 0
-                ? a.capitalBasis / totalCapital
-                : 0;
-            return {
-              allocationId: a.allocationId,
-              investorId: a.investorId,
-              capitalBasis: a.capitalBasis,
-              ownershipPct,
-            };
-          }),
-        });
+    const db = createAdminClient();
 
     if (useOwnershipSnapshots && grossTradingProfit > 0) {
       const netAfterFee = roundMoney(grossTradingProfit * (1 - platformFeeRate));
@@ -533,16 +574,6 @@ export const profitDistributionService = {
         status: "pending",
       } as never);
       if (error) throw new Error(error.message);
-    }
-
-    for (const update of breakdown.allocationUpdates) {
-      await db
-        .from("investment_allocations")
-        .update({
-          cumulative_realised_return: update.cumulativeRealisedReturn,
-          target_fulfilled: update.targetFulfilled,
-        } as never)
-        .eq("id", update.allocationId);
     }
 
     await auditService.log({
@@ -1032,6 +1063,44 @@ export const profitDistributionService = {
           allocationId: alloc.id,
           amount: alloc.profitShare,
         });
+
+        const { data: allocationState, error: allocationStateError } = await db
+          .from("investment_allocations")
+          .select("amount, roi_multiplier, cumulative_realised_return, target_fulfilled")
+          .eq("id", alloc.investmentAllocationId)
+          .single();
+        if (allocationStateError || !allocationState) {
+          throw new Error(
+            allocationStateError?.message ?? "Failed to update investor tier progress."
+          );
+        }
+        const state = allocationState as {
+          amount: number | string;
+          roi_multiplier: number | string | null;
+          cumulative_realised_return: number | string;
+          target_fulfilled: boolean;
+        };
+        const { data: priorTransfers, error: priorTransfersError } = await db
+          .from("profit_settlement_allocations")
+          .select("profit_share")
+          .eq("investment_allocation_id", alloc.investmentAllocationId)
+          .eq("status", "transferred");
+        if (priorTransfersError) throw new Error(priorTransfersError.message);
+        const cumulativeRealisedReturn = roundMoney(
+          ((priorTransfers ?? []) as Array<{ profit_share: number | string }>).reduce(
+            (sum, transfer) => sum + toNumber(transfer.profit_share),
+            alloc.profitShare
+          )
+        );
+        const targetProfit = roundMoney(toNumber(state.amount) * toNumber(state.roi_multiplier));
+        await db
+          .from("investment_allocations")
+          .update({
+            cumulative_realised_return: cumulativeRealisedReturn,
+            target_fulfilled:
+              state.target_fulfilled || cumulativeRealisedReturn >= targetProfit,
+          } as never)
+          .eq("id", alloc.investmentAllocationId);
 
         await db
           .from("profit_settlement_allocations")

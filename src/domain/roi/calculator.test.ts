@@ -182,9 +182,37 @@ describe("ROI v2 distribution", () => {
       ],
     });
 
-    expect(result.investorAllocations[0]?.profitShare).toBe(1000);
+    expect(result.investorAllocations[0]?.profitShare).toBe(2000);
     expect(result.allocationUpdates[0]?.targetFulfilled).toBe(true);
-    expect(result.poolManagerSurplus).toBe(47750);
+    expect(result.poolManagerSurplus).toBe(46750);
+  });
+
+  it("pays every full tier when net profit covers all client targets", () => {
+    const result = calculateRoiV2Distribution({
+      grossTradingProfit: 1000,
+      platformServiceFeeRate: 0.025,
+      allocations: [
+        { allocationId: "a1", investorId: "i1", capitalBasis: 300, roiMultiplier: 1.26, cumulativeRealisedReturn: 0, targetFulfilled: false, investmentLevelId: "starter" },
+        { allocationId: "a2", investorId: "i2", capitalBasis: 100, roiMultiplier: 2, cumulativeRealisedReturn: 0, targetFulfilled: false, investmentLevelId: "starter" },
+      ],
+    });
+
+    expect(result.investorAllocations.map((allocation) => allocation.profitShare)).toEqual([378, 200]);
+    expect(result.poolManagerSurplus).toBe(397);
+  });
+
+  it("uses capital share when net profit cannot cover all tiers", () => {
+    const result = calculateRoiV2Distribution({
+      grossTradingProfit: 400,
+      platformServiceFeeRate: 0.025,
+      allocations: [
+        { allocationId: "a1", investorId: "i1", capitalBasis: 300, roiMultiplier: 1.26, cumulativeRealisedReturn: 0, targetFulfilled: false, investmentLevelId: "starter" },
+        { allocationId: "a2", investorId: "i2", capitalBasis: 100, roiMultiplier: 2, cumulativeRealisedReturn: 0, targetFulfilled: false, investmentLevelId: "starter" },
+      ],
+    });
+
+    expect(result.investorAllocations.map((allocation) => allocation.profitShare)).toEqual([292.5, 97.5]);
+    expect(result.poolManagerSurplus).toBe(0);
   });
 
   it("preserves money — no creation from rounding", () => {

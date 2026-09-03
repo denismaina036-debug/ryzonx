@@ -99,7 +99,7 @@ describe("investment engine", () => {
         },
       ],
     });
-    expect(result.investorAllocations[0]!.profitShare).toBe(1000);
+    expect(result.investorAllocations[0]!.profitShare).toBe(2000);
     expect(result.poolManagerEarnings).toBeGreaterThan(0);
   });
 });
