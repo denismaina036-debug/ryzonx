@@ -13,7 +13,7 @@ import {
   cryptoFlowInputClass,
   cryptoFlowPrimaryButtonClass,
 } from "@/features/investor/components/crypto-flow/crypto-flow-step";
-import { RyvonxEmptyState, RyvonxPageHeader } from "@/features/investor/constants/ui";
+import { RyvonxEmptyState } from "@/features/investor/constants/ui";
 import { WalletQrCode } from "@/features/investor/components/crypto-flow/wallet-qr-code";
 import { cn, formatCurrency } from "@/lib/utils";
 import { formatCryptoAmount } from "@/lib/crypto/usd-conversion";
@@ -34,7 +34,6 @@ const POPULAR_SYMBOLS = ["USDT", "USDC", "BNB", "BTC", "SOL"];
 
 export function CryptoDepositView({ data }: CryptoDepositViewProps) {
   const router = useRouter();
-  const mobilePayEnabled = data.mobilePayment.enabled;
   const [fundingMethod, setFundingMethod] = useState<"crypto" | "mobile" | "card" | null>(null);
   const [search, setSearch] = useState("");
   const [selectedAsset, setSelectedAsset] = useState<CryptoDepositAsset | null>(null);
@@ -161,46 +160,26 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
 
   return (
     <div className="mx-auto max-w-[1200px]">
-      <RyvonxPageHeader
-        title="Deposit Funds"
-        description={`${data.fundName} · Crypto minimum ${formatCurrency(data.cryptoMinimumDepositUsd)} · ${mobilePayEnabled ? "Choose how you want to fund your Ryvonx wallet." : "Deposit crypto directly to your Ryvonx wallet."}`}
-      />
-
-      <div className="mb-6 rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] px-5 py-4 shadow-[var(--id-shadow)]">
-        <p className="text-xs font-medium uppercase tracking-wide text-[var(--id-text-muted)]">
-          Funding Wallet balance
-        </p>
-        <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-[var(--id-text)]">
-          {formatCurrency(data.fundingWalletBalance)}
-        </p>
-        <p className="mt-1 text-xs text-[var(--id-text-secondary)]">
-          Approved deposits credit this balance. Pending deposits appear below once submitted.
-        </p>
-      </div>
-
       {!fundingMethod ? (
-        <section className="mb-8">
-          <div className="flex items-end justify-between gap-4">
-            <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--id-accent-text)]">Fund your wallet</p><h2 className="mt-1 text-xl font-semibold text-[var(--id-text)]">Choose a payment method</h2></div>
-            <p className="hidden text-sm text-[var(--id-text-muted)] sm:block">Secure deposits. One global balance.</p>
-          </div>
+        <section className="mb-8 pt-1">
+          <h1 className="text-xl font-semibold text-[var(--id-text)] sm:text-2xl">Choose payment method</h1>
           <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <button type="button" onClick={() => setFundingMethod("crypto")} className="group rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5 text-left shadow-[var(--id-shadow)] transition hover:border-[var(--id-accent)]">
               <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--id-accent-soft)] text-[var(--id-accent-text)]"><Bitcoin className="h-5 w-5" /></span>
               <span className="mt-4 block text-base font-semibold text-[var(--id-text)]">Deposit Crypto</span>
-              <span className="mt-1 block text-sm leading-6 text-[var(--id-text-muted)]">Send supported crypto directly to the provided Ryvonx wallet address.</span>
+              <span className="mt-1 block text-sm leading-5 text-[var(--id-text-muted)]">Send USDT, BTC, ETH or SOL directly to a wallet.</span>
               <span className="mt-4 flex items-center text-sm font-semibold text-[var(--id-accent-text)]">Continue with crypto <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5" /></span>
             </button>
             <button type="button" onClick={() => setFundingMethod("mobile")} className="group rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5 text-left shadow-[var(--id-shadow)] transition hover:border-emerald-500">
               <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600"><Smartphone className="h-5 w-5" /></span>
               <span className="mt-4 block text-base font-semibold text-[var(--id-text)]">Mobile Pay</span>
-              <span className="mt-1 block text-sm leading-6 text-[var(--id-text-muted)]">Choose from regional mobile wallets available around the world.</span>
+              <span className="mt-1 block text-sm leading-5 text-[var(--id-text-muted)]">Pay with your preferred mobile wallet.</span>
               <span className="mt-4 flex items-center text-sm font-semibold text-emerald-600">Continue with mobile pay <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5" /></span>
             </button>
             <button type="button" onClick={() => setFundingMethod("card")} className="group rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5 text-left shadow-[var(--id-shadow)] transition hover:border-violet-500">
               <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600"><CreditCard className="h-5 w-5" /></span>
               <span className="mt-4 block text-base font-semibold text-[var(--id-text)]">Credit or Debit Card</span>
-              <span className="mt-1 block text-sm leading-6 text-[var(--id-text-muted)]">Use a Visa, Mastercard, or supported international card.</span>
+              <span className="mt-1 block text-sm leading-5 text-[var(--id-text-muted)]">Pay securely with Visa or Mastercard.</span>
               <span className="mt-4 flex items-center text-sm font-semibold text-violet-600">Continue with card <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5" /></span>
             </button>
           </div>
