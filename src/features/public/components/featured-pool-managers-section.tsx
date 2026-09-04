@@ -2,11 +2,16 @@ import { SectionContainer, SectionHeader } from "@/components/layouts/section";
 import { landingPageService } from "@/services/landing-page.service";
 import { landingFeaturedManagersService } from "@/services/landing-featured-managers.service";
 import { FeaturedPoolManagerCarousel } from "@/features/public/components/featured-pool-manager-carousel";
+import { withTimeout } from "@/lib/async/with-timeout";
 
 export async function FeaturedPoolManagersSection() {
   const [content, managers] = await Promise.all([
     landingPageService.getPublicContent(),
-    landingFeaturedManagersService.getTopManagers(5).catch((error: unknown) => {
+    withTimeout(
+      landingFeaturedManagersService.getTopManagers(5),
+      1_500,
+      "Featured managers timed out"
+    ).catch((error: unknown) => {
       console.warn(
         "[landing] featured managers unavailable — hiding optional section.",
         error instanceof Error ? error.message : "Unknown error"

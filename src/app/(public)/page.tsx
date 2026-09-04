@@ -16,6 +16,7 @@ import { ContactSection } from "@/features/public/components/contact-section";
 import { LandingCtaBanner } from "@/features/public/components/landing-cta-banner";
 import { landingPageService } from "@/services/landing-page.service";
 import { TraderCapitalAccessSection } from "@/features/public/components/trader-capital-access-section";
+import { Suspense } from "react";
 
 export async function generateMetadata(): Promise<Metadata> {
   const content = await landingPageService.getPublicContent();
@@ -46,7 +47,9 @@ export default async function HomePage() {
     <div className="ryvonx-public-home flex w-full min-w-0 flex-col overflow-x-hidden">
       {sections.hero ? (
         <div className="order-1 w-full min-w-0">
-          <HeroSection />
+          <Suspense fallback={<div className="min-h-[36rem] bg-[#020812]" aria-hidden="true" />}>
+            <HeroSection />
+          </Suspense>
         </div>
       ) : null}
       <div className="order-2 w-full min-w-0">
@@ -67,20 +70,28 @@ export default async function HomePage() {
       </div>
       {sections.featuredPoolManagers ? (
         <div className="order-3 w-full min-w-0">
-          <FeaturedPoolManagersSection />
+          <Suspense fallback={null}>
+            <FeaturedPoolManagersSection />
+          </Suspense>
         </div>
       ) : null}
       <div className="order-4 w-full min-w-0">
-        <TraderCapitalAccessSection />
+        <Suspense fallback={null}>
+          <TraderCapitalAccessSection />
+        </Suspense>
       </div>
       {sections.brokerCompatibility ? (
         <div className="order-5 w-full min-w-0">
-          <BrokerCompatibilitySection />
+          <Suspense fallback={null}>
+            <BrokerCompatibilitySection />
+          </Suspense>
         </div>
       ) : null}
       {sections.statistics ? (
         <div className="order-10 w-full min-w-0">
-          <InvestorStatsSection />
+          <Suspense fallback={null}>
+            <InvestorStatsSection />
+          </Suspense>
         </div>
       ) : null}
       {sections.performance ? (
@@ -90,32 +101,44 @@ export default async function HomePage() {
       ) : null}
       {sections.recentActivity ? (
         <div className="order-8 w-full min-w-0">
-          <ActivitySections />
+          <Suspense fallback={null}>
+            <ActivitySections />
+          </Suspense>
         </div>
       ) : null}
       {sections.howItWorks ? (
         <div className="order-9 w-full min-w-0">
-          <HowItWorksSection />
+          <Suspense fallback={null}>
+            <HowItWorksSection />
+          </Suspense>
         </div>
       ) : null}
       {sections.whyRyvonx ? (
         <div className="order-11 w-full min-w-0">
-          <WhyRyvonxSection />
+          <Suspense fallback={null}>
+            <WhyRyvonxSection />
+          </Suspense>
         </div>
       ) : null}
       {sections.testimonials ? (
         <div className="order-12 w-full min-w-0">
-          <TestimonialsSection />
+          <Suspense fallback={null}>
+            <TestimonialsSection />
+          </Suspense>
         </div>
       ) : null}
       {sections.faq ? (
         <div className="order-13 w-full min-w-0">
-          <FaqPreviewSection />
+          <Suspense fallback={null}>
+            <FaqPreviewSection />
+          </Suspense>
         </div>
       ) : null}
       {sections.ctaBanner ? (
         <div className="order-14 w-full min-w-0">
-          <LandingCtaBanner />
+          <Suspense fallback={null}>
+            <LandingCtaBanner />
+          </Suspense>
         </div>
       ) : null}
       {sections.contact ? (

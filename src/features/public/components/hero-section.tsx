@@ -15,6 +15,7 @@ import { InvestmentActivityTicker } from "@/features/public/components/investmen
 import { landingPageActivityService } from "@/services/landing-page-activity.service";
 import { landingPageService } from "@/services/landing-page.service";
 import { landingPageStatsService } from "@/services/landing-page-stats.service";
+import { withTimeout } from "@/lib/async/with-timeout";
 
 function formatInvestorCount(value: number | null): string {
   if (!value) return "0";
@@ -32,8 +33,16 @@ function TelegramIcon({ className }: { className?: string }) {
 export async function HeroSection() {
   const [content, investorCount, tickerItems] = await Promise.all([
     landingPageService.getPublicContent(),
-    landingPageStatsService.resolveAutomaticNumericValue("total_investors"),
-    landingPageActivityService.listTicker(5),
+    withTimeout(
+      landingPageStatsService.resolveAutomaticNumericValue("total_investors"),
+      1_500,
+      "Homepage investor count timed out"
+    ).catch(() => null),
+    withTimeout(
+      landingPageActivityService.listTicker(5),
+      1_500,
+      "Homepage activity ticker timed out"
+    ).catch(() => []),
   ]);
   const telegramUrl = content.social.telegram?.trim();
   return (

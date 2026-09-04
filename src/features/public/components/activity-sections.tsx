@@ -6,12 +6,21 @@ import { ROUTES } from "@/constants/routes";
 import { landingPageService } from "@/services/landing-page.service";
 import { landingPageActivityService } from "@/services/landing-page-activity.service";
 import { InvestmentActivityFeed } from "@/features/public/components/investment-activity-feed";
+import { withTimeout } from "@/lib/async/with-timeout";
 
 export async function ActivitySections() {
   const content = await landingPageService.getPublicContent();
   const [investments, payouts] = await Promise.all([
-    landingPageActivityService.listInvestments(6),
-    landingPageActivityService.listPayouts(6),
+    withTimeout(
+      landingPageActivityService.listInvestments(6),
+      1_500,
+      "Recent investment activity timed out"
+    ).catch(() => []),
+    withTimeout(
+      landingPageActivityService.listPayouts(6),
+      1_500,
+      "Recent payout activity timed out"
+    ).catch(() => []),
   ]);
 
   return (

@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/auth/authorization";
 import { platformSettingsService } from "@/services/platform-settings.service";
 import { landingPageStatsService } from "@/services/landing-page-stats.service";
 import { DEFAULT_LANDING_PAGE_CONTENT } from "@/domain/landing-page/defaults";
+import { withTimeout } from "@/lib/async/with-timeout";
 import { mergeLandingPageContent, parseLandingPageContent } from "@/domain/landing-page/merge";
 import type {
   LandingHeroFloatingStat,
@@ -20,12 +21,16 @@ async function resolveStats(stats: LandingStatItem[]): Promise<ResolvedLandingSt
   return Promise.all(
     stats.map(async (stat) => ({
       ...stat,
-      resolvedValue: await landingPageStatsService.resolveStatValue({
-        mode: stat.mode,
-        manualValue: stat.manualValue,
-        automaticKey: stat.automaticKey,
-        valueFormat: stat.valueFormat,
-      }),
+      resolvedValue: await withTimeout(
+        landingPageStatsService.resolveStatValue({
+          mode: stat.mode,
+          manualValue: stat.manualValue,
+          automaticKey: stat.automaticKey,
+          valueFormat: stat.valueFormat,
+        }),
+        1_500,
+        `Landing statistic ${stat.id} timed out`
+      ).catch(() => stat.manualValue?.trim() || "—"),
     }))
   );
 }
@@ -34,12 +39,16 @@ async function resolveHeroStats(stats: LandingHeroFloatingStat[]): Promise<Resol
   return Promise.all(
     stats.map(async (stat) => ({
       ...stat,
-      resolvedValue: await landingPageStatsService.resolveStatValue({
-        mode: stat.mode,
-        manualValue: stat.manualValue,
-        automaticKey: stat.automaticKey,
-        valueFormat: stat.valueFormat,
-      }),
+      resolvedValue: await withTimeout(
+        landingPageStatsService.resolveStatValue({
+          mode: stat.mode,
+          manualValue: stat.manualValue,
+          automaticKey: stat.automaticKey,
+          valueFormat: stat.valueFormat,
+        }),
+        1_500,
+        `Landing hero statistic ${stat.id} timed out`
+      ).catch(() => stat.manualValue?.trim() || "—"),
       changeType: stat.changeType,
     }))
   );
@@ -48,7 +57,11 @@ async function resolveHeroStats(stats: LandingHeroFloatingStat[]): Promise<Resol
 const loadRawPublicContent = unstable_cache(
   async (): Promise<LandingPageContent> => {
     try {
-      const raw = await platformSettingsService.get("landing_content");
+      const raw = await withTimeout(
+        platformSettingsService.get("landing_content"),
+        1_500,
+        "Landing content read timed out"
+      );
       return parseLandingPageContent(raw);
     } catch (error) {
       console.warn(

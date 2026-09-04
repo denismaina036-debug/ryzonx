@@ -9,6 +9,7 @@ import {
 } from "@/domain/investor/pm-journey-variant";
 import type { ChallengeDisplayStatus } from "@/domain/challenge/types";
 import type { UserProfile } from "@/types";
+import { withTimeout } from "@/lib/async/with-timeout";
 
 export interface InvestorShellProps {
   user: UserProfile | null;
@@ -20,7 +21,11 @@ export interface InvestorShellProps {
 
 export async function getInvestorShellProps(): Promise<InvestorShellProps> {
   try {
-    return await loadInvestorShellProps();
+    return await withTimeout(
+      loadInvestorShellProps(),
+      1_500,
+      "Public investor shell timed out"
+    );
   } catch {
     return {
       user: null,

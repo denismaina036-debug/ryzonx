@@ -1,6 +1,7 @@
 import type { LegalDocumentLink } from "@/domain/legal-documents/types";
 import { LEGAL_DOCUMENT_TYPES } from "@/domain/legal-documents/types";
 import { unstable_cache } from "next/cache";
+import { withTimeout } from "@/lib/async/with-timeout";
 
 export const FALLBACK_LEGAL_LINKS: LegalDocumentLink[] = [
   {
@@ -18,7 +19,11 @@ export const FALLBACK_LEGAL_LINKS: LegalDocumentLink[] = [
 const loadLegalLinks = unstable_cache(async (): Promise<LegalDocumentLink[]> => {
   try {
     const { legalDocumentService } = await import("@/services/legal-document.service");
-    const links = await legalDocumentService.getPublicLinks();
+    const links = await withTimeout(
+      legalDocumentService.getPublicLinks(),
+      1_500,
+      "Public legal links timed out"
+    );
     return links.length > 0 ? links : FALLBACK_LEGAL_LINKS;
   } catch {
     return FALLBACK_LEGAL_LINKS;
