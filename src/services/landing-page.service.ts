@@ -112,7 +112,7 @@ export const landingPageService = {
       { onConflict: "key" }
     );
     if (error) throw new Error(error.message);
-    revalidateTag("landing-content");
+    revalidateTag("landing-content", "max");
 
     const { auditService } = await import("@/services/audit.service");
     await auditService.log({

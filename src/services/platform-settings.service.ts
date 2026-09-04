@@ -156,7 +156,7 @@ export const platformSettingsService = {
         { onConflict: "key" }
       );
       if (error) throw new Error(error.message);
-      if (key === "landing_content") revalidateTag("landing-content");
+      if (key === "landing_content") revalidateTag("landing-content", "max");
 
       await auditService.log({
         actorId,

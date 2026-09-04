@@ -462,7 +462,7 @@ export const legalDocumentService = {
     revalidatePath("/terms");
     revalidatePath("/privacy");
     revalidatePath(`/${row.slug}`);
-    revalidateTag("legal-links");
+    revalidateTag("legal-links", "max");
 
     const updated = data as LegalDocumentRow;
     return {
@@ -488,7 +488,7 @@ export const legalDocumentService = {
       } as never)
       .eq("document_type", documentType);
     if (error) throw new Error(error.message);
-    revalidateTag("legal-links");
+    revalidateTag("legal-links", "max");
 
     const { auditService } = await import("@/services/audit.service");
     await auditService.log({
