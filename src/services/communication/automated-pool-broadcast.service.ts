@@ -9,6 +9,7 @@ import type { AutomationRuleAction, PlatformEvent } from "@/domain/platform-even
 import { communicationService } from "@/services/communication/communication.service";
 import { buildUserCommunicationVariables } from "@/services/communication/user-variables";
 import { emailQueueService } from "@/services/communication/email/email-queue.service";
+import { resolveCommunicatedInvestorCount } from "@/lib/communication/participating-investor-count";
 
 type PoolRow = {
   id: string;
@@ -19,6 +20,7 @@ type PoolRow = {
   min_investment: number | string | null;
   target_capital: number | string | null;
   pool_duration_days: number | null;
+  display_active_investors: number | string | null;
 };
 
 type CycleRow = {
@@ -69,7 +71,7 @@ async function readPool(fundId: string): Promise<PoolRow> {
   const db = createAdminClient();
   const { data, error } = await db
     .from("funds")
-    .select("id, name, slug, pool_manager_id, pool_manager_name, min_investment, target_capital, pool_duration_days")
+    .select("id, name, slug, pool_manager_id, pool_manager_name, min_investment, target_capital, pool_duration_days, display_active_investors")
     .eq("id", fundId)
     .single();
   if (error || !data) throw new Error(error?.message ?? "Pool not found for automated communication.");
@@ -178,7 +180,10 @@ async function buildVariables(event: PlatformEvent): Promise<Record<string, stri
     payout_duration: durationLabel(cycle.duration_days ?? pool.pool_duration_days),
     funding_deadline: dateLabel(cycle.funding_deadline),
     raised_capital: money(cycle.raised_capital),
-    investor_count: cycle.investor_count ?? 0,
+    investor_count: resolveCommunicatedInvestorCount(
+      pool.display_active_investors,
+      cycle.investor_count
+    ),
     trading_start_date: dateLabel(cycle.trading_started_at, dateLabel(event.createdAt)),
     cycle_profit_total: money(cycle.current_cycle_profit),
   };
