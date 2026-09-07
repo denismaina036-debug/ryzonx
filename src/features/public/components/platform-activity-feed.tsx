@@ -2,8 +2,6 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   CircleDollarSign,
-  UserPlus,
-  Wallet,
 } from "lucide-react";
 import { cn, formatCurrency, formatRelativeTime } from "@/lib/utils";
 import type { PlatformFeedItem } from "@/services/public-activity.service";
@@ -15,11 +13,8 @@ interface PlatformActivityFeedProps {
 }
 
 const iconConfig = {
-  pool_join: { icon: UserPlus, className: "bg-royal-50 text-royal-600" },
   deposit: { icon: ArrowDownToLine, className: "bg-emerald-50 text-emerald-600" },
   withdrawal: { icon: ArrowUpFromLine, className: "bg-gold-50 text-gold-600" },
-  investment_confirmed: { icon: Wallet, className: "bg-royal-50 text-royal-600" },
-  pool_settlement: { icon: CircleDollarSign, className: "bg-emerald-50 text-emerald-600" },
   profit_distribution: { icon: CircleDollarSign, className: "bg-gold-50 text-gold-600" },
 } as const;
 

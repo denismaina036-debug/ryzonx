@@ -16,7 +16,7 @@ export const metadata: Metadata = buildPageMetadata({
   description:
     "Live RyvonX money activity — deposits, withdrawals, and distributed profits.",
   path: ROUTES.activity,
-  keywords: ["platform activity", "investment activity", "RyvonX live feed"],
+  keywords: ["platform activity", "money activity", "RyvonX live feed"],
 });
 
 export default async function ActivityPage() {

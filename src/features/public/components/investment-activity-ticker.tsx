@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, CircleDollarSign, UserPlus, Wallet } from "lucide-react";
+import { ArrowDownToLine, ArrowRight, ArrowUpFromLine, CircleDollarSign } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { motion as motionTokens } from "@/constants/design-tokens";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -12,11 +12,8 @@ import type { LandingInvestmentActivity } from "@/domain/landing-page/types";
 const POP_INTERVAL_MS = 30_000;
 
 const typeConfig = {
-  pool_join: { icon: UserPlus, iconClass: "bg-blue-400/10 text-blue-300", amountClass: "text-blue-300" },
-  deposit: { icon: Wallet, iconClass: "bg-emerald-400/10 text-emerald-300", amountClass: "text-emerald-300" },
-  withdrawal: { icon: CircleDollarSign, iconClass: "bg-amber-400/10 text-amber-300", amountClass: "text-amber-300" },
-  investment_confirmed: { icon: Wallet, iconClass: "bg-blue-400/10 text-blue-300", amountClass: "text-blue-300" },
-  pool_settlement: { icon: CircleDollarSign, iconClass: "bg-emerald-400/10 text-emerald-300", amountClass: "text-emerald-300" },
+  deposit: { icon: ArrowDownToLine, iconClass: "bg-emerald-400/10 text-emerald-300", amountClass: "text-emerald-300" },
+  withdrawal: { icon: ArrowUpFromLine, iconClass: "bg-amber-400/10 text-amber-300", amountClass: "text-amber-300" },
   profit_distribution: { icon: CircleDollarSign, iconClass: "bg-amber-400/10 text-amber-300", amountClass: "text-amber-300" },
 } as const;
 
@@ -90,7 +87,7 @@ export function InvestmentActivityTicker({
   return (
     <aside
       className={cn("mx-auto w-full max-w-[38rem]", className)}
-      aria-label="Live investment activity"
+      aria-label="Live money activity"
       aria-live="polite"
     >
       <div className="flex min-h-[3.75rem] items-start gap-3 rounded-2xl border border-blue-300/[.18] bg-[linear-gradient(100deg,rgba(9,25,49,.92),rgba(5,15,31,.82))] px-3.5 py-3 shadow-[0_18px_45px_rgba(0,0,0,.26),inset_0_1px_0_rgba(255,255,255,.035)] backdrop-blur-xl sm:items-center sm:gap-4 sm:px-4.5">

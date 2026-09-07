@@ -21,20 +21,14 @@ function anonymizeName(fullName: string | null | undefined): string {
 
 function activitySubtitle(type: LandingInvestmentActivityType, poolName: string | null): string {
   switch (type) {
-    case "pool_join":
-      return poolName ? `Joined ${poolName}` : "Joined Pool";
     case "deposit":
       return "Deposit Completed";
     case "withdrawal":
       return "Withdrawal Completed";
-    case "investment_confirmed":
-      return poolName ? `Investment Confirmed · ${poolName}` : "Investment Confirmed";
-    case "pool_settlement":
-      return poolName ? `Pool Settlement · ${poolName}` : "Pool Settlement Completed";
     case "profit_distribution":
       return poolName ? `Profit Distribution · ${poolName}` : "Profit Distribution Completed";
     default:
-      return "Investment Activity";
+      return "Platform Activity";
   }
 }
 
@@ -126,6 +120,11 @@ export const landingPageActivityService = {
     }
 
     return items
+      .filter((item) =>
+        item.activityType === "deposit" ||
+        item.activityType === "withdrawal" ||
+        item.activityType === "profit_distribution"
+      )
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, limit);
   },

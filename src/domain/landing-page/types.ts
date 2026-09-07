@@ -239,11 +239,8 @@ export interface PublicLandingPageContent extends Omit<LandingPageContent, "hero
 }
 
 export type LandingInvestmentActivityType =
-  | "pool_join"
   | "deposit"
   | "withdrawal"
-  | "investment_confirmed"
-  | "pool_settlement"
   | "profit_distribution";
 
 export interface LandingInvestmentActivity {
