@@ -8,10 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { SupportTicket } from "@/features/investor/types/account";
+import { groupSupportConversations } from "./support-conversations";
 
 export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
   const router = useRouter();
-  const [selectedId, setSelectedId] = useState<string | null>(tickets[0]?.id ?? null);
+  const conversations = groupSupportConversations(tickets);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const [displayName, setDisplayName] = useState(tickets[0]?.adminDisplayName ?? "Support");
   const [sending, setSending] = useState(false);
@@ -21,7 +23,7 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
   const followLatest = useRef(true);
   const previousConversation = useRef<string | undefined>(undefined);
 
-  const selected = tickets.find((t) => t.id === selectedId) ?? tickets[0];
+  const selected = conversations.find((t) => t.id === selectedId) ?? conversations[0];
   const lastMessageId = selected?.messages.at(-1)?.id;
 
   useEffect(() => {
@@ -50,7 +52,7 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
     }
     setSending(true);
     try {
-      const res = await fetch(`/api/admin/support/${selected.id}`, {
+      const res = await fetch(`/api/admin/support/${selected.replyTicketId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: reply, displayName: senderLabel }),
@@ -76,7 +78,7 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
           {tickets.length === 0 && (
             <li className="p-4 text-sm text-navy-500">No support tickets yet.</li>
           )}
-          {tickets.map((t) => (
+          {conversations.map((t) => (
             <li key={t.id}>
               <button
                 type="button"
@@ -94,8 +96,8 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
                   selected?.id === t.id && "bg-royal-50"
                 )}
               >
-                <p className="truncate text-sm font-medium text-navy-950">{t.subject}</p>
-                <p className="text-xs text-navy-500">{t.investorName}</p>
+                <p className="truncate text-sm font-medium text-navy-950">{t.investorName || t.investorEmail || "Customer"}</p>
+                <p className="truncate text-xs text-navy-500">{t.messages.at(-1)?.body || t.subject}</p>
                 <p className="text-xs capitalize text-navy-400">{t.status}</p>
               </button>
             </li>
@@ -105,16 +107,16 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
 
       <div className={cn("flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-white", !showConversation && "hidden lg:flex")}>
         {!selected ? (
-          <p className="text-sm text-navy-500">Select a ticket.</p>
+          <p className="text-sm text-navy-500">Select a conversation.</p>
         ) : (
           <>
             <div className="shrink-0 border-b bg-white p-4">
               <button type="button" onClick={() => setShowConversation(false)} className="mb-2 inline-flex items-center gap-2 text-sm text-royal-600 lg:hidden">
                 <ArrowLeft className="h-4 w-4" /> Conversations
               </button>
-              <h3 className="font-semibold text-navy-950">{selected.subject}</h3>
+              <h3 className="font-semibold text-navy-950">{selected.investorName || "Customer"}</h3>
               <p className="break-words text-sm text-navy-500">
-                {selected.investorName} · {selected.investorEmail}
+                {selected.investorEmail}
               </p>
               <p className="mt-1 text-xs text-navy-500">Replies appear in the client’s chat. New messages refresh automatically.</p>
             </div>

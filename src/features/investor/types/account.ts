@@ -37,6 +37,7 @@ export interface SupportTicket {
   updatedAt: string;
   messages: SupportMessage[];
   investorName?: string;
+  investorId?: string;
   investorEmail?: string;
 }
 

@@ -206,6 +206,7 @@ export const supportService = {
           createdAt: t.created_at,
           updatedAt: t.updated_at,
           investorName: profile?.full_name,
+          investorId: t.user_id,
           investorEmail: profile?.email,
           messages: await loadMessages(t.id, t.admin_display_name),
         };
