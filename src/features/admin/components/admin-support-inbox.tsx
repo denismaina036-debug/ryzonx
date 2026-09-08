@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -14,8 +15,24 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
   const [reply, setReply] = useState("");
   const [displayName, setDisplayName] = useState(tickets[0]?.adminDisplayName ?? "Support");
   const [sending, setSending] = useState(false);
+  const [showConversation, setShowConversation] = useState(false);
+  const messageList = useRef<HTMLDivElement>(null);
+  const inbox = useRef<HTMLDivElement>(null);
+  const followLatest = useRef(true);
+  const previousConversation = useRef<string | undefined>(undefined);
 
   const selected = tickets.find((t) => t.id === selectedId) ?? tickets[0];
+  const lastMessageId = selected?.messages.at(-1)?.id;
+
+  useEffect(() => {
+    const list = messageList.current;
+    if (!list) return;
+    if (previousConversation.current !== selected?.id || followLatest.current) {
+      list.scrollTop = list.scrollHeight;
+      followLatest.current = true;
+    }
+    previousConversation.current = selected?.id;
+  }, [selected?.id, lastMessageId, showConversation]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -41,6 +58,7 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Reply failed");
       toast.success("Reply sent");
+      followLatest.current = true;
       setReply("");
       router.refresh();
     } catch (err) {
@@ -51,8 +69,9 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
-      <div className="rounded-lg border bg-white">
+    <div ref={inbox} className="grid h-[min(700px,calc(100dvh-320px))] min-h-[380px] min-w-0 scroll-mt-20 gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+      <div className={cn("min-h-0 overflow-y-auto overscroll-contain rounded-xl border bg-white", showConversation && "hidden lg:block")}>
+        <div className="sticky top-0 z-10 border-b bg-white px-4 py-3 text-sm font-semibold text-navy-950">Conversations</div>
         <ul className="divide-y">
           {tickets.length === 0 && (
             <li className="p-4 text-sm text-navy-500">No support tickets yet.</li>
@@ -64,6 +83,9 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
                 disabled={sending}
                 onClick={() => {
                   setSelectedId(t.id);
+                  followLatest.current = true;
+                  setShowConversation(true);
+                  inbox.current?.scrollIntoView({ block: "nearest" });
                   setDisplayName(t.adminDisplayName ?? "Support");
                   setReply("");
                 }}
@@ -81,25 +103,38 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
         </ul>
       </div>
 
-      <div className="rounded-lg border bg-white p-4">
+      <div className={cn("flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-white", !showConversation && "hidden lg:flex")}>
         {!selected ? (
           <p className="text-sm text-navy-500">Select a ticket.</p>
         ) : (
           <>
-            <div className="mb-4 border-b pb-3">
+            <div className="shrink-0 border-b bg-white p-4">
+              <button type="button" onClick={() => setShowConversation(false)} className="mb-2 inline-flex items-center gap-2 text-sm text-royal-600 lg:hidden">
+                <ArrowLeft className="h-4 w-4" /> Conversations
+              </button>
               <h3 className="font-semibold text-navy-950">{selected.subject}</h3>
-              <p className="text-sm text-navy-500">
+              <p className="break-words text-sm text-navy-500">
                 {selected.investorName} · {selected.investorEmail}
               </p>
               <p className="mt-1 text-xs text-navy-500">Replies appear in the client’s chat. New messages refresh automatically.</p>
             </div>
-            <div className="max-h-[400px] space-y-3 overflow-y-auto">
+            <div
+              ref={messageList}
+              role="log"
+              aria-label="Conversation messages"
+              aria-live="polite"
+              onScroll={(event) => {
+                const list = event.currentTarget;
+                followLatest.current = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+              }}
+              className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-slate-50/70 p-4"
+            >
               {selected.messages.map((m) => (
                 <div
                   key={m.id}
                   className={cn(
-                    "rounded-lg px-3 py-2 text-sm",
-                    m.isAdmin ? "ml-10 bg-royal-50 text-navy-800" : "mr-10 bg-navy-50"
+                    "w-fit max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm",
+                    m.isAdmin ? "ml-auto rounded-br-sm bg-royal-50 text-navy-800" : "mr-auto rounded-bl-sm border border-slate-100 bg-white"
                   )}
                 >
                   <p className="mb-1 text-xs font-medium text-navy-500">{m.senderName}</p>
@@ -107,7 +142,7 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
                 </div>
               ))}
             </div>
-            <div className="mt-4 space-y-2">
+            <form onSubmit={(event) => { event.preventDefault(); void sendReply(); }} className="shrink-0 space-y-2 border-t bg-white p-3 sm:p-4">
               <Input
                 aria-label="Name visible to client"
                 disabled={sending}
@@ -116,19 +151,27 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
                 placeholder="Name visible to client (e.g. Chase)"
                 maxLength={80}
               />
-              <div className="flex gap-2">
-              <Input
+              <div className="flex items-end gap-2">
+              <textarea
+                className="min-w-0 flex-1 resize-none rounded-xl border border-border bg-white px-3 py-2 text-sm leading-6 outline-none focus:border-royal-400 focus:ring-2 focus:ring-royal-100"
+                rows={2}
                 aria-label="Reply to client"
                 disabled={sending}
                 value={reply}
                 onChange={(e) => setReply(e.target.value)}
                 placeholder="Type your reply…"
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                    event.preventDefault();
+                    void sendReply();
+                  }
+                }}
               />
-              <Button disabled={sending || !reply.trim() || !displayName.trim()} onClick={sendReply}>
-                Reply
+              <Button type="submit" aria-label="Send reply" disabled={sending || !reply.trim() || !displayName.trim()}>
+                <Send className="h-4 w-4" /><span className="hidden sm:inline">Send</span>
               </Button>
               </div>
-            </div>
+            </form>
           </>
         )}
       </div>

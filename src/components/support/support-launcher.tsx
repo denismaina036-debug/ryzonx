@@ -8,15 +8,18 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import type { SupportTicket } from "@/features/investor/types/account";
 import styles from "./whatsapp-support.module.css";
+import { useSupportUnread } from "./use-support-unread";
 
 export function SupportLauncher({ whatsappUrl }: { whatsappUrl: string | null }) {
   const [open, setOpen] = useState(false);
   const [chat, setChat] = useState(false);
+  const { unreadCount, unreadTickets, markViewed } = useSupportUnread();
   return (
     <Dialog open={open} onOpenChange={(value) => { setOpen(value); if (!value) setChat(false); }}>
       <DialogTrigger asChild>
-        <button type="button" className={styles.button} aria-label="Open RyvonX support">
+        <button type="button" className={styles.button} aria-label={unreadCount ? `Open RyvonX support, ${unreadCount} unread messages` : "Open RyvonX support"}>
           <Headset size={27} strokeWidth={1.6} aria-hidden="true" />
+          {unreadCount > 0 && <span className={styles.unreadBadge} aria-hidden="true">{unreadCount > 99 ? "99+" : unreadCount}</span>}
           <span className={styles.label} aria-hidden="true">How can we help?</span>
         </button>
       </DialogTrigger>
@@ -34,11 +37,11 @@ export function SupportLauncher({ whatsappUrl }: { whatsappUrl: string | null })
               <p>Welcome to RyvonX support! Please describe the issue you’re experiencing and our support team will respond here as soon as possible.</p>
             </div>
           </div>
-          <SupportChat />
+          <SupportChat preferredTicketId={unreadTickets[0]?.id} onViewed={markViewed} onSignIn={() => { setOpen(false); setChat(false); }} />
         </> : <div className={styles.options}>
           <button type="button" className={styles.option} onClick={() => setChat(true)}>
             <span className={styles.optionIcon}><MessageSquare size={22} strokeWidth={1.6} /></span>
-            <span><strong>Live chat</strong><small>Chat with us in your account</small></span><ArrowUpRight size={18} />
+            <span><strong>Live chat{unreadCount > 0 ? ` · ${unreadCount} unread` : ""}</strong><small>Chat with us in your account</small></span><ArrowUpRight size={18} />
           </button>
           {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className={styles.option}>
             <span className={`${styles.optionIcon} ${styles.whatsapp}`}><MessageCircle size={22} strokeWidth={1.6} /></span>
@@ -51,7 +54,7 @@ export function SupportLauncher({ whatsappUrl }: { whatsappUrl: string | null })
   );
 }
 
-function SupportChat() {
+function SupportChat({ onSignIn, onViewed, preferredTicketId }: { onSignIn: () => void; onViewed: (ticket: SupportTicket) => void; preferredTicketId?: string }) {
   const [auth, setAuth] = useState<"loading" | "guest" | "ready" | "error">("loading");
   const [ticket, setTicket] = useState<SupportTicket | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -59,7 +62,7 @@ function SupportChat() {
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const end = useRef<HTMLDivElement>(null);
-  const activeTicket = useRef<string | null>(null);
+  const activeTicket = useRef<string | null>(preferredTicketId ?? null);
   const loadVersion = useRef(0);
 
   useEffect(() => {
@@ -101,6 +104,13 @@ function SupportChat() {
 
   useEffect(() => { end.current?.scrollIntoView({ block: "nearest" }); }, [ticket?.messages.length]);
 
+  useEffect(() => {
+    const viewed = () => { if (ticket) onViewed(ticket); };
+    viewed();
+    document.addEventListener("visibilitychange", viewed);
+    return () => document.removeEventListener("visibilitychange", viewed);
+  }, [ticket, onViewed]);
+
   async function send(event: React.FormEvent) {
     event.preventDefault();
     if (!message.trim() || sending || !loaded) return;
@@ -126,7 +136,7 @@ function SupportChat() {
   if (auth === "error") return <p className={styles.note} role="alert">We couldn’t connect to your account. Reopen chat to try again, or choose WhatsApp.</p>;
   if (auth === "guest") return <div className={styles.options}>
     <p className={styles.description}>Sign in to start a private conversation and keep your replies together. For help signing in, choose WhatsApp.</p>
-    <Button asChild className="mt-5 w-full rounded-full"><Link href="/login?redirect=%2Fdashboard%2Fsupport">Sign in to chat</Link></Button>
+    <Button asChild className="mt-5 w-full rounded-full"><Link href="/login" onClick={onSignIn}>Sign in to chat</Link></Button>
   </div>;
   return <div className={styles.chat}>
     <div className={styles.messages} role="log" aria-label="Support messages" aria-live="polite">

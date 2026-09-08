@@ -140,3 +140,22 @@
 .composer textarea { flex: 1; min-width: 0; resize: vertical; max-height: 120px; border: 1px solid #d6e1ef; border-radius: 12px; padding: 10px; font-size: 16px; }
 .error { color: #a82d32; font-size: 13px; padding: 10px; }
 @media (min-width: 640px) { .panel { left: auto; top: auto; right: 24px; bottom: 96px; transform: none; max-height: calc(100dvh - 120px); } }
+
+.unreadBadge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: grid;
+  place-items: center;
+  min-width: 23px;
+  height: 23px;
+  padding-inline: 5px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #d7354c;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 2px 6px #102a4330;
+}
