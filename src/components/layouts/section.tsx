@@ -54,6 +54,7 @@ export function SectionHeader({
   return (
     <div
       className={cn(
+        "public-section-heading",
         compactMobile ? "mb-8 md:mb-12" : "mb-12",
         align === "center" && !actions && "mx-auto max-w-2xl text-center",
         className

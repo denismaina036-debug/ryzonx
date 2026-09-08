@@ -7,6 +7,7 @@ import { ROOT_SITE_METADATA } from "@/lib/seo/metadata";
 import { SiteJsonLd } from "@/components/seo/site-json-ld";
 import { WhatsAppSupport } from "@/components/support/whatsapp-support";
 import "@/styles/globals.css";
+import "@/styles/public-refinement.css";
 
 export const metadata: Metadata = {
   ...ROOT_SITE_METADATA,

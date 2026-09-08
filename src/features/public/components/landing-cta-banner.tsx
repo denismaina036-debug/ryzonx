@@ -10,7 +10,7 @@ export async function LandingCtaBanner() {
 
   return (
     <SectionContainer className="bg-navy-950" landingMobile>
-      <div className="rounded-2xl border border-white/10 bg-white/5 px-6 py-10 text-center md:px-10">
+      <div className="public-cta rounded-2xl border border-white/10 bg-white/5 px-6 py-10 text-center md:px-10">
         <SectionHeader
           badge={cta.badge}
           title={cta.title}
@@ -26,7 +26,7 @@ export async function LandingCtaBanner() {
             </Link>
           </Button>
           {cta.secondaryButtonText ? (
-            <Button asChild variant="outline" size="lg" className="border-white/20 text-white hover:bg-white/10">
+            <Button asChild variant="outline" size="lg" className="border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white">
               <Link href={cta.secondaryButtonLink}>{cta.secondaryButtonText}</Link>
             </Button>
           ) : null}

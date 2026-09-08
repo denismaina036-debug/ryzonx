@@ -19,7 +19,7 @@ export async function HowItWorksSection({ className }: { className?: string } = 
           return (
             <div
               key={step.step}
-              className="group relative rounded-2xl border border-border bg-card p-6 text-center transition-all duration-300 hover:border-royal-200 hover:shadow-md"
+              className="public-feature-card group relative rounded-2xl border border-border bg-card p-6 text-center transition-all duration-300 hover:border-royal-200 hover:shadow-md"
             >
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-navy-900 text-white transition-transform duration-300 group-hover:scale-105">
                 <Icon className="h-6 w-6" />

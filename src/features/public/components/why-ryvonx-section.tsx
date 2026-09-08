@@ -19,7 +19,7 @@ export async function WhyRyvonxSection() {
           return (
             <div
               key={feature.id}
-              className="flex gap-4 rounded-2xl border border-border bg-card p-6 transition-all duration-300 hover:border-royal-200 hover:shadow-sm"
+              className="public-feature-card flex gap-4 rounded-2xl border border-border bg-card p-6 transition-all duration-300 hover:border-royal-200 hover:shadow-sm"
             >
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-royal-50 text-royal-600">
                 <Icon className="h-5 w-5" />

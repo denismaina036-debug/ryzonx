@@ -73,7 +73,7 @@ export function PerformanceSection({
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between md:mb-6 md:gap-4">
           <div>
             <p className="text-sm font-medium text-navy-500">Pool Value</p>
-            <p className="font-mono text-2xl font-semibold text-navy-950">
+            <p className="public-pool-value font-mono text-2xl font-semibold text-navy-950">
               {new Intl.NumberFormat("en-US", {
                 style: "currency",
                 currency: "USD",

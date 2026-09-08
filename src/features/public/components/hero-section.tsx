@@ -56,7 +56,7 @@ export async function HeroSection() {
               : undefined,
           }}
         />
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(1,6,14,.99)_0%,rgba(2,10,23,.96)_42%,rgba(3,18,42,.82)_100%)]" />
+        <div className="hero-atmosphere absolute inset-0" />
         <div className="hero-copy-illumination absolute inset-y-0 left-0 w-[68%]" />
         <div className="absolute right-[-12%] top-[-24%] h-[48rem] w-[48rem] rounded-full bg-blue-600/[.14] blur-[130px]" />
         <div className="hero-light-beams absolute inset-y-0 right-0 hidden w-[48%] lg:block" />

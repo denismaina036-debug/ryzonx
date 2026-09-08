@@ -14,7 +14,7 @@ export async function InvestorStatsSection() {
   const columns = landingStatGridColumns(statistics.length);
 
   return (
-    <SectionContainer landingMobile>
+    <SectionContainer landingMobile className="public-statistics-section">
       <SectionHeader
         badge={copy.statistics.badge}
         title={copy.statistics.title}

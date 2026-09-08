@@ -15,7 +15,7 @@ export function PublicLayout({
   isAuthenticated = false,
 }: PublicLayoutProps) {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="ryvonx-public flex min-h-screen flex-col">
       <Navbar isAuthenticated={isAuthenticated} />
       <main className="w-full min-w-0 flex-1 overflow-x-hidden">{children}</main>
       <Footer contact={contact} />

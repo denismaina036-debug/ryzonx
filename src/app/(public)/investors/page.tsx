@@ -7,6 +7,7 @@ import { ActivityFeed } from "@/components/ui/activity-feed";
 import { ROUTES } from "@/constants/routes";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 import { fundService } from "@/services/fund.service";
+import { landingPageStatsService } from "@/services/landing-page-stats.service";
 import { formatCurrency, formatPercentage } from "@/lib/utils";
 
 export const metadata: Metadata = buildPageMetadata({
@@ -18,11 +19,12 @@ export const metadata: Metadata = buildPageMetadata({
 });
 
 export default async function InvestorsPage() {
-  const [stats, deposits, withdrawals, investors] = await Promise.all([
+  const [stats, deposits, withdrawals, investors, investorCount] = await Promise.all([
     fundService.getInvestorStats(),
     fundService.getRecentDeposits(undefined, 8),
     fundService.getRecentWithdrawals(undefined, 8),
     fundService.getRecentInvestors(undefined, 8),
+    landingPageStatsService.resolveAutomaticNumericValue("total_investors"),
   ]);
 
   return (
@@ -35,7 +37,7 @@ export default async function InvestorsPage() {
         <StatGrid columns={4}>
           <StatCard
             label="Active Investors"
-            value={String(stats.totalActiveInvestors)}
+            value={investorCount == null ? "—" : new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(investorCount)}
             icon={Users}
           />
           <StatCard
