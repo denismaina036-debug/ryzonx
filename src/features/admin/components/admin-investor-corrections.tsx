@@ -47,6 +47,9 @@ export function AdminInvestorCorrections() {
 
   async function search() {
     setBusy(true);
+    setData(null);
+    setAmounts({});
+    setReason("");
     try {
       const result = await call<{ investor: Investor | null }>("GET");
       setData(result.investor);
@@ -185,7 +188,9 @@ export function AdminInvestorCorrections() {
               <CardTitle>Pool investments</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {rows("investment", data.allocations)}
+              {data.allocations.length > 0
+                ? rows("investment", data.allocations)
+                : <p className="text-sm text-navy-500">No pool investments found for this investor.</p>}
             </CardContent>
           </Card>
         </>

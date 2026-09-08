@@ -29,8 +29,14 @@ export const adminInvestorCorrectionService = {
     if (withdrawalHold.error) throw new Error(withdrawalHold.error.message);
     return {
       profile,
-      deposits: deposits.data ?? [],
-      allocations: allocations.data ?? [],
+      deposits: (deposits.data ?? []).map((deposit) => ({
+        ...deposit,
+        label: deposit.reference || "Deposit",
+      })),
+      allocations: (allocations.data ?? []).map((allocation) => ({
+        ...allocation,
+        label: allocation.investment_cycles?.funds?.name || "Pool name unavailable",
+      })),
       withdrawalHold: (withdrawalHold.data as WithdrawalHold | null) ?? null,
     };
   },

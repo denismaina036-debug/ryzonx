@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,18 +15,25 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
   const [displayName, setDisplayName] = useState(tickets[0]?.adminDisplayName ?? "Support");
   const [sending, setSending] = useState(false);
 
-  const selected = tickets.find((t) => t.id === selectedId);
+  const selected = tickets.find((t) => t.id === selectedId) ?? tickets[0];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (!sending && document.visibilityState === "visible") router.refresh();
+    }, 15_000);
+    return () => clearInterval(timer);
+  }, [router, sending]);
 
   async function sendReply() {
     const senderLabel = displayName.trim();
-    if (!selectedId || !reply.trim()) return;
+    if (!selected || !reply.trim() || sending) return;
     if (!senderLabel) {
       toast.error("Enter a display name for this ticket.");
       return;
     }
     setSending(true);
     try {
-      const res = await fetch(`/api/admin/support/${selectedId}`, {
+      const res = await fetch(`/api/admin/support/${selected.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: reply, displayName: senderLabel }),
@@ -54,13 +61,15 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
             <li key={t.id}>
               <button
                 type="button"
+                disabled={sending}
                 onClick={() => {
                   setSelectedId(t.id);
                   setDisplayName(t.adminDisplayName ?? "Support");
+                  setReply("");
                 }}
                 className={cn(
                   "w-full px-4 py-3 text-left hover:bg-navy-50",
-                  selectedId === t.id && "bg-royal-50"
+                  selected?.id === t.id && "bg-royal-50"
                 )}
               >
                 <p className="truncate text-sm font-medium text-navy-950">{t.subject}</p>
@@ -82,6 +91,7 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
               <p className="text-sm text-navy-500">
                 {selected.investorName} · {selected.investorEmail}
               </p>
+              <p className="mt-1 text-xs text-navy-500">Replies appear in the client’s chat. New messages refresh automatically.</p>
             </div>
             <div className="max-h-[400px] space-y-3 overflow-y-auto">
               {selected.messages.map((m) => (
@@ -93,12 +103,14 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
                   )}
                 >
                   <p className="mb-1 text-xs font-medium text-navy-500">{m.senderName}</p>
-                  <p>{m.body}</p>
+                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
                 </div>
               ))}
             </div>
             <div className="mt-4 space-y-2">
               <Input
+                aria-label="Name visible to client"
+                disabled={sending}
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Name visible to client (e.g. Chase)"
@@ -106,11 +118,13 @@ export function AdminSupportInbox({ tickets }: { tickets: SupportTicket[] }) {
               />
               <div className="flex gap-2">
               <Input
+                aria-label="Reply to client"
+                disabled={sending}
                 value={reply}
                 onChange={(e) => setReply(e.target.value)}
                 placeholder="Type your reply…"
               />
-              <Button disabled={sending} onClick={sendReply}>
+              <Button disabled={sending || !reply.trim() || !displayName.trim()} onClick={sendReply}>
                 Reply
               </Button>
               </div>

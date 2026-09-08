@@ -27,7 +27,15 @@ export function SupportLauncher({ whatsappUrl }: { whatsappUrl: string | null })
           <DialogTitle className={styles.title}>{chat ? "Live chat" : "A little help. A clear next step."}</DialogTitle>
           <DialogDescription className={styles.description}>{chat ? "Message our team. Replies appear here when available." : "Choose how you’d like to get in touch."}</DialogDescription>
         </div>
-        {chat ? <SupportChat /> : <div className={styles.options}>
+        {chat ? <>
+          <div className="px-5 pt-5" role="status">
+            <div className={styles.received}>
+              <small>RyvonX Support · Automated message</small>
+              <p>Welcome to RyvonX support! Please describe the issue you’re experiencing and our support team will respond here as soon as possible.</p>
+            </div>
+          </div>
+          <SupportChat />
+        </> : <div className={styles.options}>
           <button type="button" className={styles.option} onClick={() => setChat(true)}>
             <span className={styles.optionIcon}><MessageSquare size={22} strokeWidth={1.6} /></span>
             <span><strong>Live chat</strong><small>Chat with us in your account</small></span><ArrowUpRight size={18} />
@@ -123,7 +131,6 @@ function SupportChat() {
   return <div className={styles.chat}>
     <div className={styles.messages} role="log" aria-label="Support messages" aria-live="polite">
       {!loaded && !error && <p className={styles.note}>Loading your conversation…</p>}
-      {loaded && !ticket && <p className={styles.note}>How can we help you today? Send a message to start a conversation.</p>}
       {ticket?.messages.map((item) => <div key={item.id} className={item.isAdmin ? styles.received : styles.sent}><small>{item.isAdmin ? item.senderName : "You"}</small><p>{item.body}</p></div>)}
       <div ref={end} />
     </div>
