@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { AdminPoolManagersShell } from "@/features/admin/components/admin-pool-managers-shell";
 import { ROUTES } from "@/constants/routes";
-import { poolManagerGrowthService } from "@/services/pool-manager-growth.service";
+import { adminDirectoryService } from "@/services/admin-directory.service";
 
 export default async function AdminPoolManagersManagersPage() {
-  let managers: Awaited<ReturnType<typeof poolManagerGrowthService.listManagersForDevelopment>> = [];
+  let managers: Awaited<ReturnType<typeof adminDirectoryService.managers>> = [];
   try {
-    managers = await poolManagerGrowthService.listManagersForDevelopment();
+    managers = await adminDirectoryService.managers();
   } catch {
     managers = [];
   }
@@ -19,12 +19,13 @@ export default async function AdminPoolManagersManagersPage() {
       {managers.length === 0 ? (
         <p className="text-sm text-navy-500">No active managers yet.</p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-white">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-xl border border-border bg-white">
+          <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-border bg-navy-50/50 text-left text-xs uppercase tracking-wide text-navy-500">
                 <th className="px-4 py-3 font-medium">Manager</th>
-                <th className="px-4 py-3 font-medium">Level</th>
+                <th className="px-4 py-3 font-medium">Email</th>
+                <th className="px-4 py-3 font-medium">Status / Level</th>
                 <th className="px-4 py-3 font-medium">Pools</th>
                 <th className="px-4 py-3 font-medium">Actions</th>
               </tr>
@@ -32,8 +33,10 @@ export default async function AdminPoolManagersManagersPage() {
             <tbody>
               {managers.map((manager) => (
                 <tr key={manager.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3 font-medium text-navy-900">{manager.displayName}</td>
+                  <td className="px-4 py-3 font-medium text-navy-900">{manager.fullName}{manager.fullName !== manager.displayName && <p className="mt-1 text-xs font-normal text-navy-500">{manager.displayName}</p>}</td>
+                  <td className="px-4 py-3 break-all text-navy-600">{manager.email}</td>
                   <td className="px-4 py-3 capitalize text-navy-600">
+                    <p className="mb-1 text-xs text-emerald-700">{manager.status}</p>
                     {manager.managerLevel.replace(/_/g, " ")}
                   </td>
                   <td className="px-4 py-3 text-navy-600">{manager.poolsManaged}</td>
