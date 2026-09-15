@@ -164,7 +164,7 @@ async function enrichPoolCards(
       "id, fund_id, status, cycle_number, name, opening_date, closing_date, funding_deadline, funding_started_at, raised_capital, target_capital, min_investment, investor_count, max_capacity, duration_days, pool_config_snapshot"
     )
     .in("fund_id", poolIds)
-    .in("status", ["funding", "trading", "distribution", "approved"])
+    .in("status", ["funding", "trading", "distribution", "approved", "completed", "archived"])
     .order("cycle_number", { ascending: false });
 
   const cycles = (cycleRows ?? []) as CycleRow[];
@@ -177,6 +177,19 @@ async function enrichPoolCards(
     ),
   ];
   const raisedByCycle = await investmentCycleMetricsService.sumRaisedCapitalForCycles(activeCycleIds);
+  // Read-only presentation history; active-cycle selection and funding metrics stay unchanged.
+  const previousCyclesByFund = new Map(poolIds.map((fundId) => {
+    const active = pickActiveCycleForFund(cycles, fundId);
+    const previous = cycles.find((candidate) =>
+      candidate.fund_id === fundId &&
+      (!active || candidate.cycle_number < active.cycle_number) &&
+      ["trading", "distribution", "completed", "archived"].includes(candidate.status)
+    );
+    return [fundId, previous] as const;
+  }));
+  const previousRaisedByCycle = await investmentCycleMetricsService.sumRaisedCapitalForCycles(
+    [...previousCyclesByFund.values()].flatMap((cycle) => cycle ? [cycle.id] : [])
+  );
 
   const managerIdsForReviews = [
     ...new Set(cards.map((c) => c.managerId).filter(Boolean)),
@@ -230,6 +243,11 @@ async function enrichPoolCards(
 
     const managed = readManagedPoolConfig(row.pool_faq);
     const cycle = pickActiveCycleForFund(cycles, card.id);
+    const previousCycle = previousCyclesByFund.get(card.id);
+    const previousTradedCapital = previousCycle
+      ? readCycleInitialRaisedCapital(previousCycle.pool_config_snapshot) +
+        (previousRaisedByCycle.get(previousCycle.id) ?? 0)
+      : 0;
     const manager = card.managerId ? managersMap.get(card.managerId) ?? null : null;
     const targetCapital = cycle?.target_capital != null
       ? toNumber(cycle.target_capital)
@@ -313,6 +331,7 @@ async function enrichPoolCards(
       minInvestment,
       fundingPeriodEndsAt,
       raisedCapital,
+      previousTradedCapital,
       targetCapital,
       remainingCapital,
       fundingProgressPct,

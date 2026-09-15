@@ -37,12 +37,13 @@ export function copyTraderName(pool: { managerName: string | null }): string {
   return pool.managerName?.trim() || "RyvonX Trader";
 }
 
-/** Funding commitments are not yet traded capital. Keep the existing amount unchanged. */
+/** Keep the previous cycle visible until the current cycle begins trading. */
 export function displayedTradedCapital(pool: {
   activeCycle: { status: string } | null;
   raisedCapital: number;
+  previousTradedCapital?: number;
 }): number {
-  return pool.activeCycle && ["trading", "distribution", "closed", "completed"].includes(pool.activeCycle.status)
+  return pool.activeCycle && ["trading", "distribution", "closed", "completed", "archived"].includes(pool.activeCycle.status)
     ? pool.raisedCapital
-    : 0;
+    : pool.previousTradedCapital ?? 0;
 }

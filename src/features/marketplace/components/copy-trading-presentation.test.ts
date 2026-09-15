@@ -67,6 +67,24 @@ describe("copy-trading client presentation", () => {
     expect(label).toBe("Pool Managers");
   });
 
+  it.each(["approved", "funding"] as const)("retains previous traded capital during %s on desktop and mobile", (status) => {
+    const pool = { ...fixture, previousTradedCapital: 8400, activeCycle: { ...fixture.activeCycle!, status } };
+    expect(displayedTradedCapital(pool)).toBe(8400);
+    const html = renderToStaticMarkup(createElement(MarketplacePoolCardView, { pool }));
+    expect(html.split(formatCurrency(8400)).length - 1).toBe(2);
+    expect(pool.raisedCapital).toBe(12500);
+  });
+
+  it("retains history between cycles and switches to the new capital only once trading starts", () => {
+    const pool = { ...fixture, previousTradedCapital: 8400 };
+    expect(displayedTradedCapital({ ...pool, activeCycle: null })).toBe(8400);
+    expect(displayedTradedCapital({ ...pool, activeCycle: null, previousTradedCapital: undefined })).toBe(0);
+    for (const status of ["trading", "distribution", "completed", "archived"] as const) {
+      expect(displayedTradedCapital({ ...pool, activeCycle: { ...fixture.activeCycle!, status } })).toBe(12500);
+    }
+    expect(displayedTradedCapital({ ...pool, raisedCapital: 0 })).toBe(0);
+  });
+
   it("uses verified-trader journey and copy-ratio wording for saved display content", () => {
     expect(copyTradingText("Become a Pool Manager")).toBe("Become a verified trader");
     expect(copyTradingText("Continue Pool Manager Journey")).toBe("Continue your verified trader journey");

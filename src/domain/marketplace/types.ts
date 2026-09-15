@@ -68,6 +68,8 @@ export interface MarketplacePoolCard {
   canParticipate: boolean;
   fundingPeriodEndsAt: string | null;
   raisedCapital: number;
+  /** Most recent earlier traded cycle, retained while the next cycle is funding. */
+  previousTradedCapital?: number;
   targetCapital: number;
   remainingCapital?: number | null;
   fundingProgressPct?: number | null;
