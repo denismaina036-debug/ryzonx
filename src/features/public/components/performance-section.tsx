@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import { useState, useMemo } from "react";
 import { PerformanceChart } from "@/components/ui/chart";
@@ -62,9 +63,9 @@ export function PerformanceSection({
     <SectionContainer className={className ?? "bg-surface-1"} landingMobile>
       {showHeader && (
         <SectionHeader
-          badge={copy.badge}
-          title={copy.title}
-          description={copy.description}
+          badge={copyTradingText(copy.badge)}
+          title={copyTradingText(copy.title)}
+          description={copyTradingText(copy.description)}
           align="center"
           compactMobile
         />
@@ -72,7 +73,7 @@ export function PerformanceSection({
       <div className="rounded-2xl border border-border bg-card p-4 shadow-sm md:p-8">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between md:mb-6 md:gap-4">
           <div>
-            <p className="text-sm font-medium text-navy-500">Pool Value</p>
+            <p className="text-sm font-medium text-navy-500">Strategy Value</p>
             <p className="public-pool-value font-mono text-2xl font-semibold text-navy-950">
               {new Intl.NumberFormat("en-US", {
                 style: "currency",

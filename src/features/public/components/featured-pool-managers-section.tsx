@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import { SectionContainer, SectionHeader } from "@/components/layouts/section";
 import { landingPageService } from "@/services/landing-page.service";
 import { landingFeaturedManagersService } from "@/services/landing-featured-managers.service";
@@ -10,7 +11,7 @@ export async function FeaturedPoolManagersSection() {
     withTimeout(
       landingFeaturedManagersService.getTopManagers(5),
       1_500,
-      "Featured managers timed out"
+      "Featured traders timed out"
     ).catch((error: unknown) => {
       console.warn(
         "[landing] featured managers unavailable — hiding optional section.",
@@ -25,9 +26,9 @@ export async function FeaturedPoolManagersSection() {
   return (
     <SectionContainer landingMobile>
       <SectionHeader
-        badge={content.copy.featuredPoolManagers.badge}
-        title={content.copy.featuredPoolManagers.title}
-        description={content.copy.featuredPoolManagers.description}
+        badge={copyTradingText(content.copy.featuredPoolManagers.badge)}
+        title={copyTradingText(content.copy.featuredPoolManagers.title)}
+        description={copyTradingText(content.copy.featuredPoolManagers.description)}
         align="center"
         compactMobile
       />

@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -21,8 +22,8 @@ const TYPE_LABELS: Record<string, string> = {
   deposit_rejected: "Deposit",
   withdrawal_approved: "Withdrawal",
   withdrawal_rejected: "Withdrawal",
-  pool_invitation: "Pool Invite",
-  pool_trading: "Pool Trading",
+  pool_invitation: "Strategy Invite",
+  pool_trading: "Copy Trading",
   support_reply: "Support",
   admin_message: "Admin",
   announcement: "Announcement",
@@ -30,8 +31,8 @@ const TYPE_LABELS: Record<string, string> = {
   system: "System",
   pool_governance_warning: "Governance",
   pool_governance_review: "Governance",
-  pm_application_submitted: "Pool Manager",
-  pm_application_approved: "Pool Manager",
+  pm_application_submitted: "Verified Trader",
+  pm_application_approved: "Verified Trader",
 };
 
 const PRIORITY_STYLES: Record<string, string> = {
@@ -86,7 +87,7 @@ export function InvestorNotificationsView({
     <div className="mx-auto w-full min-w-0 max-w-[760px]">
       <RyvonxPageHeader
         title="Notifications"
-        description="Your communication timeline — deposits, investments, support, and system updates."
+        description="Your communication timeline — deposits, copy allocations, support, and system updates."
         actions={
           notifications.some((n) => !n.isRead) ? (
             <Button
@@ -118,7 +119,7 @@ export function InvestorNotificationsView({
           description={
             query
               ? "Try a different search term or clear the filter."
-              : "Deposits, pool updates, and support replies will appear here."
+              : "Deposits, strategy updates, and support replies will appear here."
           }
         />
       ) : (
@@ -157,8 +158,8 @@ export function InvestorNotificationsView({
                         />
                       )}
                     </div>
-                    <p className="mt-2 text-sm font-medium text-[var(--id-text)]">{n.title}</p>
-                    <p className="mt-1 text-sm text-[var(--id-text-secondary)]">{n.message}</p>
+                    <p className="mt-2 text-sm font-medium text-[var(--id-text)]">{copyTradingText(n.title)}</p>
+                    <p className="mt-1 text-sm text-[var(--id-text-secondary)]">{copyTradingText(n.message)}</p>
                     <p className="mt-2 text-xs text-[var(--id-text-faint)]">
                       {new Date(n.createdAt).toLocaleString()}
                     </p>

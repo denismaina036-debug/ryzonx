@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, CheckCircle2, Clock3, Globe2, Loader2, ShieldCheck, Smartphone } from "lucide-react";
@@ -106,7 +107,7 @@ export function MpesaDepositPanel({ config, minimumUsd, onCompleted }: Props) {
           {config.methods.map((method) => (
             <button key={method.id} type="button" onClick={() => setSelectedMethod(method)} className="group flex items-center gap-3 rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)] p-4 text-left transition hover:border-[var(--id-accent)] hover:bg-[var(--id-surface-hover)]">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--id-surface)] text-[var(--id-accent-text)] shadow-sm"><Smartphone className="h-5 w-5" /></span>
-              <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-[var(--id-text)]">{method.name}</span><span className="text-xs text-[var(--id-text-muted)]">{method.description}</span></span>
+              <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-[var(--id-text)]">{method.name}</span><span className="text-xs text-[var(--id-text-muted)]">{copyTradingText(method.description)}</span></span>
             </button>
           ))}
         </div>

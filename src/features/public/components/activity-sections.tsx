@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { SectionContainer, SectionHeader } from "@/components/layouts/section";
@@ -14,7 +15,7 @@ export async function ActivitySections() {
     withTimeout(
       landingPageActivityService.listInvestments(6),
       1_500,
-      "Recent investment activity timed out"
+      "Recent copy allocation activity timed out"
     ).catch(() => []),
     withTimeout(
       landingPageActivityService.listPayouts(6),
@@ -26,9 +27,9 @@ export async function ActivitySections() {
   return (
     <SectionContainer className="bg-surface-1" landingMobile>
       <SectionHeader
-        badge={content.copy.recentActivity.badge}
-        title={content.copy.recentActivity.title}
-        description={content.copy.recentActivity.description}
+        badge={copyTradingText(content.copy.recentActivity.badge)}
+        title={copyTradingText(content.copy.recentActivity.title)}
+        description={copyTradingText(content.copy.recentActivity.description)}
         align="center"
         compactMobile
       />
@@ -49,7 +50,7 @@ export async function ActivitySections() {
       <div className="mt-8 flex justify-center">
         <Button asChild variant="outline">
           <Link href={ROUTES.activity}>
-            {content.copy.recentActivity.viewAllLabel}
+            {copyTradingText(content.copy.recentActivity.viewAllLabel)}
             <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>

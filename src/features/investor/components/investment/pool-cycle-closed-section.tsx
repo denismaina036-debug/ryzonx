@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
@@ -31,7 +32,7 @@ export function PoolCycleClosedSection({ cycles }: { cycles: InvestorClosedCycle
                 className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-[var(--id-surface-hover)] sm:px-6"
               >
                 <div className="min-w-0">
-                  <p className="font-medium text-[var(--id-text)]">{cycle.name}</p>
+                  <p className="font-medium text-[var(--id-text)]">{copyTradingText(cycle.name)}</p>
                   <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">
                     Cycle {cycle.cycleNumber}
                     {cycle.completedAt &&
@@ -65,8 +66,8 @@ export function PoolCycleClosedSection({ cycles }: { cycles: InvestorClosedCycle
                     <Metric label="Capital traded" value={formatCurrency(cycle.capitalTraded)} />
                     <Metric label="Profit realized" value={formatCurrency(cycle.profitRealized)} />
                     <Metric label="Trades taken" value={String(cycle.tradeCount)} />
-                    <Metric label="Investors" value={String(cycle.investorCount)} />
-                    <Metric label="Your investment" value={formatCurrency(cycle.investorAmount)} />
+                    <Metric label="Copiers" value={String(cycle.investorCount)} />
+                    <Metric label="Your allocation" value={formatCurrency(cycle.investorAmount)} />
                   </dl>
 
                   {cycle.trades.length > 0 && (

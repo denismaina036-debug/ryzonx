@@ -62,7 +62,7 @@ export function WalletHeroCard({ investment }: WalletHeroCardProps) {
 
         <div className="relative mt-5 flex items-end justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-[var(--id-text-muted)]">Available for investing & withdrawals</p>
+            <p className="text-xs text-[var(--id-text-muted)]">Available for copying & withdrawals</p>
             <p className="mt-1.5 font-mono text-[2rem] font-semibold leading-none tracking-tight text-[var(--id-text)] tabular-nums sm:text-[2.25rem]">
               {mask(formatCurrency(availableBalance))}
             </p>
@@ -72,16 +72,12 @@ export function WalletHeroCard({ investment }: WalletHeroCardProps) {
           ) : null}
         </div>
 
-        <div className="mt-6 grid grid-cols-3 gap-4 border-t border-[var(--id-border)] pt-5">
+        <div className="mt-6 grid grid-cols-2 gap-4 border-t border-[var(--id-border)] pt-5">
           <WalletMeta
-            label="Invested Capital"
+            label="Allocated Capital"
             value={mask(formatCurrency(totalInvested))}
           />
-          <WalletMeta label="Investment Duration" value={investmentDurationDays()} />
-          <WalletMeta
-            label="Payout Duration"
-            value={primaryPool?.payoutDurationLabel ?? "—"}
-          />
+          <WalletMeta label="Copy Duration" value={investmentDurationDays()} />
         </div>
 
         <div className="mt-5 flex flex-wrap gap-2.5">
@@ -101,7 +97,7 @@ export function WalletHeroCard({ investment }: WalletHeroCardProps) {
           >
             <Link href={ROUTES.marketplace}>
               <Landmark className="mr-1.5 h-4 w-4" strokeWidth={1.75} />
-              Invest
+              Copy
             </Link>
           </Button>
           <Button

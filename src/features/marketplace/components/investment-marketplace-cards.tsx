@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import Link from "next/link";
 import { ArrowRight, TrendingUp } from "lucide-react";
@@ -7,13 +8,11 @@ import { STRATEGY_RISK_PROFILES } from "@/constants/strategy";
 import { formatCurrency } from "@/lib/utils";
 import type { InvestorCycleCard, InvestorStrategyCard } from "@/domain/investment/investor-presentation";
 import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
-import { isCycleFundingPhase, isCycleTradingPhase } from "@/lib/investment/cycle-display-phase";
+import { isCycleTradingPhase } from "@/lib/investment/cycle-display-phase";
 
 export function MarketplaceCycleCard({ cycle }: { cycle: InvestorCycleCard }) {
   const href = `${ROUTES.marketplaceCycles}/${cycle.slug}`;
-  const isFunding = isCycleFundingPhase(cycle.status);
   const isTrading = isCycleTradingPhase(cycle.status);
-  const totalCapitalUnderManagement = cycle.raisedCapital;
 
   return (
     <Link
@@ -23,10 +22,10 @@ export function MarketplaceCycleCard({ cycle }: { cycle: InvestorCycleCard }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-[var(--id-text-muted)]">
-            {cycle.strategyName}
+            {copyTradingText(cycle.strategyName)}
           </p>
           <h3 className="mt-1 text-base font-semibold text-[var(--id-text)] group-hover:text-[var(--id-accent)]">
-            {cycle.name}
+            {copyTradingText(cycle.name)}
           </h3>
         </div>
         <span className="shrink-0 rounded-full bg-[var(--id-accent)]/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-[var(--id-accent)]">
@@ -35,21 +34,21 @@ export function MarketplaceCycleCard({ cycle }: { cycle: InvestorCycleCard }) {
       </div>
 
       <p className="mt-2 line-clamp-2 text-sm text-[var(--id-text-muted)]">
-        {cycle.description ?? `Managed by ${cycle.managerName}`}
+        {cycle.description ?? `Trader ${cycle.managerName}`}
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <div>
           <p className="text-xs text-[var(--id-text-muted)]">
-            {isTrading ? "Capital Traded" : "Raised"}
+            Traded capital
           </p>
           <p className="font-semibold tabular-nums text-[var(--id-text)]">
-            {formatCurrency(cycle.raisedCapital)}
+            {formatCurrency(isTrading ? cycle.raisedCapital : 0)}
           </p>
         </div>
         <div>
           <p className="text-xs text-[var(--id-text-muted)]">
-            {isTrading ? "Investors" : "Min. investment"}
+            {isTrading ? "Copiers" : "Min. copy amount"}
           </p>
           <p className="font-semibold tabular-nums text-[var(--id-text)]">
             {isTrading
@@ -59,27 +58,7 @@ export function MarketplaceCycleCard({ cycle }: { cycle: InvestorCycleCard }) {
                 : "—"}
           </p>
         </div>
-        {isTrading ? (
-          <div className="col-span-2">
-            <p className="text-xs text-[var(--id-text-muted)]">Total Capital Under Management</p>
-            <p className="font-semibold tabular-nums text-[var(--id-text)]">
-              {formatCurrency(totalCapitalUnderManagement)}
-            </p>
-          </div>
-        ) : null}
       </div>
-
-      {isFunding && cycle.fundingPct != null && (
-        <div className="mt-4">
-          <div className="h-1.5 overflow-hidden rounded-full bg-[var(--id-border)]">
-            <div
-              className="h-full rounded-full bg-[var(--id-accent)] transition-all"
-              style={{ width: `${cycle.fundingPct}%` }}
-            />
-          </div>
-          <p className="mt-1 text-xs text-[var(--id-text-muted)]">{cycle.fundingPct}% funded</p>
-        </div>
-      )}
 
       <div className="mt-4 flex items-center justify-between text-xs text-[var(--id-text-muted)]">
         <span>{cycle.managerName}</span>
@@ -117,7 +96,7 @@ export function MarketplaceStrategyCard({ strategy }: { strategy: InvestorStrate
       </div>
 
       <p className="mt-2 line-clamp-2 text-sm text-[var(--id-text-muted)]">
-        {strategy.description ?? strategy.investmentStyle ?? "Professional investment methodology"}
+        {strategy.description ?? strategy.investmentStyle ?? "Professional trading methodology"}
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">

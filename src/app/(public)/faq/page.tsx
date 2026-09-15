@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/layouts/page-header";
 import { SectionContainer } from "@/components/layouts/section";
@@ -9,9 +10,9 @@ import { fundService } from "@/services/fund.service";
 export const metadata: Metadata = buildPageMetadata({
   title: "FAQ",
   description:
-    "Frequently asked questions about investing with RyvonX, pool trading, withdrawals, and fund transparency.",
+    "Frequently asked questions about copying with RyvonX, copy trading, withdrawals, and fund transparency.",
   path: ROUTES.faq,
-  keywords: ["RyvonX FAQ", "investment questions", "pool trading FAQ"],
+  keywords: ["RyvonX FAQ", "copy allocation questions", "copy trading FAQ"],
 });
 
 export default async function FaqPage() {
@@ -21,14 +22,14 @@ export default async function FaqPage() {
     <SectionContainer className="!py-8 md:!py-12">
       <PageHeader
         title="Frequently Asked Questions"
-        description="Everything you need to know about Ryvonx, our investment process, and fund transparency."
+        description="Everything you need to know about Ryvonx, our copy allocation process, and fund transparency."
       />
       <div className="mx-auto max-w-3xl">
         <Accordion
           items={items.map((f) => ({
             id: f.id,
-            question: f.question,
-            answer: f.answer,
+            question: copyTradingText(f.question),
+            answer: copyTradingText(f.answer),
           }))}
         />
       </div>

@@ -16,10 +16,10 @@ import { PmStrategyLifecycleTimeline } from "@/features/pool-manager/components/
 const FAQ = [
   {
     q: "What is a Strategy?",
-    a: "A Strategy is a permanent investment methodology defined by a Pool Manager. It describes how capital will be deployed across market conditions.",
+    a: "A Strategy is a permanent copy allocation methodology defined by a Verified Trader. It describes how capital will be deployed across market conditions.",
   },
   {
-    q: "How do Investment Cycles work?",
+    q: "How do Copy Cycles work?",
     a: "Cycles are time-bound fundraising and trading periods under a Strategy. You commit during the funding phase; allocations lock when trading begins.",
   },
   {
@@ -53,7 +53,7 @@ export function StrategyDetailView({
         <p className="text-xs font-semibold uppercase tracking-widest text-[var(--id-accent)]">Strategy</p>
         <h1 className="mt-2 text-2xl font-semibold text-[var(--id-text)] sm:text-3xl">{strategy.name}</h1>
         <p className="mt-2 max-w-3xl text-sm text-[var(--id-text-muted)]">
-          {strategy.description ?? "Professional investment methodology with defined risk parameters."}
+          {strategy.description ?? "Professional trading methodology with defined risk parameters."}
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           {strategy.riskProfile && (
@@ -82,7 +82,7 @@ export function StrategyDetailView({
             <h2 className="font-semibold text-[var(--id-text)]">Overview</h2>
             <dl className="mt-4 grid gap-4 sm:grid-cols-2">
               <Detail label="Risk profile" value={strategy.riskProfile?.replace(/_/g, " ") ?? "—"} />
-              <Detail label="Investment style" value={strategy.investmentStyle ?? "—"} />
+              <Detail label="Copy Allocation style" value={strategy.investmentStyle ?? "—"} />
               <Detail label="Asset classes" value={strategy.supportedAssets.join(", ") || "—"} />
               <Detail label="Expected holding period" value="Defined per cycle" />
             </dl>
@@ -91,7 +91,7 @@ export function StrategyDetailView({
 
         <div className="space-y-6">
           <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
-            <h2 className="font-semibold text-[var(--id-text)]">Pool Manager</h2>
+            <h2 className="font-semibold text-[var(--id-text)]">Verified Trader</h2>
             {manager.slug ? (
               <Link href={`${ROUTES.managers}/${manager.slug}`} className="mt-2 block text-sm font-medium text-[var(--id-accent)] hover:underline">
                 {manager.name}
@@ -101,7 +101,7 @@ export function StrategyDetailView({
             )}
             {manager.rating != null && (
               <p className="mt-1 text-xs text-[var(--id-text-muted)]">
-                Manager Rating ★ {manager.rating.toFixed(1)}
+                Trader Rating ★ {manager.rating.toFixed(1)}
               </p>
             )}
           </section>

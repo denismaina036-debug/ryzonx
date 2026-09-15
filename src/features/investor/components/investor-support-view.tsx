@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -47,7 +48,7 @@ const ISSUE_CATEGORIES = [
   {
     id: "common",
     label: "Other Common Issues",
-    hint: "Pools, marketplace, transactions, and more",
+    hint: "Strategies, marketplace, transactions, and more",
     icon: HelpCircle,
   },
   {
@@ -59,8 +60,8 @@ const ISSUE_CATEGORIES = [
 ] as const;
 
 const COMMON_ISSUES = [
-  { id: "pool", label: "Pool & Investments" },
-  { id: "marketplace", label: "Marketplace & Managers" },
+  { id: "pool", label: "Strategy & Copy Allocations" },
+  { id: "marketplace", label: "Marketplace & Traders" },
   { id: "transactions", label: "Transactions & History" },
   { id: "verification", label: "KYC / Verification" },
   { id: "notifications", label: "Notifications & Alerts" },
@@ -244,7 +245,7 @@ export function InvestorSupportView({ tickets }: { tickets: SupportTicket[] }) {
                         </span>
                         <span className="min-w-0">
                           <span className="block text-sm font-semibold text-[var(--id-text)]">
-                            {item.label}
+                            {copyTradingText(item.label)}
                           </span>
                           <span className="mt-0.5 block text-xs leading-relaxed text-[var(--id-text-muted)]">
                             {item.hint}
@@ -274,7 +275,7 @@ export function InvestorSupportView({ tickets }: { tickets: SupportTicket[] }) {
                             : "border-[var(--id-border)] bg-[var(--id-surface-muted)] text-[var(--id-text-secondary)] hover:border-[var(--id-border-strong)]"
                         )}
                       >
-                        {item.label}
+                        {copyTradingText(item.label)}
                       </button>
                     ))}
                   </div>
@@ -426,7 +427,7 @@ export function InvestorSupportView({ tickets }: { tickets: SupportTicket[] }) {
                         })}
                       </span>
                     </p>
-                    <p className="leading-relaxed">{m.body}</p>
+                    <p className="leading-relaxed">{copyTradingText(m.body)}</p>
                   </div>
                 ))}
               </div>

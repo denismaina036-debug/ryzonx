@@ -1,3 +1,4 @@
+import { copyTraderName, copyTradingText } from "@/lib/copy-trading-presentation";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PoolDetailView } from "@/features/marketplace/components/pool-detail-view";
@@ -17,30 +18,30 @@ export async function generateMetadata({
   const data = await marketplacePresentationService.getOpportunityPageData(slug);
   if (!data) {
     return buildPageMetadata({
-      title: "Pool Not Found",
-      description: "This investment pool could not be found on RyvonX.",
+      title: "Strategy Not Found",
+      description: "This copy-trading strategy could not be found on RyvonX.",
       path: `/marketplace/${slug}`,
       robots: { index: false, follow: false },
     });
   }
 
   const { pool } = data;
-  const title = pool.displayPoolName || pool.name;
+  const title = copyTraderName(pool);
   const description =
     pool.tagline ||
     pool.poolDescription ||
-    `Invest in ${title} on ${BRAND_NAME}. Managed by ${pool.managerName ?? "a verified pool manager"}.`;
+    `Copy ${title} on ${BRAND_NAME}. Trader ${pool.managerName ?? "a verified trader"}.`;
 
   return buildPageMetadata({
     title,
-    description,
+    description: copyTradingText(description),
     path: `/marketplace/${slug}`,
     image: pool.coverImageUrl || pool.logoUrl || undefined,
-    imageAlt: `${title} — ${BRAND_NAME} investment pool`,
+    imageAlt: `${title} — ${BRAND_NAME} copy-trading strategy`,
     keywords: [
       title,
       pool.managerName ?? "",
-      "investment pool",
+      "copy-trading strategy",
       BRAND_NAME,
       ...pool.categories,
     ].filter(Boolean),

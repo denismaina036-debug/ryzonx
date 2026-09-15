@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { copyTraderName, copyTradingText, displayedTradedCapital } from "@/lib/copy-trading-presentation";
 import { motion } from "framer-motion";
 import {
   BadgeCheck,
-  Clock,
+  CircleDollarSign,
   RefreshCw,
   Shield,
   Star,
@@ -60,11 +61,11 @@ export function MobileMarketplacePoolCard({ pool }: MobileMarketplacePoolCardPro
         <div className="absolute inset-0 bg-gradient-to-b from-black/85 via-black/40 to-black/5" />
         <div className="absolute right-2.5 top-2.5 inline-flex shrink-0 items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-[9px] font-medium text-white backdrop-blur-sm">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
-          Active Pool
+          Active Strategy
         </div>
         <div className="absolute inset-x-0 top-0 flex h-full flex-col justify-start p-3">
-          <h4 className="max-w-[72%] text-[17px] font-bold uppercase leading-[1.1] tracking-wide text-white">
-            {banner.title}
+          <h4 className="max-w-[72%] text-[17px] font-bold leading-[1.1] tracking-tight text-white">
+            {copyTraderName(pool)}
           </h4>
           {(banner.categoryPill || banner.instrumentsLabel) && (
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -98,7 +99,7 @@ export function MobileMarketplacePoolCard({ pool }: MobileMarketplacePoolCardPro
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] text-[var(--id-text-muted)]">Managed by</p>
+          <p className="text-[11px] text-[var(--id-text-muted)]">{pool.managerVerified ? "Verified trader" : "Trader"}</p>
           <div className="flex items-center gap-1.5">
             {pool.managerSlug ? (
               <Link
@@ -116,7 +117,7 @@ export function MobileMarketplacePoolCard({ pool }: MobileMarketplacePoolCardPro
             {pool.managerVerified ? (
               <BadgeCheck
                 className="h-4 w-4 shrink-0 text-[var(--id-accent-text)]"
-                aria-label="Verified manager"
+                aria-label="Verified trader"
               />
             ) : null}
           </div>
@@ -132,13 +133,14 @@ export function MobileMarketplacePoolCard({ pool }: MobileMarketplacePoolCardPro
             <span className="inline-flex items-center gap-1">
               <Users className="h-3.5 w-3.5" aria-hidden />
               <span className="font-medium text-[var(--id-text-secondary)]">
-                {pool.activeInvestors} Investors
+                {pool.activeInvestors} Copiers
               </span>
             </span>
           </div>
         </div>
       </div>
 
+      <p className="px-4 pb-2 text-xs text-[var(--id-text-muted)]">Strategy · {copyTradingText(pool.displayPoolName || pool.name)}</p>
       <PoolCardDescription pool={pool} className="px-4 pb-1" />
 
       {/* 3. Divider */}
@@ -158,15 +160,15 @@ export function MobileMarketplacePoolCard({ pool }: MobileMarketplacePoolCardPro
           icon={Wallet}
           iconClassName="text-[var(--id-accent-text)]"
           iconBgClassName="bg-[var(--id-accent-soft)]"
-          label="Min. Deposit"
+          label="Min. copy"
           value={formatCurrency(pool.minInvestment)}
         />
         <MobileMetricCell
-          icon={Clock}
+          icon={CircleDollarSign}
           iconClassName="text-sky-600"
           iconBgClassName="bg-sky-50 dark:bg-sky-950/40"
-          label="Payout Duration"
-          value={pool.expectedDurationLabel}
+          label="Traded capital"
+          value={formatCurrency(displayedTradedCapital(pool))}
         />
         <MobileMetricCell
           icon={RefreshCw}
@@ -185,7 +187,7 @@ export function MobileMarketplacePoolCard({ pool }: MobileMarketplacePoolCardPro
           variant="outline"
           className="h-11 rounded-xl border-[var(--id-accent)] text-sm font-medium text-[var(--id-accent-text)] hover:bg-[var(--id-accent-soft)]"
         >
-          <Link href={`${ROUTES.marketplace}/${pool.slug}`}>View Details</Link>
+          <Link href={`${ROUTES.marketplace}/${pool.slug}`}>View trader</Link>
         </Button>
         <Button
           asChild={!participateDisabled}
@@ -196,9 +198,9 @@ export function MobileMarketplacePoolCard({ pool }: MobileMarketplacePoolCardPro
           )}
         >
           {participateDisabled ? (
-            <span>Invest in Pool</span>
+            <span>Copy trader</span>
           ) : (
-            <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Invest in Pool</Link>
+            <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Copy trader</Link>
           )}
         </Button>
       </div>

@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import Link from "next/link";
 import { ArrowRight, Check, Route } from "lucide-react";
@@ -38,7 +39,7 @@ export function MobileManagerJourney({
             <Route className="h-3.5 w-3.5" strokeWidth={2} />
           </span>
           <h2 className="text-sm font-semibold text-[var(--id-text)]">
-            {pmJourneyCardTitle(pmJourneyVariant)}
+            {copyTradingText(pmJourneyCardTitle(pmJourneyVariant))}
           </h2>
         </div>
         <Link
@@ -90,7 +91,7 @@ export function MobileManagerJourney({
         href={ROUTES.applyPoolManager}
         className="mt-3 flex h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--id-accent)] text-xs font-semibold text-white transition-opacity active:opacity-90"
       >
-        {pmJourneyCardCta(pmJourneyVariant)}
+        {copyTradingText(pmJourneyCardCta(pmJourneyVariant))}
         <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
       </Link>
     </section>

@@ -34,8 +34,8 @@ export function MobileGreeting({
       </h1>
       <p className="mt-1 text-sm text-[var(--id-text-secondary)]">
         {hasInvestments
-          ? "Your investments are performing well today."
-          : "Add funds to your wallet, then invest in a pool."}
+          ? "Your allocations are performing well today."
+          : "Add funds to your wallet, then copy a trader."}
       </p>
       <div className="mt-2 inline-flex items-center gap-1.5">
         <TrendIcon

@@ -17,14 +17,14 @@ export async function generateMetadata({
   const data = await poolActivityService.getPageDataByPoolSlug(slug);
   if (!data) {
     return buildPageMetadata({
-      title: "Pool Activity Not Found",
-      description: "This pool activity feed could not be found.",
+      title: "Strategy Activity Not Found",
+      description: "This strategy activity feed could not be found.",
       path: `/marketplace/${slug}/activity`,
       robots: { index: false, follow: false },
     });
   }
 
-  const title = `${data.displayPoolName} — Pool Activity`;
+  const title = `${data.displayPoolName} — Strategy Activity`;
   return buildPageMetadata({
     title,
     description: `Review verified trading activity for ${data.displayPoolName} on ${BRAND_NAME}.`,

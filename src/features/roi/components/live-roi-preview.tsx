@@ -60,15 +60,15 @@ export function LiveRoiPreview({
       >
         {hasValidAmount && hasMatch ? (
           <div className="grid grid-cols-2 gap-3">
-            <PreviewStat label="Projected ROI" value={formatMultiplier(preview.multiplier)} accent />
+            <PreviewStat label="Copy ratio" value={formatMultiplier(preview.multiplier)} accent />
             <PreviewStat label="Expected Payout" value={formatCurrency(preview.projectedPayout ?? 0)} accent />
             <PreviewStat label="Expected Duration" value={preview.returnDurationLabel} />
-            <PreviewStat label="Investment Level" value={preview.investmentLevel?.name ?? "—"} />
+            <PreviewStat label="Copy Level" value={preview.investmentLevel?.name ?? "—"} />
           </div>
         ) : (
           <p className="text-sm text-[var(--id-text-muted)]">
             {hasValidAmount
-              ? "Amount does not match any investment level."
+              ? "Amount does not match any copy level."
               : "Enter an amount to see projected returns."}
           </p>
         )}
@@ -105,7 +105,7 @@ export function LiveRoiPreview({
               </div>
               <div className="text-right">
                 <p className="text-xs font-medium uppercase tracking-wide text-[var(--id-text-muted)]">
-                  Projected ROI
+                  Copy ratio
                 </p>
                 <p className="mt-1 text-2xl font-bold tabular-nums text-[var(--id-accent-text)]">
                   {formatMultiplier(preview.multiplier)}
@@ -121,14 +121,14 @@ export function LiveRoiPreview({
               />
               <MetricCard
                 icon={Layers}
-                label="Investment Level"
+                label="Copy Level"
                 value={preview.investmentLevel?.name ?? "—"}
               />
             </div>
 
             <div className="rounded-lg bg-[var(--id-surface-muted)] px-3 py-2">
               <p className="text-xs text-[var(--id-text-muted)]">
-                Investment:{" "}
+                Copy amount:{" "}
                 <span className="font-semibold text-[var(--id-text)]">
                   {formatCurrency(amount)}
                 </span>
@@ -139,8 +139,8 @@ export function LiveRoiPreview({
           <div className="py-6 text-center">
             <p className="text-sm text-[var(--id-text-muted)]">
               {hasValidAmount
-                ? "This amount does not fall within any platform investment level."
-                : "Enter an investment amount to preview projected returns."}
+                ? "This amount does not fall within any platform copy level."
+                : "Enter an copy amount to preview projected returns."}
             </p>
           </div>
         )}

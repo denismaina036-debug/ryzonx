@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import Link from "next/link";
 import { Bell, ChevronDown, LayoutDashboard, LogOut, MessageSquare, Search, Settings } from "lucide-react";
@@ -31,11 +32,11 @@ export function InvestorShellHeader({
 }: InvestorShellHeaderProps) {
   const { user } = useAuth();
   const { signOut } = useAuthActions();
-  const displayName = user?.fullName ?? "Investor";
+  const displayName = user?.fullName ?? "Copier";
   const roleLabel =
     user?.role && user.role in ROLE_LABELS
       ? ROLE_LABELS[user.role as UserRole]
-      : "Investor";
+      : "Copier";
   const isPoolManager = user?.role === USER_ROLES.POOL_MANAGER;
 
   const profileTrigger = (
@@ -58,7 +59,7 @@ export function InvestorShellHeader({
           {displayName}
         </span>
         <span className="block text-left text-[11px] leading-tight text-[var(--id-text-muted)]">
-          {roleLabel}
+          {copyTradingText(roleLabel)}
         </span>
       </span>
       <ChevronDown className="hidden h-3.5 w-3.5 text-[var(--id-text-muted)] sm:block" />
@@ -75,7 +76,7 @@ export function InvestorShellHeader({
           />
           <input
             type="search"
-            placeholder="Search pools, managers, or anything…"
+            placeholder="Search traders, strategies, or anything…"
             className="h-10 w-full rounded-full border border-[var(--id-border)] bg-[var(--id-surface-muted)] pl-10 pr-16 text-sm text-[var(--id-text)] placeholder:text-[var(--id-text-faint)] outline-none transition-colors focus:border-[var(--id-accent)] focus:ring-2 focus:ring-[var(--id-accent-soft)]"
             readOnly
             aria-label="Search"
@@ -137,7 +138,7 @@ export function InvestorShellHeader({
                     className="flex cursor-pointer items-center gap-2"
                   >
                     <LayoutDashboard className="h-4 w-4 text-[var(--id-text-muted)]" strokeWidth={1.75} />
-                    Pool Manager Workspace
+                    Verified Trader Workspace
                   </WorkspaceSwitchLink>
                 </DropdownMenuItem>
               )}

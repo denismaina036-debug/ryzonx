@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -59,7 +60,7 @@ export function InvestmentActivityFeed({
                 </p>
               </div>
               <p className="mt-0.5 break-words text-xs text-navy-500 md:truncate">
-                {item.subtitle}
+                {copyTradingText(item.subtitle)}
               </p>
               <p className="mt-0.5 text-xs text-navy-400">
                 {formatRelativeTime(item.createdAt)}

@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import Link from "next/link";
 import { ROUTES } from "@/constants/routes";
@@ -70,10 +71,10 @@ export function RecentActivityTimeline({
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="text-sm font-medium text-[var(--id-text)]">
-                          {item.title}
+                          {copyTradingText(item.title)}
                         </p>
                         <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">
-                          {item.subtitle}
+                          {copyTradingText(item.subtitle)}
                         </p>
                       </div>
                       <div className="text-right">

@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import { useMemo, useState } from "react";
 import { Search, SlidersHorizontal, X, Users, Archive } from "lucide-react";
@@ -172,8 +173,8 @@ export function MarketplaceBrowse({
 
   const searchPlaceholder =
     activeTab === "managers"
-      ? "Search pool managers…"
-      : "Search live pools…";
+      ? "Search verified traders…"
+      : "Search traders or strategies…";
 
   const resultCount =
     activeTab === "managers" ? filteredManagers.length : filteredPools.length;
@@ -189,10 +190,10 @@ export function MarketplaceBrowse({
           <div className="flex items-end justify-between gap-4">
             <div>
               <h2 className="text-xl font-semibold tracking-tight text-[var(--id-text)]">
-                {topSection.title}
+                {copyTradingText(topSection.title)}
               </h2>
               <p className="mt-1 text-sm text-[var(--id-text-muted)]">
-                Curated managers based on platform performance signals
+                Curated traders based on platform performance signals
               </p>
             </div>
           </div>
@@ -224,7 +225,7 @@ export function MarketplaceBrowse({
                   )}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                  {tab.label}
+                  {copyTradingText(tab.label)}
                 </button>
               );
             })}
@@ -258,7 +259,7 @@ export function MarketplaceBrowse({
               <SelectContent className={MARKETPLACE_SELECT_CONTENT}>
                 {sortOptions.map((o) => (
                   <SelectItem key={o.value} value={o.value} className={MARKETPLACE_SELECT_ITEM}>
-                    {o.label}
+                    {copyTradingText(o.label)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -285,7 +286,7 @@ export function MarketplaceBrowse({
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0 opacity-70" />
-                  {tab.label}
+                  {copyTradingText(tab.label)}
                 </button>
               );
             })}
@@ -325,7 +326,7 @@ export function MarketplaceBrowse({
               <SelectContent className={MARKETPLACE_SELECT_CONTENT}>
                 {sortOptions.map((o) => (
                   <SelectItem key={o.value} value={o.value} className={MARKETPLACE_SELECT_ITEM}>
-                    {o.label}
+                    {copyTradingText(o.label)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -397,7 +398,7 @@ export function MarketplaceBrowse({
         {activeTab === "managers" && (
           <>
             {filteredManagers.length === 0 ? (
-              <RyvonxEmptyState title="No managers match your filters" description="Try adjusting your search or filter selections." />
+              <RyvonxEmptyState title="No traders match your filters" description="Try adjusting your search or filter selections." />
             ) : (
               <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                 {filteredManagers.map((manager) => (
@@ -411,7 +412,7 @@ export function MarketplaceBrowse({
         {activeTab === "opportunities" && (
           <>
             {filteredPools.length === 0 ? (
-              <RyvonxEmptyState title="No live pools match your filters" description="Try adjusting your search or filter selections." />
+              <RyvonxEmptyState title="No live strategies match your filters" description="Try adjusting your search or filter selections." />
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 md:gap-6 xl:grid-cols-3">
                 {filteredPools.map((pool) => (

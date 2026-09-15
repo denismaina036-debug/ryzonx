@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import Link from "next/link";
 import { BadgeCheck, Star } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
@@ -48,7 +49,7 @@ export function FeaturedPoolManagerCard({
 
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-base font-semibold text-navy-950">{manager.displayName}</h3>
-          <p className="mt-0.5 truncate text-sm text-navy-500">{manager.poolName}</p>
+          <p className="mt-0.5 truncate text-sm text-navy-500">{copyTradingText(manager.poolName)}</p>
           {manager.strategy ? (
             <p className="mt-1 text-xs capitalize text-navy-400">{manager.strategy.replace(/_/g, " ")}</p>
           ) : null}
@@ -64,14 +65,14 @@ export function FeaturedPoolManagerCard({
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Metric label="Capital Managed" value={formatCurrency(manager.capitalManaged)} />
-        <Metric label="Investors" value={String(manager.investorCount)} />
+        <Metric label="Copiers" value={String(manager.investorCount)} />
         <Metric label="Win Rate" value={manager.winRatePct != null ? formatPercentage(manager.winRatePct) : "—"} />
         <Metric label="Rating" value={manager.rating != null ? manager.rating.toFixed(1) : "—"} />
       </div>
 
       <div className="mt-5 border-t border-border pt-4">
         <Button asChild variant="outline" size="sm" className="w-full">
-          <Link href={poolHref}>View Pool</Link>
+          <Link href={poolHref}>View trader</Link>
         </Button>
       </div>
     </article>

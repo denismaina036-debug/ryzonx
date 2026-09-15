@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -272,12 +273,12 @@ export function PoolManagerAdmissionWizard({
     return (
       <div className={`${investorCardClass} max-w-2xl p-8 text-center`}>
         <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-500" />
-        <h1 className={`${investorPageTitleClass} mt-4`}>You&apos;re a Pool Manager</h1>
+        <h1 className={`${investorPageTitleClass} mt-4`}>You&apos;re a Verified Trader</h1>
         <p className={`${investorPageSubtitleClass} mt-2`}>
-          Your workspace is ready. Create strategies, investment cycles, and manage your pools.
+          Your workspace is ready. Create strategies, copy cycles, and manage your strategies.
         </p>
         <Button asChild className="mt-6">
-          <Link href={ROUTES.poolManager}>Open Pool Manager Dashboard</Link>
+          <Link href={ROUTES.poolManager}>Open Verified Trader Dashboard</Link>
         </Button>
       </div>
     );
@@ -289,7 +290,7 @@ export function PoolManagerAdmissionWizard({
         ? "Trading Challenge"
         : application?.admissionPath === PM_ADMISSION_PATH.DIRECT_ACCESS
           ? "Instant Access"
-          : "Pool Manager";
+          : "Verified Trader";
 
     return (
       <div className={`${investorCardClass} max-w-2xl p-8`}>
@@ -309,7 +310,7 @@ export function PoolManagerAdmissionWizard({
             </p>
             <p className="mt-4 text-sm leading-relaxed text-[var(--id-text-secondary)]">
               Our team is reviewing your application. You will be notified when there is an update.
-              Deposits and withdrawals remain available from your investor dashboard while you wait.
+              Deposits and withdrawals remain available from your copier dashboard while you wait.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Button asChild variant="outline">
@@ -342,7 +343,7 @@ export function PoolManagerAdmissionWizard({
         <p className={`${investorPageSubtitleClass} mt-2`}>
           {application?.adminNotes?.trim()
             ? application.adminNotes
-            : "Your Pool Manager application was not approved at this time."}
+            : "Your Verified Trader application was not approved at this time."}
         </p>
         {error && <p className="mt-4 text-sm text-rose-600">{error}</p>}
         <div className="mt-6 flex flex-wrap gap-3">
@@ -362,9 +363,9 @@ export function PoolManagerAdmissionWizard({
       <header className={cn("space-y-3", isAdmissionPathStep && "mx-auto max-w-3xl text-center")}>
         <div className="inline-flex items-center gap-2 rounded-full bg-[var(--id-accent-soft)] px-3 py-1 text-xs font-semibold text-[var(--id-accent-text)]">
           <Shield className="h-3.5 w-3.5" />
-          Pool Manager Application
+          Verified Trader Application
         </div>
-        <h1 className={investorPageTitleClass}>Pool Manager Admission</h1>
+        <h1 className={investorPageTitleClass}>Verified Trader Admission</h1>
         <p className={investorPageSubtitleClass}>
           Complete each section to submit your professional evaluation application.
         </p>
@@ -387,7 +388,7 @@ export function PoolManagerAdmissionWizard({
                 !done && !active && "border-[var(--id-border)] text-[var(--id-text-faint)]"
               )}
             >
-              <span className="font-semibold">{s.section}. {s.title}</span>
+              <span className="font-semibold">{s.section}. {copyTradingText(s.title)}</span>
             </button>
           );
         })}
@@ -401,8 +402,8 @@ export function PoolManagerAdmissionWizard({
       >
         {currentStepMeta && (
           <div className={cn(isAdmissionPathStep && "mx-auto max-w-3xl text-center")}>
-            <h2 className="text-lg font-semibold text-[var(--id-text)]">{currentStepMeta.title}</h2>
-            <p className="mt-1 text-sm text-[var(--id-text-muted)]">{currentStepMeta.description}</p>
+            <h2 className="text-lg font-semibold text-[var(--id-text)]">{copyTradingText(currentStepMeta.title)}</h2>
+            <p className="mt-1 text-sm text-[var(--id-text-muted)]">{copyTradingText(currentStepMeta.description)}</p>
           </div>
         )}
 
@@ -661,7 +662,7 @@ function RiskManagementFields({
   return (
     <div className="space-y-6">
       <p className="text-sm text-[var(--id-text-secondary)]">
-        Protecting investor capital is our highest priority.
+        Protecting copier capital is our highest priority.
       </p>
       <Field label="Average Risk Per Trade *">
         <Select value={risk.averageRiskPerTrade ?? ""} onValueChange={(v) => patch({ averageRiskPerTrade: v })} disabled={disabled}>
@@ -695,7 +696,7 @@ function RiskManagementFields({
           rows={4}
           value={risk.managingLosingStreaks ?? ""}
           onChange={(e) => patch({ managingLosingStreaks: e.target.value })}
-          placeholder="Describe how you manage consecutive losses while maintaining discipline and protecting investor capital."
+          placeholder="Describe how you manage consecutive losses while maintaining discipline and protecting copier capital."
           disabled={disabled}
         />
       </Field>
@@ -746,7 +747,7 @@ function TradingPerformanceFields({
         </Field>
       )}
       <YesNoField
-        label="Have you managed investor capital before?"
+        label="Have you managed copier capital before?"
         value={perf.hasManagedInvestorCapital}
         onChange={(v) => patch({ hasManagedInvestorCapital: v })}
         disabled={disabled}
@@ -802,13 +803,13 @@ function PersonalStatementFields({
 
   return (
     <div className="space-y-6">
-      <Field label="Why do you want to become a Pool Manager? *">
+      <Field label="Why do you want to become a Verified Trader? *">
         <Textarea className={investorInputClass} rows={4} value={stmt.whyPoolManager ?? ""} onChange={(e) => patch({ whyPoolManager: e.target.value })} disabled={disabled} />
       </Field>
       <Field label="What makes your trading approach different? *">
         <Textarea className={investorInputClass} rows={4} value={stmt.tradingApproachDifference ?? ""} onChange={(e) => patch({ tradingApproachDifference: e.target.value })} disabled={disabled} />
       </Field>
-      <Field label="What should investors expect from you? *">
+      <Field label="What should copiers expect from you? *">
         <Textarea className={investorInputClass} rows={4} value={stmt.investorExpectations ?? ""} onChange={(e) => patch({ investorExpectations: e.target.value })} disabled={disabled} />
       </Field>
     </div>
@@ -910,7 +911,7 @@ function AdmissionPathSection({
                 <span className="my-5 h-px bg-[var(--id-border)]" />
                 <span className="block text-2xl font-semibold text-[var(--id-text)]">{formatCurrency(fee)}</span>
                 <span className="mt-1 block text-[10px] font-medium uppercase tracking-wider text-[var(--id-text-muted)]">{challengeSelected ? "One-phase challenge fee" : "Instant access fee"}</span>
-                <span className="mt-4 text-xs leading-5 text-[var(--id-text-secondary)]">{tier.description}</span>
+                <span className="mt-4 text-xs leading-5 text-[var(--id-text-secondary)]">{copyTradingText(tier.description)}</span>
               </button>
             );
           })}

@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import Link from "next/link";
 import { ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -56,7 +57,7 @@ export function TransactionsList({ items, className }: TransactionsListProps) {
     return (
       <div className="rounded-2xl border border-dashed border-border bg-surface-1 px-6 py-12 text-center">
         <p className="text-sm text-navy-500">
-          No public transactions yet. Investors can choose whether their activity
+          No public transactions yet. Copiers can choose whether their activity
           appears here.
         </p>
       </div>
@@ -93,7 +94,7 @@ export function ActivityFilterTabs({ current }: ActivityFilterTabsProps) {
           variant={current === tab.value ? "default" : "outline"}
         >
           <Link href={tab.value === "all" ? ROUTES.activity : `${ROUTES.activity}?type=${tab.value}`}>
-            {tab.label}
+            {copyTradingText(tab.label)}
           </Link>
         </Button>
       ))}

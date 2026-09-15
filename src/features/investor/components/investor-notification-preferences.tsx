@@ -72,7 +72,7 @@ export function InvestorNotificationPreferences() {
     <div className={`${investorCardElevatedClass} p-5 sm:p-6`}>
       <h2 className="text-sm font-semibold text-[var(--id-text)]">Notification Preferences</h2>
       <p className={`mt-1 ${investorPageSubtitleClass}`}>
-        Choose which updates you receive by channel. Financial and investment alerts respect these settings.
+        Choose which updates you receive by channel. Financial and copy allocation alerts respect these settings.
       </p>
 
       <div className="mt-4 overflow-x-auto">
@@ -122,7 +122,7 @@ export function InvestorNotificationPreferencesPage() {
       <div className="mb-6">
         <h1 className={investorPageTitleClass}>Notification Preferences</h1>
         <p className={investorPageSubtitleClass}>
-          Control in-app and email notifications for investments, financial updates, and system alerts.
+          Control in-app and email notifications for copy allocations, financial updates, and system alerts.
         </p>
       </div>
       <InvestorNotificationPreferences />

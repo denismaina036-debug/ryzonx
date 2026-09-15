@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import Link from "next/link";
 import { ROUTES } from "@/constants/routes";
 import { Button } from "@/components/ui/button";
@@ -13,23 +14,23 @@ export function InvestorPoolCyclesView({ data }: { data: InvestorPoolCyclesData 
   return (
     <div className="space-y-8">
       <RyvonxPageHeader
-        title="Pool Cycles"
+        title="Copy Activity"
         description={
           data.context
-            ? `${data.context.poolName} — funding, trading, and completed cycle history.`
-            : "Track your pool cycle activity."
+            ? `${copyTradingText(data.context.poolName)} — funding, trading, and completed cycle history.`
+            : "Track your strategy cycle activity."
         }
       />
 
       {!hasContent && (
         <div className="rounded-[var(--id-radius)] border border-dashed border-[var(--id-border-strong)] bg-[var(--id-surface)] px-6 py-10 text-center">
-          <p className="text-sm font-medium text-[var(--id-text)]">No pool cycles yet</p>
+          <p className="text-sm font-medium text-[var(--id-text)]">No copy activity yet</p>
           <p className="mt-2 text-sm text-[var(--id-text-muted)]">
-            When you join a pool cycle, funding progress, live trading, and completed history will
+            When you copy a trader, your allocation, trading activity, and completed cycles will
             appear here.
           </p>
           <Button asChild className="mt-6 rounded-xl [background:var(--id-accent-gradient)] text-white">
-            <Link href={ROUTES.marketplace}>Explore pools</Link>
+            <Link href={ROUTES.marketplace}>Explore strategies</Link>
           </Button>
         </div>
       )}
@@ -42,7 +43,7 @@ export function InvestorPoolCyclesView({ data }: { data: InvestorPoolCyclesData 
 
       <div className="flex flex-wrap gap-3">
         <Button asChild variant="outline" className="rounded-xl">
-          <Link href={ROUTES.investments}>Current pool</Link>
+          <Link href={ROUTES.investments}>Current strategy</Link>
         </Button>
         <Button asChild variant="outline" className="rounded-xl">
           <Link href={ROUTES.marketplace}>Find opportunities</Link>

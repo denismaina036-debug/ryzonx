@@ -35,7 +35,7 @@ export function SidebarManagerJourney() {
   return (
     <div className="rounded-2xl bg-[var(--id-surface-elevated)] p-4 shadow-[var(--id-shadow)]">
       <p className="text-[11px] font-medium uppercase tracking-wider text-[var(--id-text-muted)]">
-        Manager Journey
+        Verified Trader Journey
       </p>
       <p className="mt-2 text-sm font-semibold text-[var(--id-text)]">{currentStage}</p>
       <div className="mt-3">

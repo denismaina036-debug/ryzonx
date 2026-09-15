@@ -37,7 +37,7 @@ export default async function ActivityPage() {
       <PlatformActivityFeed items={items} />
 
       <p className="mt-8 text-sm text-navy-500">
-        Money activity appears here when investors opt in to public activity. For your personal
+        Money activity appears here when copiers opt in to public activity. For your personal
         history, visit your transaction page.
       </p>
     </SectionContainer>

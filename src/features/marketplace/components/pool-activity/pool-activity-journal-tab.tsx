@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
@@ -67,7 +68,7 @@ export function PoolActivityJournalTab({
 
   if (trades.length === 0) {
     return (
-      <EmptyJournal message="No trades have been recorded for this pool yet." />
+      <EmptyJournal message="No trades have been recorded for this strategy yet." />
     );
   }
 
@@ -100,7 +101,7 @@ export function PoolActivityJournalTab({
                   )}
                 >
                   <div>
-                    <p className="font-semibold text-[var(--id-text)]">{cycle.name}</p>
+                    <p className="font-semibold text-[var(--id-text)]">{copyTradingText(cycle.name)}</p>
                   </div>
                   <ChevronDown
                     className={cn(

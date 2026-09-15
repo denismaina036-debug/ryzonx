@@ -84,7 +84,7 @@ export function JournalTable({ trades }: { trades: PublicJournalTrade[] }) {
 
   if (trades.length === 0) {
     return (
-      <JournalTradesEmptyState message="No published pool cycle trades yet. Trades appear here when pool managers close and publish them." />
+      <JournalTradesEmptyState message="No published strategy cycle trades yet. Trades appear here when verified traders close and publish them." />
     );
   }
 
@@ -94,7 +94,7 @@ export function JournalTable({ trades }: { trades: PublicJournalTrade[] }) {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400" />
           <Input
-            placeholder="Search asset, manager, pool, or cycle..."
+            placeholder="Search asset, trader, strategy, or cycle..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -128,13 +128,13 @@ export function JournalTable({ trades }: { trades: PublicJournalTrade[] }) {
               </TableHead>
               <TableHead>
                 <button type="button" onClick={() => toggleSort("poolManagerName")}>
-                  Pool Manager{" "}
+                  Verified Trader{" "}
                   {sortBy === "poolManagerName" && (sortOrder === "asc" ? "↑" : "↓")}
                 </button>
               </TableHead>
               <TableHead>
                 <button type="button" onClick={() => toggleSort("poolName")}>
-                  Pool {sortBy === "poolName" && (sortOrder === "asc" ? "↑" : "↓")}
+                  Strategy {sortBy === "poolName" && (sortOrder === "asc" ? "↑" : "↓")}
                 </button>
               </TableHead>
               <TableHead>Cycle</TableHead>

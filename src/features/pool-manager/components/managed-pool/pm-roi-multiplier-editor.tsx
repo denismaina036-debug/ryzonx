@@ -44,14 +44,14 @@ export function PmRoiMultiplierEditor({
   return (
     <div className="space-y-4">
       <p className="text-sm text-[var(--id-text-muted)]">
-        Set the projected ROI multiplier for each platform investment level. This is the return
+        Set the copy ratio for each platform investment level. This is the return
         target investors will see — not a guaranteed payout.
       </p>
 
       <div className="overflow-hidden rounded-xl border border-[var(--id-border)]">
         <div className="grid grid-cols-[1fr_auto] gap-4 border-b border-[var(--id-border)] bg-[var(--id-surface-muted)] px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-[var(--id-text-muted)]">
           <span>Investment Level</span>
-          <span className="w-28 text-right">Multiplier</span>
+          <span className="w-28 text-right">Copy ratio</span>
         </div>
         {levels.map((level) => (
           <div

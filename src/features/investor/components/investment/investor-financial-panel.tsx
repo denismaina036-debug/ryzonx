@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import { formatCurrency } from "@/lib/utils";
 import type { InvestorFinancialView } from "@/domain/financial/types";
@@ -48,7 +49,7 @@ export function InvestorFinancialPanel({ financial }: { financial: InvestorFinan
           <ul className="mt-2 space-y-2">
             {financial.timeline.slice(0, 8).map((event, i) => (
               <li key={i} className="flex justify-between text-sm">
-                <span>{event.label}</span>
+                <span>{copyTradingText(event.label)}</span>
                 <span className="text-[var(--id-text-muted)]">
                   {event.amount != null ? formatCurrency(event.amount) : ""}{" "}
                   {new Date(event.occurredAt).toLocaleDateString()}

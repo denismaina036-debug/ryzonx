@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -33,14 +34,14 @@ export async function JournalPreviewSection() {
     <SectionContainer landingMobile>
       <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <SectionHeader
-          badge={content.copy.journal.badge}
-          title={content.copy.journal.title}
-          description={content.copy.journal.description}
+          badge={copyTradingText(content.copy.journal.badge)}
+          title={copyTradingText(content.copy.journal.title)}
+          description={copyTradingText(content.copy.journal.description)}
           className="mb-0"
         />
         <Button asChild variant="outline">
           <Link href={ROUTES.journal}>
-            {content.copy.journal.viewAllLabel}
+            {copyTradingText(content.copy.journal.viewAllLabel)}
             <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>
@@ -48,13 +49,13 @@ export async function JournalPreviewSection() {
 
       <div className="mt-8 overflow-x-auto">
         {trades.length === 0 ? (
-          <JournalTradesEmptyState message="Published pool cycle trades will appear here as pool managers record them." />
+          <JournalTradesEmptyState message="Published strategy cycle trades will appear here as verified traders record them." />
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Asset</TableHead>
-                <TableHead>Pool Manager</TableHead>
+                <TableHead>Verified Trader</TableHead>
                 <TableHead>Direction</TableHead>
                 <TableHead>Profit / Loss</TableHead>
                 <TableHead>Status</TableHead>

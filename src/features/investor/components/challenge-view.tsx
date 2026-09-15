@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -68,8 +69,8 @@ export function ChallengeView({
     <>
       {!embedded && (
         <div className="mb-6">
-          <h2 className="text-xl font-semibold text-[var(--id-text)]">{challenge.title}</h2>
-          <p className="mt-2 text-sm text-[var(--id-text-secondary)]">{challenge.description}</p>
+          <h2 className="text-xl font-semibold text-[var(--id-text)]">{copyTradingText(challenge.title)}</h2>
+          <p className="mt-2 text-sm text-[var(--id-text-secondary)]">{copyTradingText(challenge.description)}</p>
         </div>
       )}
 
@@ -139,7 +140,7 @@ export function ChallengeView({
             className={cn(cryptoFlowPrimaryButtonClass, "w-full sm:w-auto")}
             onClick={() => setPayOpen(true)}
           >
-            {challenge.buttonText}
+            {copyTradingText(challenge.buttonText)}
           </Button>
         )}
       </div>

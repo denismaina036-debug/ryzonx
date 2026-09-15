@@ -28,7 +28,7 @@ export function PoolTradesSection({ trades }: PoolTradesSectionProps) {
 
   return (
     <DashboardCard
-      title="Recent Pool Trades"
+      title="Recent Strategy Trades"
       headerAction={
         <Link
           href={ROUTES.trades}
@@ -40,7 +40,7 @@ export function PoolTradesSection({ trades }: PoolTradesSectionProps) {
     >
       {poolTrades.length === 0 ? (
         <p className="px-6 py-12 text-center text-sm text-[var(--id-text-muted)]">
-          No recent pool trades yet. Trades from pool manager journals will appear here.
+          No recent strategy trades yet. Trades from verified trader journals will appear here.
         </p>
       ) : (
         <div className={cn(dashboardCardBodyClass, "space-y-0 pt-0")}>

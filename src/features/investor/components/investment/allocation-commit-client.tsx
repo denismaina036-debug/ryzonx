@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -61,7 +62,7 @@ export function AllocationCommitClient({
         <h1 className="text-2xl font-semibold text-[var(--id-text)]">Commitment Recorded</h1>
         <p className="text-sm text-[var(--id-text-muted)]">
           Your pending allocation has been recorded. No wallet debit occurred — this is a model
-          commitment under the RyvonX investment cycle framework.
+          commitment under the RyvonX copy cycle framework.
         </p>
         <dl className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5 text-left text-sm">
           <div className="flex justify-between py-2">
@@ -74,7 +75,7 @@ export function AllocationCommitClient({
           </div>
           <div className="flex justify-between py-2">
             <dt className="text-[var(--id-text-muted)]">Cycle</dt>
-            <dd>{cycle.name}</dd>
+            <dd>{copyTradingText(cycle.name)}</dd>
           </div>
           <div className="flex justify-between py-2">
             <dt className="text-[var(--id-text-muted)]">Status</dt>
@@ -83,7 +84,7 @@ export function AllocationCommitClient({
         </dl>
         <div className="flex flex-wrap justify-center gap-3">
           <Button asChild variant="outline">
-            <Link href={ROUTES.portfolio}>Pool cycles</Link>
+            <Link href={ROUTES.portfolio}>Copy activity</Link>
           </Button>
           <Button asChild className="[background:var(--id-accent-gradient)] text-white">
             <Link href={`${ROUTES.marketplaceCycles}/${cycle.slug}`}>Back to opportunity</Link>
@@ -106,7 +107,7 @@ export function AllocationCommitClient({
       <header>
         <h1 className="text-2xl font-semibold text-[var(--id-text)]">Commit to Cycle</h1>
         <p className="mt-2 text-sm text-[var(--id-text-muted)]">
-          {cycle.name} · {strategy.name}
+          {copyTradingText(cycle.name)} · {strategy.name}
         </p>
       </header>
 

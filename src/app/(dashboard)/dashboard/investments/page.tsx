@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth/session";
 import { investorService } from "@/services/investor.service";
@@ -23,9 +24,9 @@ export default async function MyInvestmentsPage() {
     <InvestorPageContent className="space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className={investorPageTitleClass}>My Investments</h1>
+          <h1 className={investorPageTitleClass}>My Copy Allocations</h1>
           <p className={investorPageSubtitleClass}>
-            Your active pool participations and portfolio overview.
+            Your active strategy participations and portfolio overview.
           </p>
         </div>
         <Button
@@ -33,13 +34,13 @@ export default async function MyInvestmentsPage() {
           variant="outline"
           className="rounded-xl"
         >
-          <Link href={ROUTES.portfolio}>Pool Cycles</Link>
+          <Link href={ROUTES.portfolio}>Copy Activity</Link>
         </Button>
         <Button
           asChild
           className="rounded-xl text-white [background:var(--id-accent-gradient)] hover:opacity-95"
         >
-          <Link href={ROUTES.marketplace}>Invest in a Pool</Link>
+          <Link href={ROUTES.marketplace}>Copy trader</Link>
         </Button>
       </header>
 
@@ -53,14 +54,14 @@ export default async function MyInvestmentsPage() {
       {poolViews.length > 0 && (
         <section className="overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow)]">
           <div className="border-b border-[var(--id-border)] px-5 py-4 sm:px-6">
-            <h2 className="text-sm font-semibold text-[var(--id-text)]">Active Pools</h2>
+            <h2 className="text-sm font-semibold text-[var(--id-text)]">Active Strategys</h2>
           </div>
           <ul className="divide-y divide-[var(--id-border)]">
             {poolViews.map((pool) => (
               <li key={pool.fundId} className="space-y-4 px-5 py-5 sm:px-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="font-semibold text-[var(--id-text)]">{pool.poolName}</p>
+                    <p className="font-semibold text-[var(--id-text)]">{copyTradingText(pool.poolName)}</p>
                     <p className="mt-1 text-xs text-[var(--id-text-muted)]">
                       {pool.hasActiveTradingCycle
                         ? "Trading cycle active"
@@ -68,7 +69,7 @@ export default async function MyInvestmentsPage() {
                           ? "Cycle completed"
                           : pool.payoutDurationLabel && pool.payoutDurationLabel !== "—"
                             ? pool.payoutDurationLabel
-                            : "Investment active"}
+                            : "Copy Allocation active"}
                     </p>
                   </div>
                   {!pool.showPostCycleChoices && (

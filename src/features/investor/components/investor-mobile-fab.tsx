@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
@@ -35,7 +36,7 @@ export function InvestorMobileFab({ hasActivePool = false }: { hasActivePool?: b
 
   const actions: FabAction[] = [
     {
-      label: hasActivePool ? "View My Pool" : "Join Pool",
+      label: hasActivePool ? "My copy activity" : "Copy trader",
       href: hasActivePool ? ROUTES.investments : ROUTES.marketplace,
       icon: hasActivePool ? Landmark : Users,
       tone: "accent",
@@ -111,7 +112,7 @@ export function InvestorMobileFab({ hasActivePool = false }: { hasActivePool?: b
                       >
                         <Icon className="h-4 w-4" strokeWidth={2} />
                       </span>
-                      <span className="text-sm font-semibold">{action.label}</span>
+                      <span className="text-sm font-semibold">{copyTradingText(action.label)}</span>
                     </button>
                   </motion.li>
                 );

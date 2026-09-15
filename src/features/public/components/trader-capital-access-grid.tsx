@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -60,7 +61,7 @@ export function TraderCapitalAccessGrid({ tiers }: { tiers: PmAdmissionTier[] })
               <div className="my-5 h-px bg-gradient-to-r from-white/15 to-transparent" />
               <p className="text-3xl font-semibold text-white">{formatCurrency(admissionTierFee(tier, path))}</p>
               <p className="mt-1 text-xs text-slate-400">One-time admission fee</p>
-              <p className="mt-4 flex-1 text-xs leading-5 text-slate-300">{tier.description}</p>
+              <p className="mt-4 flex-1 text-xs leading-5 text-slate-300">{copyTradingText(tier.description)}</p>
               <ul className="mt-5 space-y-2 text-xs text-slate-300">
                 <li className="flex gap-2"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />{challenge ? "One evaluation phase" : "No trading challenge"}</li>
                 <li className="flex gap-2"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />Professional application review</li>
@@ -73,7 +74,7 @@ export function TraderCapitalAccessGrid({ tiers }: { tiers: PmAdmissionTier[] })
         <div className="mt-9 flex flex-col items-center gap-3 text-center">
           <Button asChild size="lg" className="bg-gradient-to-r from-blue-600 to-indigo-500 text-white shadow-[0_16px_38px_rgba(37,99,235,.3)] hover:from-blue-500 hover:to-indigo-400">
             <Link href={registrationHref}>
-              {selectedTier ? `Sign up for ${selectedTier.name}` : "Start Pool Manager application"}
+              {selectedTier ? `Sign up for ${selectedTier.name}` : "Start Verified Trader application"}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>

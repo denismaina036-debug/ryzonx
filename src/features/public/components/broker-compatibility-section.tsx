@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import { BadgeCheck } from "lucide-react";
 import { SectionContainer, SectionHeader } from "@/components/layouts/section";
 import { resolveBrokerLogoUrl } from "@/domain/landing-page/broker-logos";
@@ -20,9 +21,9 @@ export async function BrokerCompatibilitySection() {
   return (
     <SectionContainer landingMobile>
       <SectionHeader
-        badge={copy.brokerCompatibility.badge}
-        title={copy.brokerCompatibility.title}
-        description={copy.brokerCompatibility.description}
+        badge={copyTradingText(copy.brokerCompatibility.badge)}
+        title={copyTradingText(copy.brokerCompatibility.title)}
+        description={copyTradingText(copy.brokerCompatibility.description)}
         align="center"
         compactMobile
       />

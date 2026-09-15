@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import Link from "next/link";
 import { ArrowRight, Check, Flag, Trophy } from "lucide-react";
@@ -38,7 +39,7 @@ export function ManagerJourneyCard({
 
   return (
     <DashboardCard
-      title={pmJourneyCardTitle(pmJourneyVariant)}
+      title={copyTradingText(pmJourneyCardTitle(pmJourneyVariant))}
       headerAction={
         <Link
           href={ROUTES.applyPoolManager}
@@ -112,7 +113,7 @@ export function ManagerJourneyCard({
           className="mt-4 h-10 w-full rounded-xl bg-[var(--id-accent)] text-sm font-semibold text-white hover:opacity-90"
         >
           <Link href={ROUTES.applyPoolManager}>
-            {pmJourneyCardCta(pmJourneyVariant)}
+            {copyTradingText(pmJourneyCardCta(pmJourneyVariant))}
             <ArrowRight className="ml-2 h-4 w-4" strokeWidth={1.75} />
           </Link>
         </Button>

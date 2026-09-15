@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import Link from "next/link";
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -61,7 +62,7 @@ export function JournalTradeTableRow({
       </TableCell>
       {variant === "full" && (
         <>
-          <TableCell className="text-sm text-navy-600">{trade.poolName}</TableCell>
+          <TableCell className="text-sm text-navy-600">{copyTradingText(trade.poolName)}</TableCell>
           <TableCell className="text-sm text-navy-500">{trade.cycleName}</TableCell>
         </>
       )}

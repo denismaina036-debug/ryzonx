@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import Link from "next/link";
 import { ArrowDownToLine, ArrowUpFromLine, Landmark, Users } from "lucide-react";
@@ -12,14 +13,14 @@ interface MobilePrimaryActionsProps {
 export function MobilePrimaryActions({ hasActivePool }: MobilePrimaryActionsProps) {
   const primary = hasActivePool
     ? {
-        label: "View My Pool",
+        label: "My copy activity",
         sub: "Your positions",
         href: ROUTES.investments,
         icon: Landmark,
       }
     : {
-        label: "Join Pool",
-        sub: "Explore pools",
+        label: "Copy trader",
+        sub: "Explore strategies",
         href: ROUTES.marketplace,
         icon: Users,
       };
@@ -34,7 +35,7 @@ export function MobilePrimaryActions({ hasActivePool }: MobilePrimaryActionsProp
       >
         <PrimaryIcon className="h-5 w-5" strokeWidth={2} />
         <span className="min-w-0">
-          <span className="block text-xs font-semibold leading-tight">{primary.label}</span>
+          <span className="block text-xs font-semibold leading-tight">{copyTradingText(primary.label)}</span>
           <span className="block truncate text-[10px] leading-tight text-white/70">
             {primary.sub}
           </span>

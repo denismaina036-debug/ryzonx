@@ -33,7 +33,7 @@ export function ManagerCountryBadge({
     <span
       className={cn("inline-flex shrink-0 items-center", className)}
       title={code}
-      aria-label={`Manager country: ${code}`}
+      aria-label={`Trader country: ${code}`}
     >
       <span
         className={cn(

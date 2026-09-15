@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
@@ -25,10 +26,10 @@ export function MarketplaceBreadcrumb({
           {index > 0 && <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" />}
           {item.href ? (
             <Link href={item.href} className="transition-colors hover:text-[var(--id-text)]">
-              {item.label}
+              {copyTradingText(item.label)}
             </Link>
           ) : (
-            <span className="text-[var(--id-text-secondary)]">{item.label}</span>
+            <span className="text-[var(--id-text-secondary)]">{copyTradingText(item.label)}</span>
           )}
         </span>
       ))}

@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText, displayedTradedCapital } from "@/lib/copy-trading-presentation";
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -38,10 +39,10 @@ import { PM_SOCIAL_PLATFORMS } from "@/domain/pool-manager/public-profile";
 const BASE_PROFILE_TABS = [
   { id: "overview", label: "Overview" },
   { id: "strategies", label: "Strategies" },
-  { id: "cycles", label: "Active Pools" },
+  { id: "cycles", label: "Active Strategys" },
   { id: "ratings", label: "Ratings" },
-  { id: "opportunities", label: "Legacy Pools" },
-  { id: "journal", label: "Recent Pool Trades" },
+  { id: "opportunities", label: "Legacy Strategies" },
+  { id: "journal", label: "Recent Strategy Trades" },
 ] as const;
 
 type ProfileTab = (typeof BASE_PROFILE_TABS)[number]["id"];
@@ -94,8 +95,8 @@ export function ManagerProfileView({
       value:
         profile.maxDrawdownPct != null ? formatDrawdownPct(profile.maxDrawdownPct) : "—",
     },
-    { label: "Capital", value: formatCurrency(profile.assetsUnderManagement) },
-    { label: "Active Investors", value: String(profile.activeInvestors) },
+    { label: "Traded capital", value: formatCurrency(managedPools.reduce((sum, pool) => sum + displayedTradedCapital(pool), 0)) },
+    { label: "Active Copiers", value: String(profile.activeInvestors) },
     { label: "Opportunities", value: String(profile.poolsManaged) },
   ];
 
@@ -153,7 +154,7 @@ export function ManagerProfileView({
                   <p className="mt-1 text-base text-[var(--id-text-secondary)]">{profile.fullName}</p>
                 )}
                 <p className="mt-1 text-sm text-[var(--id-text-muted)]">
-                  Professional Pool Manager
+                  {profile.isVerified ? "Verified trader" : "Trader"}
                 </p>
                 {Object.keys(profile.publicSocialLinks).length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -167,7 +168,7 @@ export function ManagerProfileView({
                           className="inline-flex items-center gap-1.5 rounded-full border border-[var(--id-border)] bg-[var(--id-surface-muted)] px-3 py-1 text-xs font-medium text-[var(--id-text-secondary)] transition hover:border-[var(--id-accent)] hover:text-[var(--id-accent-text)]"
                         >
                           <Link2 className="h-3.5 w-3.5" />
-                          {platform.label}
+                          {copyTradingText(platform.label)}
                         </a>
                       )
                     )}
@@ -226,7 +227,7 @@ export function ManagerProfileView({
             className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] px-4 py-4 text-center shadow-[var(--id-shadow)]"
           >
             <p className="text-[10px] uppercase tracking-wider text-[var(--id-text-muted)]">
-              {s.label}
+              {copyTradingText(s.label)}
             </p>
             <p className="mt-1.5 text-lg font-semibold tabular-nums text-[var(--id-text)]">
               {s.value}
@@ -248,7 +249,7 @@ export function ManagerProfileView({
                 : "text-[var(--id-text-muted)] hover:bg-[var(--id-surface-muted)]"
             )}
           >
-            {tab.label}
+            {copyTradingText(tab.label)}
           </button>
         ))}
       </div>
@@ -285,7 +286,7 @@ export function ManagerProfileView({
                       key={a.title + a.awardedAt}
                       className="flex items-center justify-between rounded-xl bg-[var(--id-surface-muted)] px-4 py-3"
                     >
-                      <span className="text-sm font-medium text-[var(--id-text)]">{a.title}</span>
+                      <span className="text-sm font-medium text-[var(--id-text)]">{copyTradingText(a.title)}</span>
                       <span className="text-xs text-[var(--id-text-muted)]">
                         {new Date(a.awardedAt).toLocaleDateString("en-GB", {
                           month: "short",
@@ -309,9 +310,9 @@ export function ManagerProfileView({
           <aside className="space-y-4">
             <div className="rounded-[var(--id-radius)] border border-[var(--id-accent)]/20 bg-[var(--id-accent-soft)] p-6">
               <Shield className="h-8 w-8 text-[var(--id-accent-text)]" />
-              <h3 className="mt-3 font-semibold text-[var(--id-text)]">RyvonX Verified Manager</h3>
+              <h3 className="mt-3 font-semibold text-[var(--id-text)]">RyvonX Verified Trader</h3>
               <p className="mt-2 text-sm leading-relaxed text-[var(--id-text-secondary)]">
-                Approved Pool Manager under RyvonX administration.
+                Verified Trader under RyvonX administration.
                 {profile.approvedAt &&
                   ` Verified ${new Date(profile.approvedAt).toLocaleDateString("en-GB", {
                     day: "numeric",
@@ -344,7 +345,7 @@ export function ManagerProfileView({
             <InvestorRatingPanel rating={investorRating} />
           ) : profile.ryvonxRating != null ? (
             <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
-              <p className="text-sm text-[var(--id-text-muted)]">Manager Rating</p>
+              <p className="text-sm text-[var(--id-text-muted)]">Trader Rating</p>
               <p className="mt-2 inline-flex items-center gap-1 text-2xl font-semibold text-[var(--id-text)]">
                 <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
                 {profile.ryvonxRating.toFixed(1)}
@@ -377,7 +378,7 @@ export function ManagerProfileView({
       {resolvedTab === "cycles" && (
         <div>
           <p className="mb-4 text-sm text-[var(--id-text-muted)]">
-            Live investment cycles managed by {profile.publicDisplayName}.
+            Live copy cycles led by {profile.publicDisplayName}.
           </p>
           {cycles.length === 0 ? (
             <p className="text-sm text-[var(--id-text-muted)]">No active cycles yet.</p>
@@ -389,7 +390,7 @@ export function ManagerProfileView({
                   href={`${ROUTES.marketplaceCycles}/${cycle.slug}`}
                   className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5 shadow-[var(--id-shadow)] transition hover:border-[var(--id-accent)]"
                 >
-                  <p className="font-semibold text-[var(--id-text)]">{cycle.name}</p>
+                  <p className="font-semibold text-[var(--id-text)]">{copyTradingText(cycle.name)}</p>
                   <p className="mt-1 text-xs capitalize text-[var(--id-text-muted)]">
                     {cycle.status.replace(/_/g, " ")}
                   </p>
@@ -403,11 +404,11 @@ export function ManagerProfileView({
       {resolvedTab === "opportunities" && (
         <div>
           <p className="mb-4 text-sm text-[var(--id-text-muted)]">
-            Legacy pool opportunities managed by {profile.publicDisplayName}.
+            Legacy strategy opportunities led by {profile.publicDisplayName}.
           </p>
           {managedPools.length === 0 ? (
             <p className="text-sm text-[var(--id-text-muted)]">
-              No live opportunities listed for this manager yet.
+              No live opportunities listed for this trader yet.
             </p>
           ) : (
             <div className="grid gap-3.5 md:gap-6 sm:grid-cols-2 xl:grid-cols-3">
@@ -422,7 +423,7 @@ export function ManagerProfileView({
       {resolvedTab === "journal" && journalEntries.length > 0 && (
         <div>
           <p className="mb-4 text-sm text-[var(--id-text-muted)]">
-            Recent published trades from this manager&apos;s listed pool opportunities.
+            Recent published trades from this trader&apos;s listed strategy opportunities.
           </p>
           <div className="overflow-x-auto rounded-xl border border-[var(--id-border)]">
             <table className="w-full min-w-[640px] text-sm">

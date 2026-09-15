@@ -38,11 +38,11 @@ export function GetStartedModal({ open, onOpenChange }: GetStartedModalProps) {
             </span>
             <span className="flex-1">
               <span className="flex items-center gap-1 text-sm font-semibold text-navy-950">
-                Join Pool
+                Copy trader
                 <ArrowRight className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
               </span>
               <span className="mt-1 block text-sm text-navy-500">
-                Create an account and start investing in a pool.
+                Create an account and start copying a trader.
               </span>
             </span>
           </Link>
@@ -57,11 +57,11 @@ export function GetStartedModal({ open, onOpenChange }: GetStartedModalProps) {
             </span>
             <span className="flex-1">
               <span className="flex items-center gap-1 text-sm font-semibold text-navy-950">
-                Create Pool
+                Become a verified trader
                 <ArrowRight className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
               </span>
               <span className="mt-1 block text-sm text-navy-500">
-                Create an account and start managing investor capital.
+                Apply to become a verified trader and share your strategy with copiers.
               </span>
             </span>
           </Link>

@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -44,10 +45,10 @@ function LiveInvestmentPop({ item }: { item: LandingInvestmentActivity }) {
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm text-slate-300">
           <span className="font-medium text-white">{item.displayName}</span>
-          <span className="hidden xl:inline"> {item.subtitle}</span>
+          <span className="hidden xl:inline"> {copyTradingText(item.subtitle)}</span>
         </p>
         <p className="mt-0.5 truncate text-xs leading-snug text-slate-400 xl:hidden">
-          {item.subtitle}
+          {copyTradingText(item.subtitle)}
         </p>
       </div>
       <span

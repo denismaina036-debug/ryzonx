@@ -8,9 +8,9 @@ import { landingPageService } from "@/services/landing-page.service";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Contact",
-  description: "Get in touch with the RyvonX team for support, partnerships, and investor inquiries.",
+  description: "Get in touch with the RyvonX team for support, partnerships, and copier inquiries.",
   path: ROUTES.contact,
-  keywords: ["contact RyvonX", "investor support", "RyvonX help"],
+  keywords: ["contact RyvonX", "copier support", "RyvonX help"],
 });
 
 export default async function ContactPage() {

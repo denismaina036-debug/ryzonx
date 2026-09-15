@@ -16,8 +16,8 @@ export async function generateMetadata({
   const data = await marketplacePresentationService.getManagerProfilePageData(slug);
   if (!data) {
     return buildPageMetadata({
-      title: "Manager Not Found",
-      description: "This pool manager profile could not be found on RyvonX.",
+      title: "Trader Not Found",
+      description: "This verified trader profile could not be found on RyvonX.",
       path: `/managers/${slug}`,
       robots: { index: false, follow: false },
     });
@@ -27,15 +27,15 @@ export async function generateMetadata({
   const title = profile.publicDisplayName || profile.displayName;
   const description =
     profile.biography?.slice(0, 160) ||
-    `${title} is a verified pool manager on ${BRAND_NAME}. View pools, performance, and trading history.`;
+    `${title} is a verified verified trader on ${BRAND_NAME}. View strategies, performance, and trading history.`;
 
   return buildPageMetadata({
     title,
     description,
     path: `/managers/${slug}`,
     image: profile.coverImageUrl || profile.profilePhotoUrl || undefined,
-    imageAlt: `${title} — ${BRAND_NAME} pool manager`,
-    keywords: [title, "pool manager", "verified trader", BRAND_NAME, ...profile.markets].filter(
+    imageAlt: `${title} — ${BRAND_NAME} verified trader`,
+    keywords: [title, "verified trader", "verified trader", BRAND_NAME, ...profile.markets].filter(
       Boolean
     ),
   });

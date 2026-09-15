@@ -115,7 +115,7 @@ export function InvestorWithdrawalsView({
                 {formatCurrency(0)}
               </p>
               <p className="text-sm text-[var(--id-text-muted)]">
-                Your Funding Wallet is empty. Transfer pool profit or deposit funds before
+                Your Funding Wallet is empty. Transfer copy profit or deposit funds before
                 requesting a withdrawal.
               </p>
               <Button asChild variant="outline" size="sm" className="rounded-xl">

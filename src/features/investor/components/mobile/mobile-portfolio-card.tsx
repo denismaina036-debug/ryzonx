@@ -138,14 +138,14 @@ export function MobilePortfolioCard({
           </p>
         </div>
         <div>
-          <p className="text-xs text-[var(--id-text-muted)]">Invested Capital</p>
+          <p className="text-xs text-[var(--id-text-muted)]">Allocated Capital</p>
           <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-[var(--id-text)]">
             {mask(formatCurrency(investedCapital))}
           </p>
         </div>
         {poolProfit > 0 ? (
           <div className="col-span-2">
-            <p className="text-xs text-[var(--id-text-muted)]">Pool Profit</p>
+            <p className="text-xs text-[var(--id-text-muted)]">Copy Profit</p>
             <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-[var(--id-success)]">
               {mask(formatCurrency(poolProfit))}
             </p>

@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import Link from "next/link";
 import { ROUTES } from "@/constants/routes";
@@ -55,7 +56,7 @@ export function MobileRecentActivity({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <p className="min-w-0 break-words text-sm font-medium text-[var(--id-text)]">
-                      {item.title}
+                      {copyTradingText(item.title)}
                     </p>
                     <p
                       className={cn(
@@ -71,7 +72,7 @@ export function MobileRecentActivity({
                   </div>
                   <div className="mt-0.5 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
                     <p className="min-w-0 break-words text-xs text-[var(--id-text-muted)]">
-                      {item.subtitle}
+                      {copyTradingText(item.subtitle)}
                     </p>
                     <p
                       className="shrink-0 text-[10px] text-[var(--id-text-faint)]"

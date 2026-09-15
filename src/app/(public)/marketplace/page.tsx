@@ -11,12 +11,12 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = buildPageMetadata({
   title: "Marketplace",
   description:
-    "Discover verified investment pools on RyvonX. Browse pool managers, compare performance, and invest alongside skilled traders.",
+    "Discover verified copy-trading strategies on RyvonX. Browse verified traders, compare performance, and copy alongside skilled traders.",
   path: ROUTES.marketplace,
   keywords: [
-    "investment pool marketplace",
+    "copy-trading strategy marketplace",
     "verified traders",
-    "pool trading",
+    "copy trading",
     "RyvonX marketplace",
   ],
 });

@@ -146,7 +146,7 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
 
       toast.success("Deposit marked as sent", {
         description:
-          "We'll verify your deposit. Once approved, choose a pool in the Marketplace.",
+          "We'll verify your deposit. Once approved, choose a strategy in the Marketplace.",
       });
       router.refresh();
       setAmount("");
@@ -460,12 +460,12 @@ export function CryptoDepositView({ data }: CryptoDepositViewProps) {
                 />
                 <p className="text-xs leading-relaxed text-[var(--id-text-muted)]">
                   After sending crypto, confirm here. Our team will verify and credit your
-                  balance. Then invest in a pool via{" "}
+                  balance. Then copy a trader via{" "}
                   <Link
                     href={ROUTES.marketplace}
                     className="font-medium text-[var(--id-accent-text)] hover:underline"
                   >
-                    Marketplace / Pools
+                    Marketplace / Strategies
                   </Link>
                   .
                 </p>

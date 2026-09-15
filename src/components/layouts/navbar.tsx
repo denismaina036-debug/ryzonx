@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -15,8 +16,8 @@ const NAV_LINKS = [
   { label: "Home", href: ROUTES.home },
   { label: "Marketplace", href: ROUTES.marketplace },
   { label: "Performance", href: ROUTES.performance },
-  { label: "Recent Pool Trades", href: ROUTES.journal },
-  { label: "Investors", href: ROUTES.investors },
+  { label: "Recent Strategy Trades", href: ROUTES.journal },
+  { label: "Copiers", href: ROUTES.investors },
   { label: "How It Works", href: ROUTES.howItWorks },
   { label: "FAQ", href: ROUTES.faq },
   { label: "Contact", href: ROUTES.contact },
@@ -66,7 +67,7 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
           <Link href={ROUTES.home} className="relative z-50 flex items-center gap-2.5 rounded-xl outline-none transition-opacity hover:opacity-85 focus-visible:ring-2 focus-visible:ring-blue-500">
             <Image
               src="/images/logo-transparent.png"
-              alt="RyvonX logo — investment pool marketplace"
+              alt="RyvonX logo — copy-trading strategy marketplace"
               width={36}
               height={36}
               className="h-9 w-9 object-contain"
@@ -91,7 +92,7 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
                     : isHome ? "text-slate-300 hover:bg-white/[.06] hover:text-white" : "text-navy-500 hover:text-navy-900"
                 )}
               >
-                {link.label}
+                {copyTradingText(link.label)}
               </Link>
             ))}
           </nav>
@@ -159,7 +160,7 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
                           : "text-navy-700 hover:bg-surface-1"
                       )}
                     >
-                      {link.label}
+                      {copyTradingText(link.label)}
                     </Link>
                   </motion.div>
                 ))}

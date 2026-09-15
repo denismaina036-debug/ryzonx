@@ -41,7 +41,7 @@ export function PoolActivityCurrentTab({
     return (
       <div className="rounded-xl border border-dashed border-[var(--id-border)] bg-[var(--id-surface)] p-8 text-center">
         <p className="text-sm text-[var(--id-text-muted)]">
-          No active trading cycle for this pool.
+          No active trading cycle for this strategy.
         </p>
       </div>
     );

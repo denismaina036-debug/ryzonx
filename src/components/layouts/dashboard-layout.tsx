@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -146,7 +147,7 @@ function SidebarContent({
 
           return (
             <Link
-              key={item.label}
+              key={copyTradingText(item.label)}
               href={item.href}
               className={cn(
                 tapNavLink,
@@ -157,7 +158,7 @@ function SidebarContent({
               )}
             >
               <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-              <span className="flex-1">{item.label}</span>
+              <span className="flex-1">{copyTradingText(item.label)}</span>
               {item.badge && (
                 <span className="rounded-full bg-[var(--id-accent)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
                   {item.badge}
@@ -197,7 +198,7 @@ function SidebarContent({
           )}
         >
           <LogoutIcon className="h-4 w-4" strokeWidth={1.75} />
-          {INVESTOR_LOGOUT_ITEM.label}
+          {copyTradingText(INVESTOR_LOGOUT_ITEM.label)}
         </button>
       </div>
     </>

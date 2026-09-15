@@ -68,7 +68,7 @@ export function PoolPostCycleChoices({
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Request failed");
-      toast.success(`${formatCurrency(capitalAmount)} reinvested in ${poolName}.`);
+      toast.success(`${formatCurrency(capitalAmount)} reallocateed in ${poolName}.`);
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
@@ -127,7 +127,7 @@ export function PoolPostCycleChoices({
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Request failed");
-      toast.success(`${formatCurrency(data.reinvested ?? profitAmount)} reinvested in ${poolName}.`);
+      toast.success(`${formatCurrency(data.reinvested ?? profitAmount)} reallocateed in ${poolName}.`);
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
@@ -151,7 +151,7 @@ export function PoolPostCycleChoices({
             ) : (
               <>
                 <SimpleButton
-                  label="Reinvest in Pool"
+                  label="Continue copying"
                   icon={RefreshCw}
                   loading={loading === "reinvest-capital"}
                   onClick={reinvestCapital}
@@ -184,7 +184,7 @@ export function PoolPostCycleChoices({
                 onClick={transferProfit}
               />
               <SimpleButton
-                label="Reinvest in Pool"
+                label="Continue copying"
                 icon={RefreshCw}
                 variant="outline"
                 loading={loading === "reinvest-profit"}

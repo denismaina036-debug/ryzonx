@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import { useState } from "react";
 import { Mail, MapPin, Phone, Send } from "lucide-react";
@@ -34,9 +35,9 @@ export function ContactSection({ contact, copy, className }: ContactSectionProps
   return (
     <SectionContainer className={className ?? "bg-surface-1"} landingMobile>
       <SectionHeader
-        badge={copy.badge}
-        title={copy.title}
-        description={copy.description}
+        badge={copyTradingText(copy.badge)}
+        title={copyTradingText(copy.title)}
+        description={copyTradingText(copy.description)}
         align="center"
       />
       <div className="mx-auto grid max-w-4xl gap-12 lg:grid-cols-5">

@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import { Badge } from "@/components/ui/badge";
 import type { InvestorTradeDisplayStatus } from "@/features/investor/types";
 
@@ -46,7 +47,7 @@ export function InvestorTradeStatusBadge({
       variant="secondary"
       className={`rounded-full border-0 px-2 py-0.5 text-[10px] font-medium ring-1 ring-inset ${config.className}`}
     >
-      {config.label}
+      {copyTradingText(config.label)}
     </Badge>
   );
 }

@@ -15,12 +15,6 @@ export function InvestorCycleOperationsPanel({
   live?: boolean;
 }) {
   const { journalSummary, portfolioProgress, publicTrades, liveTrading } = operations;
-  const target = portfolioProgress.targetCapital;
-  const progressPct =
-    portfolioProgress.fundingProgressPct ??
-    (target && target > 0
-      ? Math.min(100, Math.round((portfolioProgress.raisedCapital / target) * 100))
-      : null);
   const isTrading = operations.simplifiedPhase === "trading";
   const profitTone =
     liveTrading && liveTrading.currentCycleProfit > 0
@@ -50,10 +44,10 @@ export function InvestorCycleOperationsPanel({
 
         {isTrading && liveTrading ? (
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Stat label="Current pool profit" value={formatCurrency(liveTrading.currentCycleProfit)} valueClassName={profitTone} />
+            <Stat label="Current copy profit" value={formatCurrency(liveTrading.currentCycleProfit)} valueClassName={profitTone} />
             <Stat label="Trades recorded" value={String(liveTrading.tradesRecorded)} />
             <Stat
-              label="Your investment"
+              label="Your allocation"
               value={
                 liveTrading.investorInvestment != null
                   ? formatCurrency(liveTrading.investorInvestment)
@@ -85,8 +79,8 @@ export function InvestorCycleOperationsPanel({
             <Stat label="Recorded trades" value={String(journalSummary.totalTrades)} />
             <Stat label="Closed trades" value={String(journalSummary.closedPositionsCount)} />
             <Stat
-              label="Committed capital"
-              value={formatCurrency(portfolioProgress.raisedCapital)}
+              label="Traded capital"
+              value={formatCurrency(operations.simplifiedPhase === "funding" ? 0 : portfolioProgress.raisedCapital)}
             />
           </div>
         )}
@@ -98,26 +92,6 @@ export function InvestorCycleOperationsPanel({
               {new Date(portfolioProgress.fundingStartedAt).toLocaleString()}
             </span>
           </p>
-        )}
-
-        {progressPct != null && operations.simplifiedPhase === "funding" && (
-          <div className="mt-6">
-            <div className="flex justify-between text-xs text-[var(--id-text-muted)]">
-              <span>Funding progress</span>
-              <span>{progressPct}%</span>
-            </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--id-border)]">
-              <div
-                className="h-full rounded-full [background:var(--id-accent-gradient)]"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-            <p className="mt-2 text-xs text-[var(--id-text-muted)]">
-              {formatCurrency(portfolioProgress.raisedCapital)} committed
-              {target != null && ` of ${formatCurrency(target)} target`} ·{" "}
-              {portfolioProgress.investorCount} investors
-            </p>
-          </div>
         )}
 
         {isTrading && liveTrading && (

@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import {
   Calendar,
   CircleDollarSign,
@@ -48,14 +49,14 @@ export function DashboardSummaryBar({
 
   const items = [
     { icon: Wallet, label: "Funding Wallet", value: formatCurrency(investment.balance) },
-    { icon: CircleDollarSign, label: "Total Invested", value: formatCurrency(totalInvested) },
+    { icon: CircleDollarSign, label: "Total Allocated", value: formatCurrency(totalInvested) },
     {
       icon: TrendingUp,
-      label: "Pool Profit (in pools)",
+      label: "Copy Profit (in strategies)",
       value: formatCurrency(investment.poolProfit),
       accent: investment.poolProfit !== 0,
     },
-    { icon: Layers, label: "Total Pools", value: String(totalPools) },
+    { icon: Layers, label: "Total Strategies", value: String(totalPools) },
     { icon: Calendar, label: "Active Since", value: activeSince },
     {
       icon: Shield,
@@ -76,7 +77,7 @@ export function DashboardSummaryBar({
               strokeWidth={1.75}
             />
             <div className="min-w-0">
-              <p className="text-[10px] text-[var(--id-text-muted)]">{item.label}</p>
+              <p className="text-[10px] text-[var(--id-text-muted)]">{copyTradingText(item.label)}</p>
               <div className="mt-0.5 flex flex-wrap items-center gap-2">
                 <p
                   className={`font-mono text-sm font-semibold tabular-nums ${

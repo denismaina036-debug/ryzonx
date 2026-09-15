@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import { SectionContainer, SectionHeader } from "@/components/layouts/section";
 import { landingPageService } from "@/services/landing-page.service";
 import { resolveLandingIcon } from "@/domain/landing-page/icons";
@@ -8,9 +9,9 @@ export async function WhyRyvonxSection() {
   return (
     <SectionContainer landingMobile>
       <SectionHeader
-        badge={content.copy.whyRyvonx.badge}
-        title={content.copy.whyRyvonx.title}
-        description={content.copy.whyRyvonx.description}
+        badge={copyTradingText(content.copy.whyRyvonx.badge)}
+        title={copyTradingText(content.copy.whyRyvonx.title)}
+        description={copyTradingText(content.copy.whyRyvonx.description)}
         align="center"
       />
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -25,8 +26,8 @@ export async function WhyRyvonxSection() {
                 <Icon className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="font-semibold text-navy-950">{feature.title}</h3>
-                <p className="mt-1 text-sm text-navy-500">{feature.description}</p>
+                <h3 className="font-semibold text-navy-950">{copyTradingText(feature.title)}</h3>
+                <p className="mt-1 text-sm text-navy-500">{copyTradingText(feature.description)}</p>
               </div>
             </div>
           );

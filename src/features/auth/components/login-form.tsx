@@ -33,7 +33,7 @@ export function LoginForm() {
       <div className="mb-8 text-center">
         <h1 className="text-2xl font-semibold text-navy-950">Welcome back</h1>
         <p className="mt-2 text-sm text-navy-500">
-          Sign in to your Ryvonx investor account
+          Sign in to your Ryvonx copier account
         </p>
       </div>
 
@@ -93,7 +93,7 @@ export function LoginForm() {
           href={ROUTES.register}
           className="font-medium text-royal-600 hover:text-royal-700"
         >
-          Join Pool
+          Copy trader
         </Link>
       </p>
     </div>

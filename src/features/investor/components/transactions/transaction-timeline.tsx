@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import { cn } from "@/lib/utils";
 import type { TransactionTimelineStep } from "@/domain/transaction/types";
 
@@ -31,7 +32,7 @@ export function TransactionTimeline({ steps }: { steps: TransactionTimelineStep[
               )}
             </div>
             <div className={cn("pb-5 text-sm font-medium", textClass, isLast && "pb-0")}>
-              {step.label}
+              {copyTradingText(step.label)}
             </div>
           </li>
         );

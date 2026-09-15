@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import Link from "next/link";
 import { ArrowLeftRight, ChevronRight } from "lucide-react";
@@ -58,7 +59,7 @@ export function InvestorTransactionsView({
         title="Transaction History"
         description={
           <>
-            Deposits, withdrawals, pool allocations, and balance movements — with pool context.{" "}
+            Deposits, withdrawals, strategy allocations, and balance movements — with strategy context.{" "}
             <Link
               href={ROUTES.platformActivity}
               className="font-medium text-[var(--id-accent-text)] hover:underline"
@@ -73,7 +74,7 @@ export function InvestorTransactionsView({
         <RyvonxEmptyState
           icon={<ArrowLeftRight className="h-5 w-5" />}
           title="No transactions yet"
-          description="Your deposits, withdrawals, and pool activity will appear here."
+          description="Your deposits, withdrawals, and strategy activity will appear here."
           action={
             <Link
               href={ROUTES.deposits}
@@ -120,10 +121,10 @@ export function InvestorTransactionsView({
                         />
                         <div className="min-w-0 flex-1">
                           <p className="text-[15px] font-semibold text-[var(--id-text)] sm:text-base">
-                            {tx.title}
+                            {copyTradingText(tx.title)}
                           </p>
                           <p className="mt-0.5 truncate text-xs text-[var(--id-text-muted)] sm:text-sm">
-                            {tx.subtitle}
+                            {copyTradingText(tx.subtitle)}
                           </p>
                         </div>
 

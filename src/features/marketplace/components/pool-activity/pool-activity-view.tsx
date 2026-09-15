@@ -40,7 +40,7 @@ export function PoolActivityView({ data }: PoolActivityViewProps) {
         <Button asChild variant="ghost" size="sm" className="w-fit px-0 hover:bg-transparent">
           <Link href={`${ROUTES.marketplace}/${data.poolSlug}`} className="gap-2">
             <ArrowLeft className="h-4 w-4" />
-            Back to pool
+            Back to trader
           </Link>
         </Button>
       </div>
@@ -50,7 +50,7 @@ export function PoolActivityView({ data }: PoolActivityViewProps) {
           {displayName}
         </h1>
         <p className="mt-2 text-sm text-[var(--id-text-muted)]">
-          Recent pool trades recorded by the manager in this pool&apos;s trading journal.
+          Recent strategy trades recorded by the trader in this strategy&apos;s trading journal.
         </p>
         <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <HeaderStat
@@ -74,7 +74,7 @@ export function PoolActivityView({ data }: PoolActivityViewProps) {
       </header>
 
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-[var(--id-text)]">Recent Pool Trades</h2>
+        <h2 className="mb-4 text-lg font-semibold text-[var(--id-text)]">Recent Strategy Trades</h2>
         <PoolActivityJournalTab
           trades={data.journalTrades}
           cycles={data.cycles}

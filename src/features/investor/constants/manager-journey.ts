@@ -2,9 +2,9 @@ export const MANAGER_JOURNEY_STAGES = [
   { id: "application", label: "Application" },
   { id: "trader_evaluation", label: "Trader Evaluation" },
   { id: "strategy_submission", label: "Strategy Submission" },
-  { id: "committee_review", label: "Investment Committee Review" },
+  { id: "committee_review", label: "Committee Review" },
   { id: "certification", label: "Certification" },
-  { id: "approved_manager", label: "Approved Pool Manager" },
+  { id: "approved_manager", label: "Verified Trader" },
   { id: "capital_eligible", label: "Eligible for RyvonX Capital" },
 ] as const;
 
@@ -38,7 +38,7 @@ export function getManagerJourneyProgress(
     default:
       return {
         currentStageIndex: 0,
-        nextStep: "Start your Manager Journey application",
+        nextStep: "Start your Verified Trader Journey application",
       };
   }
 }

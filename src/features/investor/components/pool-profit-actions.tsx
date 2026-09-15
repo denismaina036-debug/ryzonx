@@ -41,7 +41,7 @@ export function PoolProfitActions({
   if (availableProfit <= 0) {
     return compact ? null : (
       <p className="text-sm text-[var(--id-text-muted)]">
-        Pool profit will appear here when trades are recorded on your allocation.
+        Strategy profit will appear here when trades are recorded on your allocation.
       </p>
     );
   }
@@ -90,7 +90,7 @@ export function PoolProfitActions({
         );
       } else {
         toast.success(
-          `${formatCurrency(data.reinvested ?? num)} reinvested in ${poolName}.`
+          `${formatCurrency(data.reinvested ?? num)} reallocateed in ${poolName}.`
         );
       }
       router.refresh();
@@ -112,7 +112,7 @@ export function PoolProfitActions({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--id-text-muted)]">
-              Available Pool Profit
+              Available Copy Profit
             </p>
             <p
               className={cn(
@@ -124,7 +124,7 @@ export function PoolProfitActions({
               {formatCurrency(availableProfit)}
             </p>
             <p className="mt-1 text-xs text-[var(--id-text-faint)]">
-              Profit stays in the pool until you transfer or reinvest.
+              Profit stays in the strategy until you transfer or reallocate.
             </p>
           </div>
           {!compact && (
@@ -152,7 +152,7 @@ export function PoolProfitActions({
             onClick={() => openDialog("reinvest")}
           >
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-            Reinvest in Pool
+            Continue copying
           </Button>
         </div>
       </div>
@@ -161,12 +161,12 @@ export function PoolProfitActions({
         <DialogContent className="border-[var(--id-border)] bg-[var(--id-surface)] text-[var(--id-text)] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {action === "transfer" ? "Transfer pool profit" : "Reinvest pool profit"}
+              {action === "transfer" ? "Transfer copy profit" : "Reallocate copy profit"}
             </DialogTitle>
             <DialogDescription className="text-[var(--id-text-muted)]">
               {action === "transfer"
-                ? `Move profit from ${poolName} into your Funding Wallet for withdrawals or new investments.`
-                : `Add profit from ${poolName} back to your invested capital in this pool.`}
+                ? `Move profit from ${poolName} into your Funding Wallet for withdrawals or new copy allocations.`
+                : `Add profit from ${poolName} back to your allocated capital in this strategy.`}
             </DialogDescription>
           </DialogHeader>
 
@@ -211,7 +211,7 @@ export function PoolProfitActions({
                 ? "Processing…"
                 : action === "transfer"
                   ? "Confirm transfer"
-                  : "Confirm reinvest"}
+                  : "Confirm reallocate"}
             </Button>
           </div>
         </DialogContent>

@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -41,13 +42,13 @@ export function InvestorPortfolioView({ data }: { data: InvestorPortfolioData })
     <div className="space-y-8">
       <RyvonxPageHeader
         title="Portfolio"
-        description="How is my money positioned? Cycle commitments and legacy pool holdings."
+        description="How is my money positioned? Cycle commitments and legacy strategy holdings."
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Metric label="Wallet balance" value={formatCurrency(data.balance)} />
         <Metric label="Cycle commitments" value={formatCurrency(data.totalCommittedCycles)} />
-        <Metric label="Legacy pool capital" value={formatCurrency(data.totalInvestedLegacy)} />
+        <Metric label="Legacy strategy capital" value={formatCurrency(data.totalInvestedLegacy)} />
       </div>
 
       <WalletHeroCard investment={walletSummary} />
@@ -67,7 +68,7 @@ export function InvestorPortfolioView({ data }: { data: InvestorPortfolioData })
                     {a.cycleName}
                   </Link>
                   <p className="text-xs text-[var(--id-text-muted)]">
-                    {a.strategyName} · {a.managerName} · {a.referenceNumber}
+                    {copyTradingText(a.strategyName)} · {a.managerName} · {a.referenceNumber}
                   </p>
                 </div>
                 <div className="flex items-center gap-4">
@@ -100,7 +101,7 @@ export function InvestorPortfolioView({ data }: { data: InvestorPortfolioData })
                 <div>
                   <p className="font-medium text-[var(--id-text)]">{a.cycleName}</p>
                   <p className="text-xs text-[var(--id-text-muted)]">
-                    {INVESTMENT_ALLOCATION_STATUS_LABELS[a.status]} · {a.strategyName}
+                    {INVESTMENT_ALLOCATION_STATUS_LABELS[a.status]} · {copyTradingText(a.strategyName)}
                   </p>
                 </div>
                 <span className="font-semibold tabular-nums">{formatCurrency(a.amount)}</span>
@@ -117,7 +118,7 @@ export function InvestorPortfolioView({ data }: { data: InvestorPortfolioData })
             <ul className="mt-4 space-y-3">
               {data.strategyExposure.map((item) => (
                 <li key={item.strategyName} className="flex justify-between text-sm">
-                  <span>{item.strategyName}</span>
+                  <span>{copyTradingText(item.strategyName)}</span>
                   <span className="font-medium tabular-nums">{formatCurrency(item.amount)}</span>
                 </li>
               ))}
@@ -132,7 +133,7 @@ export function InvestorPortfolioView({ data }: { data: InvestorPortfolioData })
               {data.riskExposure.map((item) => (
                 <li key={item.label}>
                   <div className="flex justify-between text-sm">
-                    <span className="capitalize">{item.label}</span>
+                    <span className="capitalize">{copyTradingText(item.label)}</span>
                     <span>{item.pct}%</span>
                   </div>
                   <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[var(--id-border)]">
@@ -147,11 +148,11 @@ export function InvestorPortfolioView({ data }: { data: InvestorPortfolioData })
 
       {data.timeline.length > 0 && (
         <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
-          <h2 className="font-semibold text-[var(--id-text)]">Investment Timeline</h2>
+          <h2 className="font-semibold text-[var(--id-text)]">Copy Timeline</h2>
           <ul className="mt-4 space-y-2">
             {data.timeline.map((item, i) => (
               <li key={`${item.label}-${i}`} className="flex justify-between text-sm">
-                <span className="text-[var(--id-text)]">{item.label}</span>
+                <span className="text-[var(--id-text)]">{copyTradingText(item.label)}</span>
                 <span className="text-[var(--id-text-muted)]">
                   {new Date(item.date).toLocaleDateString()}
                 </span>
@@ -164,13 +165,13 @@ export function InvestorPortfolioView({ data }: { data: InvestorPortfolioData })
       {data.legacyParticipations.length > 0 && (
         <section className="overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow)]">
           <div className="border-b border-[var(--id-border)] px-5 py-4">
-            <h2 className="text-sm font-semibold text-[var(--id-text)]">Legacy Pool Holdings</h2>
+            <h2 className="text-sm font-semibold text-[var(--id-text)]">Legacy Strategy Holdings</h2>
           </div>
           <ul className="divide-y divide-[var(--id-border)]">
             {data.legacyParticipations.map((pool) => (
               <li key={pool.fundId} className="space-y-4 px-5 py-5">
                 <div className="flex justify-between">
-                  <p className="font-semibold">{pool.poolName}</p>
+                  <p className="font-semibold">{copyTradingText(pool.poolName)}</p>
                   <p className="font-mono font-semibold">{formatCurrency(pool.amountInvested)}</p>
                 </div>
                 <PoolProfitActions
@@ -190,7 +191,7 @@ export function InvestorPortfolioView({ data }: { data: InvestorPortfolioData })
           <Link href={ROUTES.marketplace}>Find opportunities</Link>
         </Button>
         <Button asChild variant="outline">
-          <Link href={ROUTES.investments}>Legacy investments</Link>
+          <Link href={ROUTES.investments}>Legacy copy allocations</Link>
         </Button>
       </div>
     </div>

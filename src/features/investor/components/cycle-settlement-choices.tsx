@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import type { CycleInvestorSettlement } from "@/services/investment-engine/cycle-investor-settlement.service";
 import { PoolPostCycleChoicesFromView } from "@/features/investor/components/pool-post-cycle-choices";
@@ -19,7 +20,7 @@ export function CycleSettlementChoices({ settlements }: CycleSettlementChoicesPr
         {settlements.map((settlement) => (
           <li key={settlement.id} className="space-y-4 px-5 py-5 sm:px-6">
             <div>
-              <p className="font-semibold text-[var(--id-text)]">{settlement.poolName}</p>
+              <p className="font-semibold text-[var(--id-text)]">{copyTradingText(settlement.poolName)}</p>
               <p className="mt-1 text-xs text-[var(--id-text-muted)]">
                 {settlement.cycleName}
                 {settlement.cycleNumber != null ? ` · Cycle ${settlement.cycleNumber}` : ""}

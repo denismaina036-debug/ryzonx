@@ -15,10 +15,10 @@ export function InvestorHomeInvestmentPanel({ data }: { data: InvestorHomeData }
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-[var(--id-accent)]">
-              Investment Overview
+              Copy Trading Overview
             </p>
             <h2 className="mt-1 text-lg font-semibold text-[var(--id-text)]">
-              What should I invest in today?
+              Which trader will you copy next?
             </h2>
           </div>
           <Link href={ROUTES.marketplace} className="text-sm font-medium text-[var(--id-accent)] hover:underline">
@@ -47,7 +47,7 @@ export function InvestorHomeInvestmentPanel({ data }: { data: InvestorHomeData }
             subtitle={
               data.fundingCycleCount > data.recommendedCycles.length
                 ? `${data.fundingCycleCount} cycles currently open for funding`
-                : "Investment cycles currently open for funding"
+                : "Strategies currently accepting copy allocations"
             }
             href={ROUTES.marketplace}
           />
@@ -61,7 +61,7 @@ export function InvestorHomeInvestmentPanel({ data }: { data: InvestorHomeData }
 
       {data.featuredManagers.length > 0 && (
         <section>
-          <SectionHeader title="Featured Pool Managers" href={ROUTES.marketplace} />
+          <SectionHeader title="Featured Verified Traders" href={ROUTES.marketplace} />
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {data.featuredManagers.map((manager) => (
               <Link
@@ -74,7 +74,7 @@ export function InvestorHomeInvestmentPanel({ data }: { data: InvestorHomeData }
                   {manager.tradingStyle?.replace(/_/g, " ") ?? "Professional manager"}
                 </p>
                 <div className="mt-3 flex justify-between text-xs text-[var(--id-text-muted)]">
-                  <span>{manager.activeInvestors} investors</span>
+                  <span>{manager.activeInvestors} copiers</span>
                   {manager.ryvonxRating != null && <span>★ {manager.ryvonxRating.toFixed(1)}</span>}
                 </div>
               </Link>
@@ -97,7 +97,7 @@ export function InvestorHomeInvestmentPanel({ data }: { data: InvestorHomeData }
 
         <section>
           <SectionHeader
-            title="Investment Insights"
+            title="Copy Allocation Insights"
             subtitle="Analytics and ratings — coming with Trading Engine"
             icon={Sparkles}
           />
@@ -116,7 +116,7 @@ export function InvestorHomeInvestmentPanel({ data }: { data: InvestorHomeData }
                 {data.pendingAllocations.length === 1 ? "" : "s"}
               </p>
               <Link href={ROUTES.portfolio} className="mt-2 inline-block text-sm text-[var(--id-accent)] hover:underline">
-                Pool cycles →
+                Copy activity →
               </Link>
             </div>
           )}

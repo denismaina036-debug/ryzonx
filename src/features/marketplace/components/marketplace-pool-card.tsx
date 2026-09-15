@@ -4,7 +4,6 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   BadgeCheck,
-  Building2,
   CircleDollarSign,
   Clock,
   Crosshair,
@@ -22,8 +21,8 @@ import { ManagerCountryBadge } from "@/features/marketplace/components/manager-c
 import { MobileMarketplacePoolCard } from "@/features/marketplace/components/mobile-marketplace-pool-card";
 import { Button } from "@/components/ui/button";
 import type { MarketplacePoolCard } from "@/domain/marketplace/types";
-import { formatRaisedCapitalPct, shouldShowPoolTagline } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
-import { isCycleTradingPhase } from "@/lib/investment/cycle-display-phase";
+import { shouldShowPoolTagline } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
+import { copyTraderName, copyTradingText, displayedTradedCapital } from "@/lib/copy-trading-presentation";
 import { PoolCardRoiPreview } from "@/features/marketplace/components/pool-card-roi-preview";
 import { formatTradingDateTimeLabel } from "@/domain/pools/trading-session";
 
@@ -46,11 +45,6 @@ export function MarketplacePoolCardView({ pool }: MarketplacePoolCardProps) {
 }
 
 function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
-  const isTrading = pool.activeCycle != null && isCycleTradingPhase(pool.activeCycle.status);
-  const raisedPct = formatRaisedCapitalPct(pool.raisedCapital, pool.targetCapital);
-  const progressPct = pool.targetCapital > 0
-    ? Math.min(100, (pool.raisedCapital / pool.targetCapital) * 100)
-    : 0;
   const participateDisabled =
     !pool.canParticipate ||
     pool.capacityStatus === "full" ||
@@ -76,14 +70,14 @@ function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-3">
           {pool.coverSubtitle ? (
             <p className="text-[10px] font-medium uppercase tracking-wider text-white/85">
-              {pool.coverSubtitle}
+              {copyTradingText(pool.coverSubtitle)}
             </p>
           ) : (
             <span />
           )}
           <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-black/35 px-2.5 py-1 text-[10px] font-medium text-emerald-300 backdrop-blur-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
-            Active Pool
+            Active Strategy
           </div>
         </div>
       </PoolCoverBanner>
@@ -92,16 +86,17 @@ function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
         {/* Title */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-1.5">
-            <h4 className="truncate text-base font-bold uppercase tracking-wide text-[var(--id-text)] sm:text-lg">
-              {pool.displayPoolName || pool.name}
+            <h4 className="truncate text-base font-bold tracking-tight text-[var(--id-text)] sm:text-lg">
+              {copyTraderName(pool)}
             </h4>
-            {pool.poolVerified && (
-              <BadgeCheck className="h-4 w-4 shrink-0 text-[var(--id-accent-text)]" aria-label="Verified pool" />
+            {pool.managerVerified && (
+              <BadgeCheck className="h-4 w-4 shrink-0 text-[var(--id-accent-text)]" aria-label="Verified trader" />
             )}
           </div>
           <Heart className="h-5 w-5 shrink-0 text-[var(--id-text-faint)]" aria-hidden />
         </div>
 
+        <p className="mt-1 text-xs text-[var(--id-text-muted)]">Strategy · {copyTradingText(pool.displayPoolName || pool.name)}</p>
         <PoolCardDescription pool={pool} className="mt-3" />
 
         {/* Tags */}
@@ -134,7 +129,7 @@ function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] text-[var(--id-text-muted)]">Managed by</p>
+            <p className="text-[11px] text-[var(--id-text-muted)]">{pool.managerVerified ? "Verified trader" : "Trader"}</p>
             <div className="flex items-center gap-1.5">
               {pool.managerSlug ? (
                 <Link
@@ -165,7 +160,7 @@ function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
               )}
               <span className="inline-flex items-center gap-1">
                 <Users className="h-3 w-3" aria-hidden />
-                {pool.activeInvestors} investors
+                {pool.activeInvestors} copiers
               </span>
             </div>
           </div>
@@ -206,57 +201,25 @@ function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
                 />
               ) : null}
               <CycleStat
-                icon={Clock}
-                label="Payout Duration"
-                value={pool.expectedDurationLabel}
-              />
-              <CycleStat
                 icon={Crosshair}
                 label="Traded Instrument"
                 value={pool.tradingAssetTag ?? "—"}
               />
               <CycleStat
                 icon={Wallet}
-                label="Minimum Deposit"
+                label="Minimum copy amount"
                 value={formatCurrency(pool.minInvestment)}
-              />
-              <CycleStat
-                icon={Building2}
-                label={isTrading ? "Total Capital Under Management" : "Target Capital"}
-                value={
-                  isTrading
-                    ? formatCurrency(pool.raisedCapital)
-                    : pool.targetCapital > 0
-                      ? formatCurrency(pool.targetCapital)
-                      : "—"
-                }
               />
             </div>
             <div className="space-y-3">
               <CycleStat
                 icon={CircleDollarSign}
-                label={isTrading ? "Capital Traded" : "Raised Capital"}
-                value={
-                  isTrading
-                    ? formatCurrency(pool.raisedCapital)
-                    : pool.targetCapital > 0
-                      ? `${formatCurrency(pool.raisedCapital)} (${raisedPct}%)`
-                      : formatCurrency(pool.raisedCapital)
-                }
-                extra={
-                  !isTrading && pool.targetCapital > 0 ? (
-                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--id-border)]">
-                      <div
-                        className="h-full rounded-full bg-[var(--id-accent)]"
-                        style={{ width: `${progressPct}%` }}
-                      />
-                    </div>
-                  ) : null
-                }
+                label="Traded capital"
+                value={formatCurrency(displayedTradedCapital(pool))}
               />
               <CycleStat
                 icon={User}
-                label="Investors"
+                label="Copiers"
                 value={String(pool.cycleParticipantCount)}
               />
             </div>
@@ -264,20 +227,12 @@ function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
         </div>
 
         {/* ROI targets row */}
-        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-[var(--id-border)] pt-4 text-center">
+        <div className="mt-4 grid grid-cols-2 gap-2 border-t border-[var(--id-border)] pt-4 text-center">
           <div className="min-w-0">
             <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--id-text-muted)]">
-              Projected ROI
+              Copy ratio
             </p>
             <PoolCardRoiPreview pool={pool} className="mt-2" />
-          </div>
-          <div>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--id-text-muted)]">
-              Return Duration
-            </p>
-            <p className="mt-2 text-sm font-bold leading-snug text-[var(--id-text)]">
-              {pool.expectedDurationLabel}
-            </p>
           </div>
           <div>
             <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--id-text-muted)]">
@@ -294,7 +249,7 @@ function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
             variant="outline"
             className="h-10 border-[var(--id-accent)] text-[var(--id-accent-text)] hover:bg-[var(--id-accent-soft)]"
           >
-            <Link href={`${ROUTES.marketplace}/${pool.slug}`}>View Details</Link>
+            <Link href={`${ROUTES.marketplace}/${pool.slug}`}>View trader</Link>
           </Button>
           <Button
             asChild={!participateDisabled}
@@ -302,9 +257,9 @@ function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
             className="h-10 bg-[var(--id-accent)] text-white hover:bg-[var(--id-accent)]/90 disabled:opacity-50"
           >
             {participateDisabled ? (
-              <span>Invest in Pool</span>
+              <span>Copy trader</span>
             ) : (
-              <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Invest in Pool</Link>
+              <Link href={`${ROUTES.marketplace}/${pool.slug}/join`}>Copy trader</Link>
             )}
           </Button>
         </div>
@@ -376,7 +331,7 @@ export function PoolCardDescription({
         className
       )}
     >
-      {text}
+      {copyTradingText(text)}
     </p>
   );
 }

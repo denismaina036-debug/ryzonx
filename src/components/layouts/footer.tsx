@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -61,10 +62,10 @@ export function Footer({ contact }: { contact: LandingContactInfo }) {
                 height={36}
                 className="h-9 w-9 object-contain"
               />
-              <span className="text-lg font-semibold text-white">{footer.aboutText}</span>
+              <span className="text-lg font-semibold text-white">{copyTradingText(footer.aboutText)}</span>
             </div>
             <p className="mt-4 text-sm leading-relaxed text-navy-400">
-              {footer.companyDescription}
+              {copyTradingText(footer.companyDescription)}
             </p>
             {socialLinks.length > 0 ? (
               <div className="mt-6 flex gap-3">
@@ -77,7 +78,7 @@ export function Footer({ contact }: { contact: LandingContactInfo }) {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/5 text-navy-400 transition-colors hover:bg-white/10 hover:text-white"
-                      aria-label={item.label}
+                      aria-label={copyTradingText(item.label)}
                     >
                       <Icon className="h-4 w-4" />
                     </a>
@@ -98,7 +99,7 @@ export function Footer({ contact }: { contact: LandingContactInfo }) {
                     href={link.href}
                     className="text-sm text-navy-400 transition-colors hover:text-white"
                   >
-                    {link.label}
+                    {copyTradingText(link.label)}
                   </Link>
                 </li>
               ))}
@@ -116,7 +117,7 @@ export function Footer({ contact }: { contact: LandingContactInfo }) {
                     href={link.href}
                     className="text-sm text-navy-400 transition-colors hover:text-white"
                   >
-                    {link.label}
+                    {copyTradingText(link.label)}
                   </Link>
                 </li>
               ))}

@@ -56,7 +56,7 @@ export default async function HomePage() {
         <section className="bg-white px-4 py-12 text-center sm:py-14">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-600">Marketplace</p>
           <h2 className="mt-3 text-2xl font-semibold tracking-[-0.025em] text-slate-950 sm:text-3xl">
-            Find Your Investment Pool
+            Find a Trader to Copy
           </h2>
           <div className="mx-auto mt-4 flex w-28 items-center gap-2" aria-hidden="true">
             <span className="h-px flex-1 bg-gradient-to-r from-transparent to-blue-300" />
@@ -64,7 +64,7 @@ export default async function HomePage() {
             <span className="h-px flex-1 bg-gradient-to-l from-transparent to-blue-300" />
           </div>
           <p className="mx-auto mt-4 max-w-xl text-sm text-slate-500 sm:text-base">
-            Verified managers. Transparent strategies. Built for informed investing.
+            Verified traders. Transparent strategies. Choose who you copy.
           </p>
         </section>
       </div>

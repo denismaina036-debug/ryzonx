@@ -36,7 +36,7 @@ export function PoolCycleTradingSection({ trading }: { trading: InvestorTradingC
 
         <dl className="grid gap-4 px-5 py-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
           <Metric label="Cycle capital" value={formatCurrency(cycleCapital)} />
-          <Metric label="Your investment" value={formatCurrency(trading.investorAmount)} />
+          <Metric label="Your allocation" value={formatCurrency(trading.investorAmount)} />
           <Metric
             label="Your share"
             value={
@@ -74,7 +74,7 @@ export function PoolCycleTradingSection({ trading }: { trading: InvestorTradingC
         <div className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] px-5 py-8 text-center">
           <p className="text-sm font-medium text-[var(--id-text)]">No trades recorded yet</p>
           <p className="mt-1 text-xs text-[var(--id-text-muted)]">
-            Pool manager activity will appear here as trades are logged.
+            Strategy trader activity will appear here as trades are logged.
           </p>
         </div>
       ) : (

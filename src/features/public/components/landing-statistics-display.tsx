@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { resolveLandingIcon } from "@/domain/landing-page/icons";
@@ -32,7 +33,7 @@ export function LandingStatisticsDisplay({
             {slideStats.map((stat) => (
               <StatCard
                 key={stat.id}
-                label={stat.label}
+                label={copyTradingText(stat.label)}
                 value={stat.value}
                 icon={resolveLandingIcon(stat.icon)}
                 changeType={stat.changeType}
@@ -48,7 +49,7 @@ export function LandingStatisticsDisplay({
         {stats.map((stat) => (
           <StatCard
             key={stat.id}
-            label={stat.label}
+            label={copyTradingText(stat.label)}
             value={stat.value}
             icon={resolveLandingIcon(stat.icon)}
             changeType={stat.changeType}

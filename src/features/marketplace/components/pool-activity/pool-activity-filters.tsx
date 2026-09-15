@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import { useMemo } from "react";
 import type { PublicPoolTradeView } from "@/domain/trading-journal/types";
@@ -74,7 +75,7 @@ export function PoolActivityFilters({
             <option value="">All cycles</option>
             {cycles.map((cycle) => (
               <option key={cycle.id} value={cycle.id}>
-                {cycle.name}
+                {copyTradingText(cycle.name)}
               </option>
             ))}
           </select>

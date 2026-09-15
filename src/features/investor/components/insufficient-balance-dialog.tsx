@@ -38,7 +38,7 @@ export function InsufficientBalanceDialog({
           </div>
           <DialogTitle className="text-center">Insufficient balance</DialogTitle>
           <DialogDescription className="text-center">
-            Your available balance is not enough to complete this investment. Add funds to your
+            Your available balance is not enough to complete this copy allocation. Add funds to your
             wallet and try again.
           </DialogDescription>
         </DialogHeader>

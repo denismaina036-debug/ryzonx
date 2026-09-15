@@ -36,7 +36,7 @@ export async function HeroSection() {
     withTimeout(
       landingPageStatsService.resolveAutomaticNumericValue("total_investors"),
       1_500,
-      "Homepage investor count timed out"
+      "Homepage copier count timed out"
     ).catch(() => null),
     withTimeout(
       landingPageActivityService.listTicker(5),
@@ -68,15 +68,15 @@ export async function HeroSection() {
           <FadeIn className="relative z-10 mx-auto min-w-0 w-full max-w-full text-center lg:mx-0 lg:max-w-[38rem] lg:text-left">
             <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-blue-400/40 bg-blue-400/[.055] px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[.15em] text-blue-300 sm:text-[11px]">
               <ShieldCheck className="h-3.5 w-3.5" />
-              Transparent Pool Trading Fund
+              Transparent Copy Trading
             </span>
 
             <h1 className="text-balance text-[clamp(2rem,9.2vw,3.1rem)] font-semibold leading-[1.055] tracking-[-0.048em] text-white sm:text-[3.25rem] lg:text-[clamp(2.65rem,4.25vw,4.5rem)]">
               <span className="block">Trade Smart.</span>
               <span className="mt-1 block whitespace-nowrap">
-                Invest{" "}
+                Copy{" "}
                 <span className="bg-gradient-to-r from-blue-400 via-blue-500 to-indigo-400 bg-clip-text text-transparent">
-                  Transparent.
+                  With Clarity.
                 </span>
               </span>
             </h1>
@@ -84,8 +84,8 @@ export async function HeroSection() {
             <div className="mx-auto mt-6 h-0.5 w-24 bg-gradient-to-r from-blue-500 via-indigo-400 to-transparent lg:mx-0" />
 
             <p className="mx-auto mt-5 max-w-[33rem] text-[.98rem] leading-7 text-slate-300 sm:text-[1.05rem] lg:mx-0">
-              RyvonX connects smart investors with verified traders in professionally managed
-              investment pools.
+              Find verified traders, explore their strategies, and choose who to copy.
+              Track your allocated capital and performance in one place.
             </p>
 
             <div className="mt-7 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center lg:justify-start">
@@ -95,7 +95,7 @@ export async function HeroSection() {
                 className="min-w-44 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 text-white shadow-[0_16px_38px_rgba(37,99,235,.3)] hover:from-blue-500 hover:to-indigo-400 hover:shadow-[0_18px_44px_rgba(37,99,235,.4)]"
               >
                 <Link href={ROUTES.marketplace}>
-                  Invest in a Pool
+                  Copy trader
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
@@ -106,7 +106,7 @@ export async function HeroSection() {
                 className="min-w-44 rounded-xl border-blue-300/35 bg-[#07101e]/45 text-white backdrop-blur-sm hover:border-blue-300/60 hover:bg-blue-400/10 hover:text-white"
               >
                 <Link href={content.hero.secondaryButtonLink}>
-                  Become a Pool Manager
+                  Become a Verified Trader
                   <Plus className="h-4 w-4" />
                 </Link>
               </Button>
@@ -155,9 +155,9 @@ export async function HeroSection() {
         <div className="hero-trust-grid relative z-10 grid overflow-hidden rounded-2xl border border-blue-300/[.14] bg-[#071326]/80 shadow-[0_24px_70px_rgba(0,0,0,.32)] backdrop-blur-xl sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr]">
           <TrustMetric
             icon={Users}
-            title="Total Investors"
+            title="Total Copiers"
             value={formatInvestorCount(investorCount)}
-            description="Smart investors growing together"
+            description="Smart copiers growing together"
             featured
           />
           <TrustMetric
@@ -167,7 +167,7 @@ export async function HeroSection() {
           />
           <TrustMetric
             icon={LockKeyhole}
-            title="Transparent Pools"
+            title="Transparent Strategies"
             description="Real-time performance and clear strategies"
           />
           <TrustMetric

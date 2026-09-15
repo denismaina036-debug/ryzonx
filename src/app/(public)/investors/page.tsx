@@ -11,11 +11,11 @@ import { landingPageStatsService } from "@/services/landing-page-stats.service";
 import { formatCurrency, formatPercentage } from "@/lib/utils";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Investors",
+  title: "Copiers",
   description:
-    "Transparent, anonymized fund-wide investor statistics and activity on RyvonX.",
+    "Transparent, anonymized fund-wide copier statistics and activity on RyvonX.",
   path: ROUTES.investors,
-  keywords: ["investor statistics", "fund transparency", "RyvonX investors"],
+  keywords: ["copier statistics", "fund transparency", "RyvonX copiers"],
 });
 
 export default async function InvestorsPage() {
@@ -31,12 +31,12 @@ export default async function InvestorsPage() {
     <>
       <SectionContainer className="!pb-8 !pt-8">
         <PageHeader
-          title="Investor Transparency"
-          description="Fund-wide statistics and activity. All investor information is anonymized to protect privacy."
+          title="Copier Transparency"
+          description="Fund-wide statistics and activity. All copier information is anonymized to protect privacy."
         />
         <StatGrid columns={4}>
           <StatCard
-            label="Active Investors"
+            label="Active Copiers"
             value={investorCount == null ? "—" : new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(investorCount)}
             icon={Users}
           />
@@ -46,12 +46,12 @@ export default async function InvestorsPage() {
             icon={Wallet}
           />
           <StatCard
-            label="Average Investment"
+            label="Average Copy Allocation"
             value={formatCurrency(stats.averageInvestment)}
             icon={TrendingUp}
           />
           <StatCard
-            label="Largest Investment"
+            label="Largest Copy Allocation"
             value={formatCurrency(stats.largestInvestment)}
             icon={Crown}
           />
@@ -80,7 +80,7 @@ export default async function InvestorsPage() {
         <div className="grid gap-8 lg:grid-cols-3">
           <div>
             <h3 className="mb-4 text-lg font-semibold text-navy-950">
-              Recent Investors
+              Recent Copiers
             </h3>
             <ActivityFeed items={investors} type="investor" />
           </div>

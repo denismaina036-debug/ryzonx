@@ -72,7 +72,7 @@ export function MobilePerformanceSummary({
           icon={Activity}
         />
         <Metric
-          label="Pool Status"
+          label="Strategy Status"
           value={health ? HEALTH_LABELS[health] : "—"}
           tone={health === "healthy" ? "success" : health === "at_risk" ? "danger" : "neutral"}
           icon={ShieldCheck}

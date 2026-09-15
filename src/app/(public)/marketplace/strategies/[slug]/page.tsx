@@ -20,7 +20,7 @@ export async function generateMetadata({
   if (!data) {
     return buildPageMetadata({
       title: "Strategy Not Found",
-      description: "This investment strategy could not be found on RyvonX.",
+      description: "This copy allocation strategy could not be found on RyvonX.",
       path: `${ROUTES.marketplaceStrategies}/${slug}`,
       robots: { index: false, follow: false },
     });
@@ -29,13 +29,13 @@ export async function generateMetadata({
   const { strategy, manager } = data;
   const description =
     strategy.description ??
-    `${strategy.name} — an approved investment strategy by ${manager.name} on ${BRAND_NAME}.`;
+    `${strategy.name} — an approved copy allocation strategy by ${manager.name} on ${BRAND_NAME}.`;
 
   return buildPageMetadata({
     title: strategy.name,
     description,
     path: `${ROUTES.marketplaceStrategies}/${slug}`,
-    keywords: [strategy.name, manager.name, "investment strategy", BRAND_NAME],
+    keywords: [strategy.name, manager.name, "copy allocation strategy", BRAND_NAME],
   });
 }
 

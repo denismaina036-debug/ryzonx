@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import Link from "next/link";
 import { BadgeCheck } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
@@ -13,7 +14,7 @@ export function TradeRecorderAttribution({
 }) {
   if (!trade.poolManagerName && !trade.poolName) return null;
 
-  const managerLabel = trade.poolManagerName ?? "Pool Manager";
+  const managerLabel = trade.poolManagerName ?? "Verified trader";
   const managerHref = trade.poolManagerSlug
     ? `${ROUTES.managerPublicProfile}/${trade.poolManagerSlug}`
     : null;
@@ -35,7 +36,7 @@ export function TradeRecorderAttribution({
 
       <div className="min-w-0 text-xs text-[var(--id-text-muted)]">
         {trade.poolName ? (
-          <p className="truncate font-medium text-[var(--id-text-secondary)]">{trade.poolName}</p>
+          <p className="truncate font-medium text-[var(--id-text-secondary)]">{copyTradingText(trade.poolName)}</p>
         ) : null}
         <p className="truncate">
           Recorded by{" "}

@@ -1,5 +1,6 @@
 "use client";
 
+import { copyTraderName, copyTradingText } from "@/lib/copy-trading-presentation";
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -22,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { MarketplacePoolDetail } from "@/domain/marketplace/types";
 
-const AGREEMENT = `By proceeding, you acknowledge that investing in trading pools involves substantial risk of loss. Past performance does not guarantee future results. RyvonX provides transparency tools but does not guarantee returns. You are investing based on your assessment of the Pool Manager's track record and RyvonX verification status.`;
+const AGREEMENT = `By proceeding, you acknowledge that copy trading involves substantial risk of loss. Past performance does not guarantee future results. RyvonX provides transparency tools but does not guarantee returns. You are allocating capital to copy a trader's strategy based on your assessment of their track record and RyvonX verification status.`;
 
 const MOBILE_SCROLL_FOOTER_CLASS =
   "pb-[calc(var(--mobile-fab-offset)+2.5rem+env(safe-area-inset-bottom))] sm:pb-0";
@@ -55,8 +56,8 @@ export function JoinPoolConfirmation({
   const joinLabel = loading
     ? "Processing…"
     : pool.capacityStatus === "full"
-      ? "Pool is full"
-      : "Confirm Investment";
+      ? "Strategy is full"
+      : "Confirm copy";
 
   const parsedAmount = useMemo(() => {
     const num = Number(amount);
@@ -65,18 +66,18 @@ export function JoinPoolConfirmation({
 
   async function handleJoin() {
     if (!agreed) {
-      setError("Please confirm the investment agreement.");
+      setError("Please confirm the copy allocation agreement.");
       return;
     }
 
     const num = Number(amount);
     if (!Number.isFinite(num) || num < pool.minInvestment) {
-      setError(`Minimum investment is ${formatCurrency(pool.minInvestment)}.`);
+      setError(`Minimum copy amount is ${formatCurrency(pool.minInvestment)}.`);
       return;
     }
 
     if (maximumCapital != null && num > maximumCapital) {
-      setError(`Maximum pool capacity is ${formatCurrency(maximumCapital)}.`);
+      setError(`Maximum strategy capacity is ${formatCurrency(maximumCapital)}.`);
       return;
     }
 
@@ -100,7 +101,7 @@ export function JoinPoolConfirmation({
       router.push(`${ROUTES.investments}?joined=${pool.slug}`);
       router.refresh();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not join pool";
+      const message = err instanceof Error ? err.message : "Could not join strategy";
       if (isInsufficientBalanceError(message)) {
         setInsufficientRequiredAmount(num);
         setInsufficientBalanceOpen(true);
@@ -125,22 +126,22 @@ export function JoinPoolConfirmation({
         className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--id-text-muted)] transition-colors hover:text-[var(--id-text)]"
       >
         <ArrowLeft className="h-4 w-4 shrink-0" />
-        Back to pool
+        Back to trader
       </Link>
 
       <div>
         <h1 className={cn(investorPageTitleClass, "text-[1.65rem] leading-tight sm:text-[1.85rem]")}>
-          Invest in {pool.displayPoolName || pool.name}
+          Copy {copyTraderName(pool)}
         </h1>
         <p className={cn(investorPageSubtitleClass, "text-[15px] leading-relaxed sm:text-sm")}>
-          Enter your amount, review projected returns, and confirm.
+          Choose how much to allocate to this trader’s strategy, review projected returns, and confirm.
         </p>
       </div>
 
       {!isAuthenticated ? (
         <div className="rounded-xl border border-[var(--id-accent)]/20 bg-[var(--id-accent-soft)] p-5 text-center sm:p-6">
           <p className="text-sm text-[var(--id-text-secondary)] sm:text-base">
-            Sign in to complete your investment.
+            Sign in to complete your allocation.
           </p>
           <Button asChild className="mt-4 h-12 w-full text-base sm:h-11 sm:w-auto sm:text-sm">
             <Link href={loginUrl}>Login or Register</Link>
@@ -149,7 +150,7 @@ export function JoinPoolConfirmation({
       ) : (
         <div className="space-y-6">
           <div>
-            <label className={investorLabelClass}>Investment amount</label>
+            <label className={investorLabelClass}>Copy amount</label>
             <Input
               type="number"
               min={pool.minInvestment}
@@ -193,13 +194,13 @@ export function JoinPoolConfirmation({
                 onChange={(e) => setAgreed(e.target.checked)}
                 className="mt-1 h-4 w-4 shrink-0 accent-[var(--id-accent)]"
               />
-              <span>I have read and agree to the investment agreement and risk disclosure.</span>
+              <span>I have read and agree to the copy allocation agreement and risk disclosure.</span>
             </label>
           </div>
 
           {error && (
             <p className="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-[var(--id-danger)]">
-              {error}
+              {copyTradingText(error)}
             </p>
           )}
 

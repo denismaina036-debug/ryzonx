@@ -86,7 +86,7 @@ export function MobileDashboardView({
             href={ROUTES.marketplace}
             className="block rounded-[var(--id-radius)] border border-[var(--id-accent)]/30 bg-[var(--id-accent-soft)] p-4 text-sm"
           >
-            <p className="font-semibold text-[var(--id-text)]">Investment opportunities</p>
+            <p className="font-semibold text-[var(--id-text)]">Copy opportunities</p>
             <p className="mt-1 text-[var(--id-text-muted)]">
               {homeInvestment.fundingCycleCount} cycle
               {homeInvestment.fundingCycleCount === 1 ? "" : "s"} open for funding

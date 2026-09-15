@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import { SectionContainer, SectionHeader } from "@/components/layouts/section";
 import { TestimonialGrid } from "@/components/ui/testimonial-card";
 import { fundService } from "@/services/fund.service";
@@ -12,9 +13,9 @@ export async function TestimonialsSection() {
   return (
     <SectionContainer className="bg-surface-1" landingMobile>
       <SectionHeader
-        badge={content.copy.testimonials.badge}
-        title={content.copy.testimonials.title}
-        description={content.copy.testimonials.description}
+        badge={copyTradingText(content.copy.testimonials.badge)}
+        title={copyTradingText(content.copy.testimonials.title)}
+        description={copyTradingText(content.copy.testimonials.description)}
         align="center"
       />
       <TestimonialGrid testimonials={testimonials} />

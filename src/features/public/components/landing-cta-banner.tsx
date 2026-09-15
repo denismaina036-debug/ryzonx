@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,22 +13,22 @@ export async function LandingCtaBanner() {
     <SectionContainer className="bg-navy-950" landingMobile>
       <div className="public-cta rounded-2xl border border-white/10 bg-white/5 px-6 py-10 text-center md:px-10">
         <SectionHeader
-          badge={cta.badge}
-          title={cta.title}
-          description={cta.description}
+          badge={copyTradingText(cta.badge)}
+          title={copyTradingText(cta.title)}
+          description={copyTradingText(cta.description)}
           align="center"
           className="[&_h2]:text-white [&_p]:text-navy-300 [&_span]:border-white/20 [&_span]:bg-white/10 [&_span]:text-navy-200"
         />
         <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Button asChild size="lg">
             <Link href={cta.primaryButtonLink}>
-              {cta.primaryButtonText}
+              {copyTradingText(cta.primaryButtonText)}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
           {cta.secondaryButtonText ? (
             <Button asChild variant="outline" size="lg" className="border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white">
-              <Link href={cta.secondaryButtonLink}>{cta.secondaryButtonText}</Link>
+              <Link href={cta.secondaryButtonLink}>{copyTradingText(cta.secondaryButtonText)}</Link>
             </Button>
           ) : null}
         </div>

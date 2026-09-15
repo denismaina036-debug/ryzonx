@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import Link from "next/link";
 import { BadgeCheck, Star } from "lucide-react";
 import { UserAvatar } from "@/components/ui/user-avatar";
@@ -34,8 +35,8 @@ export function CurrentInvestmentCard({
   const primary = investment.participations[0];
   const hasPool = Boolean(primary);
   const poolName = hasPool
-    ? (performance.poolName ?? primary?.poolName ?? "Active Pool")
-    : "No active pool";
+    ? (performance.poolName ?? primary?.poolName ?? "Active strategy")
+    : "No active strategy";
   const myInvestment =
     primaryPoolView?.displayCapitalInvested ??
     performance.myInvestment ??
@@ -47,7 +48,7 @@ export function CurrentInvestmentCard({
 
   return (
     <DashboardCard
-      title="Current Pool"
+      title="Current Strategy"
       headerExtra={
         hasPool && health ? (
           <DashboardBadge
@@ -63,19 +64,19 @@ export function CurrentInvestmentCard({
     >
       <div className={dashboardCardBodyClass}>
         <p className="text-lg font-semibold tracking-tight text-[var(--id-text)]">
-          {poolName}
+          {managerName || copyTradingText(poolName)}
         </p>
 
         {!hasPool ? (
           <p className="mt-4 text-sm text-[var(--id-text-muted)]">
-            Join a pool from the Marketplace to see pool value, share, and manager details.
+            Copy a trader from the Marketplace to see strategy value, share, and trader details.
           </p>
         ) : (
           <>
             <div className="mt-5">
-              <p className={dashboardLabelClass}>Raised Capital</p>
+              <p className={dashboardLabelClass}>Traded capital</p>
               <p className="mt-1.5 font-mono text-xl font-semibold tabular-nums text-[var(--id-text)]">
-                {formatCurrency(performance.totalPoolBalance)}
+                {formatCurrency(primaryPoolView?.hasActiveTradingCycle ? performance.totalPoolBalance : 0)}
               </p>
             </div>
 
@@ -87,7 +88,7 @@ export function CurrentInvestmentCard({
                 </p>
               </div>
               <div>
-                <p className={dashboardLabelClass}>My Investment</p>
+                <p className={dashboardLabelClass}>My Copy Allocation</p>
                 <p className="mt-1.5 font-mono text-sm font-semibold tabular-nums text-[var(--id-text)]">
                   {formatCurrency(myInvestment)}
                 </p>
@@ -101,20 +102,11 @@ export function CurrentInvestmentCard({
                 primaryPoolView?.hasActiveTradingCycle ? (
                 <PoolProfitActions
                   fundId={primary!.fundId}
-                  poolName={poolName}
+                  poolName={copyTradingText(poolName)}
                   availableProfit={primaryPoolView?.poolProfit ?? primary!.poolProfit}
                 />
               ) : null}
             </div>
-
-            {primary?.payoutDurationLabel && primary.payoutDurationLabel !== "—" && (
-              <div className="mt-5 border-t border-[var(--id-border)] pt-5">
-                <p className={dashboardLabelClass}>Payout Duration</p>
-                <p className="mt-1.5 text-sm font-medium text-[var(--id-text)]">
-                  {primary.payoutDurationLabel}
-                </p>
-              </div>
-            )}
 
             {managerName && (
               <div className="mt-6 flex items-center gap-3 border-t border-[var(--id-border)] pt-5">

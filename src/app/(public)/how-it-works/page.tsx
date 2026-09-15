@@ -9,9 +9,9 @@ import { buildPageMetadata } from "@/lib/seo/metadata";
 export const metadata: Metadata = buildPageMetadata({
   title: "How It Works",
   description:
-    "Learn how to discover investment pools, invest with verified traders, and track performance on RyvonX.",
+    "Learn how to discover copy-trading strategies, copy with verified traders, and track performance on RyvonX.",
   path: ROUTES.howItWorks,
-  keywords: ["how RyvonX works", "invest in pools", "pool trading guide"],
+  keywords: ["how RyvonX works", "copy in strategies", "copy trading guide"],
 });
 
 export default function HowItWorksPage() {

@@ -14,7 +14,7 @@ export function InvestorCycleIntelligencePanel({ intelligence }: { intelligence:
         <Cell label="Cycle Health" value={<ScoreBadge score={intelligence.operationalHealth} size="sm" />} />
         <Cell label="Progress" value={`${intelligence.completionPercentage}%`} />
         <Cell label="Trading Activity" value={String(intelligence.tradingActivity)} />
-        <Cell label="Investors" value={String(intelligence.investorParticipation)} />
+        <Cell label="Copiers" value={String(intelligence.investorParticipation)} />
       </div>
 
       <dl className="mt-6 grid gap-3 sm:grid-cols-2 text-sm">
@@ -60,12 +60,12 @@ export function InvestorStrategyIntelligencePanel({
     <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
       <h2 className="font-semibold text-[var(--id-text)]">Strategy Intelligence</h2>
       <p className="mt-1 text-sm text-[var(--id-text-muted)]">
-        Key metrics from the pool manager&apos;s verified track record.
+        Key metrics from the verified trader&apos;s verified track record.
       </p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <Cell
-          label="Manager Rating"
+          label="Trader Rating"
           value={displayRating != null ? `${displayRating.toFixed(1)} ★` : "—"}
         />
         <Cell

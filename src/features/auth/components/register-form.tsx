@@ -76,8 +76,8 @@ export function RegisterForm() {
         </h1>
         <p className="mt-2 text-sm text-navy-500">
           {isCreatePool
-            ? "Create your account and start managing investor capital"
-            : "Create your account and start investing in the pool"}
+            ? "Create your account and start managing copier capital"
+            : "Create your account and start copying a trader"}
         </p>
       </div>
 

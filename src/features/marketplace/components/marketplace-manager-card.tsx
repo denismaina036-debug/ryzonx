@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText, displayedTradedCapital } from "@/lib/copy-trading-presentation";
 
 import Link from "next/link";
 import { BadgeCheck, Star } from "lucide-react";
@@ -128,15 +129,15 @@ export function MarketplaceManagerCardView({
 
         {!compact && manager.bio && (
           <p className="mt-4 line-clamp-2 text-sm leading-relaxed text-[var(--id-text-secondary)]">
-            {manager.bio}
+            {copyTradingText(manager.bio)}
           </p>
         )}
 
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Metric label="Win Rate" value={formatOptionalPct(manager.winRatePct)} />
-          <Metric label="Capital" value={formatCurrency(manager.assetsUnderManagement)} />
-          <Metric label="Investors" value={String(manager.activeInvestors)} />
-          <Metric label="Active Pools" value={String(manager.poolsManaged)} />
+          <Metric label="Traded capital" value={formatCurrency(manager.activeOpportunities.reduce((sum, pool) => sum + displayedTradedCapital(pool), 0))} />
+          <Metric label="Copiers" value={String(manager.activeInvestors)} />
+          <Metric label="Active Strategys" value={String(manager.poolsManaged)} />
         </div>
 
         <div className="mt-5 rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)]/40 px-3 py-2">
@@ -144,7 +145,7 @@ export function MarketplaceManagerCardView({
         </div>
 
         <div className="mt-4 flex flex-wrap gap-1.5">
-          {manager.tradingStyle && <Tag label={manager.tradingStyle} />}
+          {manager.tradingStyle && <Tag label={copyTradingText(manager.tradingStyle)} />}
           {manager.securityRating && (
             <Tag label={SECURITY_RATING_LABELS[manager.securityRating] ?? manager.securityRating} />
           )}

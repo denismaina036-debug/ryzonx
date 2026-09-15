@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -83,7 +84,7 @@ export function StickyChallengeBar({
 
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-[var(--id-text)]">
-              {challenge.title}
+              {copyTradingText(challenge.title)}
             </p>
             <p className="truncate text-xs text-[var(--id-text-muted)]">
               {isActive
@@ -114,7 +115,7 @@ export function StickyChallengeBar({
                 className={cn(cryptoFlowPrimaryButtonClass, "rounded-full px-4")}
                 onClick={() => setPayOpen(true)}
               >
-                {challenge.buttonText}
+                {copyTradingText(challenge.buttonText)}
               </Button>
             )}
             <button
@@ -132,7 +133,7 @@ export function StickyChallengeBar({
       <Dialog open={payOpen} onOpenChange={setPayOpen}>
         <DialogContent className="border-[var(--id-border)] bg-[var(--id-surface)] text-[var(--id-text)] sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Continue Manager Journey</DialogTitle>
+            <DialogTitle>Continue Verified Trader Journey</DialogTitle>
             <DialogDescription className="text-[var(--id-text-muted)]">
               Pay {formatCurrency(challenge.price)} to proceed. After payment, our team will
               send your evaluation account and rules.

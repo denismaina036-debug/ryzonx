@@ -35,8 +35,8 @@ export function SidebarPoolManagerPromo({
       </p>
       <p className="mt-1.5 text-xs leading-relaxed text-[var(--id-text-secondary)]">
         {pmJourneyVariant === "continue"
-          ? "Pick up where you left off in your Pool Manager application."
-          : "Submit one application. After approval, launch strategies and investment cycles immediately."}
+          ? "Pick up where you left off in your Verified Trader application."
+          : "Submit one application. After approval, launch strategies and copy cycles immediately."}
       </p>
       <Link
         href={ROUTES.applyPoolManager}

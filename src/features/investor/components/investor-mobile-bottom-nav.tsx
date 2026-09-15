@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -96,7 +97,7 @@ function NavButton({ item, active }: { item: MobileNavItem; active: boolean }) {
           className={cn("h-[18px] w-[18px]", active && "stroke-[2.25]")}
           strokeWidth={active ? 2.25 : 1.75}
         />
-        <span className="truncate">{item.label}</span>
+        <span className="truncate">{copyTradingText(item.label)}</span>
       </Link>
     </li>
   );

@@ -1,4 +1,5 @@
 "use client";
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -199,7 +200,7 @@ export function InvestorTransactionDetailView({
             <div className="mx-auto flex max-w-md flex-col items-center">
               <TransactionIcon kind={transaction.iconKind} />
               <p className="mt-4 text-sm font-medium text-[var(--id-text-secondary)]">
-                {transaction.title}
+                {copyTradingText(transaction.title)}
               </p>
               <p
                 className={cn(
@@ -212,7 +213,7 @@ export function InvestorTransactionDetailView({
               <div className="mt-4">
                 <TransactionStatusPill status={detailStatusLabel(transaction.statusLabel)} />
               </div>
-              <p className="mt-3 text-sm text-[var(--id-text-muted)]">{transaction.subtitle}</p>
+              <p className="mt-3 text-sm text-[var(--id-text-muted)]">{copyTradingText(transaction.subtitle)}</p>
             </div>
           </div>
 
@@ -222,18 +223,18 @@ export function InvestorTransactionDetailView({
                 {field.copyable ? (
                   PRIVATE_ADDRESS_LABELS.has(field.label) ? (
                     <TransactionCopyField
-                      label={field.label}
+                      label={copyTradingText(field.label)}
                       value={maskWalletAddress(field.value)}
                       copyValue={field.value}
                       mono={field.mono}
                     />
                   ) : (
-                    <TransactionCopyField label={field.label} value={field.value} mono={field.mono} />
+                    <TransactionCopyField label={copyTradingText(field.label)} value={field.value} mono={field.mono} />
                   )
                 ) : (
                   <>
                     <dt className="text-xs font-medium text-[var(--id-text-muted)]">
-                      {field.label}
+                      {copyTradingText(field.label)}
                     </dt>
                     <dd
                       className={cn(

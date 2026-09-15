@@ -413,7 +413,7 @@ export function ManagerJourneyView({
                   value={basicInfo.biography ?? ""}
                   onChange={(e) => setBasicInfo((b) => ({ ...b, biography: e.target.value }))}
                   rows={5}
-                  placeholder="Your trading journey, strengths, and why you want to manage a pool."
+                  placeholder="Your trading journey, strengths, and why you want to become a verified trader."
                   className={cryptoFlowTextareaClass}
                 />
               </Field>
@@ -470,7 +470,7 @@ export function ManagerJourneyView({
                   className="mt-1 h-4 w-4 rounded border-[var(--id-border)] accent-[var(--id-accent)]"
                 />
                 <span className="text-sm leading-relaxed text-[var(--id-text-secondary)]">
-                  I understand the Manager Journey requirements and am ready to proceed to
+                  I understand the Verified Trader Journey requirements and am ready to proceed to
                   the paid trader evaluation as the final step.
                 </span>
               </label>
@@ -534,13 +534,13 @@ function JourneyHeader() {
   return (
     <header className="mb-8">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--id-accent-text)]">
-        RyvonX Pool Manager Program
+        RyvonX Verified Trader Program
       </p>
       <h1 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--id-text)] sm:text-[1.85rem]">
-        Manager Journey
+        Verified Trader Journey
       </h1>
       <p className="mt-2 text-sm text-[var(--id-text-secondary)]">
-        Your path to becoming a certified RyvonX Pool Manager — share your experience first,
+        Your path to becoming a certified RyvonX Verified Trader — share your experience first,
         then complete the trader evaluation.
       </p>
     </header>

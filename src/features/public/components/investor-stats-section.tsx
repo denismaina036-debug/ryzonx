@@ -1,3 +1,4 @@
+import { copyTradingText } from "@/lib/copy-trading-presentation";
 import { SectionContainer, SectionHeader } from "@/components/layouts/section";
 import { landingPageService } from "@/services/landing-page.service";
 import { LandingStatisticsDisplay } from "@/features/public/components/landing-statistics-display";
@@ -16,9 +17,9 @@ export async function InvestorStatsSection() {
   return (
     <SectionContainer landingMobile className="public-statistics-section">
       <SectionHeader
-        badge={copy.statistics.badge}
-        title={copy.statistics.title}
-        description={copy.statistics.description}
+        badge={copyTradingText(copy.statistics.badge)}
+        title={copyTradingText(copy.statistics.title)}
+        description={copyTradingText(copy.statistics.description)}
         align="center"
         compactMobile
       />

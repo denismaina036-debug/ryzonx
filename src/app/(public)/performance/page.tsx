@@ -30,7 +30,7 @@ export default async function PerformancePage() {
       <SectionContainer className="!pb-8 !pt-8">
         <PageHeader
           title="Fund Performance"
-          description="Complete transparency into Ryvonx Main Pool performance metrics and historical data."
+          description="Complete transparency into Ryvonx Main Strategy performance metrics and historical data."
         />
         {heroStats.length > 0 ? (
           <LandingStatisticsDisplay

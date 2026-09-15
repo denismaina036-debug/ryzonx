@@ -13,13 +13,12 @@ import { InvestorCycleIntelligencePanel } from "@/features/investor/components/i
 import type { InvestorCycleOperationsView } from "@/domain/trading-journal/types";
 import type { CycleIntelligence } from "@/domain/performance-intelligence/types";
 import { PmCycleLifecycleTimeline } from "@/features/pool-manager/components/workspace/pm-lifecycle-timeline";
-import { PmFundingProgress } from "@/features/pool-manager/components/workspace/pm-funding-progress";
 import {
   MarketplaceBreadcrumb,
   marketplaceHomeCrumb,
 } from "@/features/marketplace/components/marketplace-breadcrumb";
 import { formatShortCycleLabel } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
-import { isCycleFundingPhase, isCycleTradingPhase } from "@/lib/investment/cycle-display-phase";
+import { isCycleTradingPhase } from "@/lib/investment/cycle-display-phase";
 
 export function CycleOpportunityView({
   cycle,
@@ -36,11 +35,8 @@ export function CycleOpportunityView({
   operations?: InvestorCycleOperationsView | null;
   intelligence?: CycleIntelligence | null;
 }) {
-  const remaining = cycle.remainingCapital;
   const canAllocate = cycle.status === "funding";
-  const isFunding = isCycleFundingPhase(cycle.status);
   const isTrading = isCycleTradingPhase(cycle.status);
-  const totalCapitalUnderManagement = cycle.raisedCapital;
 
   const cycleLabel = formatShortCycleLabel(strategy.name, cycle);
 
@@ -55,7 +51,7 @@ export function CycleOpportunityView({
 
       <header className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-6 shadow-[var(--id-shadow)]">
         <p className="text-xs font-semibold uppercase tracking-widest text-[var(--id-accent)]">
-          Investment Opportunity
+          Copy Opportunity
         </p>
         <h1 className="mt-2 text-2xl font-semibold text-[var(--id-text)] sm:text-3xl">{cycleLabel}</h1>
         <p className="mt-2 max-w-3xl text-sm text-[var(--id-text-muted)]">
@@ -81,46 +77,11 @@ export function CycleOpportunityView({
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5 lg:col-span-2">
           <h2 className="font-semibold text-[var(--id-text)]">
-            {isTrading ? "Trading Overview" : "Funding Progress"}
+            Trading overview
           </h2>
-          {isFunding ? (
-            <div className="mt-4 rounded-xl bg-navy-950 p-5">
-              <PmFundingProgress
-                raised={cycle.raisedCapital}
-                target={cycle.targetCapital}
-                investorCount={cycle.investorCount}
-              />
-            </div>
-          ) : null}
           <dl className="mt-6 grid gap-4 sm:grid-cols-2">
-            {isTrading ? (
-              <>
-                <Detail label="Capital Traded" value={formatCurrency(cycle.raisedCapital)} />
-                <Detail
-                  label="Total Capital Under Management"
-                  value={formatCurrency(totalCapitalUnderManagement)}
-                />
-                <Detail label="Investors" value={String(cycle.investorCount)} />
-                <Detail
-                  label="Current cycle profit"
-                  value={
-                    cycle.currentCycleProfit != null
-                      ? formatCurrency(cycle.currentCycleProfit)
-                      : "—"
-                  }
-                />
-              </>
-            ) : (
-              <>
-                <Detail
-                  label="Target capital"
-                  value={cycle.targetCapital != null ? formatCurrency(cycle.targetCapital) : "—"}
-                />
-                <Detail label="Current commitments" value={formatCurrency(cycle.raisedCapital)} />
-                <Detail label="Remaining capacity" value={remaining != null ? formatCurrency(remaining) : "Open"} />
-                <Detail label="Investors" value={String(cycle.investorCount)} />
-              </>
-            )}
+            <Detail label="Traded capital" value={formatCurrency(isTrading ? cycle.raisedCapital : 0)} />
+            <Detail label="Copiers" value={String(cycle.investorCount)} />
             <Detail label="Minimum allocation" value={cycle.minInvestment != null ? formatCurrency(cycle.minInvestment) : "—"} />
             {!isTrading ? (
               <Detail label="Funding deadline" value={cycle.fundingDeadline ? new Date(cycle.fundingDeadline).toLocaleDateString() : "—"} />
@@ -141,7 +102,7 @@ export function CycleOpportunityView({
           </section>
 
           <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
-            <h2 className="font-semibold text-[var(--id-text)]">Pool Manager</h2>
+            <h2 className="font-semibold text-[var(--id-text)]">Verified Trader</h2>
             {manager.slug ? (
               <Link href={`${ROUTES.managers}/${manager.slug}`} className="mt-2 block text-sm font-medium text-[var(--id-accent)] hover:underline">
                 {manager.name}
@@ -150,7 +111,7 @@ export function CycleOpportunityView({
               <p className="mt-2 text-sm text-[var(--id-text)]">{manager.name}</p>
             )}
             {manager.rating != null && (
-              <p className="mt-1 text-xs text-[var(--id-text-muted)]">Manager rating: ★ {manager.rating.toFixed(1)}</p>
+              <p className="mt-1 text-xs text-[var(--id-text-muted)]">Trader rating: ★ {manager.rating.toFixed(1)}</p>
             )}
           </section>
         </div>
@@ -187,8 +148,8 @@ export function CycleOpportunityView({
       {intelligence && <InvestorCycleIntelligencePanel intelligence={intelligence} />}
 
       <section className="rounded-[var(--id-radius)] border border-amber-500/20 bg-amber-500/5 p-5 text-sm text-[var(--id-text-muted)]">
-        <strong className="text-[var(--id-text)]">Disclaimer:</strong> Investment cycles involve risk of loss.
-        Commitments recorded here represent allocation intent under the RyvonX investment model and are not
+        <strong className="text-[var(--id-text)]">Disclaimer:</strong> Copy Allocation cycles involve risk of loss.
+        Commitments recorded here represent allocation intent under the RyvonX copy allocation model and are not
         connected to wallet debits or deposit flows until a future financial integration phase.
       </section>
 
