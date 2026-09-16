@@ -808,6 +808,18 @@ export const investorService = {
           pendingSettlement,
           cycleAllocationAmount: allocation?.amount ?? null,
         });
+        const stopCopyingRequestedAt = requestedStopByFund.get(fundId) ?? null;
+
+        // Keep a trader visible while a requested stop is waiting for open
+        // trades to close. Once the transfer has completed there is no copied
+        // capital or pending settlement, so it must no longer appear as active.
+        if (
+          !stopCopyingRequestedAt &&
+          !pendingSettlement &&
+          displayCapitalInvested <= 0
+        ) {
+          return null;
+        }
         const effectiveLevel =
           investmentLevels.find((level) => level.id === allocation?.investmentLevelId) ??
           resolveInvestmentLevel(displayCapitalInvested, investmentLevels);
@@ -826,7 +838,7 @@ export const investorService = {
             effectiveLevel?.id
           ),
           profitSplitTierName: effectiveLevel?.name ?? null,
-          stopCopyingRequestedAt: requestedStopByFund.get(fundId) ?? null,
+          stopCopyingRequestedAt,
           showPostCycleChoices: shouldShowPostCycleChoices({
             hasActiveTradingCycle,
             hasActiveFundingCycle,
