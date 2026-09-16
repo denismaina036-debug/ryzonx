@@ -19,6 +19,7 @@ interface PoolPostCycleChoicesProps {
   profitAmount: number;
   settlement: CycleInvestorSettlement | null;
   hasActiveTradingCycle?: boolean;
+  hasActiveFundingCycle?: boolean;
   stopCopyingRequestedAt?: string | null;
   compact?: boolean;
 }
@@ -29,6 +30,7 @@ export function PoolPostCycleChoices({
   profitAmount,
   settlement,
   hasActiveTradingCycle = false,
+  hasActiveFundingCycle = false,
   stopCopyingRequestedAt = null,
   compact = false,
 }: PoolPostCycleChoicesProps) {
@@ -42,7 +44,7 @@ export function PoolPostCycleChoices({
   const profitPending = profitAmount > 0 && !(settlement?.profitResolved ?? false);
   const totalCopyingBalance = capitalAmount + profitAmount;
 
-  if (!hasActiveTradingCycle && !capitalPending && !profitPending) {
+  if (!hasActiveTradingCycle && !hasActiveFundingCycle && !capitalPending && !profitPending) {
     return null;
   }
 
@@ -66,22 +68,28 @@ export function PoolPostCycleChoices({
     }
   }
 
+  const stopAction = (
+    <SimpleButton
+      label={stopCopyingRequestedAt ? "Stop requested" : "Stop copying"}
+      icon={CircleStop}
+      variant="outline"
+      loading={loading === "stop-copying"}
+      disabled={Boolean(stopCopyingRequestedAt)}
+      onClick={stopCopying}
+    />
+  );
+
+  if (compact) {
+    return <div className="flex justify-end">{stopAction}</div>;
+  }
+
   return (
-    <div className={cn("space-y-3", compact ? "" : "mt-4")}>
+    <div className="mt-4 space-y-3">
       <PostCycleRow
         label="Total realized capital"
         amount={totalCopyingBalance}
         amountClassName="text-[var(--id-text)]"
-        actions={
-          <SimpleButton
-            label={stopCopyingRequestedAt ? "Stop requested" : "Stop copying"}
-            icon={CircleStop}
-            variant="outline"
-            loading={loading === "stop-copying"}
-            disabled={Boolean(stopCopyingRequestedAt)}
-            onClick={stopCopying}
-          />
-        }
+        actions={stopAction}
       />
     </div>
   );
@@ -98,6 +106,7 @@ export function PoolPostCycleChoicesFromView({
     poolProfit: number;
     pendingSettlement: CycleInvestorSettlement | null;
     hasActiveTradingCycle?: boolean;
+    hasActiveFundingCycle?: boolean;
     stopCopyingRequestedAt?: string | null;
   };
   compact?: boolean;
@@ -116,6 +125,7 @@ export function PoolPostCycleChoicesFromView({
       })}
       settlement={pool.pendingSettlement}
       hasActiveTradingCycle={pool.hasActiveTradingCycle}
+      hasActiveFundingCycle={pool.hasActiveFundingCycle}
       stopCopyingRequestedAt={
         pool.hasActiveTradingCycle ? pool.stopCopyingRequestedAt : null
       }
