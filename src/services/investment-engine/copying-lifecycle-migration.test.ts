@@ -10,6 +10,10 @@ const deferredStopSql = readFileSync(
   resolve(process.cwd(), "supabase/migrations/00089_deferred_copy_stop_requests.sql"),
   "utf8"
 );
+const openFundingStopSql = readFileSync(
+  resolve(process.cwd(), "supabase/migrations/00091_stop_copying_open_funding.sql"),
+  "utf8"
+);
 const lifecycleService = readFileSync(
   resolve(process.cwd(), "src/services/investment-engine/cycle-investor-settlement.service.ts"),
   "utf8"
@@ -67,18 +71,33 @@ describe("copying lifecycle database boundary", () => {
     expect(deferredStopSql).toContain("REVOKE ALL ON FUNCTION validate_copy_stop_request() FROM PUBLIC");
   });
 
+  it("releases an automatically continued balance before trading through a service-only function", () => {
+    expect(openFundingStopSql).toContain("SECURITY DEFINER");
+    expect(openFundingStopSql).toContain("v_cycle.status NOT IN ('approved', 'funding')");
+    expect(openFundingStopSql).toContain("REVOKE ALL ON FUNCTION stop_copying_open_funding_atomic");
+    expect(openFundingStopSql).toContain("GRANT EXECUTE ON FUNCTION stop_copying_open_funding_atomic");
+    expect(openFundingStopSql).not.toMatch(/GRANT EXECUTE[^;]+TO\s+(anon|authenticated)/i);
+  });
+
   it("settles requested exits after close preparation and excludes them from rollover", () => {
     const closeStart = cycleService.indexOf("async closeCycle(");
     const transition = cycleService.indexOf('this.transition(id, "completed"', closeStart);
     const prepare = cycleService.indexOf("createPendingChoicesForCycle", transition);
     const settle = cycleService.indexOf("settleRequestedCopyStopsForCycle", prepare);
+    const continueIntoNext = cycleService.indexOf("continuePendingCopyingIntoNextFundingCycle", settle);
 
     expect(closeStart).toBeGreaterThanOrEqual(0);
     expect(transition).toBeGreaterThan(closeStart);
     expect(prepare).toBeGreaterThan(transition);
     expect(settle).toBeGreaterThan(prepare);
+    expect(continueIntoNext).toBeGreaterThan(settle);
     expect(lifecycleService).toContain(
       "requestedStops.has(`${candidate.investment_cycle_id}:${candidate.investor_id}`)"
     );
+  });
+
+  it("continues eligible copiers when an already-open next funding period becomes available", () => {
+    expect(lifecycleService).toContain("continuePendingCopyingIntoNextFundingCycle");
+    expect(lifecycleService).toContain('.in("status", ["approved", "funding"])');
   });
 });

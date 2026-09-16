@@ -55,8 +55,8 @@ export function PoolPostCycleChoices({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Request failed");
       toast.success(data.pending
-        ? "Stop request received. This trader’s balance will move to your Funding Wallet when the active trading period closes."
-        : `${formatCurrency(data.transferred ?? totalCopyingBalance)} moved to your Funding Wallet. Copying stopped.`
+        ? "Successfully stopped copying. Capital will be transferred when the trader closes all trades."
+        : `Successfully stopped copying. ${formatCurrency(data.transferred ?? totalCopyingBalance)} was transferred to your Funding Wallet.`
       );
       router.refresh();
     } catch (err) {

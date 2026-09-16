@@ -1483,6 +1483,10 @@ export const investmentCycleService = {
       );
       await cycleInvestorSettlementService.createPendingChoicesForCycle(id, existing.fundId);
       await cycleInvestorSettlementService.settleRequestedCopyStopsForCycle(id);
+      await cycleInvestorSettlementService.continuePendingCopyingIntoNextFundingCycle(
+        existing.fundId,
+        actorId
+      );
     }
 
     return { cycle };

@@ -391,6 +391,34 @@ export const cycleInvestorSettlementService = {
     return { continued, total };
   },
 
+  /**
+   * A trader can open the next funding period while the current one is trading.
+   * Once the current trades are closed, continue every eligible copier into that
+   * already-open period. Requested stops are excluded by the continuation guard.
+   */
+  async continuePendingCopyingIntoNextFundingCycle(
+    fundId: string,
+    actorUserId: string
+  ): Promise<{ continued: number; total: number }> {
+    const db = createAdminClient();
+    const { data, error } = await db
+      .from("investment_cycles")
+      .select("id")
+      .eq("fund_id", fundId)
+      .in("status", ["approved", "funding"])
+      .order("cycle_number", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return { continued: 0, total: 0 };
+
+    return this.continuePendingCopyingIntoCycle(
+      (data as { id: string }).id,
+      fundId,
+      actorUserId
+    );
+  },
+
   async createPendingChoicesForCycle(cycleId: string, fundId: string): Promise<void> {
     const db = createAdminClient();
 
@@ -542,12 +570,9 @@ export const cycleInvestorSettlementService = {
     tradingFundIds: Set<string>
   ): Promise<void> {
     const db = createAdminClient();
-    const fundingFundIds = await investmentCycleService.listFundingCycleFundIds(fundIds);
     const eligibleFundIds = [
       ...new Set(
-        fundIds.filter(
-          (fundId) => !tradingFundIds.has(fundId) && !fundingFundIds.has(fundId)
-        )
+        fundIds.filter((fundId) => !tradingFundIds.has(fundId))
       ),
     ];
     if (eligibleFundIds.length === 0) return;
@@ -910,6 +935,53 @@ export const cycleInvestorSettlementService = {
       if (requestError) throw new Error(requestError.message);
 
       return { pending: true, requestedAt, transferred: 0, capital: 0, profit: 0 };
+    }
+
+    // A balance may already have continued into an open next funding period.
+    // It is not trading, so release it immediately instead of leaving the
+    // copier with an unusable stop action.
+    const { data: fundingCycles, error: fundingCyclesError } = await db
+      .from("investment_cycles")
+      .select("id")
+      .eq("fund_id", fundId)
+      .in("status", ["approved", "funding"]);
+    if (fundingCyclesError) throw new Error(fundingCyclesError.message);
+    const fundingCycleIds = ((fundingCycles ?? []) as Array<{ id: string }>).map(
+      (row) => row.id
+    );
+    if (fundingCycleIds.length > 0) {
+      const { data: allocation, error: allocationError } = await db
+        .from("investment_allocations")
+        .select("id")
+        .eq("investor_id", user.id)
+        .in("investment_cycle_id", fundingCycleIds)
+        .eq("status", "funding_confirmed")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (allocationError) throw new Error(allocationError.message);
+      if (allocation) {
+        await ensureWalletPortfolio(db, user.id);
+        const { data: fund } = await db.from("funds").select("name").eq("id", fundId).maybeSingle();
+        const { ledgerAccountService } = await import("@/services/ledger-account.service");
+        const [accounts, suspenseAccount] = await Promise.all([
+          ledgerAccountService.ensureInvestorAccounts(user.id),
+          ledgerAccountService.ensurePlatformSuspenseAccount(),
+        ]);
+        const { data, error: releaseError } = await db.rpc(
+          "stop_copying_open_funding_atomic" as never,
+          {
+            p_allocation_id: (allocation as { id: string }).id,
+            p_investor_id: user.id,
+            p_available_account_id: accounts.available.id,
+            p_suspense_account_id: suspenseAccount.id,
+            p_description: `Stopped copying ${fund?.name ?? "Trader"}`,
+          } as never
+        );
+        if (releaseError) throw new Error(releaseError.message);
+        const transferred = toNumber((data as { transferred?: number | string } | null)?.transferred);
+        return { pending: false, transferred, capital: transferred, profit: 0 };
+      }
     }
 
     const settlement = await this.ensureSettlementForFund(user.id, fundId);
