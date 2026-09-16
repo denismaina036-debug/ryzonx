@@ -1,7 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { CycleOwnershipSnapshot } from "@/domain/investment-engine/types";
 import { computeOwnershipPct, roundMoney } from "@/lib/investment-engine/ownership";
-import { poolCapitalService } from "./pool-capital.service";
+
+type AllocationCapitalRow = {
+  investor_id: string;
+  amount: number | string;
+};
 
 type SnapshotRow = {
   id: string;
@@ -33,23 +37,40 @@ function mapSnapshot(row: SnapshotRow): CycleOwnershipSnapshot {
 
 export const cycleOwnershipService = {
   async captureSnapshot(cycleId: string, fundId: string): Promise<CycleOwnershipSnapshot[]> {
-    const positions = await poolCapitalService.listPositions(fundId);
-    const poolTotal = roundMoney(positions.reduce((s, p) => s + p.capital, 0));
-    if (poolTotal <= 0) {
-      throw new Error("Cannot capture ownership snapshot with zero pool capital.");
+    const db = createAdminClient();
+    const { data: allocations, error: allocationsError } = await db
+      .from("investment_allocations")
+      .select("investor_id, amount")
+      .eq("investment_cycle_id", cycleId)
+      .in("status", ["funding_confirmed", "confirmed", "settled", "locked", "distributed"]);
+    if (allocationsError) throw new Error(allocationsError.message);
+
+    const capitalByInvestor = new Map<string, number>();
+    for (const allocation of (allocations ?? []) as AllocationCapitalRow[]) {
+      const next = roundMoney(
+        (capitalByInvestor.get(allocation.investor_id) ?? 0) + Number(allocation.amount)
+      );
+      capitalByInvestor.set(allocation.investor_id, next);
     }
 
-    const db = createAdminClient();
+    const positions = [...capitalByInvestor.entries()]
+      .filter(([, capital]) => capital > 0)
+      .map(([investorId, capital]) => ({ investorId, capital }));
+    const poolTotal = roundMoney(positions.reduce((sum, position) => sum + position.capital, 0));
+    if (poolTotal <= 0) {
+      throw new Error("Cannot capture ownership snapshot without eligible cycle allocations.");
+    }
+
     await db.from("cycle_ownership_snapshots").delete().eq("investment_cycle_id", cycleId);
 
-    const rows = positions.map((p) => ({
+    const rows = positions.map((position) => ({
       investment_cycle_id: cycleId,
       fund_id: fundId,
-      investor_id: p.investorId,
-      is_virtual: p.isVirtual,
-      virtual_label: p.virtualLabel,
-      capital: p.capital,
-      ownership_pct: computeOwnershipPct(p.capital, poolTotal),
+      investor_id: position.investorId,
+      is_virtual: false,
+      virtual_label: null,
+      capital: position.capital,
+      ownership_pct: computeOwnershipPct(position.capital, poolTotal),
       pool_capital_total: poolTotal,
     }));
 

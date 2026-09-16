@@ -287,12 +287,12 @@ async function calculateCycleDistributionBreakdown(
   grossTradingProfit: number
 ) {
   const snapshots = await cycleOwnershipService.getSnapshot(cycle.id);
-  const useOwnershipSnapshots = snapshots.length > 0;
   const roiConfig = await readCycleRoiConfig(cycle);
   const hasRoiMultipliers = roiConfig.multipliers.size > 0;
-  const cycleCapital = useOwnershipSnapshots
-    ? snapshots[0]!.poolCapitalTotal
-    : settled.reduce((sum, allocation) => sum + allocation.amount, 0);
+  // Profit belongs to the capital allocated to this cycle. Fund-level positions can
+  // include previous-cycle capital and realised profits, so they must never set a
+  // current cycle's distribution basis.
+  const cycleCapital = settled.reduce((sum, allocation) => sum + allocation.amount, 0);
   const platformFeeRate = await platformSettingsService.getPlatformServiceFeeRate();
 
   const db = createAdminClient();
@@ -319,10 +319,7 @@ async function calculateCycleDistributionBreakdown(
 
   const allocationInput: RoiV2AllocationInput[] = settled.map((allocation) => {
     const row = roiRowMap.get(allocation.id);
-    const snapshot = useOwnershipSnapshots
-      ? snapshots.find((item) => !item.isVirtual && item.investorId === allocation.investorId)
-      : null;
-    const capitalBasis = snapshot?.capital ?? allocation.amount;
+    const capitalBasis = allocation.amount;
     const levelId = row?.investment_level_id ?? null;
     const multiplier =
       row?.roi_multiplier != null
@@ -353,11 +350,6 @@ async function calculateCycleDistributionBreakdown(
         grossTradingProfit,
         platformServiceFeeRate: platformFeeRate,
         allocations: allocationInput.map((allocation) => {
-          const snapshot = useOwnershipSnapshots
-            ? snapshots.find(
-                (item) => !item.isVirtual && item.investorId === allocation.investorId
-              )
-            : null;
           const totalCapital =
             cycleCapital > 0
               ? cycleCapital
@@ -366,11 +358,7 @@ async function calculateCycleDistributionBreakdown(
             allocationId: allocation.allocationId,
             investorId: allocation.investorId,
             capitalBasis: allocation.capitalBasis,
-            ownershipPct: snapshot
-              ? snapshot.ownershipPct / 100
-              : totalCapital > 0
-                ? allocation.capitalBasis / totalCapital
-                : 0,
+            ownershipPct: totalCapital > 0 ? allocation.capitalBasis / totalCapital : 0,
           };
         }),
       });
@@ -381,7 +369,7 @@ async function calculateCycleDistributionBreakdown(
     cycleCapital,
     platformFeeRate,
     snapshots,
-    useOwnershipSnapshots,
+    useOwnershipSnapshots: false,
   };
 }
 

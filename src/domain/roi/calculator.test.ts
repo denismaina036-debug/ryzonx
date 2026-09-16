@@ -215,6 +215,23 @@ describe("ROI v2 distribution", () => {
     expect(result.poolManagerSurplus).toBe(0);
   });
 
+  it("uses only the capital allocated to the cycle", () => {
+    const result = calculateRoiV2Distribution({
+      grossTradingProfit: 221,
+      platformServiceFeeRate: 0.025,
+      allocations: [
+        { allocationId: "ruth", investorId: "ruth", capitalBasis: 150, roiMultiplier: 1.02, cumulativeRealisedReturn: 0, targetFulfilled: false, investmentLevelId: "starter" },
+        { allocationId: "henry", investorId: "henry", capitalBasis: 100, roiMultiplier: 1, cumulativeRealisedReturn: 0, targetFulfilled: false, investmentLevelId: "starter" },
+      ],
+    });
+
+    expect(result.netDistributableProfit).toBe(215.47);
+    expect(result.investorAllocations.map((allocation) => allocation.profitShare)).toEqual([
+      129.28,
+      86.19,
+    ]);
+  });
+
   it("preserves money — no creation from rounding", () => {
     const gross = 1234.56;
     const allocations = [
