@@ -233,7 +233,7 @@ async function investorHasAllocation(
     .select("id", { count: "exact", head: true })
     .eq("investment_cycle_id", cycleId)
     .eq("investor_id", investorId)
-    .in("status", ["confirmed", "locked", "settled"]);
+    .in("status", ["funding_confirmed", "confirmed", "locked", "settled", "distributed"]);
 
   if (error) throw new Error(error.message);
   return (count ?? 0) > 0;
@@ -426,7 +426,7 @@ export const cycleInvestorSettlementService = {
       .from("investment_allocations")
       .select("investor_id, amount, status")
       .eq("investment_cycle_id", cycleId)
-      .in("status", ["confirmed", "locked", "settled"]);
+      .in("status", ["funding_confirmed", "confirmed", "locked", "settled", "distributed"]);
 
     const { data: settlement } = await db
       .from("profit_settlements")

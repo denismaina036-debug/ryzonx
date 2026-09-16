@@ -100,4 +100,10 @@ describe("copying lifecycle database boundary", () => {
     expect(lifecycleService).toContain("continuePendingCopyingIntoNextFundingCycle");
     expect(lifecycleService).toContain('.in("status", ["approved", "funding"])');
   });
+
+  it("includes every funded allocation state when preparing automatic continuation", () => {
+    expect(lifecycleService).toContain(
+      '["funding_confirmed", "confirmed", "locked", "settled", "distributed"]'
+    );
+  });
 });
