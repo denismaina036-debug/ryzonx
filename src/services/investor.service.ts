@@ -722,6 +722,7 @@ export const investorService = {
     }
 
     const requestedStopByFund = new Map<string, string>();
+    const completedStopFundIds = new Set<string>();
     if (cycleIds.length > 0) {
       const { data: stopRequests } = await admin
         .from("copy_stop_requests" as never)
@@ -734,6 +735,18 @@ export const investorService = {
         requested_at: string;
       }>) {
         requestedStopByFund.set(row.fund_id, row.requested_at);
+      }
+    }
+    if (allFundIds.length > 0) {
+      const { data: completedStops } = await admin
+        .from("transactions")
+        .select("fund_id")
+        .eq("user_id", user.id)
+        .eq("status", "completed")
+        .in("payment_method", ["copy_stop", "copy_stop_funding"])
+        .in("fund_id", allFundIds);
+      for (const row of (completedStops ?? []) as Array<{ fund_id: string | null }>) {
+        if (row.fund_id) completedStopFundIds.add(row.fund_id);
       }
     }
 
@@ -816,7 +829,8 @@ export const investorService = {
         if (
           !stopCopyingRequestedAt &&
           !pendingSettlement &&
-          displayCapitalInvested <= 0
+          (displayCapitalInvested <= 0 ||
+            (completedStopFundIds.has(fundId) && (allocation?.amount ?? 0) <= 0))
         ) {
           return null;
         }
