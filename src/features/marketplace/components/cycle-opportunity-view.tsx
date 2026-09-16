@@ -74,7 +74,7 @@ export function CycleOpportunityView({
             Trading overview
           </h2>
           <dl className="mt-6 grid gap-4 sm:grid-cols-2">
-            <Detail label="Traded capital" value={formatCurrency(isTrading ? cycle.raisedCapital : 0)} />
+            <Detail label="Traded capital" value={formatCurrency(cycle.raisedCapital)} />
             <Detail label="Copiers" value={String(cycle.investorCount)} />
             <Detail label="Minimum copy amount" value={cycle.minInvestment != null ? formatCurrency(cycle.minInvestment) : "—"} />
             {!isTrading ? (

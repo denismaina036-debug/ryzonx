@@ -61,7 +61,7 @@ export function InvestorCycleOperationsPanel({
             <Stat label="Closed trades" value={String(journalSummary.closedPositionsCount)} />
             <Stat
               label="Traded capital"
-              value={formatCurrency(operations.simplifiedPhase === "funding" ? 0 : portfolioProgress.raisedCapital)}
+              value={formatCurrency(portfolioProgress.raisedCapital)}
             />
           </div>
         )}

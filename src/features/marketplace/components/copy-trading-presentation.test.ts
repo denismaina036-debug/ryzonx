@@ -50,9 +50,9 @@ describe("copy-trading client presentation", () => {
     expect(html).not.toContain('aria-label="Verified trader"');
   });
 
-  it("does not relabel pending funding as traded capital or mutate the data", () => {
+  it("shows current funded capital during funding without mutating the data", () => {
     const funding = { ...fixture, activeCycle: { ...fixture.activeCycle!, status: "funding" as const } };
-    expect(displayedTradedCapital(funding)).toBe(0);
+    expect(displayedTradedCapital(funding)).toBe(12500);
     expect(displayedTradedCapital(fixture)).toBe(12500);
     expect(funding.raisedCapital).toBe(12500);
     expect(funding.targetCapital).toBe(50000);
@@ -68,19 +68,19 @@ describe("copy-trading client presentation", () => {
     expect(label).toBe("Pool Managers");
   });
 
-  it.each(["approved", "funding"] as const)("retains previous traded capital during %s on desktop and mobile", (status) => {
+  it.each(["approved", "funding"] as const)("shows current funded capital during %s on desktop and mobile", (status) => {
     const pool = { ...fixture, previousTradedCapital: 8400, activeCycle: { ...fixture.activeCycle!, status } };
-    expect(displayedTradedCapital(pool)).toBe(8400);
+    expect(displayedTradedCapital(pool)).toBe(12500);
     const html = renderToStaticMarkup(createElement(MarketplacePoolCardView, { pool }));
-    expect(html.split(formatCurrency(8400)).length - 1).toBe(2);
+    expect(html.split(formatCurrency(12500)).length - 1).toBe(2);
     expect(pool.raisedCapital).toBe(12500);
   });
 
-  it("retains history between cycles and switches to the new capital only once trading starts", () => {
+  it("retains history between periods and uses current capital whenever a period is active", () => {
     const pool = { ...fixture, previousTradedCapital: 8400 };
     expect(displayedTradedCapital({ ...pool, activeCycle: null })).toBe(8400);
     expect(displayedTradedCapital({ ...pool, activeCycle: null, previousTradedCapital: undefined })).toBe(0);
-    for (const status of ["trading", "distribution", "completed", "archived"] as const) {
+    for (const status of ["approved", "funding", "trading", "distribution", "completed", "archived"] as const) {
       expect(displayedTradedCapital({ ...pool, activeCycle: { ...fixture.activeCycle!, status } })).toBe(12500);
     }
     expect(displayedTradedCapital({ ...pool, raisedCapital: 0 })).toBe(0);

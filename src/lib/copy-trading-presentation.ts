@@ -45,15 +45,15 @@ export function copyTraderName(pool: { managerName: string | null }): string {
   return pool.managerName?.trim() || "RyvonX Trader";
 }
 
-/** Keep the previous cycle visible until the current cycle begins trading. */
+/** Show the amount funded in the current copy period, including its opening capital. */
 export function displayedTradedCapital(pool: {
   activeCycle: { status: string } | null;
   raisedCapital: number;
   previousTradedCapital?: number;
 }): number {
-  return pool.activeCycle && ["trading", "distribution", "closed", "completed", "archived"].includes(pool.activeCycle.status)
-    ? pool.raisedCapital
-    : pool.previousTradedCapital ?? 0;
+  return pool.activeCycle
+    ? Math.max(0, pool.raisedCapital)
+    : Math.max(0, pool.previousTradedCapital ?? 0);
 }
 
 /** Public copier totals stay consistent across marketplace cards and trader views. */

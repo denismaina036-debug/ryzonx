@@ -39,7 +39,7 @@ export function MarketplaceCycleCard({ cycle }: { cycle: InvestorCycleCard }) {
             Traded capital
           </p>
           <p className="font-semibold tabular-nums text-[var(--id-text)]">
-            {formatCurrency(isTrading ? cycle.raisedCapital : 0)}
+            {formatCurrency(cycle.raisedCapital)}
           </p>
         </div>
         <div>
