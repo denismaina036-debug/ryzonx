@@ -26,7 +26,7 @@ export default async function MyInvestmentsPage() {
         <div>
           <h1 className={investorPageTitleClass}>My Copied Traders</h1>
           <p className={investorPageSubtitleClass}>
-            Review each trader, total realized capital, and profit split independently.
+            Review each trader, copying capital, and profit split independently.
           </p>
         </div>
         <Button
@@ -51,7 +51,7 @@ export default async function MyInvestmentsPage() {
           <div className="border-b border-[var(--id-border)] px-5 py-4 sm:px-6">
             <h2 className="text-sm font-semibold text-[var(--id-text)]">Copied Traders</h2>
             <p className="mt-1 text-xs text-[var(--id-text-muted)]">
-              Each trader and total realized capital is shown separately.
+              Each trader and copying capital is shown separately.
             </p>
           </div>
           <ul className="divide-y divide-[var(--id-border)]">
@@ -77,7 +77,7 @@ export default async function MyInvestmentsPage() {
                   <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:text-right">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--id-text-muted)]">
-                        Total realized capital in this trader
+                        Copying capital
                       </p>
                       <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-[var(--id-text)]">
                         {formatCurrency(pool.totalRealizedCapital)}

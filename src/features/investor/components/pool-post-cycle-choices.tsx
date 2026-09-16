@@ -86,7 +86,7 @@ export function PoolPostCycleChoices({
   return (
     <div className="mt-4 space-y-3">
       <PostCycleRow
-        label="Total realized capital"
+        label="Copying capital"
         amount={totalCopyingBalance}
         amountClassName="text-[var(--id-text)]"
         actions={stopAction}
