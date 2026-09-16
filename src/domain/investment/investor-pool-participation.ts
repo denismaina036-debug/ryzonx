@@ -1,6 +1,7 @@
 import type { InvestmentAllocationStatus } from "@/constants/investment-allocation";
 import type { WalletPoolParticipation } from "@/features/investor/types/wallet";
 import type { CycleInvestorSettlement } from "@/services/investment-engine/cycle-investor-settlement.service";
+import type { CycleProfitSplit } from "@/domain/investment/profit-split";
 
 const ACTIVE_INVESTOR_ALLOCATION_STATUSES = new Set<InvestmentAllocationStatus>([
   "pending",
@@ -19,6 +20,11 @@ export interface InvestorPoolParticipationView extends WalletPoolParticipation {
   displayCapitalInvested: number;
   /** True when the pool has no trading cycle and the investor must choose next steps. */
   showPostCycleChoices: boolean;
+  traderName: string;
+  traderPhotoUrl: string | null;
+  profitSplit: CycleProfitSplit | null;
+  profitSplitTierName: string | null;
+  stopCopyingRequestedAt: string | null;
 }
 
 /** Count each pool once — prefer cycle allocations over legacy portfolio rows. */

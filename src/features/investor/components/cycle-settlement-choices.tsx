@@ -21,9 +21,6 @@ export function CycleSettlementChoices({ settlements }: CycleSettlementChoicesPr
           <li key={settlement.id} className="space-y-4 px-5 py-5 sm:px-6">
             <div>
               <p className="font-semibold text-[var(--id-text)]">{copyTradingText(settlement.poolName)}</p>
-              <p className="mt-1 text-xs text-[var(--id-text-muted)]">
-                Copying continues automatically unless you stop it.
-              </p>
             </div>
             <PoolPostCycleChoicesFromView
               pool={{

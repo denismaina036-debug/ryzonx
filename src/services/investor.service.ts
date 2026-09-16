@@ -31,7 +31,9 @@ import { computeLifetimePoolPerformance } from "@/lib/investor/lifetime-pool-per
 import { resolvePoolLiveRaisedCapital } from "@/domain/investment/cycle-metrics";
 import { readCycleProfitSplit } from "@/domain/pools/pool-config-snapshot";
 import { marketplaceService } from "@/services/marketplace.service";
-import { displayedTradedCapital } from "@/lib/copy-trading-presentation";
+import { copyTradingText, displayedTradedCapital } from "@/lib/copy-trading-presentation";
+import { platformInvestmentLevelService } from "@/services/platform-investment-level.service";
+import { resolveInvestmentLevel } from "@/domain/roi/calculator";
 
 const ACTIVITY_SELECT_WITH_METADATA =
   "id, fund_id, type, amount, status, payment_method, reference, transaction_reference, notes, destination, crypto_symbol, crypto_network, crypto_amount, metadata, created_at, user_id";
@@ -337,15 +339,22 @@ export const investorService = {
       status: string;
       investment_level_id: string | null;
     } | null;
+    const primaryLevels = primaryAllocation?.investment_level_id
+      ? []
+      : await platformInvestmentLevelService.listActive();
+    const primaryProfitSplitLevel =
+      primaryAllocation?.investment_level_id ??
+      resolveInvestmentLevel(toNumber(primaryAllocation?.amount), primaryLevels)?.id ??
+      null;
     const profitSplit = readCycleProfitSplit(
       activeCycle?.poolConfigSnapshot,
-      primaryAllocation?.investment_level_id
+      primaryProfitSplitLevel
     );
-    const { data: profitSplitLevelRow } = primaryAllocation?.investment_level_id
+    const { data: profitSplitLevelRow } = primaryProfitSplitLevel
       ? await supabase
           .from("platform_investment_levels")
           .select("name")
-          .eq("id", primaryAllocation.investment_level_id)
+          .eq("id", primaryProfitSplitLevel)
           .maybeSingle()
       : { data: null };
 
@@ -624,19 +633,46 @@ export const investorService = {
 
     const admin = createAdminClient();
     const activeCycleFundIds = [...new Set([...tradingFundIds, ...fundingFundIds])];
-    const { data: activeCycles } = await admin
-      .from("investment_cycles")
-      .select("id, fund_id, status, cycle_number")
-      .in("fund_id", activeCycleFundIds)
-      .in("status", ["funding", "approved", "trading", "distribution"])
-      .order("cycle_number", { ascending: false });
+    const [{ data: activeCycles }, { data: traderFunds }, investmentLevels] = await Promise.all([
+      activeCycleFundIds.length > 0
+        ? admin
+            .from("investment_cycles")
+            .select("id, fund_id, status, cycle_number, pool_config_snapshot")
+            .in("fund_id", activeCycleFundIds)
+            .in("status", ["funding", "approved", "trading", "distribution"])
+            .order("cycle_number", { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
+      allFundIds.length > 0
+        ? admin
+            .from("funds")
+            .select(
+              "id, pool_manager_name, pool_managers(username, slug, display_name, show_full_name, profile_photo_url, icon_url)"
+            )
+            .in("id", allFundIds)
+        : Promise.resolve({ data: [], error: null }),
+      platformInvestmentLevelService.listActive(),
+    ]);
 
     const activeCycleRows = (activeCycles ?? []) as Array<{
       id: string;
       fund_id: string;
       status: InvestmentCycleStatus;
       cycle_number: number;
+      pool_config_snapshot: unknown;
     }>;
+    const settlementCycleIds = [
+      ...new Set(pendingSettlements.map((settlement) => settlement.investmentCycleId)),
+    ].filter((id) => !activeCycleRows.some((cycle) => cycle.id === id));
+    const { data: settlementCycles } = settlementCycleIds.length > 0
+      ? await admin
+          .from("investment_cycles")
+          .select("id, fund_id, status, cycle_number, pool_config_snapshot")
+          .in("id", settlementCycleIds)
+      : { data: [] };
+    const relevantCycleRows = [
+      ...activeCycleRows,
+      ...((settlementCycles ?? []) as typeof activeCycleRows),
+    ];
     const cycleIdByFund = new Map<string, string>();
     for (const fundId of activeCycleFundIds) {
       for (const status of ["funding", "approved", "trading", "distribution"] as const) {
@@ -649,13 +685,21 @@ export const investorService = {
         }
       }
     }
+    for (const settlement of pendingSettlements) {
+      if (!cycleIdByFund.has(settlement.fundId)) {
+        cycleIdByFund.set(settlement.fundId, settlement.investmentCycleId);
+      }
+    }
 
-    const allocationByFund = new Map<string, number>();
+    const allocationByFund = new Map<
+      string,
+      { amount: number; investmentLevelId: string | null }
+    >();
     const cycleIds = [...cycleIdByFund.values()];
     if (cycleIds.length > 0) {
       const { data: allocationRows } = await admin
         .from("investment_allocations")
-        .select("investment_cycle_id, amount, status")
+        .select("investment_cycle_id, amount, status, investment_level_id")
         .eq("investor_id", user.id)
         .in("investment_cycle_id", cycleIds)
         .in("status", RAISED_CAPITAL_ALLOCATION_STATUSES);
@@ -663,16 +707,68 @@ export const investorService = {
       for (const row of (allocationRows ?? []) as Array<{
         investment_cycle_id: string;
         amount: number | string;
+        investment_level_id: string | null;
       }>) {
         const fundId = [...cycleIdByFund.entries()].find(
           ([, cycleId]) => cycleId === row.investment_cycle_id
         )?.[0];
         if (!fundId) continue;
-        allocationByFund.set(
-          fundId,
-          (allocationByFund.get(fundId) ?? 0) + toNumber(row.amount)
-        );
+        const current = allocationByFund.get(fundId);
+        allocationByFund.set(fundId, {
+          amount: (current?.amount ?? 0) + toNumber(row.amount),
+          investmentLevelId: row.investment_level_id ?? current?.investmentLevelId ?? null,
+        });
       }
+    }
+
+    const requestedStopByFund = new Map<string, string>();
+    if (cycleIds.length > 0) {
+      const { data: stopRequests } = await admin
+        .from("copy_stop_requests" as never)
+        .select("fund_id, requested_at" as never)
+        .eq("investor_id" as never, user.id)
+        .eq("status" as never, "requested")
+        .in("investment_cycle_id" as never, cycleIds);
+      for (const row of (stopRequests ?? []) as unknown as Array<{
+        fund_id: string;
+        requested_at: string;
+      }>) {
+        requestedStopByFund.set(row.fund_id, row.requested_at);
+      }
+    }
+
+    const traderByFund = new Map<string, { name: string; photoUrl: string | null }>();
+    for (const row of (traderFunds ?? []) as Array<{
+      id: string;
+      pool_manager_name: string | null;
+      pool_managers:
+        | {
+            username?: string | null;
+            slug?: string | null;
+            display_name: string;
+            show_full_name?: boolean | null;
+            profile_photo_url: string | null;
+            icon_url: string | null;
+          }
+        | Array<{
+            username?: string | null;
+            slug?: string | null;
+            display_name: string;
+            show_full_name?: boolean | null;
+            profile_photo_url: string | null;
+            icon_url: string | null;
+          }>
+        | null;
+    }>) {
+      const manager = Array.isArray(row.pool_managers)
+        ? row.pool_managers[0]
+        : row.pool_managers;
+      traderByFund.set(row.id, {
+        name: manager
+          ? resolvePoolManagerPublicLabel(managerRowToIdentity(manager))
+          : resolvePublicManagerName(null, row.pool_manager_name) ?? "Verified Trader",
+        photoUrl: manager?.profile_photo_url ?? manager?.icon_url ?? null,
+      });
     }
 
     const poolViews: InvestorPoolParticipationView[] = allFundIds
@@ -681,6 +777,9 @@ export const investorService = {
         const pendingSettlement = settlementByFund.get(fundId) ?? null;
         const hasActiveTradingCycle = tradingFundIds.has(fundId);
         const hasActiveFundingCycle = fundingFundIds.has(fundId);
+        const activeCycleId = cycleIdByFund.get(fundId);
+        const activeCycle = relevantCycleRows.find((cycle) => cycle.id === activeCycleId);
+        const allocation = allocationByFund.get(fundId);
 
         if (!participation && !pendingSettlement) return null;
 
@@ -707,8 +806,12 @@ export const investorService = {
           hasActiveFundingCycle,
           portfolioInvested: baseParticipation.amountInvested,
           pendingSettlement,
-          cycleAllocationAmount: allocationByFund.get(fundId) ?? null,
+          cycleAllocationAmount: allocation?.amount ?? null,
         });
+        const effectiveLevel =
+          investmentLevels.find((level) => level.id === allocation?.investmentLevelId) ??
+          resolveInvestmentLevel(displayCapitalInvested, investmentLevels);
+        const trader = traderByFund.get(fundId);
 
         return {
           ...baseParticipation,
@@ -716,6 +819,14 @@ export const investorService = {
           hasActiveFundingCycle,
           pendingSettlement,
           displayCapitalInvested,
+          traderName: trader?.name ?? copyTradingText(baseParticipation.poolName),
+          traderPhotoUrl: trader?.photoUrl ?? null,
+          profitSplit: readCycleProfitSplit(
+            activeCycle?.pool_config_snapshot,
+            effectiveLevel?.id
+          ),
+          profitSplitTierName: effectiveLevel?.name ?? null,
+          stopCopyingRequestedAt: requestedStopByFund.get(fundId) ?? null,
           showPostCycleChoices: shouldShowPostCycleChoices({
             hasActiveTradingCycle,
             hasActiveFundingCycle,

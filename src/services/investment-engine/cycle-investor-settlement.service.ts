@@ -161,6 +161,48 @@ async function ensureWalletPortfolio(
   return created as { available_balance: number };
 }
 
+async function executeStopCopyingForInvestor(
+  settlement: CycleInvestorSettlement,
+  investorId: string
+): Promise<{ transferred: number; capital: number; profit: number; created: boolean }> {
+  const db = createAdminClient();
+  await ensureWalletPortfolio(db, investorId);
+
+  const { ledgerAccountService } = await import("@/services/ledger-account.service");
+  const [profitAccount, investorAccounts, suspenseAccount] = await Promise.all([
+    ledgerAccountService.ensureInvestorPoolProfitAccount(
+      investorId,
+      settlement.fundId,
+      settlement.poolName
+    ),
+    ledgerAccountService.ensureInvestorAccounts(investorId),
+    ledgerAccountService.ensurePlatformSuspenseAccount(),
+  ]);
+
+  const { data, error } = await db.rpc("stop_copying_atomic" as never, {
+    p_settlement_id: settlement.id,
+    p_investor_id: investorId,
+    p_profit_account_id: profitAccount.id,
+    p_available_account_id: investorAccounts.available.id,
+    p_suspense_account_id: suspenseAccount.id,
+    p_description: `Stopped copying ${settlement.poolName}`,
+  } as never);
+  if (error) throw new Error(error.message);
+
+  const result = data as unknown as {
+    transferred?: number | string;
+    capital?: number | string;
+    profit?: number | string;
+    created?: boolean;
+  } | null;
+  return {
+    transferred: toNumber(result?.transferred),
+    capital: toNumber(result?.capital),
+    profit: toNumber(result?.profit),
+    created: result?.created !== false,
+  };
+}
+
 function resolveClosedStatus(
   settlement: Pick<CycleInvestorSettlement, "profitAmount" | "principalAmount" | "profitResolved" | "capitalResolved">
 ): CycleInvestorSettlementStatus {
@@ -269,7 +311,7 @@ export const cycleInvestorSettlementService = {
   ): Promise<{ continued: number; total: number }> {
     const db = createAdminClient();
     const { data: rows, error } = await settlementsTable(db)
-      .select("id, investment_cycle_id, status, profit_resolved, capital_resolved")
+      .select("id, investment_cycle_id, investor_id, status, profit_resolved, capital_resolved")
       .eq("fund_id", fundId)
       .neq("investment_cycle_id", targetCycleId)
       .neq("status", "closed")
@@ -280,11 +322,28 @@ export const cycleInvestorSettlementService = {
     const candidates = (rows ?? []) as Array<{
       id: string;
       investment_cycle_id: string;
+      investor_id: string;
       status: CycleInvestorSettlementStatus;
       profit_resolved: boolean;
       capital_resolved: boolean;
     }>;
     if (candidates.length === 0) return { continued: 0, total: 0 };
+
+    const { data: stopRequests, error: stopRequestError } = await db
+      .from("copy_stop_requests" as never)
+      .select("investment_cycle_id, investor_id" as never)
+      .eq("status" as never, "requested")
+      .in(
+        "investment_cycle_id" as never,
+        [...new Set(candidates.map((candidate) => candidate.investment_cycle_id))]
+      );
+    if (stopRequestError) throw new Error(stopRequestError.message);
+    const requestedStops = new Set(
+      ((stopRequests ?? []) as unknown as Array<{
+        investment_cycle_id: string;
+        investor_id: string;
+      }>).map((request) => `${request.investment_cycle_id}:${request.investor_id}`)
+    );
 
     const sourceCycleIds = [...new Set(candidates.map((row) => row.investment_cycle_id))];
     const { data: sourceCycles, error: cycleError } = await db
@@ -302,6 +361,9 @@ export const cycleInvestorSettlementService = {
 
     for (const candidate of candidates) {
       if (!eligibleCycleIds.has(candidate.investment_cycle_id)) continue;
+      if (requestedStops.has(`${candidate.investment_cycle_id}:${candidate.investor_id}`)) {
+        continue;
+      }
       const { data, error: continuationError } = await db.rpc(
         "continue_copying_atomic" as never,
         {
@@ -395,6 +457,58 @@ export const cycleInvestorSettlementService = {
         principalByInvestor.get(investorId)!
       );
     }
+  },
+
+  /** Settle every recorded exit for this just-closed cycle, one allocation at a time. */
+  async settleRequestedCopyStopsForCycle(
+    cycleId: string
+  ): Promise<{ settled: number; transferred: number }> {
+    const db = createAdminClient();
+    const { data: requests, error } = await db
+      .from("copy_stop_requests" as never)
+      .select("id, investor_id" as never)
+      .eq("investment_cycle_id" as never, cycleId)
+      .eq("status" as never, "requested")
+      .order("requested_at" as never, { ascending: true });
+    if (error) throw new Error(error.message);
+
+    let settled = 0;
+    let transferred = 0;
+    for (const request of (requests ?? []) as unknown as Array<{
+      id: string;
+      investor_id: string;
+    }>) {
+      const settlement = await this.getForInvestorCycle(request.investor_id, cycleId);
+      if (!settlement) {
+        throw new Error("A stop-copying request is missing its completed-cycle settlement.");
+      }
+      const result = await executeStopCopyingForInvestor(settlement, request.investor_id);
+      const completedAt = new Date().toISOString();
+      const { error: updateError } = await db
+        .from("copy_stop_requests" as never)
+        .update({
+          status: "completed",
+          completed_at: completedAt,
+          transferred_amount: result.transferred,
+          capital_amount: result.capital,
+          profit_amount: result.profit,
+          updated_at: completedAt,
+        } as never)
+        .eq("id" as never, request.id)
+        .eq("status" as never, "requested");
+      if (updateError) throw new Error(updateError.message);
+      if (result.created) {
+        await communicationTriggers.investmentUpdated({
+          userId: request.investor_id,
+          poolName: settlement.poolName,
+          message: `$${result.transferred.toLocaleString()} was transferred to your Funding Wallet after the copied trader's active period closed.`,
+          poolId: settlement.fundId,
+        });
+      }
+      settled += 1;
+      transferred = roundMoney(transferred + result.transferred);
+    }
+    return { settled, transferred };
   },
 
   async listForInvestor(investorId: string): Promise<CycleInvestorSettlement[]> {
@@ -711,42 +825,10 @@ export const cycleInvestorSettlementService = {
   ): Promise<{ transferred: number; capital: number; profit: number }> {
     const user = await requireAuth();
     const settlement = await getSettlementForInvestor(settlementId, user.id);
-    const db = createAdminClient();
-    await ensureWalletPortfolio(db, user.id);
+    const { transferred, capital, profit, created } =
+      await executeStopCopyingForInvestor(settlement, user.id);
 
-    const { ledgerAccountService } = await import("@/services/ledger-account.service");
-    const [profitAccount, investorAccounts, suspenseAccount] = await Promise.all([
-      ledgerAccountService.ensureInvestorPoolProfitAccount(
-        user.id,
-        settlement.fundId,
-        settlement.poolName
-      ),
-      ledgerAccountService.ensureInvestorAccounts(user.id),
-      ledgerAccountService.ensurePlatformSuspenseAccount(),
-    ]);
-
-    const description = `Stopped copying ${settlement.poolName}`;
-    const { data, error } = await db.rpc("stop_copying_atomic" as never, {
-      p_settlement_id: settlement.id,
-      p_investor_id: user.id,
-      p_profit_account_id: profitAccount.id,
-      p_available_account_id: investorAccounts.available.id,
-      p_suspense_account_id: suspenseAccount.id,
-      p_description: description,
-    } as never);
-    if (error) throw new Error(error.message);
-
-    const result = data as unknown as {
-      transferred?: number | string;
-      capital?: number | string;
-      profit?: number | string;
-      created?: boolean;
-    } | null;
-    const transferred = toNumber(result?.transferred);
-    const capital = toNumber(result?.capital);
-    const profit = toNumber(result?.profit);
-
-    if (result?.created !== false) {
+    if (created) {
       await communicationTriggers.investmentUpdated({
         userId: user.id,
         poolName: settlement.poolName,
@@ -756,6 +838,106 @@ export const cycleInvestorSettlementService = {
     }
 
     return { transferred, capital, profit };
+  },
+
+  /**
+   * Stop one copied trader. Active-cycle requests are recorded against the
+   * caller's exact allocation and settled immediately after that cycle closes.
+   */
+  async requestStopCopyingForFund(fundId: string): Promise<
+    | { pending: true; requestedAt: string; transferred: 0; capital: 0; profit: 0 }
+    | { pending: false; transferred: number; capital: number; profit: number }
+  > {
+    const user = await requireAuth();
+    const db = createAdminClient();
+    const { data: cycle, error: cycleError } = await db
+      .from("investment_cycles")
+      .select("id, fund_id, status")
+      .eq("fund_id", fundId)
+      .in("status", ["trading", "distribution"])
+      .order("cycle_number", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (cycleError) throw new Error(cycleError.message);
+
+    if (cycle) {
+      const { data: allocation, error: allocationError } = await db
+        .from("investment_allocations")
+        .select("id, amount, returned_capital_amount")
+        .eq("investment_cycle_id", cycle.id)
+        .eq("investor_id", user.id)
+        .in("status", ["confirmed", "locked", "settled", "distributed"])
+        .maybeSingle();
+      if (allocationError) throw new Error(allocationError.message);
+      if (!allocation || toNumber(allocation.amount) <= toNumber(allocation.returned_capital_amount)) {
+        throw new Error("No active copying balance was found for this trader.");
+      }
+
+      await ensureWalletPortfolio(db, user.id);
+      const { data: fund } = await db
+        .from("funds")
+        .select("name")
+        .eq("id", fundId)
+        .maybeSingle();
+      const { ledgerAccountService } = await import("@/services/ledger-account.service");
+      const [profitAccount, investorAccounts, suspenseAccount] = await Promise.all([
+        ledgerAccountService.ensureInvestorPoolProfitAccount(
+          user.id,
+          fundId,
+          fund?.name ?? "Trader"
+        ),
+        ledgerAccountService.ensureInvestorAccounts(user.id),
+        ledgerAccountService.ensurePlatformSuspenseAccount(),
+      ]);
+      const requestedAt = new Date().toISOString();
+      const { error: requestError } = await db
+        .from("copy_stop_requests" as never)
+        .upsert(
+          {
+            allocation_id: allocation.id,
+            investment_cycle_id: cycle.id,
+            fund_id: fundId,
+            investor_id: user.id,
+            profit_account_id: profitAccount.id,
+            available_account_id: investorAccounts.available.id,
+            suspense_account_id: suspenseAccount.id,
+            status: "requested",
+            requested_at: requestedAt,
+            completed_at: null,
+          } as never,
+          { onConflict: "allocation_id" }
+        );
+      if (requestError) throw new Error(requestError.message);
+
+      return { pending: true, requestedAt, transferred: 0, capital: 0, profit: 0 };
+    }
+
+    const settlement = await this.ensureSettlementForFund(user.id, fundId);
+    if (!settlement) {
+      throw new Error("No copying balance is available for this trader.");
+    }
+    const result = await executeStopCopyingForInvestor(settlement, user.id);
+    const completedAt = new Date().toISOString();
+    const { error: requestUpdateError } = await db
+      .from("copy_stop_requests" as never)
+      .update({
+        status: "completed",
+        completed_at: completedAt,
+        transferred_amount: result.transferred,
+        capital_amount: result.capital,
+        profit_amount: result.profit,
+        updated_at: completedAt,
+      } as never)
+      .eq("investor_id" as never, user.id)
+      .eq("fund_id" as never, fundId)
+      .eq("status" as never, "requested");
+    if (requestUpdateError) throw new Error(requestUpdateError.message);
+    return {
+      pending: false,
+      transferred: result.transferred,
+      capital: result.capital,
+      profit: result.profit,
+    };
   },
 
   async transferProfit(settlementId: string): Promise<{ transferred: number }> {

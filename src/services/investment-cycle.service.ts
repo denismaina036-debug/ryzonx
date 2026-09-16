@@ -1482,6 +1482,7 @@ export const investmentCycleService = {
         "@/services/investment-engine/cycle-investor-settlement.service"
       );
       await cycleInvestorSettlementService.createPendingChoicesForCycle(id, existing.fundId);
+      await cycleInvestorSettlementService.settleRequestedCopyStopsForCycle(id);
     }
 
     return { cycle };

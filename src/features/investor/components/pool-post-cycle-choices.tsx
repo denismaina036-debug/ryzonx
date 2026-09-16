@@ -18,6 +18,8 @@ interface PoolPostCycleChoicesProps {
   capitalAmount: number;
   profitAmount: number;
   settlement: CycleInvestorSettlement | null;
+  hasActiveTradingCycle?: boolean;
+  stopCopyingRequestedAt?: string | null;
   compact?: boolean;
 }
 
@@ -26,6 +28,8 @@ export function PoolPostCycleChoices({
   capitalAmount,
   profitAmount,
   settlement,
+  hasActiveTradingCycle = false,
+  stopCopyingRequestedAt = null,
   compact = false,
 }: PoolPostCycleChoicesProps) {
   const router = useRouter();
@@ -38,37 +42,21 @@ export function PoolPostCycleChoices({
   const profitPending = profitAmount > 0 && !(settlement?.profitResolved ?? false);
   const totalCopyingBalance = capitalAmount + profitAmount;
 
-  if (!capitalPending && !profitPending) {
+  if (!hasActiveTradingCycle && !capitalPending && !profitPending) {
     return null;
-  }
-
-  async function resolveSettlementId(): Promise<string> {
-    if (settlement?.id) return settlement.id;
-
-    const res = await fetch(`/api/investor/pools/${fundId}/ensure-post-cycle-settlement`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ purpose: "capital" }),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.settlement?.id) {
-      throw new Error(data.error ?? "Request failed");
-    }
-    return data.settlement.id as string;
   }
 
   async function stopCopying() {
     setLoading("stop-copying");
     try {
-      const settlementId = await resolveSettlementId();
-      const res = await fetch(
-        `/api/investor/cycle-settlements/${settlementId}/stop-copying`,
-        { method: "POST" }
-      );
+      const res = await fetch(`/api/investor/pools/${fundId}/stop-copying`, {
+        method: "POST",
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Request failed");
-      toast.success(
-        `${formatCurrency(data.transferred ?? totalCopyingBalance)} moved to your Funding Wallet. Copying stopped.`
+      toast.success(data.pending
+        ? "Stop request received. This trader’s balance will move to your Funding Wallet when the active trading period closes."
+        : `${formatCurrency(data.transferred ?? totalCopyingBalance)} moved to your Funding Wallet. Copying stopped.`
       );
       router.refresh();
     } catch (err) {
@@ -84,13 +72,13 @@ export function PoolPostCycleChoices({
         label="Copying balance"
         amount={totalCopyingBalance}
         amountClassName="text-[var(--id-text)]"
-        description="Your balance continues into the trader’s next period automatically. Stop only when you want to end copying and move the full balance to your Funding Wallet."
         actions={
           <SimpleButton
-            label="Stop copying"
+            label={stopCopyingRequestedAt ? "Stop requested" : "Stop copying"}
             icon={CircleStop}
             variant="outline"
             loading={loading === "stop-copying"}
+            disabled={Boolean(stopCopyingRequestedAt)}
             onClick={stopCopying}
           />
         }
@@ -109,6 +97,8 @@ export function PoolPostCycleChoicesFromView({
     displayCapitalInvested: number;
     poolProfit: number;
     pendingSettlement: CycleInvestorSettlement | null;
+    hasActiveTradingCycle?: boolean;
+    stopCopyingRequestedAt?: string | null;
   };
   compact?: boolean;
 }) {
@@ -125,6 +115,10 @@ export function PoolPostCycleChoicesFromView({
         poolProfit: pool.poolProfit,
       })}
       settlement={pool.pendingSettlement}
+      hasActiveTradingCycle={pool.hasActiveTradingCycle}
+      stopCopyingRequestedAt={
+        pool.hasActiveTradingCycle ? pool.stopCopyingRequestedAt : null
+      }
       compact={compact}
     />
   );
@@ -135,14 +129,12 @@ function PostCycleRow({
   amount,
   prefix = "",
   amountClassName,
-  description,
   actions,
 }: {
   label: string;
   amount: number;
   prefix?: string;
   amountClassName: string;
-  description?: string;
   actions: ReactNode;
 }) {
   return (
@@ -156,9 +148,6 @@ function PostCycleRow({
             {prefix}
             {formatCurrency(amount)}
           </p>
-          {description && (
-            <p className="mt-1 max-w-xl text-xs text-[var(--id-text-muted)]">{description}</p>
-          )}
         </div>
         <div className="flex flex-wrap gap-2">{actions}</div>
       </div>
@@ -170,12 +159,14 @@ function SimpleButton({
   label,
   icon: Icon,
   loading,
+  disabled = false,
   onClick,
   variant = "default",
 }: {
   label: string;
   icon: ComponentType<{ className?: string }>;
   loading: boolean;
+  disabled?: boolean;
   onClick: () => void;
   variant?: "default" | "outline";
 }) {
@@ -184,7 +175,7 @@ function SimpleButton({
       type="button"
       size="sm"
       variant={variant}
-      disabled={loading}
+      disabled={loading || disabled}
       onClick={onClick}
       className={cn(
         "h-9 rounded-xl text-xs font-semibold",
