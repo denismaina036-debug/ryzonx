@@ -94,7 +94,7 @@ export function CurrentInvestmentCard({
                 </p>
               </div>
               <div>
-                <p className={dashboardLabelClass}>Copying Balance</p>
+                <p className={dashboardLabelClass}>Total Realized Capital</p>
                 <p className="mt-1.5 font-mono text-sm font-semibold tabular-nums text-[var(--id-text)]">
                   {formatCurrency(copyingBalance)}
                 </p>

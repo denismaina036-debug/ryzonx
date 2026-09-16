@@ -3,6 +3,7 @@ import {
   resolveInvestorCapitalExposure,
   resolveInvestorDisplayCapital,
   resolvePostCycleCapitalAmount,
+  resolveTotalRealizedCapital,
   shouldShowPostCycleChoices,
 } from "@/domain/investment/investor-pool-participation";
 
@@ -114,6 +115,17 @@ describe("resolveInvestorCapitalExposure", () => {
         ]
       )
     ).toBe(300);
+  });
+});
+
+describe("resolveTotalRealizedCapital", () => {
+  it("adds realized profit to the capital copying one trader", () => {
+    expect(resolveTotalRealizedCapital({ copyingCapital: 45_832, realizedProfit: 52_300 })).toBe(98_132);
+  });
+
+  it("reflects realized loss without allowing a negative displayed balance", () => {
+    expect(resolveTotalRealizedCapital({ copyingCapital: 10_000, realizedProfit: -1_250 })).toBe(8_750);
+    expect(resolveTotalRealizedCapital({ copyingCapital: 500, realizedProfit: -750 })).toBe(0);
   });
 });
 

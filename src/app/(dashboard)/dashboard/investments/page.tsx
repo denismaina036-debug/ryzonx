@@ -77,10 +77,10 @@ export default async function MyInvestmentsPage() {
                   <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:text-right">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--id-text-muted)]">
-                        Copying capital
+                        Capital copying
                       </p>
                       <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-[var(--id-text)]">
-                        {formatCurrency(pool.displayCapitalInvested)}
+                        {formatCurrency(pool.totalRealizedCapital)}
                       </p>
                     </div>
                     <div>

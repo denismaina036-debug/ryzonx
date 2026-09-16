@@ -69,7 +69,7 @@ export function PoolPostCycleChoices({
   return (
     <div className={cn("space-y-3", compact ? "" : "mt-4")}>
       <PostCycleRow
-        label="Copying balance"
+        label="Total realized capital"
         amount={totalCopyingBalance}
         amountClassName="text-[var(--id-text)]"
         actions={

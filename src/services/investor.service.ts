@@ -82,6 +82,7 @@ async function fetchRecentActivityRows(
 import type { InvestorPoolParticipationView } from "@/domain/investment/investor-pool-participation";
 import {
   resolveInvestorDisplayCapital,
+  resolveTotalRealizedCapital,
   shouldShowPostCycleChoices,
 } from "@/domain/investment/investor-pool-participation";
 import type { CycleInvestorSettlement } from "@/services/investment-engine/cycle-investor-settlement.service";
@@ -597,7 +598,18 @@ export const investorService = {
     const user = await requireAuth();
     const dashboard = await this.getDashboardPageData();
 
-    const participations = dashboard.investment.participations;
+    const dashboardParticipations = dashboard.investment.participations;
+    const candidateFundIds = [
+      ...new Set(dashboardParticipations.map((pool) => pool.fundId)),
+    ];
+    const terminalStoppedFundIds =
+      await cycleInvestorSettlementService.listTerminalStoppedFundIds(
+        user.id,
+        candidateFundIds
+      );
+    const participations = dashboardParticipations.filter(
+      (pool) => !terminalStoppedFundIds.has(pool.fundId)
+    );
     const fundIds = [...new Set(participations.map((pool) => pool.fundId))];
 
     const tradingFundIds = await investmentCycleService.listTradingCycleFundIds(fundIds);
@@ -675,7 +687,7 @@ export const investorService = {
     ];
     const cycleIdByFund = new Map<string, string>();
     for (const fundId of activeCycleFundIds) {
-      for (const status of ["funding", "approved", "trading", "distribution"] as const) {
+      for (const status of ["trading", "distribution", "funding", "approved"] as const) {
         const cycle = activeCycleRows.find(
           (row) => row.fund_id === fundId && row.status === status
         );
@@ -699,7 +711,7 @@ export const investorService = {
     if (cycleIds.length > 0) {
       const { data: allocationRows } = await admin
         .from("investment_allocations")
-        .select("investment_cycle_id, amount, status, investment_level_id")
+        .select("investment_cycle_id, amount, returned_capital_amount, status, investment_level_id")
         .eq("investor_id", user.id)
         .in("investment_cycle_id", cycleIds)
         .in("status", RAISED_CAPITAL_ALLOCATION_STATUSES);
@@ -707,15 +719,21 @@ export const investorService = {
       for (const row of (allocationRows ?? []) as Array<{
         investment_cycle_id: string;
         amount: number | string;
+        returned_capital_amount: number | string;
         investment_level_id: string | null;
       }>) {
         const fundId = [...cycleIdByFund.entries()].find(
           ([, cycleId]) => cycleId === row.investment_cycle_id
         )?.[0];
         if (!fundId) continue;
+        const returnableAmount = Math.max(
+          0,
+          toNumber(row.amount) - toNumber(row.returned_capital_amount)
+        );
+        if (returnableAmount <= 0) continue;
         const current = allocationByFund.get(fundId);
         allocationByFund.set(fundId, {
-          amount: (current?.amount ?? 0) + toNumber(row.amount),
+          amount: (current?.amount ?? 0) + returnableAmount,
           investmentLevelId: row.investment_level_id ?? current?.investmentLevelId ?? null,
         });
       }
@@ -822,6 +840,10 @@ export const investorService = {
           cycleAllocationAmount: allocation?.amount ?? null,
         });
         const stopCopyingRequestedAt = requestedStopByFund.get(fundId) ?? null;
+        const totalRealizedCapital = resolveTotalRealizedCapital({
+          copyingCapital: displayCapitalInvested,
+          realizedProfit: baseParticipation.poolProfit,
+        });
 
         // Keep a trader visible while a requested stop is waiting for open
         // trades to close. Once the transfer has completed there is no copied
@@ -845,6 +867,7 @@ export const investorService = {
           hasActiveFundingCycle,
           pendingSettlement,
           displayCapitalInvested,
+          totalRealizedCapital,
           traderName: trader?.name ?? copyTradingText(baseParticipation.poolName),
           traderPhotoUrl: trader?.photoUrl ?? null,
           profitSplit: readCycleProfitSplit(

@@ -96,7 +96,7 @@ export function MobileCurrentPoolCard({
 
       <div className="mt-4 grid grid-cols-3 gap-2 border-t border-[var(--id-border)] pt-3.5">
         <div className="min-w-0">
-          <p className="text-[10px] text-[var(--id-text-muted)]">Copying Balance</p>
+          <p className="text-[10px] text-[var(--id-text-muted)]">Total Realized Capital</p>
           <p className="mt-0.5 truncate font-mono text-sm font-semibold tabular-nums text-[var(--id-text)]">
             {formatCurrency(copyingBalance)}
           </p>

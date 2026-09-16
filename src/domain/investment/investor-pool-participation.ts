@@ -2,6 +2,7 @@ import type { InvestmentAllocationStatus } from "@/constants/investment-allocati
 import type { WalletPoolParticipation } from "@/features/investor/types/wallet";
 import type { CycleInvestorSettlement } from "@/services/investment-engine/cycle-investor-settlement.service";
 import type { CycleProfitSplit } from "@/domain/investment/profit-split";
+import { roundMoney } from "@/lib/investment-engine/ownership";
 
 const ACTIVE_INVESTOR_ALLOCATION_STATUSES = new Set<InvestmentAllocationStatus>([
   "pending",
@@ -18,6 +19,8 @@ export interface InvestorPoolParticipationView extends WalletPoolParticipation {
   pendingSettlement: CycleInvestorSettlement | null;
   /** Capital figure shown on the investments page for this pool. */
   displayCapitalInvested: number;
+  /** This trader's returnable capital after realized profit or loss. */
+  totalRealizedCapital: number;
   /** True when the pool has no trading cycle and the investor must choose next steps. */
   showPostCycleChoices: boolean;
   traderName: string;
@@ -95,6 +98,13 @@ export function resolveInvestorDisplayCapital(input: {
   }
 
   return input.portfolioInvested;
+}
+
+export function resolveTotalRealizedCapital(input: {
+  copyingCapital: number;
+  realizedProfit: number;
+}): number {
+  return Math.max(0, roundMoney(input.copyingCapital + input.realizedProfit));
 }
 
 export function shouldShowPostCycleChoices(input: {

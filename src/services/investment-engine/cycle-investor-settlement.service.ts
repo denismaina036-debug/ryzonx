@@ -161,6 +161,99 @@ async function ensureWalletPortfolio(
   return created as { available_balance: number };
 }
 
+type CompletedCopyStop = {
+  fundId: string;
+  transferred: number;
+  capital: number;
+  profit: number;
+  completedAt: string;
+};
+
+async function loadLatestCompletedCopyStops(
+  db: ReturnType<typeof createAdminClient>,
+  investorId: string,
+  fundIds: string[]
+): Promise<Map<string, CompletedCopyStop>> {
+  const latestByFund = new Map<string, CompletedCopyStop>();
+  if (fundIds.length === 0) return latestByFund;
+
+  const { data, error } = await db
+    .from("transactions")
+    .select("fund_id, amount, created_at, metadata")
+    .eq("user_id", investorId)
+    .eq("status", "completed")
+    .in("payment_method", ["copy_stop", "copy_stop_funding"])
+    .in("fund_id", fundIds)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+
+  for (const row of (data ?? []) as Array<{
+    fund_id: string | null;
+    amount: number | string;
+    created_at: string;
+    metadata: Record<string, unknown> | null;
+  }>) {
+    if (!row.fund_id || latestByFund.has(row.fund_id)) continue;
+    latestByFund.set(row.fund_id, {
+      fundId: row.fund_id,
+      transferred: toNumber(row.amount),
+      capital: toNumber(row.metadata?.capital_amount as number | string | null),
+      profit: toNumber(row.metadata?.profit_amount as number | string | null),
+      completedAt: row.created_at,
+    });
+  }
+  return latestByFund;
+}
+
+async function listTerminalStoppedFundIdsInternal(
+  db: ReturnType<typeof createAdminClient>,
+  investorId: string,
+  fundIds: string[]
+): Promise<{ fundIds: Set<string>; latestByFund: Map<string, CompletedCopyStop> }> {
+  const latestByFund = await loadLatestCompletedCopyStops(db, investorId, fundIds);
+  const terminalFundIds = new Set(latestByFund.keys());
+  if (terminalFundIds.size === 0) return { fundIds: terminalFundIds, latestByFund };
+
+  const { data: cycles, error: cycleError } = await db
+    .from("investment_cycles")
+    .select("id, fund_id")
+    .in("fund_id", [...terminalFundIds]);
+  if (cycleError) throw new Error(cycleError.message);
+
+  const fundByCycle = new Map(
+    ((cycles ?? []) as Array<{ id: string; fund_id: string | null }>)
+      .filter((cycle): cycle is { id: string; fund_id: string } => Boolean(cycle.fund_id))
+      .map((cycle) => [cycle.id, cycle.fund_id])
+  );
+  const cycleIds = [...fundByCycle.keys()];
+  if (cycleIds.length === 0) return { fundIds: terminalFundIds, latestByFund };
+
+  const { data: allocations, error: allocationError } = await db
+    .from("investment_allocations")
+    .select("investment_cycle_id, amount, returned_capital_amount, created_at, status")
+    .eq("investor_id", investorId)
+    .in("investment_cycle_id", cycleIds)
+    .in("status", ["pending", "funding_confirmed", "confirmed", "settled", "locked", "distributed"]);
+  if (allocationError) throw new Error(allocationError.message);
+
+  for (const allocation of (allocations ?? []) as Array<{
+    investment_cycle_id: string;
+    amount: number | string;
+    returned_capital_amount: number | string;
+    created_at: string;
+  }>) {
+    const fundId = fundByCycle.get(allocation.investment_cycle_id);
+    const stopped = fundId ? latestByFund.get(fundId) : null;
+    if (!fundId || !stopped) continue;
+    const returnable = toNumber(allocation.amount) - toNumber(allocation.returned_capital_amount);
+    if (returnable > 0 && new Date(allocation.created_at) > new Date(stopped.completedAt)) {
+      terminalFundIds.delete(fundId);
+    }
+  }
+
+  return { fundIds: terminalFundIds, latestByFund };
+}
+
 async function executeStopCopyingForInvestor(
   settlement: CycleInvestorSettlement,
   investorId: string
@@ -299,6 +392,14 @@ async function resolveSettlementCycleMeta(
 }
 
 export const cycleInvestorSettlementService = {
+  async listTerminalStoppedFundIds(
+    investorId: string,
+    fundIds: string[]
+  ): Promise<Set<string>> {
+    const db = createAdminClient();
+    return (await listTerminalStoppedFundIdsInternal(db, investorId, fundIds)).fundIds;
+  },
+
   /**
    * Continue every unresolved completed-period copying balance into the newly
    * opened period. Each settlement is moved by an idempotent database function,
@@ -570,11 +671,17 @@ export const cycleInvestorSettlementService = {
     tradingFundIds: Set<string>
   ): Promise<void> {
     const db = createAdminClient();
-    const eligibleFundIds = [
+    const candidateFundIds = [
       ...new Set(
         fundIds.filter((fundId) => !tradingFundIds.has(fundId))
       ),
     ];
+    const terminalStoppedFundIds = (
+      await listTerminalStoppedFundIdsInternal(db, investorId, candidateFundIds)
+    ).fundIds;
+    const eligibleFundIds = candidateFundIds.filter(
+      (fundId) => !terminalStoppedFundIds.has(fundId)
+    );
     if (eligibleFundIds.length === 0) return;
 
     const [portfoliosResult, profitWallets, positionsResult] = await Promise.all([
@@ -850,6 +957,22 @@ export const cycleInvestorSettlementService = {
   ): Promise<{ transferred: number; capital: number; profit: number }> {
     const user = await requireAuth();
     const settlement = await getSettlementForInvestor(settlementId, user.id);
+    const terminalStopState = await listTerminalStoppedFundIdsInternal(
+      createAdminClient(),
+      user.id,
+      [settlement.fundId]
+    );
+    const previous = terminalStopState.latestByFund.get(settlement.fundId);
+    if (
+      previous &&
+      new Date(settlement.createdAt) <= new Date(previous.completedAt)
+    ) {
+      return {
+        transferred: previous.transferred,
+        capital: previous.capital,
+        profit: previous.profit,
+      };
+    }
     const { transferred, capital, profit, created } =
       await executeStopCopyingForInvestor(settlement, user.id);
 
@@ -875,6 +998,21 @@ export const cycleInvestorSettlementService = {
   > {
     const user = await requireAuth();
     const db = createAdminClient();
+    const terminalStopState = await listTerminalStoppedFundIdsInternal(
+      db,
+      user.id,
+      [fundId]
+    );
+    if (terminalStopState.fundIds.has(fundId)) {
+      const previous = terminalStopState.latestByFund.get(fundId)!;
+      return {
+        pending: false,
+        transferred: previous.transferred,
+        capital: previous.capital,
+        profit: previous.profit,
+      };
+    }
+
     const { data: cycle, error: cycleError } = await db
       .from("investment_cycles")
       .select("id, fund_id, status")
