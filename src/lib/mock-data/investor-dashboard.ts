@@ -243,6 +243,7 @@ export function getMockInvestorDashboardData(
     },
     poolPerformance: {
       totalPoolBalance: 2450000,
+      displayedTradedCapital: 2450000,
       totalProfit: 1245,
       totalProfitPct: 8.91,
       totalContributors: 1248,

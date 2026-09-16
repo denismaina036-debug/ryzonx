@@ -1,5 +1,6 @@
 import type { ManagedPoolConfig, ManagedPoolVisibility } from "@/domain/pools/managed-pool";
 import type { ReturnDurationPreset, ReturnDurationUnit } from "@/domain/roi/types";
+import type { CycleProfitSplit } from "@/domain/investment/profit-split";
 
 export interface PoolConfigSnapshotRoiMultiplier {
   investmentLevelId: string;
@@ -31,6 +32,8 @@ export interface PoolConfigSnapshot {
     returnDurationValue: number | null;
     returnDurationUnit: ReturnDurationUnit | null;
     roiMultipliers: PoolConfigSnapshotRoiMultiplier[];
+    /** Display metadata only; never used by distribution or ownership calculations. */
+    profitSplits?: CycleProfitSplit[];
     aggressivenessLevel: string | null;
     riskSummary: string | null;
     visibility: ManagedPoolVisibility | string;
@@ -94,6 +97,7 @@ export function buildPoolConfigSnapshot(
       returnDurationValue: (row.return_duration_value as number | null) ?? null,
       returnDurationUnit: (row.return_duration_unit as ReturnDurationUnit | null) ?? null,
       roiMultipliers,
+      profitSplits: [],
       aggressivenessLevel: (row.aggressiveness_level as string | null) ?? null,
       riskSummary: (row.risk_summary as string | null) ?? null,
       visibility,
@@ -115,6 +119,7 @@ export interface CycleSnapshotOverrides {
   returnDurationValue?: number | null;
   returnDurationUnit?: ReturnDurationUnit | null;
   roiMultipliers?: PoolConfigSnapshotRoiMultiplier[];
+  profitSplits?: CycleProfitSplit[];
 }
 
 export function readCycleReturnDuration(
@@ -145,6 +150,31 @@ export function readCycleRoiMultipliers(
   return pool.roiMultipliers.filter(
     (entry) => Number.isFinite(entry.multiplier) && entry.multiplier > 0
   );
+}
+
+export function readCycleProfitSplits(
+  snapshot: PoolConfigSnapshot | Record<string, unknown> | unknown | null | undefined
+): CycleProfitSplit[] {
+  if (!snapshot || typeof snapshot !== "object") return [];
+  const pool = (snapshot as PoolConfigSnapshot).pool;
+  if (!Array.isArray(pool?.profitSplits)) return [];
+  return pool.profitSplits.filter(
+    (entry) =>
+      typeof entry?.investmentLevelId === "string" &&
+      Number.isFinite(entry.traderPct) &&
+      Number.isFinite(entry.copierPct) &&
+      Math.abs(entry.traderPct + entry.copierPct - 100) <= 0.001
+  );
+}
+
+export function readCycleProfitSplit(
+  snapshot: PoolConfigSnapshot | Record<string, unknown> | unknown | null | undefined,
+  investmentLevelId: string | null | undefined
+): CycleProfitSplit | null {
+  if (!investmentLevelId) return null;
+  return readCycleProfitSplits(snapshot).find(
+    (entry) => entry.investmentLevelId === investmentLevelId
+  ) ?? null;
 }
 
 export function readCycleInitialRaisedCapital(
@@ -190,6 +220,10 @@ export function applyCycleSnapshotOverrides(
         overrides.roiMultipliers && overrides.roiMultipliers.length > 0
           ? overrides.roiMultipliers
           : snapshot.pool.roiMultipliers,
+      profitSplits:
+        overrides.profitSplits !== undefined
+          ? overrides.profitSplits
+          : snapshot.pool.profitSplits,
     },
   };
 }

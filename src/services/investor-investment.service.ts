@@ -30,7 +30,9 @@ import type {
 import { INVESTMENT_ALLOCATION_STATUS_LABELS } from "@/constants/investment-allocation";
 import { resolveInvestorCapitalExposure } from "@/domain/investment/investor-pool-participation";
 import { computeInvestorOwnershipShare } from "@/domain/investment/cycle-metrics";
+import { readCycleProfitSplit } from "@/domain/pools/pool-config-snapshot";
 import { resolveMergedManagerRating } from "@/lib/pool-manager/merge-admin-statistics";
+import { displayedTradedCapital } from "@/lib/copy-trading-presentation";
 
 type ManagerRow = {
   id: string;
@@ -189,6 +191,7 @@ async function enrichAllocations(allocations: InvestmentAllocation[]): Promise<I
     return {
       id: allocation.id,
       amount: allocation.amount,
+      investmentLevelId: allocation.investmentLevelId,
       currency: allocation.currency,
       status: allocation.status,
       referenceNumber: allocation.referenceNumber,
@@ -535,11 +538,30 @@ export const investorInvestmentService = {
           investAmount != null && investAmount > 0
             ? resolveRoiMultiplier(investAmount, investmentLevels, cycleMultipliers)
             : primaryParticipation?.projectedRoiMultiplier ?? null;
+        const previousTradedCycle = [...primaryCycles]
+          .filter(
+            (candidate) =>
+              candidate.cycleNumber < fundingCycle.cycleNumber &&
+              ["trading", "distribution", "completed", "archived"].includes(candidate.status)
+          )
+          .sort((a, b) => b.cycleNumber - a.cycleNumber)[0];
 
         funding = {
           cycle: card,
           investorAmount: investAmount,
           ownershipSharePct: allocation?.ownershipSharePct ?? null,
+          displayedTradedCapital: displayedTradedCapital({
+            activeCycle: fundingCycle,
+            raisedCapital: fundingCycle.raisedCapital,
+            previousTradedCapital: previousTradedCycle?.raisedCapital,
+          }),
+          profitSplit: readCycleProfitSplit(
+            fundingCycle.poolConfigSnapshot,
+            allocation?.investmentLevelId
+          ),
+          profitSplitTierName:
+            investmentLevels.find((level) => level.id === allocation?.investmentLevelId)?.name ??
+            null,
           payoutDurationLabel,
           tradingScheduleLabel: formatTradingScheduleLabel(fundingCycle),
           projectedMultiplier,
@@ -562,6 +584,13 @@ export const investorInvestmentService = {
           cycleName: tradingCycle.name,
           investorAmount: allocation.amount,
           ownershipSharePct: allocation.ownershipSharePct,
+          profitSplit: readCycleProfitSplit(
+            tradingCycle.poolConfigSnapshot,
+            allocation.investmentLevelId
+          ),
+          profitSplitTierName:
+            investmentLevels.find((level) => level.id === allocation.investmentLevelId)?.name ??
+            null,
           initialOperations: operations,
         };
       }
@@ -570,7 +599,35 @@ export const investorInvestmentService = {
     const closed = await Promise.all(
       closedCycles.map(async (cycle) => {
         const allocation = allocationByCycleId.get(cycle.id)!;
-        const trades = await tradeEntryService.listPublicClosedByCycle(cycle.id);
+        const { profitDistributionService } = await import(
+          "@/services/profit-distribution.service"
+        );
+        const [publicTrades, recordedSettlement] = await Promise.all([
+          tradeEntryService.listPublicClosedByCycle(cycle.id),
+          profitDistributionService.getByCycleId(cycle.id),
+        ]);
+        const recordedAllocations = recordedSettlement
+          ? await profitDistributionService.listAllocations(recordedSettlement.id)
+          : [];
+        const profitRealized = recordedAllocations.find(
+          (recorded) => recorded.investorId === user.id
+        )?.profitShare ?? 0;
+        const trades = await Promise.all(
+          publicTrades.map(async (trade) => {
+            if (trade.realizedPnl == null) return { ...trade, copierRealizedPnl: null };
+            const tradeProjections =
+              await profitDistributionService.projectInvestorProfitForCycle(
+                cycle.id,
+                trade.realizedPnl
+              );
+            return {
+              ...trade,
+              copierRealizedPnl:
+                tradeProjections.find((projection) => projection.investorId === user.id)
+                  ?.projectedProfit ?? null,
+            };
+          })
+        );
         return {
           id: cycle.id,
           slug: cycle.slug,
@@ -578,7 +635,7 @@ export const investorInvestmentService = {
           cycleNumber: cycle.cycleNumber,
           completedAt: cycle.completedAt ?? cycle.closingDate,
           capitalTraded: cycle.raisedCapital,
-          profitRealized: cycle.currentCycleProfit,
+          profitRealized,
           tradeCount: trades.length,
           investorCount: cycle.investorCount,
           investorAmount: allocation.amount,

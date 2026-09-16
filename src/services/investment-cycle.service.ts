@@ -45,6 +45,11 @@ import {
 import type { ReturnDurationPreset, ReturnDurationUnit } from "@/domain/roi/types";
 import { investmentCycleMetricsService } from "@/services/investment-cycle-metrics.service";
 import { poolRoiService } from "@/services/pool-roi.service";
+import {
+  defaultCycleProfitSplits,
+  validateCycleProfitSplits,
+  type CycleProfitSplit,
+} from "@/domain/investment/profit-split";
 
 type CycleRow = {
   id: string;
@@ -235,6 +240,14 @@ function positiveNumber(value: unknown): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+function normalizeProfitSplits(splits: CycleProfitSplit[]): CycleProfitSplit[] {
+  return splits.map((split) => ({
+    investmentLevelId: split.investmentLevelId,
+    traderPct: split.traderPct,
+    copierPct: split.copierPct,
+  }));
+}
+
 function readFundReturnDuration(fund: Record<string, unknown>): {
   preset: ReturnDurationPreset;
   value: number;
@@ -332,6 +345,7 @@ function buildCycleInputFromPool(
       maxCapacity:
         positiveNumber(partial.maxCapacity) ?? targetCapital,
       roiMultipliers: partial.roiMultipliers,
+      profitSplits: partial.profitSplits,
       openingDate: partial.openingDate,
       closingDate: partial.closingDate,
     };
@@ -370,6 +384,7 @@ function buildCycleInputFromPool(
       positiveNumber(fund.max_aum) ??
       targetCapital,
     roiMultipliers: partial.roiMultipliers,
+    profitSplits: partial.profitSplits,
     openingDate: partial.openingDate,
     closingDate: partial.closingDate,
   };
@@ -471,6 +486,14 @@ async function insertCycleFromPoolFund(
     resolvedInput.roiMultipliers && resolvedInput.roiMultipliers.length > 0
       ? resolvedInput.roiMultipliers
       : defaultMultipliers;
+  const levelIds = defaultMultipliers.map((entry) => entry.investmentLevelId);
+  const profitSplits = normalizeProfitSplits(
+    resolvedInput.profitSplits && resolvedInput.profitSplits.length > 0
+      ? resolvedInput.profitSplits
+      : defaultCycleProfitSplits(levelIds.map((id) => ({ id })))
+  );
+  const profitSplitError = validateCycleProfitSplits(profitSplits, levelIds);
+  if (profitSplitError) throw new Error(profitSplitError);
 
   const baseSnapshot = buildPoolConfigSnapshot(fund, strategyId, poolVersion, defaultMultipliers);
   const initialRaisedCapital =
@@ -488,6 +511,7 @@ async function insertCycleFromPoolFund(
     returnDurationValue: resolvedInput.returnDurationValue,
     returnDurationUnit: resolvedInput.returnDurationUnit,
     roiMultipliers,
+    profitSplits,
   });
 
   const poolName = (fund.name as string) ?? "Pool";
@@ -992,6 +1016,48 @@ export const investmentCycleService = {
     return cycle;
   },
 
+  /** Update display-only split metadata without changing any financial calculation. */
+  async updateProfitSplits(id: string, profitSplits: CycleProfitSplit[]): Promise<InvestmentCycle> {
+    const { userId, managerId } = await requireManagerId();
+    const existing = await this.getById(id);
+    if (!existing) throw new Error("Investment cycle not found.");
+    if (existing.poolManagerId !== managerId) throw new Error("Insufficient permissions");
+    if (!existing.fundId || !existing.poolConfigSnapshot) {
+      throw new Error("Profit splits are available for managed strategy cycles only.");
+    }
+
+    const levelIds = (await poolRoiService.getCompleteMultipliers(existing.fundId)).map(
+      (entry) => entry.investmentLevelId
+    );
+    const normalizedProfitSplits = normalizeProfitSplits(profitSplits);
+    const validationError = validateCycleProfitSplits(normalizedProfitSplits, levelIds);
+    if (validationError) throw new Error(validationError);
+
+    const snapshot = applyCycleSnapshotOverrides(existing.poolConfigSnapshot, {
+      profitSplits: normalizedProfitSplits,
+    });
+    const db = createAdminClient();
+    const { data, error } = await db
+      .from("investment_cycles")
+      .update({ pool_config_snapshot: snapshot } as never)
+      .eq("id", id)
+      .eq("pool_manager_id", managerId)
+      .select("*")
+      .single();
+    if (error) throw new Error(friendlyInvestmentCycleError(error.message));
+
+    const cycle = mapCycle(data as CycleRow);
+    await auditService.log({
+      actorId: userId,
+      action: "investment_cycle_profit_split_updated",
+      entityType: "investment_cycle",
+      entityId: cycle.id,
+      oldValues: { profitSplits: existing.poolConfigSnapshot.pool.profitSplits ?? [] },
+      newValues: { profitSplits: normalizedProfitSplits },
+    });
+    return cycle;
+  },
+
   async transition(
     id: string,
     nextStatus: InvestmentCycleStatus,
@@ -1027,6 +1093,17 @@ export const investmentCycleService = {
       if (openTrades.length > 0) {
         throw new Error("Close all active trades before closing the investment cycle.");
       }
+    }
+
+    if (nextStatus === "funding" && existing.fundId) {
+      const { cycleInvestorSettlementService } = await import(
+        "@/services/investment-engine/cycle-investor-settlement.service"
+      );
+      await cycleInvestorSettlementService.continuePendingCopyingIntoCycle(
+        id,
+        existing.fundId,
+        userId
+      );
     }
 
     const now = new Date().toISOString();
@@ -1176,6 +1253,17 @@ export const investmentCycleService = {
 
     if (nextStatus === "trading") {
       await assertNoOtherCycleIsTrading(existing.fundId, existing.id);
+    }
+
+    if (nextStatus === "funding" && existing.fundId) {
+      const { cycleInvestorSettlementService } = await import(
+        "@/services/investment-engine/cycle-investor-settlement.service"
+      );
+      await cycleInvestorSettlementService.continuePendingCopyingIntoCycle(
+        id,
+        existing.fundId,
+        actorUserId
+      );
     }
 
     const now = new Date().toISOString();

@@ -9,7 +9,6 @@ import {
   investorPageSubtitleClass,
   investorPageTitleClass,
 } from "@/features/investor/constants/ui";
-import { PoolProfitActions } from "@/features/investor/components/pool-profit-actions";
 import { PoolPostCycleChoicesFromView } from "@/features/investor/components/pool-post-cycle-choices";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants/routes";
@@ -64,50 +63,26 @@ export default async function MyInvestmentsPage() {
                     <p className="font-semibold text-[var(--id-text)]">{copyTradingText(pool.poolName)}</p>
                     <p className="mt-1 text-xs text-[var(--id-text-muted)]">
                       {pool.hasActiveTradingCycle
-                        ? "Trading cycle active"
+                        ? "Copy trading active"
                         : pool.showPostCycleChoices
-                          ? "Cycle completed"
+                          ? "Copy period completed"
                           : pool.payoutDurationLabel && pool.payoutDurationLabel !== "—"
                             ? pool.payoutDurationLabel
                             : "Copy Allocation active"}
                     </p>
                   </div>
                   {!pool.showPostCycleChoices && (
-                    <div className="flex gap-6 text-left sm:text-right">
-                      <div>
-                        <p className="font-mono text-sm font-semibold tabular-nums text-[var(--id-text)]">
-                          {formatCurrency(pool.displayCapitalInvested)}
-                        </p>
-                        <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">Capital</p>
-                      </div>
-                      {pool.poolProfit !== 0 && (
-                        <div>
-                          <p
-                            className={`font-mono text-sm font-semibold tabular-nums ${
-                              pool.poolProfit >= 0
-                                ? "text-[var(--id-success)]"
-                                : "text-[var(--id-danger)]"
-                            }`}
-                          >
-                            {pool.poolProfit > 0 ? "+" : ""}
-                            {formatCurrency(pool.poolProfit)}
-                          </p>
-                          <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">Profit</p>
-                        </div>
-                      )}
+                    <div className="text-left sm:text-right">
+                      <p className="font-mono text-sm font-semibold tabular-nums text-[var(--id-text)]">
+                        {formatCurrency(pool.currentValue)}
+                      </p>
+                      <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">Copying balance</p>
                     </div>
                   )}
                 </div>
 
                 {pool.showPostCycleChoices ? (
                   <PoolPostCycleChoicesFromView pool={pool} compact />
-                ) : pool.poolProfit > 0 || pool.hasActiveTradingCycle ? (
-                  <PoolProfitActions
-                    fundId={pool.fundId}
-                    poolName={pool.poolName}
-                    availableProfit={pool.poolProfit}
-                    compact
-                  />
                 ) : null}
               </li>
             ))}

@@ -16,9 +16,9 @@ export function PoolCycleClosedSection({ cycles }: { cycles: InvestorClosedCycle
     <section className="overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow)]">
       <div className="border-b border-[var(--id-border)] px-5 py-4 sm:px-6">
         <p className="text-xs font-semibold uppercase tracking-widest text-[var(--id-text-muted)]">
-          Closed Cycles
+          Copy History
         </p>
-        <h2 className="mt-1 text-lg font-semibold text-[var(--id-text)]">Completed cycles</h2>
+        <h2 className="mt-1 text-lg font-semibold text-[var(--id-text)]">Completed copy periods</h2>
       </div>
 
       <ul className="divide-y divide-[var(--id-border)]">
@@ -34,7 +34,7 @@ export function PoolCycleClosedSection({ cycles }: { cycles: InvestorClosedCycle
                 <div className="min-w-0">
                   <p className="font-medium text-[var(--id-text)]">{copyTradingText(cycle.name)}</p>
                   <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">
-                    Cycle {cycle.cycleNumber}
+                    Copy period {cycle.cycleNumber}
                     {cycle.completedAt &&
                       ` · ${new Date(cycle.completedAt).toLocaleDateString()}`}
                   </p>
@@ -64,15 +64,18 @@ export function PoolCycleClosedSection({ cycles }: { cycles: InvestorClosedCycle
                 <div className="border-t border-[var(--id-border)] bg-[var(--id-bg)] px-5 py-5 sm:px-6">
                   <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <Metric label="Capital traded" value={formatCurrency(cycle.capitalTraded)} />
-                    <Metric label="Profit realized" value={formatCurrency(cycle.profitRealized)} />
+                    <Metric label="Your copied result" value={formatCurrency(cycle.profitRealized)} />
                     <Metric label="Trades taken" value={String(cycle.tradeCount)} />
                     <Metric label="Copiers" value={String(cycle.investorCount)} />
-                    <Metric label="Your allocation" value={formatCurrency(cycle.investorAmount)} />
+                    <Metric
+                      label="Copying balance"
+                      value={formatCurrency(cycle.investorAmount + cycle.profitRealized)}
+                    />
                   </dl>
 
                   {cycle.trades.length > 0 && (
                     <div className="mt-6">
-                      <InvestorCycleTradeFeed trades={cycle.trades} cycleStatus="completed" />
+                      <InvestorCycleTradeFeed trades={cycle.trades} />
                     </div>
                   )}
                 </div>

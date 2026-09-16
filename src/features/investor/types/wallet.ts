@@ -18,7 +18,7 @@ export interface WalletPoolParticipation {
 export interface InvestorInvestmentSummary {
   /** Cash in the Funding Wallet — deposits, transferred pool profit, withdrawals */
   balance: number;
-  /** Profit still held in pool participations (transfer or reinvest from pool cards) */
+  /** Copied-trade result currently included in strategy balances. */
   poolProfit: number;
   participations: WalletPoolParticipation[];
 }

@@ -147,11 +147,12 @@ function SidebarContent({
 
           return (
             <Link
-              key={copyTradingText(item.label)}
+              key={item.label}
               href={item.href}
               className={cn(
                 tapNavLink,
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                item.href === ROUTES.marketplace && "mt-5 border-t border-[var(--id-border)] pt-4",
                 isActive
                   ? "bg-[var(--id-accent-gradient)] text-white shadow-[0_12px_26px_-16px_var(--id-accent)] ring-1 ring-inset ring-white/10"
                   : "text-[var(--id-text-muted)] hover:bg-[var(--id-surface-hover)] hover:text-[var(--id-text)]"

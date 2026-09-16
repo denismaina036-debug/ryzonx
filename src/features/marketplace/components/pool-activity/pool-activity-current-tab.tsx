@@ -41,7 +41,7 @@ export function PoolActivityCurrentTab({
     return (
       <div className="rounded-xl border border-dashed border-[var(--id-border)] bg-[var(--id-surface)] p-8 text-center">
         <p className="text-sm text-[var(--id-text-muted)]">
-          No active trading cycle for this strategy.
+          No copy activity is available for this strategy yet.
         </p>
       </div>
     );
@@ -61,7 +61,7 @@ export function PoolActivityCurrentTab({
         <div className="rounded-xl border border-dashed border-[var(--id-border)] bg-[var(--id-surface)] p-8 text-center">
           <p className="text-sm text-[var(--id-text-muted)]">
             {trades.length === 0
-              ? "No trades recorded in the current cycle yet."
+              ? "No trades recorded for this strategy yet."
               : "No trades match the selected filters."}
           </p>
         </div>

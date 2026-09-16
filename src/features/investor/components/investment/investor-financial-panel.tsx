@@ -12,7 +12,7 @@ export function InvestorFinancialPanel({ financial }: { financial: InvestorFinan
       <div className="border-b border-[var(--id-border)] px-5 py-4">
         <h2 className="text-sm font-semibold text-[var(--id-text)]">Financial Overview</h2>
         <p className="text-xs text-[var(--id-text-muted)]">
-          Settlement status and reserved funds — derived from platform accounting.
+          Funding Wallet and copying balances derived from platform accounting.
         </p>
       </div>
 
@@ -26,12 +26,12 @@ export function InvestorFinancialPanel({ financial }: { financial: InvestorFinan
       {financial.distributionStatus.length > 0 && (
         <div className="border-t border-[var(--id-border)] px-5 py-4">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--id-text-muted)]">
-            Distribution Status
+            Copied Results
           </h3>
           <ul className="mt-2 space-y-2">
             {financial.distributionStatus.map((d, i) => (
               <li key={i} className="flex justify-between text-sm">
-                <span>{d.cycleName}</span>
+                <span>{copyTradingText(d.cycleName)}</span>
                 <span className="text-[var(--id-text-muted)]">
                   {d.status} · {formatCurrency(d.amount)}
                 </span>

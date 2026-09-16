@@ -4,14 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
-import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
 import type { PoolActivityPageData } from "@/domain/marketplace/pool-activity";
-import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 import {
   MarketplaceBreadcrumb,
   marketplaceHomeCrumb,
 } from "@/features/marketplace/components/marketplace-breadcrumb";
-import { formatShortCycleLabel } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 import { Button } from "@/components/ui/button";
 import {
   PoolActivityJournalTab,
@@ -54,19 +51,7 @@ export function PoolActivityView({ data }: PoolActivityViewProps) {
         </p>
         <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <HeaderStat
-            label="Current Trading Cycle"
-            value={formatShortCycleLabel(displayName, activeCycle, data.poolName)}
-          />
-          <HeaderStat
-            label="Current Cycle Status"
-            value={
-              activeCycle
-                ? INVESTMENT_CYCLE_STATUS_LABELS[activeCycle.status as InvestmentCycleStatus]
-                : "—"
-            }
-          />
-          <HeaderStat
-            label="Current Cycle Profit"
+            label="Current trading result"
             value={formatCurrency(cycleProfit)}
             emphasize
           />

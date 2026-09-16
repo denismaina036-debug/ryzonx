@@ -62,7 +62,7 @@ export function AllocationCommitClient({
         <h1 className="text-2xl font-semibold text-[var(--id-text)]">Commitment Recorded</h1>
         <p className="text-sm text-[var(--id-text-muted)]">
           Your pending allocation has been recorded. No wallet debit occurred — this is a model
-          commitment under the RyvonX copy cycle framework.
+          copy allocation under the RyvonX copy trading framework.
         </p>
         <dl className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5 text-left text-sm">
           <div className="flex justify-between py-2">
@@ -74,8 +74,8 @@ export function AllocationCommitClient({
             <dd className="font-semibold">{formatCurrency(confirmed.amount)}</dd>
           </div>
           <div className="flex justify-between py-2">
-            <dt className="text-[var(--id-text-muted)]">Cycle</dt>
-            <dd>{copyTradingText(cycle.name)}</dd>
+            <dt className="text-[var(--id-text-muted)]">Strategy</dt>
+            <dd>{strategy.name}</dd>
           </div>
           <div className="flex justify-between py-2">
             <dt className="text-[var(--id-text-muted)]">Status</dt>
@@ -99,13 +99,13 @@ export function AllocationCommitClient({
       <MarketplaceBreadcrumb
         items={[
           marketplaceHomeCrumb(),
-          { label: cycle.name, href: `${ROUTES.marketplaceCycles}/${cycle.slug}` },
+          { label: strategy.name, href: `${ROUTES.marketplaceCycles}/${cycle.slug}` },
           { label: "Commit" },
         ]}
       />
 
       <header>
-        <h1 className="text-2xl font-semibold text-[var(--id-text)]">Commit to Cycle</h1>
+        <h1 className="text-2xl font-semibold text-[var(--id-text)]">Copy this trader</h1>
         <p className="mt-2 text-sm text-[var(--id-text-muted)]">
           {copyTradingText(cycle.name)} · {strategy.name}
         </p>
@@ -148,7 +148,7 @@ export function AllocationCommitClient({
           disabled={loading || cycle.status !== "funding"}
           className="w-full rounded-xl [background:var(--id-accent-gradient)] text-white"
         >
-          {loading ? "Recording…" : "Confirm commitment"}
+          {loading ? "Recording…" : "Confirm copy allocation"}
         </Button>
       </form>
     </div>

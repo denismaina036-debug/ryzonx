@@ -14,7 +14,7 @@ export function CycleSettlementChoices({ settlements }: CycleSettlementChoicesPr
   return (
     <section className="overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow)]">
       <div className="border-b border-[var(--id-border)] px-5 py-4 sm:px-6">
-        <h2 className="text-sm font-semibold text-[var(--id-text)]">Completed Cycles</h2>
+        <h2 className="text-sm font-semibold text-[var(--id-text)]">Completed Copy Periods</h2>
       </div>
       <ul className="divide-y divide-[var(--id-border)]">
         {settlements.map((settlement) => (
@@ -22,8 +22,7 @@ export function CycleSettlementChoices({ settlements }: CycleSettlementChoicesPr
             <div>
               <p className="font-semibold text-[var(--id-text)]">{copyTradingText(settlement.poolName)}</p>
               <p className="mt-1 text-xs text-[var(--id-text-muted)]">
-                {settlement.cycleName}
-                {settlement.cycleNumber != null ? ` · Cycle ${settlement.cycleNumber}` : ""}
+                Copying continues automatically unless you stop it.
               </p>
             </div>
             <PoolPostCycleChoicesFromView

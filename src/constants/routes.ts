@@ -33,6 +33,11 @@ export const ROUTES = {
 
   // Investor (protected)
   dashboard: "/dashboard",
+  discover: "/dashboard/discover",
+  watchlist: "/dashboard/watchlist",
+  tradingPortfolio: "/dashboard/trading/portfolio",
+  wallet: "/dashboard/wallet",
+  adminTradingControl: "/admin/trading-control",
   /** Investor portfolio — cycle commitments + legacy holdings */
   portfolio: "/dashboard/portfolio",
   deposits: "/dashboard/deposits",

@@ -19,6 +19,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { CycleParticipantView, InvestmentCycle, Strategy } from "@/domain/investment/types";
+import type { PlatformInvestmentLevel } from "@/domain/roi/types";
+import { validateCycleProfitSplits } from "@/domain/investment/profit-split";
 import type { CycleLiveMetrics } from "@/services/cycle-live-metrics.service";
 import {
   pmAccentButtonClass,
@@ -40,16 +42,25 @@ import {
   transitionCycle,
 } from "./pm-api";
 import { useIntervalRefresh } from "@/hooks/use-interval-refresh";
+import {
+  PmProfitSplitEditor,
+  defaultProfitSplitEntries,
+  parseProfitSplitEntries,
+  profitSplitEntriesFromSnapshot,
+  type ProfitSplitEntry,
+} from "@/features/pool-manager/components/managed-pool/pm-profit-split-editor";
 
 type ParticipantRow = CycleParticipantView & { projectedProfit?: number };
 
 export function PmCycleDetailClient({
   initialCycle,
   strategy,
+  investmentLevels,
 }: {
   initialCycle: InvestmentCycle;
   strategy: Strategy | null;
   strategies: Strategy[];
+  investmentLevels: PlatformInvestmentLevel[];
 }) {
   const router = useRouter();
   const [cycle, setCycle] = useState(initialCycle);
@@ -59,6 +70,13 @@ export function PmCycleDetailClient({
   const [profitDistributed, setProfitDistributed] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [profitSplitSaving, setProfitSplitSaving] = useState(false);
+  const [profitSplits, setProfitSplits] = useState<ProfitSplitEntry[]>(() => {
+    const saved = initialCycle.poolConfigSnapshot?.pool?.profitSplits ?? [];
+    return saved.length
+      ? profitSplitEntriesFromSnapshot(saved)
+      : defaultProfitSplitEntries(investmentLevels);
+  });
   const [message, setMessage] = useState<{ text: string; variant: "success" | "error" } | null>(
     null
   );
@@ -194,6 +212,44 @@ export function PmCycleDetailClient({
     [cycle.id, hasInvestors, router]
   );
 
+  const saveProfitSplits = useCallback(async () => {
+    const parsed = parseProfitSplitEntries(profitSplits);
+    const validationError = validateCycleProfitSplits(
+      parsed,
+      investmentLevels.map((level) => level.id)
+    );
+    if (validationError) {
+      setMessage({ text: validationError, variant: "error" });
+      return;
+    }
+    setProfitSplitSaving(true);
+    setMessage(null);
+    try {
+      const response = await fetch(
+        `/api/pool-manager/investment-cycles/${cycle.id}/profit-splits`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ profitSplits: parsed }),
+        }
+      );
+      const data = (await response.json()) as { cycle?: InvestmentCycle; error?: string };
+      if (!response.ok || !data.cycle) {
+        throw new Error(data.error ?? "Could not save profit splits.");
+      }
+      setCycle(data.cycle);
+      setMessage({ text: "Profit splits saved", variant: "success" });
+      router.refresh();
+    } catch (error) {
+      setMessage({
+        text: error instanceof Error ? error.message : "Could not save profit splits.",
+        variant: "error",
+      });
+    } finally {
+      setProfitSplitSaving(false);
+    }
+  }, [cycle.id, investmentLevels, profitSplits, router]);
+
   const journalHref = `${ROUTES.poolManagerInvestmentCycles}/${cycle.id}/journal`;
   const displayParticipants =
     isTradingPhase && liveMetrics?.participants.length
@@ -219,6 +275,30 @@ export function PmCycleDetailClient({
       />
 
       <PmFormMessage message={message?.text ?? null} variant={message?.variant ?? "info"} />
+
+      {investmentLevels.length > 0 && cycle.fundId && (
+        <PmSectionCard
+          title="Profit split by copy tier"
+          description="Display-only terms shown to copiers. Editing these values does not change any calculation or distribution."
+        >
+          <div className="space-y-4">
+            <PmProfitSplitEditor
+              levels={investmentLevels}
+              splits={profitSplits}
+              onChange={setProfitSplits}
+              disabled={profitSplitSaving}
+            />
+            <Button
+              type="button"
+              disabled={profitSplitSaving}
+              className={pmPrimaryButtonClass}
+              onClick={() => void saveProfitSplits()}
+            >
+              {profitSplitSaving ? "Saving…" : "Save profit splits"}
+            </Button>
+          </div>
+        </PmSectionCard>
+      )}
 
       <section className={cn(pmCardClass, "p-4 sm:p-5")}>
         <p className={pmStatLabelClass}>Cycle actions</p>

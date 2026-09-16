@@ -1,24 +1,12 @@
-import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
-import { ROUTES } from "@/constants/routes";
-import { poolParticipationService } from "@/services/pool-participation.service";
 
 export async function POST(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id: fundId } = await params;
-    const body = (await request.json().catch(() => ({}))) as { amount?: number };
-    const result = await poolParticipationService.reinvestProfit(fundId, body.amount);
-
-    revalidatePath(ROUTES.dashboard);
-    revalidatePath(ROUTES.investments);
-    revalidatePath(ROUTES.transactions);
-
-    return NextResponse.json({ ok: true, ...result });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Reinvest failed";
-    return NextResponse.json({ error: message }, { status: 400 });
-  }
+  await params;
+  return NextResponse.json(
+    { error: "Copying balances continue automatically. Use Stop copying to exit." },
+    { status: 410 }
+  );
 }

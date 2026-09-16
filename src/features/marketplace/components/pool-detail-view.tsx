@@ -13,7 +13,7 @@ import { formatInstrumentTicker } from "@/domain/reference-data/instrument-displ
 import { formatMultiplier } from "@/domain/roi/calculator";
 import { formatInvestmentLevelRange } from "@/features/pool-manager/components/managed-pool/pm-roi-multiplier-editor";
 import { shouldShowPoolTagline, resolvePoolAboutText } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
-import { copyTraderName, copyTradingText, displayedTradedCapital } from "@/lib/copy-trading-presentation";
+import { copyTraderName, copyTradingText, displayedCopierCount, displayedTradedCapital } from "@/lib/copy-trading-presentation";
 import { LiveRoiPreview, RoiDisclaimerBlock } from "@/features/roi/components/live-roi-preview";
 import { InvestorCycleTradeFeed } from "@/features/investor/components/investment/investor-cycle-trade-feed";
 import { Input } from "@/components/ui/input";
@@ -49,7 +49,6 @@ export function PoolDetailView({ pool }: PoolDetailViewProps) {
     poolName: pool.name,
   });
   const isHealthy = pool.poolHealth === "healthy";
-  const showActiveSignal = Boolean(pool.activeCycle && pool.canParticipate);
 
 
   return (
@@ -130,25 +129,13 @@ export function PoolDetailView({ pool }: PoolDetailViewProps) {
       {/* Current investment cycle */}
       <section className="rounded-xl border border-[var(--id-border)] bg-[var(--id-surface)] p-5 sm:p-6">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--id-text-faint)]">
-          Current Copy Cycle
+          Copy Details
         </p>
 
         {pool.activeCycle ? (
           <div className="mt-4 space-y-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0 space-y-4">
-                <div>
-                  {showActiveSignal && (
-                    <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                      <span className="relative flex h-2 w-2">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                      </span>
-                      Active — open for copy allocation
-                    </div>
-                  )}
-                </div>
-
                 <dl className="grid gap-3 sm:grid-cols-2">
                   <DetailItem label="Traded" value={tradedLabel} />
                   {pool.tradingScheduleLabel ? (
@@ -164,7 +151,7 @@ export function PoolDetailView({ pool }: PoolDetailViewProps) {
                   {pool.activeCycle ? (
                     <DetailItem
                       label="Copiers"
-                      value={String(pool.cycleParticipantCount)}
+                      value={String(displayedCopierCount(pool))}
                     />
                   ) : null}
                 </dl>
@@ -221,7 +208,6 @@ export function PoolDetailView({ pool }: PoolDetailViewProps) {
       {pool.publicTrades.length > 0 && pool.activeCycle && (
         <InvestorCycleTradeFeed
           trades={pool.publicTrades}
-          cycleStatus={pool.activeCycle.status}
         />
       )}
 

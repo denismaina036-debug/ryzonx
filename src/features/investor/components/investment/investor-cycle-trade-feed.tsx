@@ -4,15 +4,12 @@ import { TrendingDown, TrendingUp } from "lucide-react";
 import { TRADE_ENTRY_DIRECTION_LABELS, TRADE_ENTRY_RESULT_LABELS } from "@/constants/trade-entry";
 import type { PublicTradeEntryView } from "@/domain/trading-journal/types";
 import { cn, formatCurrency } from "@/lib/utils";
-import { SimpleCyclePhaseBar } from "@/features/pool-manager/components/journal/simple-cycle-phase-bar";
 
 export function InvestorCycleTradeFeed({
   trades,
-  cycleStatus,
   live = false,
 }: {
   trades: PublicTradeEntryView[];
-  cycleStatus: string;
   live?: boolean;
 }) {
   if (trades.length === 0) return null;
@@ -34,9 +31,6 @@ export function InvestorCycleTradeFeed({
             Recent verified trades recorded by the verified trader.
           </p>
         </div>
-        <div className="w-full sm:max-w-xs">
-          <SimpleCyclePhaseBar cycleStatus={cycleStatus} />
-        </div>
       </div>
 
       <ul className="mt-6 space-y-4">
@@ -49,9 +43,12 @@ export function InvestorCycleTradeFeed({
 }
 
 function InvestorTradeCard({ trade }: { trade: PublicTradeEntryView }) {
-  const isWin = trade.tradeResult === "profit" || (trade.realizedPnl ?? 0) > 0;
-  const isLoss = trade.tradeResult === "loss" || (trade.realizedPnl ?? 0) < 0;
-  const pnl = trade.realizedPnl ?? 0;
+  const pnl = trade.copierRealizedPnl !== undefined
+    ? trade.copierRealizedPnl ?? 0
+    : trade.realizedPnl ?? 0;
+  const isWin = pnl > 0 || (pnl === 0 && trade.tradeResult === "profit");
+  const isLoss = pnl < 0 || (pnl === 0 && trade.tradeResult === "loss");
+  const isPersonalized = trade.copierRealizedPnl !== undefined;
 
   return (
     <li
@@ -67,7 +64,11 @@ function InvestorTradeCard({ trade }: { trade: PublicTradeEntryView }) {
       <div className="p-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <p className="font-semibold text-[var(--id-text)]">{trade.instrument}</p>
+            <p className="font-semibold text-[var(--id-text)]">
+              {isPersonalized
+                ? `COPIER ${isLoss ? "LOSS" : "PROFIT"} ${trade.instrument} ${TRADE_ENTRY_DIRECTION_LABELS[trade.direction].toUpperCase()}`
+                : trade.instrument}
+            </p>
             <p className="mt-1 text-xs text-[var(--id-text-muted)]">
               {TRADE_ENTRY_DIRECTION_LABELS[trade.direction]}
             </p>
@@ -84,9 +85,9 @@ function InvestorTradeCard({ trade }: { trade: PublicTradeEntryView }) {
               >
                 {isWin ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
                 {TRADE_ENTRY_RESULT_LABELS[trade.tradeResult]}
-                {trade.realizedPnl != null && (
+                {(isPersonalized || trade.realizedPnl != null) && (
                   <span>
-                    {pnl >= 0 ? "+" : ""}
+                    {pnl >= 0 ? "+" : "-"}
                     {formatCurrency(Math.abs(pnl))}
                   </span>
                 )}

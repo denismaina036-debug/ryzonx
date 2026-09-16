@@ -9,11 +9,11 @@ import {
   dashboardCardBodyClass,
   dashboardLabelClass,
 } from "@/features/investor/components/dashboard-card";
-import { PoolProfitActions } from "@/features/investor/components/pool-profit-actions";
 import { ROUTES } from "@/constants/routes";
 import type { InvestorInvestmentSummary, InvestorPoolPerformance } from "@/features/investor/types";
 import type { InvestorPoolParticipationView } from "@/domain/investment/investor-pool-participation";
 import { PoolPostCycleChoicesFromView } from "@/features/investor/components/pool-post-cycle-choices";
+import { formatCycleProfitSplit } from "@/domain/investment/profit-split";
 
 interface CurrentInvestmentCardProps {
   performance: InvestorPoolPerformance;
@@ -42,6 +42,8 @@ export function CurrentInvestmentCard({
     performance.myInvestment ??
     primary?.amountInvested ??
     0;
+  const copyingBalance =
+    primaryPoolView?.currentValue ?? primary?.currentValue ?? myInvestment;
   const health = performance.poolHealth;
   const managerName = performance.managerName;
   const managerPhotoUrl = performance.managerPhotoUrl;
@@ -69,28 +71,32 @@ export function CurrentInvestmentCard({
 
         {!hasPool ? (
           <p className="mt-4 text-sm text-[var(--id-text-muted)]">
-            Copy a trader from the Marketplace to see strategy value, share, and trader details.
+            Copy a trader from the Marketplace to see strategy value, profit split, and trader details.
           </p>
         ) : (
           <>
             <div className="mt-5">
               <p className={dashboardLabelClass}>Traded capital</p>
               <p className="mt-1.5 font-mono text-xl font-semibold tabular-nums text-[var(--id-text)]">
-                {formatCurrency(primaryPoolView?.hasActiveTradingCycle ? performance.totalPoolBalance : 0)}
+                {formatCurrency(performance.displayedTradedCapital)}
               </p>
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-4">
               <div>
-                <p className={dashboardLabelClass}>My Share</p>
+                <p className={dashboardLabelClass}>
+                  {performance.profitSplitTierName
+                    ? `${performance.profitSplitTierName} Profit Split`
+                    : "Profit Split"}
+                </p>
                 <p className="mt-1.5 font-mono text-sm font-semibold tabular-nums text-[var(--id-text)]">
-                  {performance.clientSharePct.toFixed(2)}%
+                  {formatCycleProfitSplit(performance.profitSplit)}
                 </p>
               </div>
               <div>
-                <p className={dashboardLabelClass}>My Copy Allocation</p>
+                <p className={dashboardLabelClass}>Copying Balance</p>
                 <p className="mt-1.5 font-mono text-sm font-semibold tabular-nums text-[var(--id-text)]">
-                  {formatCurrency(myInvestment)}
+                  {formatCurrency(copyingBalance)}
                 </p>
               </div>
             </div>
@@ -98,13 +104,6 @@ export function CurrentInvestmentCard({
             <div className="mt-6">
               {primaryPoolView?.showPostCycleChoices ? (
                 <PoolPostCycleChoicesFromView pool={primaryPoolView} />
-              ) : (primaryPoolView?.poolProfit ?? primary!.poolProfit) > 0 ||
-                primaryPoolView?.hasActiveTradingCycle ? (
-                <PoolProfitActions
-                  fundId={primary!.fundId}
-                  poolName={copyTradingText(poolName)}
-                  availableProfit={primaryPoolView?.poolProfit ?? primary!.poolProfit}
-                />
               ) : null}
             </div>
 

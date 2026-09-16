@@ -2,7 +2,7 @@
 
 import { useState, type ComponentType, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDownToLine, RefreshCw } from "lucide-react";
+import { CircleStop } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -23,7 +23,6 @@ interface PoolPostCycleChoicesProps {
 
 export function PoolPostCycleChoices({
   fundId,
-  poolName,
   capitalAmount,
   profitAmount,
   settlement,
@@ -37,19 +36,19 @@ export function PoolPostCycleChoices({
     settlement.principalAmount > 0 &&
     !settlement.capitalResolved;
   const profitPending = profitAmount > 0 && !(settlement?.profitResolved ?? false);
-  const capitalAwaitingAdmin = settlement?.status === "capital_withdrawal_requested";
+  const totalCopyingBalance = capitalAmount + profitAmount;
 
-  if (!capitalPending && !profitPending && !capitalAwaitingAdmin) {
+  if (!capitalPending && !profitPending) {
     return null;
   }
 
-  async function resolveSettlementId(purpose: "capital" | "profit" = "capital"): Promise<string> {
+  async function resolveSettlementId(): Promise<string> {
     if (settlement?.id) return settlement.id;
 
     const res = await fetch(`/api/investor/pools/${fundId}/ensure-post-cycle-settlement`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ purpose }),
+      body: JSON.stringify({ purpose: "capital" }),
     });
     const data = await res.json();
     if (!res.ok || !data.settlement?.id) {
@@ -58,76 +57,19 @@ export function PoolPostCycleChoices({
     return data.settlement.id as string;
   }
 
-  async function reinvestCapital() {
-    setLoading("reinvest-capital");
+  async function stopCopying() {
+    setLoading("stop-copying");
     try {
       const settlementId = await resolveSettlementId();
       const res = await fetch(
-        `/api/investor/cycle-settlements/${settlementId}/reinvest-capital`,
+        `/api/investor/cycle-settlements/${settlementId}/stop-copying`,
         { method: "POST" }
       );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Request failed");
-      toast.success(`${formatCurrency(capitalAmount)} reallocateed in ${poolName}.`);
-      router.refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setLoading(null);
-    }
-  }
-
-  async function requestCapitalReturn() {
-    setLoading("request-capital-return");
-    try {
-      const settlementId = await resolveSettlementId();
-      const res = await fetch(
-        `/api/investor/cycle-settlements/${settlementId}/request-capital-return`,
-        { method: "POST" }
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Request failed");
-      toast.success("Submitted for admin approval.");
-      router.refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setLoading(null);
-    }
-  }
-
-  async function transferProfit() {
-    setLoading("transfer-profit");
-    try {
-      const res = await fetch(`/api/investor/pools/${fundId}/transfer-profit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: profitAmount }),
-      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Request failed");
       toast.success(
-        `${formatCurrency(data.transferred ?? profitAmount)} moved to your Funding Wallet.`
+        `${formatCurrency(data.transferred ?? totalCopyingBalance)} moved to your Funding Wallet. Copying stopped.`
       );
-      router.refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setLoading(null);
-    }
-  }
-
-  async function reinvestProfit() {
-    setLoading("reinvest-profit");
-    try {
-      const settlementId = await resolveSettlementId("profit");
-      const res = await fetch(
-        `/api/investor/cycle-settlements/${settlementId}/reinvest-profit`,
-        { method: "POST" }
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Request failed");
-      toast.success(`${formatCurrency(data.reinvested ?? profitAmount)} reallocateed in ${poolName}.`);
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
@@ -138,62 +80,21 @@ export function PoolPostCycleChoices({
 
   return (
     <div className={cn("space-y-3", compact ? "" : "mt-4")}>
-      {(capitalPending || capitalAwaitingAdmin) && (
-        <PostCycleRow
-          label="Capital"
-          amount={capitalAmount}
-          amountClassName="text-[var(--id-text)]"
-          actions={
-            capitalAwaitingAdmin ? (
-              <span className="text-xs font-medium text-[var(--id-text-muted)]">
-                Transfer pending approval
-              </span>
-            ) : (
-              <>
-                <SimpleButton
-                  label="Continue copying"
-                  icon={RefreshCw}
-                  loading={loading === "reinvest-capital"}
-                  onClick={reinvestCapital}
-                />
-                <SimpleButton
-                  label="Transfer to Funding Wallet"
-                  icon={ArrowDownToLine}
-                  variant="outline"
-                  loading={loading === "request-capital-return"}
-                  onClick={requestCapitalReturn}
-                />
-              </>
-            )
-          }
-        />
-      )}
-
-      {profitPending && (
-        <PostCycleRow
-          label="Profit"
-          amount={profitAmount}
-          prefix="+"
-          amountClassName="text-[var(--id-success)]"
-          actions={
-            <>
-              <SimpleButton
-                label="Transfer to Funding Wallet"
-                icon={ArrowDownToLine}
-                loading={loading === "transfer-profit"}
-                onClick={transferProfit}
-              />
-              <SimpleButton
-                label="Continue copying"
-                icon={RefreshCw}
-                variant="outline"
-                loading={loading === "reinvest-profit"}
-                onClick={reinvestProfit}
-              />
-            </>
-          }
-        />
-      )}
+      <PostCycleRow
+        label="Copying balance"
+        amount={totalCopyingBalance}
+        amountClassName="text-[var(--id-text)]"
+        description="Your balance continues into the trader’s next period automatically. Stop only when you want to end copying and move the full balance to your Funding Wallet."
+        actions={
+          <SimpleButton
+            label="Stop copying"
+            icon={CircleStop}
+            variant="outline"
+            loading={loading === "stop-copying"}
+            onClick={stopCopying}
+          />
+        }
+      />
     </div>
   );
 }
@@ -234,12 +135,14 @@ function PostCycleRow({
   amount,
   prefix = "",
   amountClassName,
+  description,
   actions,
 }: {
   label: string;
   amount: number;
   prefix?: string;
   amountClassName: string;
+  description?: string;
   actions: ReactNode;
 }) {
   return (
@@ -253,6 +156,9 @@ function PostCycleRow({
             {prefix}
             {formatCurrency(amount)}
           </p>
+          {description && (
+            <p className="mt-1 max-w-xl text-xs text-[var(--id-text-muted)]">{description}</p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">{actions}</div>
       </div>

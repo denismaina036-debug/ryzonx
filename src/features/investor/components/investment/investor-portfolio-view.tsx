@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import type { InvestorPortfolioData } from "@/domain/investment/investor-presentation";
 import { cancelAllocation } from "@/features/investor/components/investment/investor-allocation-api";
 import { WalletHeroCard } from "@/features/investor/components/wallet-hero-card";
-import { PoolProfitActions } from "@/features/investor/components/pool-profit-actions";
 import { RyvonxPageHeader } from "@/features/investor/constants/ui";
 
 export function InvestorPortfolioView({ data }: { data: InvestorPortfolioData }) {
@@ -42,12 +41,12 @@ export function InvestorPortfolioView({ data }: { data: InvestorPortfolioData })
     <div className="space-y-8">
       <RyvonxPageHeader
         title="Portfolio"
-        description="How is my money positioned? Cycle commitments and legacy strategy holdings."
+        description="How is my money positioned across copy allocations and strategy holdings?"
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Metric label="Wallet balance" value={formatCurrency(data.balance)} />
-        <Metric label="Cycle commitments" value={formatCurrency(data.totalCommittedCycles)} />
+        <Metric label="Copy allocations" value={formatCurrency(data.totalCommittedCycles)} />
         <Metric label="Legacy strategy capital" value={formatCurrency(data.totalInvestedLegacy)} />
       </div>
 
@@ -93,13 +92,13 @@ export function InvestorPortfolioView({ data }: { data: InvestorPortfolioData })
       {data.activeAllocations.length > 0 && (
         <section className="overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow)]">
           <div className="border-b border-[var(--id-border)] px-5 py-4">
-            <h2 className="text-sm font-semibold text-[var(--id-text)]">Active Cycle Commitments</h2>
+            <h2 className="text-sm font-semibold text-[var(--id-text)]">Active Copy Allocations</h2>
           </div>
           <ul className="divide-y divide-[var(--id-border)]">
             {data.activeAllocations.map((a) => (
               <li key={a.id} className="flex justify-between px-5 py-4">
                 <div>
-                  <p className="font-medium text-[var(--id-text)]">{a.cycleName}</p>
+                  <p className="font-medium text-[var(--id-text)]">{copyTradingText(a.cycleName)}</p>
                   <p className="text-xs text-[var(--id-text-muted)]">
                     {INVESTMENT_ALLOCATION_STATUS_LABELS[a.status]} · {copyTradingText(a.strategyName)}
                   </p>
@@ -172,14 +171,11 @@ export function InvestorPortfolioView({ data }: { data: InvestorPortfolioData })
               <li key={pool.fundId} className="space-y-4 px-5 py-5">
                 <div className="flex justify-between">
                   <p className="font-semibold">{copyTradingText(pool.poolName)}</p>
-                  <p className="font-mono font-semibold">{formatCurrency(pool.amountInvested)}</p>
+                  <div className="text-right">
+                    <p className="font-mono font-semibold">{formatCurrency(pool.currentValue)}</p>
+                    <p className="text-xs text-[var(--id-text-muted)]">Copying balance</p>
+                  </div>
                 </div>
-                <PoolProfitActions
-                  fundId={pool.fundId}
-                  poolName={pool.poolName}
-                  availableProfit={pool.poolProfit}
-                  compact
-                />
               </li>
             ))}
           </ul>

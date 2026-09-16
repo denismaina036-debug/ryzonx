@@ -35,6 +35,10 @@ import {
   sortCyclesChronologically,
 } from "@/features/pool-manager/components/managed-pool/pool-cycles-section";
 import type { RoiMultiplierEntry } from "@/features/pool-manager/components/managed-pool/pm-roi-multiplier-editor";
+import {
+  defaultProfitSplitEntries,
+  profitSplitEntriesFromSnapshot,
+} from "@/features/pool-manager/components/managed-pool/pm-profit-split-editor";
 
 export interface PoolCycleOption {
   pool: Pool;
@@ -70,7 +74,15 @@ export function PmCreateCycleClient({
   const lastCycle = sortedCycles[sortedCycles.length - 1];
   const canCreate = selected ? resolveCanCreateCycle(selected.cycles, true) : false;
 
-  const [formValues, setFormValues] = useState<CreateCycleFormValues>(DEFAULT_CREATE_CYCLE_FORM_VALUES);
+  const [formValues, setFormValues] = useState<CreateCycleFormValues>(() => {
+    const saved = lastCycle?.poolConfigSnapshot?.pool?.profitSplits ?? [];
+    return {
+      ...DEFAULT_CREATE_CYCLE_FORM_VALUES,
+      profitSplits: saved.length
+        ? profitSplitEntriesFromSnapshot(saved)
+        : defaultProfitSplitEntries(investmentLevels),
+    };
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -243,7 +255,21 @@ export function PmCreateCycleClient({
         {livePools.length === 1 ? (
           <p className="text-base font-semibold text-[var(--id-text)]">{selected!.pool.name}</p>
         ) : (
-          <Select value={poolId} onValueChange={setPoolId}>
+          <Select
+            value={poolId}
+            onValueChange={(nextPoolId) => {
+              const nextEntry = livePools.find((entry) => entry.pool.id === nextPoolId);
+              const nextLastCycle = sortCyclesChronologically(nextEntry?.cycles ?? []).at(-1);
+              const saved = nextLastCycle?.poolConfigSnapshot?.pool?.profitSplits ?? [];
+              setPoolId(nextPoolId);
+              setFormValues((current) => ({
+                ...current,
+                profitSplits: saved.length
+                  ? profitSplitEntriesFromSnapshot(saved)
+                  : defaultProfitSplitEntries(investmentLevels),
+              }));
+            }}
+          >
             <SelectTrigger className={pmSelectTriggerClass}>
               <SelectValue placeholder="Select pool" />
             </SelectTrigger>

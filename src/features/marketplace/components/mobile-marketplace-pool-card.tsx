@@ -1,19 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { copyTraderName, copyTradingText, displayedTradedCapital } from "@/lib/copy-trading-presentation";
+import { copyTraderName, copyTradingText, displayedCopierCount, displayedTradedCapital } from "@/lib/copy-trading-presentation";
 import { motion } from "framer-motion";
 import {
   BadgeCheck,
   CircleDollarSign,
-  RefreshCw,
   Shield,
   Star,
   Users,
   Wallet,
 } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
-import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
 import { AGGRESSIVENESS_LABELS } from "@/constants/marketplace";
 import { formatCurrency, cn } from "@/lib/utils";
 import { PoolCoverBanner } from "@/features/marketplace/components/pool-cover-banner";
@@ -22,7 +20,6 @@ import { Button } from "@/components/ui/button";
 import { resolveMobilePoolBannerPresentation } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 import { PoolCardDescription } from "@/features/marketplace/components/marketplace-pool-card";
 import type { MarketplacePoolCard } from "@/domain/marketplace/types";
-import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 
 interface MobileMarketplacePoolCardProps {
   pool: MarketplacePoolCard;
@@ -35,10 +32,6 @@ export function MobileMarketplacePoolCard({ pool }: MobileMarketplacePoolCardPro
     pool.capacityStatus === "closed";
 
   const banner = resolveMobilePoolBannerPresentation(pool);
-
-  const cycleStatusLabel = pool.activeCycle
-    ? INVESTMENT_CYCLE_STATUS_LABELS[pool.activeCycle.status] ?? pool.activeCycle.status
-    : "—";
 
   const riskDisplay = resolveRiskLabel(pool);
 
@@ -171,12 +164,11 @@ export function MobileMarketplacePoolCard({ pool }: MobileMarketplacePoolCardPro
           value={formatCurrency(displayedTradedCapital(pool))}
         />
         <MobileMetricCell
-          icon={RefreshCw}
+          icon={Users}
           iconClassName="text-amber-600"
           iconBgClassName="bg-amber-50 dark:bg-amber-950/40"
-          label="Cycle Status"
-          value={cycleStatusLabel}
-          valueClassName={cycleStatusTone(pool.activeCycle?.status)}
+          label="Copiers"
+          value={String(displayedCopierCount(pool))}
         />
       </div>
 
@@ -278,18 +270,6 @@ function riskToneFromLevel(level: string | null | undefined): string | undefined
       return "text-amber-600";
     case "extreme":
       return "text-red-600";
-    default:
-      return undefined;
-  }
-}
-
-function cycleStatusTone(status: InvestmentCycleStatus | null | undefined): string | undefined {
-  switch (status) {
-    case "funding":
-      return "text-amber-600";
-    case "trading":
-    case "approved":
-      return "text-emerald-600";
     default:
       return undefined;
   }

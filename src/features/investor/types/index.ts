@@ -21,6 +21,8 @@ export type {
 
 export interface InvestorPoolPerformance {
   totalPoolBalance: number;
+  /** Marketplace-consistent capital display, retaining the last traded period until new trading starts. */
+  displayedTradedCapital: number;
   /** Cumulative pool investment performance (not reduced by profit withdrawals). */
   totalProfit: number;
   totalProfitPct: number;
@@ -28,6 +30,9 @@ export interface InvestorPoolPerformance {
   investorRank: number;
   rankPercentile: number;
   clientSharePct: number;
+  /** Display-only tier terms; does not represent ownership or drive payouts. */
+  profitSplit?: import("@/domain/investment/profit-split").CycleProfitSplit | null;
+  profitSplitTierName?: string | null;
   poolName?: string | null;
   managerName?: string | null;
   managerPhotoUrl?: string | null;

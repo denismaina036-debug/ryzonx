@@ -29,7 +29,7 @@ export function InvestorHomeInvestmentPanel({ data }: { data: InvestorHomeData }
         <div className="mt-5 grid gap-4 sm:grid-cols-3">
           <SummaryTile label="Wallet balance" value={formatCurrency(data.portfolioSummary.balance)} />
           <SummaryTile
-            label="Cycle commitments"
+            label="Copy allocations"
             value={formatCurrency(data.portfolioSummary.cycleCommitted)}
           />
           <SummaryTile
@@ -46,7 +46,7 @@ export function InvestorHomeInvestmentPanel({ data }: { data: InvestorHomeData }
             title="Recommended Opportunities"
             subtitle={
               data.fundingCycleCount > data.recommendedCycles.length
-                ? `${data.fundingCycleCount} cycles currently open for funding`
+                ? `${data.fundingCycleCount} strategies currently accepting copy allocations`
                 : "Strategies currently accepting copy allocations"
             }
             href={ROUTES.marketplace}
@@ -104,7 +104,7 @@ export function InvestorHomeInvestmentPanel({ data }: { data: InvestorHomeData }
           <div className="mt-4">
             <RyvonxEmptyState
               title="Insights coming soon"
-              description="Personalized performance insights, dynamic ratings, and cycle analytics will appear here once trading data is available. Explore funding opportunities in the marketplace today."
+              description="Personalized performance insights and dynamic ratings will appear here once trading data is available. Explore copy-trading strategies in the marketplace today."
               className="py-10"
             />
           </div>

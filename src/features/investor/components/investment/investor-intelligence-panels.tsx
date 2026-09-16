@@ -5,13 +5,13 @@ import { formatPercentage } from "@/lib/utils";
 export function InvestorCycleIntelligencePanel({ intelligence }: { intelligence: CycleIntelligence }) {
   return (
     <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
-      <h2 className="font-semibold text-[var(--id-text)]">Cycle Health & Intelligence</h2>
+      <h2 className="font-semibold text-[var(--id-text)]">Strategy Health & Intelligence</h2>
       <p className="mt-1 text-sm text-[var(--id-text-muted)]">
-        Operational health from journal activity and cycle progress — not financial returns.
+        Operational health from the trader&apos;s verified journal activity.
       </p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Cell label="Cycle Health" value={<ScoreBadge score={intelligence.operationalHealth} size="sm" />} />
+        <Cell label="Strategy Health" value={<ScoreBadge score={intelligence.operationalHealth} size="sm" />} />
         <Cell label="Progress" value={`${intelligence.completionPercentage}%`} />
         <Cell label="Trading Activity" value={String(intelligence.tradingActivity)} />
         <Cell label="Copiers" value={String(intelligence.investorParticipation)} />
@@ -19,19 +19,9 @@ export function InvestorCycleIntelligencePanel({ intelligence }: { intelligence:
 
       <dl className="mt-6 grid gap-3 sm:grid-cols-2 text-sm">
         <div>
-          <dt className="text-[var(--id-text-muted)]">Current phase</dt>
-          <dd className="font-medium text-[var(--id-text)]">{intelligence.currentProgressPhase}</dd>
-        </div>
-        <div>
           <dt className="text-[var(--id-text-muted)]">Journal activity</dt>
           <dd className="font-medium text-[var(--id-text)]">{intelligence.journalActivity} events</dd>
         </div>
-        {intelligence.fundingVelocity != null && (
-          <div>
-            <dt className="text-[var(--id-text-muted)]">Funding velocity</dt>
-            <dd className="font-medium text-[var(--id-text)]">{intelligence.fundingVelocity.toFixed(1)} days</dd>
-          </div>
-        )}
         {intelligence.rating && (
           <div>
             <dt className="text-[var(--id-text-muted)]">Performance trend</dt>

@@ -73,7 +73,8 @@ function mapJournalTradeRow(
   row: JournalTradeRow,
   cycle: CycleRow,
   manager: ManagerRow | undefined,
-  fund: FundRow | undefined
+  fund: FundRow | undefined,
+  copierProfitLoss: number
 ): InvestorDashboardTrade {
   const entryPrice = toNumber(row.entry_price);
   const exitPrice = row.exit_price != null ? toNumber(row.exit_price) : null;
@@ -94,7 +95,7 @@ function mapJournalTradeRow(
     entryPrice,
     currentPrice,
     investedAmount: roundMoney(entryPrice * quantity),
-    profitLoss: row.realized_pnl != null ? toNumber(row.realized_pnl) : 0,
+    profitLoss: copierProfitLoss,
     status: mapJournalTradeStatus(row.status, row.trade_result),
     isActive,
     chartScreenshotUrl: row.screenshot_url,
@@ -119,7 +120,11 @@ function roundMoney(value: number): number {
 
 export const investorPoolTradesService = {
   /** Investor-visible journal trades for fund IDs already scoped to the authenticated investor. */
-  async listForFunds(fundIds: string[], limit = 100): Promise<InvestorDashboardTrade[]> {
+  async listForFunds(
+    fundIds: string[],
+    investorId: string,
+    limit = 100
+  ): Promise<InvestorDashboardTrade[]> {
     if (fundIds.length === 0) return [];
 
     const db = createAdminClient();
@@ -153,6 +158,22 @@ export const investorPoolTradesService = {
     const tradeRows = (trades ?? []) as JournalTradeRow[];
     if (tradeRows.length === 0) return [];
 
+    const { profitDistributionService } = await import(
+      "@/services/profit-distribution.service"
+    );
+    const copierResults = new Map<string, number>();
+    await Promise.all(
+      tradeRows.map(async (row) => {
+        if (row.realized_pnl == null) return;
+        const projections = await profitDistributionService.projectInvestorProfitForCycle(
+          row.investment_cycle_id,
+          toNumber(row.realized_pnl)
+        );
+        const result = projections.find((projection) => projection.investorId === investorId);
+        if (result) copierResults.set(row.id, result.projectedProfit);
+      })
+    );
+
     const managerIds = [...new Set(tradeRows.map((row) => row.pool_manager_id))];
     const relevantFundIds = [...new Set(cycleRows.map((row) => row.fund_id))];
 
@@ -173,13 +194,16 @@ export const investorPoolTradesService = {
 
     return tradeRows
       .map((row) => {
+        const copierProfitLoss = copierResults.get(row.id);
+        if (copierProfitLoss == null) return null;
         const cycle = cycleMap.get(row.investment_cycle_id);
         if (!cycle) return null;
         return mapJournalTradeRow(
           row,
           cycle,
           managerMap.get(row.pool_manager_id),
-          fundMap.get(cycle.fund_id)
+          fundMap.get(cycle.fund_id),
+          copierProfitLoss
         );
       })
       .filter((trade): trade is InvestorDashboardTrade => trade != null)

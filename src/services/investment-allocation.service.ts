@@ -23,6 +23,7 @@ type AllocationRow = {
   investment_cycle_id: string;
   investor_id: string;
   amount: number;
+  investment_level_id: string | null;
   currency: string;
   status: InvestmentAllocationStatus;
   reference_number: string;
@@ -49,6 +50,7 @@ function mapAllocation(row: AllocationRow): InvestmentAllocation {
     investmentCycleId: row.investment_cycle_id,
     investorId: row.investor_id,
     amount: toNumber(row.amount),
+    investmentLevelId: row.investment_level_id,
     currency: row.currency,
     status: row.status,
     referenceNumber: row.reference_number,
@@ -192,6 +194,7 @@ export const investmentAllocationService = {
         investorId: a.investorId,
         investorName: nameById.get(a.investorId) ?? "Investor",
         amount: a.amount,
+        investmentLevelId: a.investmentLevelId,
         sharePct:
           shareBase > 0
             ? Math.round((a.amount / shareBase) * 10000) / 100

@@ -29,6 +29,9 @@ import { mapRawTransactionToActivityItem, type RawTransactionRow } from "@/lib/t
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeLifetimePoolPerformance } from "@/lib/investor/lifetime-pool-performance";
 import { resolvePoolLiveRaisedCapital } from "@/domain/investment/cycle-metrics";
+import { readCycleProfitSplit } from "@/domain/pools/pool-config-snapshot";
+import { marketplaceService } from "@/services/marketplace.service";
+import { displayedTradedCapital } from "@/lib/copy-trading-presentation";
 
 const ACTIVITY_SELECT_WITH_METADATA =
   "id, fund_id, type, amount, status, payment_method, reference, transaction_reference, notes, destination, crypto_symbol, crypto_network, crypto_amount, metadata, created_at, user_id";
@@ -77,8 +80,6 @@ async function fetchRecentActivityRows(
 import type { InvestorPoolParticipationView } from "@/domain/investment/investor-pool-participation";
 import {
   resolveInvestorDisplayCapital,
-  resolvePostCycleCapitalAmount,
-  resolvePostCycleProfitAmount,
   shouldShowPostCycleChoices,
 } from "@/domain/investment/investor-pool-participation";
 import type { CycleInvestorSettlement } from "@/services/investment-engine/cycle-investor-settlement.service";
@@ -103,6 +104,7 @@ function mapPoolHealth(
 function emptyPoolPerformance(): InvestorPoolPerformance {
   return {
     totalPoolBalance: 0,
+    displayedTradedCapital: 0,
     totalProfit: 0,
     totalProfitPct: 0,
     totalContributors: 0,
@@ -126,9 +128,10 @@ function emptyPoolPerformance(): InvestorPoolPerformance {
 async function fetchPublishedPoolTrades(
   _supabase: Awaited<ReturnType<typeof createClient>>,
   fundIds: string[],
+  investorId: string,
   limit = 20
 ): Promise<InvestorDashboardTrade[]> {
-  return investorPoolTradesService.listForFunds(fundIds, limit);
+  return investorPoolTradesService.listForFunds(fundIds, investorId, limit);
 }
 
 export const investorService = {
@@ -170,7 +173,7 @@ export const investorService = {
         ? supabase
             .from("funds")
             .select(
-              "id, name, pool_value, current_capital, investor_capital, display_raised_capital, pool_health, pool_manager_name, pool_manager_id, ryvonx_rating, current_roi, active_investors, pool_managers(username, slug, display_name, show_full_name, profile_photo_url, icon_url)"
+              "id, name, slug, pool_value, current_capital, investor_capital, display_raised_capital, pool_health, pool_manager_name, pool_manager_id, ryvonx_rating, current_roi, active_investors, pool_managers(username, slug, display_name, show_full_name, profile_photo_url, icon_url)"
             )
             .eq("id", primaryFundId)
             .maybeSingle()
@@ -185,7 +188,7 @@ export const investorService = {
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
       tradeFundIds.length > 0
-        ? investorPoolTradesService.listForFunds(tradeFundIds, 20)
+        ? investorPoolTradesService.listForFunds(tradeFundIds, user.id, 20)
         : Promise.resolve([]),
       fetchRecentActivityRows(supabase, user.id),
       supabase
@@ -255,6 +258,7 @@ export const investorService = {
     const fund = fundResult.data as {
       id: string;
       name: string;
+      slug: string;
       pool_value: number;
       current_capital: number | null;
       investor_capital: number | null;
@@ -313,26 +317,61 @@ export const investorService = {
       poolStatsValue: pool?.total_pool_value,
       fundPoolValue: fund?.pool_value,
     });
+    const marketplacePool = fund?.slug
+      ? await marketplaceService.getPoolBySlug(fund.slug).catch(() => null)
+      : null;
+    const tradedCapitalDisplay = marketplacePool
+      ? displayedTradedCapital(marketplacePool)
+      : poolBalance;
+
+    const { data: primaryAllocationRow } = activeCycle
+      ? await supabase
+          .from("investment_allocations")
+          .select("amount, status, investment_level_id")
+          .eq("investor_id", user.id)
+          .eq("investment_cycle_id", activeCycle.id)
+          .maybeSingle()
+      : { data: null };
+    const primaryAllocation = primaryAllocationRow as {
+      amount: number | string;
+      status: string;
+      investment_level_id: string | null;
+    } | null;
+    const profitSplit = readCycleProfitSplit(
+      activeCycle?.poolConfigSnapshot,
+      primaryAllocation?.investment_level_id
+    );
+    const { data: profitSplitLevelRow } = primaryAllocation?.investment_level_id
+      ? await supabase
+          .from("platform_investment_levels")
+          .select("name")
+          .eq("id", primaryAllocation.investment_level_id)
+          .maybeSingle()
+      : { data: null };
+
+    const livePrimaryMetrics =
+      activeCycle &&
+      primaryFundId &&
+      primaryAllocation &&
+      ["trading", "distribution"].includes(activeCycle.status)
+        ? await import("@/services/cycle-live-metrics.service")
+            .then(({ cycleLiveMetricsService }) =>
+              cycleLiveMetricsService.getInvestorLiveTrading(activeCycle.id, user.id)
+            )
+            .catch(() => null)
+        : null;
 
     let sharePct = 0;
     if (primaryFundId) {
       if (poolBalance > 0 && primaryMyInvestment > 0) {
         sharePct = (primaryMyInvestment / poolBalance) * 100;
       } else if (activeCycle?.targetCapital && activeCycle.targetCapital > 0) {
-        const { data: allocationRow } = await supabase
-          .from("investment_allocations")
-          .select("amount, status")
-          .eq("investor_id", user.id)
-          .eq("investment_cycle_id", activeCycle.id)
-          .maybeSingle();
-
-        const allocation = allocationRow as { amount: number | string; status: string } | null;
         const confirmedAllocation =
-          allocation &&
+          primaryAllocation &&
           RAISED_CAPITAL_ALLOCATION_STATUSES.includes(
-            allocation.status as InvestmentAllocationStatus
+            primaryAllocation.status as InvestmentAllocationStatus
           )
-            ? toNumber(allocation.amount)
+            ? toNumber(primaryAllocation.amount)
             : null;
 
         const investmentBasis = confirmedAllocation ?? primaryMyInvestment;
@@ -398,10 +437,38 @@ export const investorService = {
         ])
       );
 
-      recentActivity = activityRows.map((tx) =>
-        mapRawTransactionToActivityItem(tx, activityFundMap.get(tx.fund_id) ?? "—")
-      );
+      recentActivity = activityRows
+        .filter(
+          (tx) =>
+            !["cycle_profit", "profit_transfer", "profit_reinvest"].includes(
+              tx.payment_method ?? ""
+            )
+        )
+        .map((tx) =>
+          mapRawTransactionToActivityItem(tx, activityFundMap.get(tx.fund_id) ?? "—")
+        );
     }
+
+    const copiedTradeActivity: InvestorPoolActivityItem[] = recentTrades
+      .filter((trade) => !trade.isActive && trade.profitLoss !== 0)
+      .map((trade) => {
+        const isProfit = trade.profitLoss > 0;
+        return {
+          id: `copied-trade-${trade.id}`,
+          title: `COPIER ${isProfit ? "PROFIT" : "LOSS"} ${trade.asset} ${trade.direction.toUpperCase()}`,
+          subtitle: trade.poolManagerName
+            ? `Copied from ${trade.poolManagerName}`
+            : "Copied trader result",
+          amount: Math.abs(trade.profitLoss),
+          amountPrefix: isProfit ? "+" : "-",
+          createdAt: trade.closedAt ?? trade.openedAt,
+          category: isProfit ? "pool_profit" : "pool_loss",
+          iconKind: isProfit ? "profit" : "loss",
+        };
+      });
+    recentActivity = [...copiedTradeActivity, ...recentActivity]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 15);
 
     let challenge: TraderChallenge | null = null;
     const challengeRow = challengeResult.data as Tables<"trader_challenges"> | null;
@@ -448,6 +515,7 @@ export const investorService = {
     const poolPerformance: InvestorPoolPerformance = primaryFundId
       ? {
           totalPoolBalance: poolBalance,
+          displayedTradedCapital: tradedCapitalDisplay,
           totalProfit: performanceProfit,
           totalProfitPct: performanceProfitPct,
           totalContributors:
@@ -456,6 +524,9 @@ export const investorService = {
           investorRank,
           rankPercentile,
           clientSharePct: sharePct,
+          profitSplit,
+          profitSplitTierName:
+            (profitSplitLevelRow as { name?: string } | null)?.name ?? null,
           poolName: fund?.name ?? primary?.poolName ?? null,
           managerName,
           managerPhotoUrl,
@@ -473,8 +544,33 @@ export const investorService = {
         }
       : emptyPoolPerformance();
 
+    const investment = livePrimaryMetrics && primaryFundId
+      ? {
+          ...walletSummary,
+          poolProfit: walletSummary.poolProfit + (livePrimaryMetrics.investorProjectedProfit ?? 0),
+          participations: walletSummary.participations.map((participation) =>
+            participation.fundId === primaryFundId
+              ? {
+                  ...participation,
+                  amountInvested:
+                    livePrimaryMetrics.investorInvestment ?? participation.amountInvested,
+                  poolProfit:
+                    participation.poolProfit +
+                    (livePrimaryMetrics.investorProjectedProfit ?? 0),
+                  currentValue:
+                    Math.max(
+                      participation.currentValue,
+                      livePrimaryMetrics.investorInvestment ?? participation.amountInvested
+                    ) +
+                    (livePrimaryMetrics.investorProjectedProfit ?? 0),
+                }
+              : participation
+          ),
+        }
+      : walletSummary;
+
     return {
-      investment: walletSummary,
+      investment,
       poolPerformance,
       recentTrades,
       recentActivity,
@@ -647,12 +743,12 @@ export const investorService = {
   async getTradesPageData(): Promise<{
     recentTrades: InvestorDashboardTrade[];
   }> {
-    await requireAuth();
+    const user = await requireAuth();
     const supabase = await createClient();
     const wallet = await walletService.getWalletSummary();
     const fundIds = [...new Set(wallet.participations.map((p) => p.fundId))];
 
-    const recentTrades = await fetchPublishedPoolTrades(supabase, fundIds, 100);
+    const recentTrades = await fetchPublishedPoolTrades(supabase, fundIds, user.id, 100);
 
     return { recentTrades };
   },

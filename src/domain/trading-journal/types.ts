@@ -51,6 +51,8 @@ export interface PublicTradeEntryView {
   quantity: number;
   tradeResult: TradeEntryResult | null;
   realizedPnl: number | null;
+  /** Copier-specific result using the same projection engine as settlement. */
+  copierRealizedPnl?: number | null;
   screenshotUrl: string | null;
   closedAt: string | null;
 }

@@ -7,7 +7,6 @@ import { ROUTES } from "@/constants/routes";
 import { STRATEGY_RISK_PROFILES } from "@/constants/strategy";
 import { formatCurrency } from "@/lib/utils";
 import type { InvestorCycleCard, InvestorStrategyCard } from "@/domain/investment/investor-presentation";
-import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
 import { isCycleTradingPhase } from "@/lib/investment/cycle-display-phase";
 
 export function MarketplaceCycleCard({ cycle }: { cycle: InvestorCycleCard }) {
@@ -28,9 +27,6 @@ export function MarketplaceCycleCard({ cycle }: { cycle: InvestorCycleCard }) {
             {copyTradingText(cycle.name)}
           </h3>
         </div>
-        <span className="shrink-0 rounded-full bg-[var(--id-accent)]/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-[var(--id-accent)]">
-          {INVESTMENT_CYCLE_STATUS_LABELS[cycle.status]}
-        </span>
       </div>
 
       <p className="mt-2 line-clamp-2 text-sm text-[var(--id-text-muted)]">
@@ -117,7 +113,6 @@ export function MarketplaceStrategyCard({ strategy }: { strategy: InvestorStrate
 
       <div className="mt-4 flex items-center justify-between text-xs text-[var(--id-text-muted)]">
         <span>{strategy.managerName}</span>
-        <span>{strategy.activeCyclesCount} active cycle{strategy.activeCyclesCount === 1 ? "" : "s"}</span>
       </div>
 
       <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-[var(--id-accent)]">

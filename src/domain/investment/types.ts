@@ -22,6 +22,7 @@ export interface Strategy {
 }
 
 import type { PoolConfigSnapshot } from "@/domain/pools/pool-config-snapshot";
+import type { CycleProfitSplit } from "@/domain/investment/profit-split";
 
 export interface InvestmentCycle {
   id: string;
@@ -65,6 +66,7 @@ export interface CycleParticipantView {
   investorId: string;
   investorName: string;
   amount: number;
+  investmentLevelId: string | null;
   sharePct: number;
   status: InvestmentAllocationStatus;
   referenceNumber: string;
@@ -76,6 +78,7 @@ export interface InvestmentAllocation {
   investmentCycleId: string;
   investorId: string;
   amount: number;
+  investmentLevelId: string | null;
   currency: string;
   status: InvestmentAllocationStatus;
   referenceNumber: string;
@@ -141,6 +144,8 @@ export interface CreatePoolInvestmentCycleInput {
   initialRaisedCapital?: number;
   maxCapacity?: number | null;
   roiMultipliers?: Array<{ investmentLevelId: string; multiplier: number }>;
+  /** Display metadata only; does not affect profit distribution. */
+  profitSplits?: CycleProfitSplit[];
   openingDate?: string;
   closingDate?: string;
 }

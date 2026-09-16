@@ -257,6 +257,78 @@ async function resolveSettlementCycleMeta(
 }
 
 export const cycleInvestorSettlementService = {
+  /**
+   * Continue every unresolved completed-period copying balance into the newly
+   * opened period. Each settlement is moved by an idempotent database function,
+   * so a retry cannot duplicate the copied balance.
+   */
+  async continuePendingCopyingIntoCycle(
+    targetCycleId: string,
+    fundId: string,
+    actorUserId: string
+  ): Promise<{ continued: number; total: number }> {
+    const db = createAdminClient();
+    const { data: rows, error } = await settlementsTable(db)
+      .select("id, investment_cycle_id, status, profit_resolved, capital_resolved")
+      .eq("fund_id", fundId)
+      .neq("investment_cycle_id", targetCycleId)
+      .neq("status", "closed")
+      .neq("status", "capital_withdrawal_requested")
+      .or("profit_resolved.eq.false,capital_resolved.eq.false");
+    if (error) throw new Error(error.message);
+
+    const candidates = (rows ?? []) as Array<{
+      id: string;
+      investment_cycle_id: string;
+      status: CycleInvestorSettlementStatus;
+      profit_resolved: boolean;
+      capital_resolved: boolean;
+    }>;
+    if (candidates.length === 0) return { continued: 0, total: 0 };
+
+    const sourceCycleIds = [...new Set(candidates.map((row) => row.investment_cycle_id))];
+    const { data: sourceCycles, error: cycleError } = await db
+      .from("investment_cycles")
+      .select("id, status")
+      .in("id", sourceCycleIds)
+      .in("status", ["completed", "archived"]);
+    if (cycleError) throw new Error(cycleError.message);
+
+    const eligibleCycleIds = new Set(
+      ((sourceCycles ?? []) as Array<{ id: string }>).map((cycle) => cycle.id)
+    );
+    let continued = 0;
+    let total = 0;
+
+    for (const candidate of candidates) {
+      if (!eligibleCycleIds.has(candidate.investment_cycle_id)) continue;
+      const { data, error: continuationError } = await db.rpc(
+        "continue_copying_atomic" as never,
+        {
+          p_settlement_id: candidate.id,
+          p_target_cycle_id: targetCycleId,
+          p_actor_id: actorUserId,
+        } as never
+      );
+      if (continuationError) throw new Error(continuationError.message);
+      const result = data as unknown as {
+        continued?: number | string;
+        created?: boolean;
+      } | null;
+      total = roundMoney(total + toNumber(result?.continued));
+      if (result?.created !== false) continued += 1;
+    }
+
+    if (continued > 0) {
+      const { investmentCycleMetricsService } = await import(
+        "@/services/investment-cycle-metrics.service"
+      );
+      await investmentCycleMetricsService.recalculateCycleRaisedCapital(targetCycleId);
+    }
+
+    return { continued, total };
+  },
+
   async createPendingChoicesForCycle(cycleId: string, fundId: string): Promise<void> {
     const db = createAdminClient();
 
@@ -627,6 +699,63 @@ export const cycleInvestorSettlementService = {
     if (!data) return null;
     const [mapped] = await resolveSettlementMeta(db, [data as SettlementRow]);
     return mapped ?? null;
+  },
+
+  /**
+   * End copying in one owner-authorized, atomic settlement operation.
+   * The database function releases completed-period capital and realized profit
+   * together without a manual administrator decision.
+   */
+  async stopCopying(
+    settlementId: string
+  ): Promise<{ transferred: number; capital: number; profit: number }> {
+    const user = await requireAuth();
+    const settlement = await getSettlementForInvestor(settlementId, user.id);
+    const db = createAdminClient();
+    await ensureWalletPortfolio(db, user.id);
+
+    const { ledgerAccountService } = await import("@/services/ledger-account.service");
+    const [profitAccount, investorAccounts, suspenseAccount] = await Promise.all([
+      ledgerAccountService.ensureInvestorPoolProfitAccount(
+        user.id,
+        settlement.fundId,
+        settlement.poolName
+      ),
+      ledgerAccountService.ensureInvestorAccounts(user.id),
+      ledgerAccountService.ensurePlatformSuspenseAccount(),
+    ]);
+
+    const description = `Stopped copying ${settlement.poolName}`;
+    const { data, error } = await db.rpc("stop_copying_atomic" as never, {
+      p_settlement_id: settlement.id,
+      p_investor_id: user.id,
+      p_profit_account_id: profitAccount.id,
+      p_available_account_id: investorAccounts.available.id,
+      p_suspense_account_id: suspenseAccount.id,
+      p_description: description,
+    } as never);
+    if (error) throw new Error(error.message);
+
+    const result = data as unknown as {
+      transferred?: number | string;
+      capital?: number | string;
+      profit?: number | string;
+      created?: boolean;
+    } | null;
+    const transferred = toNumber(result?.transferred);
+    const capital = toNumber(result?.capital);
+    const profit = toNumber(result?.profit);
+
+    if (result?.created !== false) {
+      await communicationTriggers.investmentUpdated({
+        userId: user.id,
+        poolName: settlement.poolName,
+        message: `$${transferred.toLocaleString()} was transferred to your Funding Wallet after you stopped copying.`,
+        poolId: settlement.fundId,
+      });
+    }
+
+    return { transferred, capital, profit };
   },
 
   async transferProfit(settlementId: string): Promise<{ transferred: number }> {

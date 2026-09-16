@@ -17,8 +17,8 @@ export function InvestorPoolCyclesView({ data }: { data: InvestorPoolCyclesData 
         title="Copy Activity"
         description={
           data.context
-            ? `${copyTradingText(data.context.poolName)} — funding, trading, and completed cycle history.`
-            : "Track your strategy cycle activity."
+            ? `${copyTradingText(data.context.poolName)} — allocations, trading activity, and copy history.`
+            : "Track your copy-trading activity."
         }
       />
 
@@ -26,7 +26,7 @@ export function InvestorPoolCyclesView({ data }: { data: InvestorPoolCyclesData 
         <div className="rounded-[var(--id-radius)] border border-dashed border-[var(--id-border-strong)] bg-[var(--id-surface)] px-6 py-10 text-center">
           <p className="text-sm font-medium text-[var(--id-text)]">No copy activity yet</p>
           <p className="mt-2 text-sm text-[var(--id-text-muted)]">
-            When you copy a trader, your allocation, trading activity, and completed cycles will
+            When you copy a trader, your allocation, trading activity, and completed copy periods will
             appear here.
           </p>
           <Button asChild className="mt-6 rounded-xl [background:var(--id-accent-gradient)] text-white">

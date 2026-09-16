@@ -1,6 +1,7 @@
 import type { StrategyRiskProfile } from "@/constants/strategy";
 import type { InvestmentAllocationStatus } from "@/constants/investment-allocation";
 import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
+import type { CycleProfitSplit } from "@/domain/investment/profit-split";
 
 export interface InvestorStrategyCard {
   id: string;
@@ -47,6 +48,7 @@ export interface InvestorCycleCard {
 export interface InvestorAllocationView {
   id: string;
   amount: number;
+  investmentLevelId: string | null;
   currency: string;
   status: InvestmentAllocationStatus;
   referenceNumber: string;
@@ -86,6 +88,9 @@ export interface InvestorFundingCycleView {
   cycle: InvestorCycleCard;
   investorAmount: number | null;
   ownershipSharePct: number | null;
+  displayedTradedCapital: number;
+  profitSplit: CycleProfitSplit | null;
+  profitSplitTierName: string | null;
   payoutDurationLabel: string;
   tradingScheduleLabel: string | null;
   projectedMultiplier: number | null;
@@ -99,6 +104,8 @@ export interface InvestorTradingCycleView {
   cycleName: string;
   investorAmount: number;
   ownershipSharePct: number | null;
+  profitSplit: CycleProfitSplit | null;
+  profitSplitTierName: string | null;
   initialOperations: import("@/domain/trading-journal/types").InvestorCycleOperationsView;
 }
 

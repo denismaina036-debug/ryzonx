@@ -1,5 +1,8 @@
 import {
   LayoutDashboard,
+  Compass,
+  Star,
+  Wallet,
   Store,
   Briefcase,
   Users,
@@ -22,6 +25,10 @@ export interface InvestorNavItem {
 /** Primary investor navigation — Phase 6 investment experience */
 export const INVESTOR_NAV_ITEMS: InvestorNavItem[] = [
   { label: "Home", href: ROUTES.dashboard, icon: LayoutDashboard },
+  { label: "Watchlist", href: ROUTES.watchlist, icon: Star },
+  { label: "Portfolio", href: ROUTES.tradingPortfolio, icon: Briefcase },
+  { label: "Discover", href: ROUTES.discover, icon: Compass },
+  { label: "Wallet", href: ROUTES.wallet, icon: Wallet },
   { label: "Marketplace", href: ROUTES.marketplace, icon: Store },
   { label: "Copy Activity", href: ROUTES.portfolio, icon: Briefcase },
   { label: "Verified traders", href: `${ROUTES.marketplace}?tab=managers`, icon: Users },

@@ -1,5 +1,5 @@
 "use client";
-import { copyTradingText, displayedTradedCapital } from "@/lib/copy-trading-presentation";
+import { copyTradingText, displayedCopierCount, displayedTradedCapital } from "@/lib/copy-trading-presentation";
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -39,7 +39,7 @@ import { PM_SOCIAL_PLATFORMS } from "@/domain/pool-manager/public-profile";
 const BASE_PROFILE_TABS = [
   { id: "overview", label: "Overview" },
   { id: "strategies", label: "Strategies" },
-  { id: "cycles", label: "Active Strategys" },
+  { id: "cycles", label: "Active Strategies" },
   { id: "ratings", label: "Ratings" },
   { id: "opportunities", label: "Legacy Strategies" },
   { id: "journal", label: "Recent Strategy Trades" },
@@ -96,7 +96,7 @@ export function ManagerProfileView({
         profile.maxDrawdownPct != null ? formatDrawdownPct(profile.maxDrawdownPct) : "—",
     },
     { label: "Traded capital", value: formatCurrency(managedPools.reduce((sum, pool) => sum + displayedTradedCapital(pool), 0)) },
-    { label: "Active Copiers", value: String(profile.activeInvestors) },
+    { label: "Active Copiers", value: String(managedPools.reduce((sum, pool) => sum + displayedCopierCount(pool), 0)) },
     { label: "Opportunities", value: String(profile.poolsManaged) },
   ];
 
@@ -378,10 +378,10 @@ export function ManagerProfileView({
       {resolvedTab === "cycles" && (
         <div>
           <p className="mb-4 text-sm text-[var(--id-text-muted)]">
-            Live copy cycles led by {profile.publicDisplayName}.
+            Copy-trading strategies led by {profile.publicDisplayName}.
           </p>
           {cycles.length === 0 ? (
-            <p className="text-sm text-[var(--id-text-muted)]">No active cycles yet.</p>
+            <p className="text-sm text-[var(--id-text-muted)]">No active copy opportunities yet.</p>
           ) : (
             <div className="grid gap-3.5 md:gap-6 sm:grid-cols-2 xl:grid-cols-3">
               {cycles.map((cycle) => (

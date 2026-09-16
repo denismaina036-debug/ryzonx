@@ -6,7 +6,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
 import { TRADE_ENTRY_RESULT_LABELS } from "@/constants/trade-entry";
 import type { PublicPoolTradeView } from "@/domain/trading-journal/types";
 import {
@@ -15,7 +14,6 @@ import {
   hasScreenshot,
 } from "@/lib/trading/trade-display";
 import { formatCurrency } from "@/lib/utils";
-import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 
 interface PoolActivityTradeDetailDialogProps {
   trade: PublicPoolTradeView | null;
@@ -86,13 +84,6 @@ export function PoolActivityTradeDetailDialog({
               />
             </>
           )}
-          <DetailRow
-            label="Trading Cycle"
-            value={`${trade.cycleName} · ${
-              INVESTMENT_CYCLE_STATUS_LABELS[trade.cycleStatus as InvestmentCycleStatus] ??
-              trade.cycleStatus
-            }`}
-          />
         </dl>
 
         {hasScreenshot(trade.screenshotUrl) && (

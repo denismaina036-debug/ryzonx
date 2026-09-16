@@ -18,7 +18,7 @@ export function SidebarPoolManagerWorkspace({ userRole }: SidebarPoolManagerWork
       </div>
       <p className="mt-3 text-sm font-semibold text-[var(--id-text)]">Trader Workspace</p>
       <p className="mt-1.5 text-xs leading-relaxed text-[var(--id-text-secondary)]">
-        Create strategies, copy cycles, and manage your strategies.
+        Create copy-trading strategies and manage your trader workspace.
       </p>
       <WorkspaceSwitchLink
         target="pool-manager"

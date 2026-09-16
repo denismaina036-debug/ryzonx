@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { MarketplacePoolCard } from "@/domain/marketplace/types";
-import { copyTradingText, displayedTradedCapital } from "@/lib/copy-trading-presentation";
+import { copyTradingText, displayedCopierCount, displayedTradedCapital } from "@/lib/copy-trading-presentation";
 import { formatCurrency } from "@/lib/utils";
 
 vi.mock("next/link", () => ({ default: ({ children, ...props }: Record<string, unknown>) => createElement("a", props, children as import("react").ReactNode) }));
@@ -63,6 +63,7 @@ describe("copy-trading client presentation", () => {
     expect(copyTradingText(label)).toBe("Verified traders");
     expect(copyTradingText("Live Pools")).toBe("Copy trading");
     expect(copyTradingText("Most Investors")).toBe("Most copiers");
+    expect(copyTradingText("Trading Cycle 3")).toBe("copy activity 3");
     expect(copyTradingText("This pool involves risk of loss.")).toBe("This strategy involves risk of loss.");
     expect(label).toBe("Pool Managers");
   });
@@ -83,6 +84,14 @@ describe("copy-trading client presentation", () => {
       expect(displayedTradedCapital({ ...pool, activeCycle: { ...fixture.activeCycle!, status } })).toBe(12500);
     }
     expect(displayedTradedCapital({ ...pool, raisedCapital: 0 })).toBe(0);
+  });
+
+  it("uses the marketplace copier total in the cycle and trader displays", () => {
+    const pool = { ...fixture, activeInvestors: 264, cycleParticipantCount: 20 };
+    expect(displayedCopierCount(pool)).toBe(264);
+    const html = renderToStaticMarkup(createElement(MarketplacePoolCardView, { pool }));
+    expect(html.split("264").length - 1).toBe(4);
+    expect(html).not.toContain(">20<");
   });
 
   it("uses verified-trader journey and copy-ratio wording for saved display content", () => {

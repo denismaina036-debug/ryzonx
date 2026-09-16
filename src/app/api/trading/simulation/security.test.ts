@@ -1,0 +1,24 @@
+import { beforeEach,describe,it,expect,vi } from "vitest";
+vi.mock("server-only",()=>({}));
+vi.mock("@/lib/auth/session",()=>({getCurrentUser:vi.fn()}));
+vi.mock("@/services/trading/simulation-service",()=>({openSimulation:vi.fn(),closeSimulation:vi.fn()}));
+vi.mock("@/services/trading/repository",()=>({readCatalogue:vi.fn()}));
+vi.mock("@/services/trading/provider",()=>({freeMarketData:{getQuote:vi.fn()}}));
+import { readCatalogue } from "@/services/trading/repository";
+import { freeMarketData } from "@/services/trading/provider";
+import { getCurrentUser } from "@/lib/auth/session";
+import { openSimulation,closeSimulation } from "@/services/trading/simulation-service";
+import { POST as open } from "./open/route";
+import { POST as close } from "./close/route";
+const user={id:"authenticated-user",isActive:true} as NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
+const payload={symbol:"BTCUSD",instrument:"00000000-0000-4000-8000-000000000001",side:"BUY",amount:"1000",idempotencyKey:"00000000-0000-4000-8000-000000000002"};
+const request=(body:unknown,origin="http://localhost:3000")=>new Request("http://localhost:3000/api/trading/simulation/open",{method:"POST",headers:{origin,"Idempotency-Key":payload.idempotencyKey},body:JSON.stringify(body===payload ? {symbol:payload.symbol,side:payload.side,amount:payload.amount} : body)});
+beforeEach(()=>{vi.resetAllMocks();vi.mocked(getCurrentUser).mockResolvedValue(user); vi.mocked(readCatalogue).mockResolvedValue({instruments:[{id:payload.instrument,symbol:"BTCUSD",asset_class:"crypto",enabled:true}],classes:[{asset_class:"crypto",enabled:true}]} as Awaited<ReturnType<typeof readCatalogue>>); vi.mocked(freeMarketData.getQuote).mockResolvedValue({ok:true,data:{symbol:"BTCUSD",source:"biquote",price:"100",bid:null,ask:null,change:null,changePercent:null,timestamp:new Date().toISOString(),marketOpen:true}});});
+describe("simulation API trust boundary",()=>{
+ it("rejects signed out and inactive users",async()=>{vi.mocked(getCurrentUser).mockResolvedValue(null);expect((await open(request(payload))).status).toBe(401);vi.mocked(getCurrentUser).mockResolvedValue({...user,isActive:false});expect((await close(request({}))).status).toBe(401);});
+ it("rejects cross origin",async()=>{expect((await open(request(payload,"https://other.example"))).status).toBe(403);expect(openSimulation).not.toHaveBeenCalled();});
+ it.each(["openingPrice","closingPrice","units","balance","realizedPL","executionEnvironment","userId"])("rejects browser authority field %s",async field=>{expect((await open(request({symbol:payload.symbol,side:payload.side,amount:payload.amount,[field]:"forged"}))).status).toBe(400);expect(openSimulation).not.toHaveBeenCalled();});
+ it("requires a transport retry token",async()=>{const req=request(payload);req.headers.delete("Idempotency-Key");expect((await open(req)).status).toBe(400);expect(openSimulation).not.toHaveBeenCalled();});
+ it("derives owner from verified session",async()=>{expect((await open(request(payload))).status).toBe(200);expect(openSimulation).toHaveBeenCalledWith(user.id,{symbol:payload.symbol,side:payload.side,amount:payload.amount},payload.idempotencyKey);});
+ it("does not allow browser to supply an automatic close reason",async()=>{expect((await close(request({position:payload.instrument,idempotencyKey:payload.idempotencyKey,reason:"TAKE_PROFIT"}))).status).toBe(400);expect(closeSimulation).not.toHaveBeenCalled();});
+});

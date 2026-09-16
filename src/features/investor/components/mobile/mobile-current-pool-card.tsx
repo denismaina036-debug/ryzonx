@@ -10,6 +10,7 @@ import type {
   InvestorInvestmentSummary,
   InvestorPoolPerformance,
 } from "@/features/investor/types";
+import { formatCycleProfitSplit } from "@/domain/investment/profit-split";
 
 interface MobileCurrentPoolCardProps {
   investment: InvestorInvestmentSummary;
@@ -54,10 +55,10 @@ export function MobileCurrentPoolCard({
   const poolName = performance.managerName ?? performance.poolName ?? primary?.poolName ?? "Trader";
   const myInvestment =
     performance.myInvestment ?? primary?.amountInvested ?? 0;
+  const copyingBalance = primary?.currentValue ?? myInvestment;
   const health = performance.poolHealth;
   const managerName = performance.managerName;
   const managerPhotoUrl = performance.managerPhotoUrl;
-  const sharePct = performance.clientSharePct;
 
   return (
     <Link
@@ -95,15 +96,19 @@ export function MobileCurrentPoolCard({
 
       <div className="mt-4 grid grid-cols-3 gap-2 border-t border-[var(--id-border)] pt-3.5">
         <div className="min-w-0">
-          <p className="text-[10px] text-[var(--id-text-muted)]">My Copy Allocation</p>
+          <p className="text-[10px] text-[var(--id-text-muted)]">Copying Balance</p>
           <p className="mt-0.5 truncate font-mono text-sm font-semibold tabular-nums text-[var(--id-text)]">
-            {formatCurrency(myInvestment)}
+            {formatCurrency(copyingBalance)}
           </p>
         </div>
         <div className="min-w-0">
-          <p className="text-[10px] text-[var(--id-text-muted)]">My Share</p>
+          <p className="text-[10px] text-[var(--id-text-muted)]">
+            {performance.profitSplitTierName
+              ? `${performance.profitSplitTierName} Profit Split`
+              : "Profit Split"}
+          </p>
           <p className="mt-0.5 font-mono text-sm font-semibold tabular-nums text-[var(--id-text)]">
-            {sharePct.toFixed(2)}%
+            {formatCycleProfitSplit(performance.profitSplit)}
           </p>
         </div>
         <div className="min-w-0">

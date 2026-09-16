@@ -2,7 +2,8 @@
 import { copyTradingText } from "@/lib/copy-trading-presentation";
 
 import Link from "next/link";
-import { Bell, ChevronDown, LayoutDashboard, LogOut, MessageSquare, Search, Settings } from "lucide-react";
+import { Bell, ChevronDown, LayoutDashboard, LogOut, MessageSquare, Settings } from "lucide-react";
+import { UnifiedSearch } from "@/features/search/unified-search";
 import { ROUTES } from "@/constants/routes";
 import { ROLE_LABELS, USER_ROLES, type UserRole } from "@/constants/roles";
 import { InvestorThemeToggle } from "@/features/investor/components/investor-theme-toggle";
@@ -69,21 +70,8 @@ export function InvestorShellHeader({
   return (
     <header className="sticky top-0 z-20 border-b border-[var(--id-border)] bg-[var(--id-glass)] px-3 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-        <div className="relative hidden min-w-0 flex-1 md:block md:max-w-md lg:mx-auto lg:max-w-lg">
-          <Search
-            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--id-text-faint)]"
-            strokeWidth={1.75}
-          />
-          <input
-            type="search"
-            placeholder="Search traders, strategies, or anything…"
-            className="h-10 w-full rounded-full border border-[var(--id-border)] bg-[var(--id-surface-muted)] pl-10 pr-16 text-sm text-[var(--id-text)] placeholder:text-[var(--id-text-faint)] outline-none transition-colors focus:border-[var(--id-accent)] focus:ring-2 focus:ring-[var(--id-accent-soft)]"
-            readOnly
-            aria-label="Search"
-          />
-          <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-md border border-[var(--id-border)] bg-[var(--id-surface)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--id-text-faint)] sm:inline">
-            ⌘K
-          </kbd>
+        <div className="relative min-w-0 flex-1 md:max-w-md lg:mx-auto lg:max-w-lg">
+          <UnifiedSearch />
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">

@@ -11,7 +11,6 @@ import {
 } from "@/features/marketplace/components/marketplace-breadcrumb";
 import { InvestorStrategyIntelligencePanel } from "@/features/investor/components/investment/investor-intelligence-panels";
 import type { StrategyIntelligence } from "@/domain/performance-intelligence/types";
-import { PmStrategyLifecycleTimeline } from "@/features/pool-manager/components/workspace/pm-lifecycle-timeline";
 
 const FAQ = [
   {
@@ -19,8 +18,8 @@ const FAQ = [
     a: "A Strategy is a permanent copy allocation methodology defined by a Verified Trader. It describes how capital will be deployed across market conditions.",
   },
   {
-    q: "How do Copy Cycles work?",
-    a: "Cycles are time-bound fundraising and trading periods under a Strategy. You commit during the funding phase; allocations lock when trading begins.",
+    q: "How does copying work?",
+    a: "Choose a copy tier and allocation for the trader's strategy. Your allocation terms are recorded when you confirm copying.",
   },
   {
     q: "Is my wallet debited when I commit?",
@@ -84,7 +83,7 @@ export function StrategyDetailView({
               <Detail label="Risk profile" value={strategy.riskProfile?.replace(/_/g, " ") ?? "—"} />
               <Detail label="Copy Allocation style" value={strategy.investmentStyle ?? "—"} />
               <Detail label="Asset classes" value={strategy.supportedAssets.join(", ") || "—"} />
-              <Detail label="Expected holding period" value="Defined per cycle" />
+              <Detail label="Expected trading period" value="Defined by the trader" />
             </dl>
           </div>
         </section>
@@ -106,12 +105,6 @@ export function StrategyDetailView({
             )}
           </section>
 
-          <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
-            <h2 className="font-semibold text-[var(--id-text)]">Lifecycle</h2>
-            <div className="mt-4">
-              <PmStrategyLifecycleTimeline currentStatus={strategy.status} />
-            </div>
-          </section>
         </div>
       </div>
 

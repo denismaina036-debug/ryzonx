@@ -1,5 +1,3 @@
-import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
-import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
 import { AGGRESSIVENESS_LABELS, CAPACITY_STATUS_LABELS } from "@/constants/marketplace";
 import type { MarketplacePoolCard } from "@/domain/marketplace/types";
 import type { PlatformInvestmentLevel, PoolRoiMultiplier } from "@/domain/roi/types";
@@ -97,11 +95,6 @@ export function formatRiskLevelTag(aggressivenessLevel: string | null | undefine
 
 export function formatPoolLevelLabel(capacityStatus: string): string {
   return CAPACITY_STATUS_LABELS[capacityStatus] ?? capacityStatus;
-}
-
-export function formatCycleStatusLabel(status: InvestmentCycleStatus | null | undefined): string {
-  if (!status) return "—";
-  return INVESTMENT_CYCLE_STATUS_LABELS[status] ?? status;
 }
 
 export function resolveTradingAssetLabel(input: {

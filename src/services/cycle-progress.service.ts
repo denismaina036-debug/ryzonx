@@ -399,6 +399,29 @@ export const cycleProgressService = {
     const publicTrades: PublicTradeEntryView[] =
       await tradeEntryService.listPublicClosedByCycle(cycle.id);
 
+    const personalizedTrades = options?.investorUserId
+      ? await (async () => {
+          const { profitDistributionService } = await import(
+            "@/services/profit-distribution.service"
+          );
+          return Promise.all(
+            publicTrades.map(async (trade) => {
+              if (trade.realizedPnl == null) return { ...trade, copierRealizedPnl: null };
+              const projections = await profitDistributionService.projectInvestorProfitForCycle(
+                cycle.id,
+                trade.realizedPnl
+              );
+              return {
+                ...trade,
+                copierRealizedPnl:
+                  projections.find((row) => row.investorId === options.investorUserId)
+                    ?.projectedProfit ?? null,
+              };
+            })
+          );
+        })()
+      : publicTrades;
+
     const db = createAdminClient();
     const { data: latestSnapshot } = await db
       .from("trade_snapshots")
@@ -421,7 +444,7 @@ export const cycleProgressService = {
         totalTrades: metrics.totalTrades,
         lastSnapshotAt: (latestSnapshot as { snapshot_at?: string } | null)?.snapshot_at ?? null,
       },
-      publicTrades,
+      publicTrades: personalizedTrades,
       portfolioProgress: {
         raisedCapital: cycle.raisedCapital,
         targetCapital: cycle.targetCapital,

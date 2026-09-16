@@ -303,6 +303,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
   {
     title: "Trading",
     entries: [
+      { type: "link", link: { label: "Trading Control Center", href: ROUTES.adminTradingControl, icon: Settings } },
       { type: "link", link: { label: "Trades", href: ROUTES.adminTrades, icon: TrendingUp } },
       { type: "link", link: { label: "Trading Journal", href: ROUTES.adminJournal, icon: BookOpen } },
       { type: "link", link: { label: "Performance Intelligence", href: ROUTES.adminPerformance, icon: LineChart } },

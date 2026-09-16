@@ -66,13 +66,13 @@ export function PoolActivityFilters({
       </FilterField>
 
       {showCycleFilter && (
-        <FilterField label="Cycle">
+        <FilterField label="Copy period">
           <select
             value={filters.cycleId}
             onChange={(e) => onChange({ ...filters, cycleId: e.target.value })}
             className={selectClass}
           >
-            <option value="">All cycles</option>
+            <option value="">All copy periods</option>
             {cycles.map((cycle) => (
               <option key={cycle.id} value={cycle.id}>
                 {copyTradingText(cycle.name)}

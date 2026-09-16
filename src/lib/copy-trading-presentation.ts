@@ -29,6 +29,14 @@ export function copyTradingText(value: string | null | undefined): string {
     .replace(/\binvesting\b/gi, "copying")
     .replace(/\binvested\b/gi, "allocated")
     .replace(/\binvest\b/gi, "copy")
+    .replace(/\btrading cycles\b/gi, "copy activity")
+    .replace(/\btrading cycle\b/gi, "copy activity")
+    .replace(/\bfunding cycles\b/gi, "copy opportunities")
+    .replace(/\bfunding cycle\b/gi, "copy opportunity")
+    .replace(/\bcopy cycles\b/gi, "copy periods")
+    .replace(/\bcopy cycle\b/gi, "copy period")
+    .replace(/\bcycles\b/gi, "copy periods")
+    .replace(/\bcycle\b/gi, "copy period")
     .replace(/\bpools\b/gi, "strategies")
     .replace(/\bpool\b/gi, "strategy");
 }
@@ -46,4 +54,9 @@ export function displayedTradedCapital(pool: {
   return pool.activeCycle && ["trading", "distribution", "closed", "completed", "archived"].includes(pool.activeCycle.status)
     ? pool.raisedCapital
     : pool.previousTradedCapital ?? 0;
+}
+
+/** Public copier totals stay consistent across marketplace cards and trader views. */
+export function displayedCopierCount(pool: { activeInvestors: number }): number {
+  return pool.activeInvestors;
 }

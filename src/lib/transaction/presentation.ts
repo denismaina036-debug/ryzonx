@@ -106,6 +106,8 @@ export function resolveTransactionCategory(input: {
   if (method === "pool_allocation") return "pool_investment";
   if (method === "profit_reinvest") return "pool_investment";
   if (method === "pool_exit") return "pool_settlement";
+  if (method === "copy_stop") return "pool_settlement";
+  if (method === "copy_continue") return "pool_investment";
   if (method === "cycle_profit") return "pool_profit";
   if (method === "cycle_loss") return "pool_loss";
   if (method === "profit_transfer") return "profit_distribution";
@@ -255,13 +257,21 @@ export function buildTransactionPresentation(
   input: TransactionPresentationInput
 ): TransactionPresentation {
   const category = resolveTransactionCategory(input);
+  const method = (input.paymentMethod ?? "").toLowerCase();
   const amountMeta = resolveAmountPresentation(category, input);
   const isReferralReward =
     category === "reward" && Boolean(readMetadataString(input.metadata ?? null, "referralId"));
 
   return {
     category,
-    title: isReferralReward ? "Referral Reward" : CATEGORY_TITLES[category],
+    title:
+      method === "copy_stop"
+        ? "Stopped Copying"
+        : method === "copy_continue"
+          ? "Copying Continued"
+          : isReferralReward
+            ? "Referral Reward"
+            : CATEGORY_TITLES[category],
     subtitle: isReferralReward ? "RyvonX Referral Program" : resolveSubtitle(category, input),
     iconKind: CATEGORY_ICONS[category],
     amountPrefix: amountMeta.prefix,

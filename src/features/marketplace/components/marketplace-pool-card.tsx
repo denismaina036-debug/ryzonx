@@ -14,7 +14,6 @@ import {
   Wallet,
 } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
-import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
 import { formatCurrency, cn } from "@/lib/utils";
 import { PoolCoverBanner } from "@/features/marketplace/components/pool-cover-banner";
 import { ManagerCountryBadge } from "@/features/marketplace/components/manager-country-badge";
@@ -22,7 +21,7 @@ import { MobileMarketplacePoolCard } from "@/features/marketplace/components/mob
 import { Button } from "@/components/ui/button";
 import type { MarketplacePoolCard } from "@/domain/marketplace/types";
 import { shouldShowPoolTagline } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
-import { copyTraderName, copyTradingText, displayedTradedCapital } from "@/lib/copy-trading-presentation";
+import { copyTraderName, copyTradingText, displayedCopierCount, displayedTradedCapital } from "@/lib/copy-trading-presentation";
 import { PoolCardRoiPreview } from "@/features/marketplace/components/pool-card-roi-preview";
 import { formatTradingDateTimeLabel } from "@/domain/pools/trading-session";
 
@@ -166,19 +165,11 @@ function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
           </div>
         </div>
 
-        {/* Active Cycle */}
+        {/* Copy details */}
         <div className="mt-4 rounded-xl border border-[var(--id-border)] bg-[var(--id-surface-muted)]/60 p-3.5 sm:p-4">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--id-text-muted)]">
-              Active Cycle
-            </p>
-            {pool.activeCycle && (
-              <span className="rounded-full bg-[var(--id-accent-soft)] px-2.5 py-0.5 text-[10px] font-semibold text-[var(--id-accent-text)]">
-                {INVESTMENT_CYCLE_STATUS_LABELS[pool.activeCycle.status] ??
-                  pool.activeCycle.status}
-              </span>
-            )}
-          </div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--id-text-muted)]">
+            Copy details
+          </p>
 
           <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-[11px]">
             <div className="space-y-3">
@@ -220,7 +211,7 @@ function DesktopMarketplacePoolCard({ pool }: MarketplacePoolCardProps) {
               <CycleStat
                 icon={User}
                 label="Copiers"
-                value={String(pool.cycleParticipantCount)}
+                value={String(displayedCopierCount(pool))}
               />
             </div>
           </div>

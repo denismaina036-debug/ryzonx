@@ -22,6 +22,12 @@ import {
   validateCycleRoiMultipliers,
 } from "@/domain/investment/cycle-validation";
 import { resolveReturnDuration } from "@/domain/roi/return-duration";
+import { validateCycleProfitSplits } from "@/domain/investment/profit-split";
+import {
+  PmProfitSplitEditor,
+  parseProfitSplitEntries,
+  type ProfitSplitEntry,
+} from "./pm-profit-split-editor";
 
 export interface CreateCycleFormValues {
   name: string;
@@ -33,6 +39,7 @@ export interface CreateCycleFormValues {
   initialRaisedCapital: string;
   targetInvestors: string;
   multipliers: RoiMultiplierEntry[];
+  profitSplits: ProfitSplitEntry[];
 }
 
 export const DEFAULT_CREATE_CYCLE_FORM_VALUES: CreateCycleFormValues = {
@@ -45,6 +52,7 @@ export const DEFAULT_CREATE_CYCLE_FORM_VALUES: CreateCycleFormValues = {
   initialRaisedCapital: "",
   targetInvestors: "",
   multipliers: [],
+  profitSplits: [],
 };
 
 interface CreateCycleFormProps {
@@ -162,13 +170,22 @@ export function CreateCycleForm({
       </PmFormField>
 
       {investmentLevels.length > 0 && (
-        <PmFormField label="Profit multipliers (ROI)" hint="Per investment level for this cycle.">
-          <PmRoiMultiplierEditor
-            levels={investmentLevels}
-            multipliers={values.multipliers}
-            onChange={(multipliers) => patch("multipliers", multipliers)}
-          />
-        </PmFormField>
+        <div className="space-y-6">
+          <PmFormField label="Copy ratios" hint="Per copy tier for this strategy.">
+            <PmRoiMultiplierEditor
+              levels={investmentLevels}
+              multipliers={values.multipliers}
+              onChange={(multipliers) => patch("multipliers", multipliers)}
+            />
+          </PmFormField>
+          <PmFormField label="Profit split" hint="Display-only trader/copier split for each tier.">
+            <PmProfitSplitEditor
+              levels={investmentLevels}
+              splits={values.profitSplits}
+              onChange={(profitSplits) => patch("profitSplits", profitSplits)}
+            />
+          </PmFormField>
+        </div>
       )}
 
       <PmFormMessage message={error} variant="error" />
@@ -220,6 +237,11 @@ export function validateCreateCycleForm(
       }))
     );
     if (roiError) return roiError;
+    const profitSplitError = validateCycleProfitSplits(
+      parseProfitSplitEntries(values.profitSplits),
+      values.multipliers.map((entry) => entry.investmentLevelId)
+    );
+    if (profitSplitError) return profitSplitError;
   }
   if (!values.name.trim()) return "Cycle name is required.";
   const investors = parseCycleInvestorCount(values.targetInvestors);
@@ -263,5 +285,6 @@ export function buildCreateCyclePayload(values: CreateCycleFormValues) {
         investmentLevelId: entry.investmentLevelId,
         multiplier: Number(entry.multiplier),
       })),
+    profitSplits: parseProfitSplitEntries(values.profitSplits),
   };
 }

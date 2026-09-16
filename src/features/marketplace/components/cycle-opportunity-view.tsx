@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { ROUTES } from "@/constants/routes";
-import { INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import type { InvestmentCycle, Strategy } from "@/domain/investment/types";
@@ -12,12 +11,10 @@ import { InvestorCycleOperationsLivePanel } from "@/features/investor/components
 import { InvestorCycleIntelligencePanel } from "@/features/investor/components/investment/investor-intelligence-panels";
 import type { InvestorCycleOperationsView } from "@/domain/trading-journal/types";
 import type { CycleIntelligence } from "@/domain/performance-intelligence/types";
-import { PmCycleLifecycleTimeline } from "@/features/pool-manager/components/workspace/pm-lifecycle-timeline";
 import {
   MarketplaceBreadcrumb,
   marketplaceHomeCrumb,
 } from "@/features/marketplace/components/marketplace-breadcrumb";
-import { formatShortCycleLabel } from "@/features/marketplace/utils/marketplace-pool-card-presentation";
 import { isCycleTradingPhase } from "@/lib/investment/cycle-display-phase";
 
 export function CycleOpportunityView({
@@ -38,8 +35,6 @@ export function CycleOpportunityView({
   const canAllocate = cycle.status === "funding";
   const isTrading = isCycleTradingPhase(cycle.status);
 
-  const cycleLabel = formatShortCycleLabel(strategy.name, cycle);
-
   return (
     <div className="space-y-8 pb-10">
       <MarketplaceBreadcrumb
@@ -53,14 +48,13 @@ export function CycleOpportunityView({
         <p className="text-xs font-semibold uppercase tracking-widest text-[var(--id-accent)]">
           Copy Opportunity
         </p>
-        <h1 className="mt-2 text-2xl font-semibold text-[var(--id-text)] sm:text-3xl">{cycleLabel}</h1>
+        <h1 className="mt-2 text-2xl font-semibold text-[var(--id-text)] sm:text-3xl">
+          {strategy.name}
+        </h1>
         <p className="mt-2 max-w-3xl text-sm text-[var(--id-text-muted)]">
-          {cycle.description ?? "A time-bound fundraising and trading period under a verified strategy."}
+          {cycle.description ?? "Copy this verified trader's strategy with the allocation that suits you."}
         </p>
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <span className="rounded-full bg-[var(--id-accent)]/10 px-3 py-1 text-xs font-semibold text-[var(--id-accent)]">
-            {INVESTMENT_CYCLE_STATUS_LABELS[cycle.status]}
-          </span>
           {strategy.riskProfile && (
             <span className="rounded-full bg-[var(--id-border)] px-3 py-1 text-xs capitalize text-[var(--id-text-muted)]">
               {strategy.riskProfile.replace(/_/g, " ")} risk
@@ -69,7 +63,7 @@ export function CycleOpportunityView({
         </div>
         {canAllocate && (
           <Button asChild className="mt-6 rounded-xl [background:var(--id-accent-gradient)] text-white">
-            <Link href={`${ROUTES.marketplaceCycles}/${cycle.slug}/commit`}>Commit to this cycle</Link>
+            <Link href={`${ROUTES.marketplaceCycles}/${cycle.slug}/commit`}>Copy this trader</Link>
           </Button>
         )}
       </header>
@@ -82,9 +76,9 @@ export function CycleOpportunityView({
           <dl className="mt-6 grid gap-4 sm:grid-cols-2">
             <Detail label="Traded capital" value={formatCurrency(isTrading ? cycle.raisedCapital : 0)} />
             <Detail label="Copiers" value={String(cycle.investorCount)} />
-            <Detail label="Minimum allocation" value={cycle.minInvestment != null ? formatCurrency(cycle.minInvestment) : "—"} />
+            <Detail label="Minimum copy amount" value={cycle.minInvestment != null ? formatCurrency(cycle.minInvestment) : "—"} />
             {!isTrading ? (
-              <Detail label="Funding deadline" value={cycle.fundingDeadline ? new Date(cycle.fundingDeadline).toLocaleDateString() : "—"} />
+              <Detail label="Available until" value={cycle.fundingDeadline ? new Date(cycle.fundingDeadline).toLocaleDateString() : "—"} />
             ) : null}
             <Detail label="Expected trading period" value={cycle.durationDays != null ? `${cycle.durationDays} days` : "—"} />
           </dl>
@@ -117,14 +111,7 @@ export function CycleOpportunityView({
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
-          <h2 className="font-semibold text-[var(--id-text)]">Lifecycle Timeline</h2>
-          <div className="mt-4">
-            <PmCycleLifecycleTimeline currentStatus={cycle.status} />
-          </div>
-        </section>
-
+      <div>
         <section className="rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] p-5">
           <h2 className="font-semibold text-[var(--id-text)]">Risk Information</h2>
           <ul className="mt-4 space-y-2 text-sm text-[var(--id-text-muted)]">
@@ -148,8 +135,8 @@ export function CycleOpportunityView({
       {intelligence && <InvestorCycleIntelligencePanel intelligence={intelligence} />}
 
       <section className="rounded-[var(--id-radius)] border border-amber-500/20 bg-amber-500/5 p-5 text-sm text-[var(--id-text-muted)]">
-        <strong className="text-[var(--id-text)]">Disclaimer:</strong> Copy Allocation cycles involve risk of loss.
-        Commitments recorded here represent allocation intent under the RyvonX copy allocation model and are not
+        <strong className="text-[var(--id-text)]">Disclaimer:</strong> Copy trading involves risk of loss.
+        Copy allocations recorded here represent allocation intent under the RyvonX copy trading model and are not
         connected to wallet debits or deposit flows until a future financial integration phase.
       </section>
 

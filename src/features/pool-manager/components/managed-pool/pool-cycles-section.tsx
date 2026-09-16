@@ -23,6 +23,10 @@ import {
   type CreateCycleFormValues,
 } from "./create-cycle-form";
 import type { RoiMultiplierEntry } from "./pm-roi-multiplier-editor";
+import {
+  defaultProfitSplitEntries,
+  profitSplitEntriesFromSnapshot,
+} from "./pm-profit-split-editor";
 
 function sortCyclesChronologically(cycles: InvestmentCycle[]): InvestmentCycle[] {
   return [...cycles].sort((a, b) => a.cycleNumber - b.cycleNumber);
@@ -55,7 +59,6 @@ export function ManagedPoolCyclesPanel({
 }) {
   const router = useRouter();
   const [cycles, setCycles] = useState(initialCycles);
-  const [formValues, setFormValues] = useState<CreateCycleFormValues>(DEFAULT_CREATE_CYCLE_FORM_VALUES);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,6 +67,15 @@ export function ManagedPoolCyclesPanel({
   const nextCycleNumber = (sortedCycles[sortedCycles.length - 1]?.cycleNumber ?? 0) + 1;
   const canCreate = resolveCanCreateCycle(cycles, isLive);
   const lastCycle = sortedCycles[sortedCycles.length - 1];
+  const [formValues, setFormValues] = useState<CreateCycleFormValues>(() => {
+    const saved = lastCycle?.poolConfigSnapshot?.pool?.profitSplits ?? [];
+    return {
+      ...DEFAULT_CREATE_CYCLE_FORM_VALUES,
+      profitSplits: saved.length
+        ? profitSplitEntriesFromSnapshot(saved)
+        : defaultProfitSplitEntries(investmentLevels),
+    };
+  });
 
   useEffect(() => {
     setCycles(initialCycles);
@@ -179,6 +191,7 @@ export function ManagedPoolCyclesPanel({
           ...DEFAULT_CREATE_CYCLE_FORM_VALUES,
           name: `${poolName} — Cycle ${nextCycleNumber + 1}`,
           multipliers: formValues.multipliers,
+          profitSplits: formValues.profitSplits,
         });
         router.refresh();
       }

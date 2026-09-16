@@ -5,6 +5,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity,
+  Compass,
+  Briefcase,
+  Wallet,
   LayoutDashboard,
   Store,
   User,
@@ -49,6 +52,15 @@ const RIGHT_ITEMS: MobileNavItem[] = [
 
 export function InvestorMobileBottomNav() {
   const pathname = usePathname();
+  const tradingArea = [ROUTES.discover, ROUTES.watchlist, ROUTES.tradingPortfolio, ROUTES.wallet].some(path => pathname.startsWith(path));
+  const leftItems = tradingArea ? [
+    { label: "Home", href: ROUTES.dashboard, icon: LayoutDashboard },
+    { label: "Markets", href: ROUTES.discover, icon: Compass, matchPrefixes: [ROUTES.discover, ROUTES.watchlist] },
+  ] : LEFT_ITEMS;
+  const rightItems = tradingArea ? [
+    { label: "Portfolio", href: ROUTES.tradingPortfolio, icon: Briefcase },
+    { label: "Wallet", href: ROUTES.wallet, icon: Wallet },
+  ] : RIGHT_ITEMS;
 
   function isActive(item: MobileNavItem) {
     if (item.href === ROUTES.dashboard) return pathname === item.href;
@@ -64,13 +76,13 @@ export function InvestorMobileBottomNav() {
       aria-label="Mobile navigation"
     >
       <ul className="mx-auto grid max-w-lg grid-cols-5 items-stretch px-1 pt-1">
-        {LEFT_ITEMS.map((item) => (
+        {leftItems.map((item) => (
           <NavButton key={item.href} item={item} active={isActive(item)} />
         ))}
 
         <li aria-hidden className="pointer-events-none" />
 
-        {RIGHT_ITEMS.map((item) => (
+        {rightItems.map((item) => (
           <NavButton key={item.href} item={item} active={isActive(item)} />
         ))}
       </ul>

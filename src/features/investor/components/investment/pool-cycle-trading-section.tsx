@@ -4,7 +4,7 @@ import { formatCurrency } from "@/lib/utils";
 import type { InvestorTradingCycleView } from "@/domain/investment/investor-presentation";
 import { useCycleProgressLive } from "@/hooks/use-cycle-progress-live";
 import { InvestorCycleTradeFeed } from "./investor-cycle-trade-feed";
-import { LiveTradingBadge } from "./live-trading-badge";
+import { formatCycleProfitSplit } from "@/domain/investment/profit-split";
 
 export function PoolCycleTradingSection({ trading }: { trading: InvestorTradingCycleView }) {
   const { operations, isLive } = useCycleProgressLive({
@@ -16,57 +16,28 @@ export function PoolCycleTradingSection({ trading }: { trading: InvestorTradingC
 
   const liveTrading = operations.liveTrading;
   const cycleCapital = operations.portfolioProgress.raisedCapital;
+  const copyingBalance =
+    trading.investorAmount + (liveTrading?.investorProjectedProfit ?? 0);
 
   return (
     <section className="space-y-6">
       <div className="overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow)]">
         <div className="border-b border-[var(--id-border)] px-5 py-4 sm:px-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-[var(--id-accent)]">
-                Trading Cycle
-              </p>
-              <h2 className="mt-1 text-lg font-semibold text-[var(--id-text)]">
-                {trading.cycleName}
-              </h2>
-            </div>
-            <LiveTradingBadge active={isLive} />
-          </div>
+          <h2 className="text-lg font-semibold text-[var(--id-text)]">Copy activity</h2>
         </div>
 
-        <dl className="grid gap-4 px-5 py-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
-          <Metric label="Cycle capital" value={formatCurrency(cycleCapital)} />
-          <Metric label="Your allocation" value={formatCurrency(trading.investorAmount)} />
+        <dl className="grid gap-4 px-5 py-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-3">
+          <Metric label="Traded capital" value={formatCurrency(cycleCapital)} />
+          <Metric label="Copying balance" value={formatCurrency(copyingBalance)} />
           <Metric
-            label="Your share"
-            value={
-              liveTrading?.investorOwnershipPct != null
-                ? `${liveTrading.investorOwnershipPct.toFixed(2)}%`
-                : trading.ownershipSharePct != null
-                  ? `${trading.ownershipSharePct.toFixed(2)}%`
-                  : "—"
-            }
-          />
-          <Metric
-            label="Your projected profit"
-            value={
-              liveTrading?.investorProjectedProfit != null
-                ? formatCurrency(liveTrading.investorProjectedProfit)
-                : "—"
-            }
-            tone={
-              liveTrading && (liveTrading.investorProjectedProfit ?? 0) > 0
-                ? "positive"
-                : liveTrading && (liveTrading.investorProjectedProfit ?? 0) < 0
-                  ? "negative"
-                  : undefined
-            }
+            label={trading.profitSplitTierName ? `${trading.profitSplitTierName} profit split` : "Profit split"}
+            value={formatCycleProfitSplit(trading.profitSplit)}
           />
         </dl>
 
         <p className="border-t border-[var(--id-border)] px-5 py-3 text-xs text-[var(--id-text-muted)] sm:px-6">
-          Projected profit is an estimate before distribution. Wallet balances update after profit
-          distribution.
+          Your copying balance reflects your allocation plus your current share of recorded trade
+          results. Final wallet movement remains protected by settlement controls.
         </p>
       </div>
 
@@ -80,7 +51,6 @@ export function PoolCycleTradingSection({ trading }: { trading: InvestorTradingC
       ) : (
         <InvestorCycleTradeFeed
           trades={operations.publicTrades}
-          cycleStatus={operations.portfolioProgress.cycleStatus}
           live={isLive}
         />
       )}
@@ -91,23 +61,15 @@ export function PoolCycleTradingSection({ trading }: { trading: InvestorTradingC
 function Metric({
   label,
   value,
-  tone,
 }: {
   label: string;
   value: string;
-  tone?: "positive" | "negative";
 }) {
   return (
     <div className="rounded-xl border border-[var(--id-border)] bg-[var(--id-bg)] px-4 py-3">
       <dt className="text-xs text-[var(--id-text-muted)]">{label}</dt>
       <dd
-        className={`mt-1 text-sm font-semibold tabular-nums ${
-          tone === "positive"
-            ? "text-emerald-600 dark:text-emerald-400"
-            : tone === "negative"
-              ? "text-red-600 dark:text-red-400"
-              : "text-[var(--id-text)]"
-        }`}
+        className="mt-1 text-sm font-semibold tabular-nums text-[var(--id-text)]"
       >
         {value}
       </dd>

@@ -7,7 +7,7 @@
     "dev:clean": "powershell -ExecutionPolicy Bypass -Command \"Get-NetTCPConnection -LocalPort 3000,3001 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; if (Test-Path .next) { Remove-Item -Recurse -Force .next }; npm run dev\"",
     "build": "npm run check:types && next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint src",
     "typecheck": "npm run check:types && tsc --noEmit",
     "check:types": "node scripts/check-database-types.mjs",
     "verify": "npm run check:types && npm run build",
@@ -68,6 +68,7 @@
     "zod": "^3.25.63"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@eslint/eslintrc": "^3.3.1",
     "@tailwindcss/postcss": "^4.1.10",
     "@types/node": "^22.15.32",
