@@ -11,6 +11,7 @@ import { investmentAllocationService } from "@/services/investment-allocation.se
 import { poolCapitalService } from "./pool-capital.service";
 import { investorProfitWalletService } from "./investor-profit-wallet.service";
 import { isCopyRestartAfterStop } from "@/domain/investment/copy-restart";
+import { resolveCurrentCopySessionId } from "@/domain/investment/copy-session-lifecycle";
 
 export type CycleInvestorSettlementStatus =
   | "pending_choice"
@@ -183,7 +184,7 @@ async function loadLatestCompletedCopyStops(
     .select("fund_id, amount, created_at, metadata")
     .eq("user_id", investorId)
     .eq("status", "completed")
-    .in("payment_method", ["copy_stop", "copy_stop_funding"])
+    .in("payment_method", ["copy_stop", "copy_stop_funding", "copy_stop_queue"])
     .in("fund_id", fundIds)
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
@@ -259,6 +260,31 @@ async function listTerminalStoppedFundIdsInternal(
       })
     ) {
       terminalFundIds.delete(fundId);
+    }
+  }
+
+  // A copy can be started while no cycle exists yet. In that state the posted
+  // allocation transaction is the session marker, so a prior completed stop
+  // must not make the new relationship look terminal.
+  if (terminalFundIds.size > 0) {
+    const { data: starts, error: startsError } = await db
+      .from("transactions")
+      .select("fund_id, created_at")
+      .eq("user_id", investorId)
+      .eq("payment_method", "pool_allocation")
+      .in("status", ["pending", "completed"])
+      .in("fund_id", [...terminalFundIds])
+      .order("created_at", { ascending: false });
+    if (startsError) throw new Error(startsError.message);
+    for (const start of (starts ?? []) as Array<{
+      fund_id: string | null;
+      created_at: string;
+    }>) {
+      if (!start.fund_id || !terminalFundIds.has(start.fund_id)) continue;
+      const stopped = latestByFund.get(start.fund_id);
+      if (stopped && new Date(start.created_at) > new Date(stopped.completedAt)) {
+        terminalFundIds.delete(start.fund_id);
+      }
     }
   }
 
@@ -806,14 +832,22 @@ export const cycleInvestorSettlementService = {
 
   async ensureSettlementForFund(
     investorId: string,
-    fundId: string
+    fundId: string,
+    investmentCycleIds?: string[]
   ): Promise<CycleInvestorSettlement | null> {
     const tradingFundIds = await investmentCycleService.listTradingCycleFundIds([fundId]);
     if (tradingFundIds.has(fundId)) return null;
 
     await this.syncPendingSettlementsForEligiblePools(investorId, [fundId], tradingFundIds);
     const pending = await this.listPendingForInvestor(investorId);
-    return pending.find((settlement) => settlement.fundId === fundId) ?? null;
+    return (
+      pending.find(
+        (settlement) =>
+          settlement.fundId === fundId &&
+          (!investmentCycleIds?.length ||
+            investmentCycleIds.includes(settlement.investmentCycleId))
+      ) ?? null
+    );
   },
 
   /**
@@ -1009,6 +1043,218 @@ export const cycleInvestorSettlementService = {
   > {
     const user = await requireAuth();
     const db = createAdminClient();
+    const { data: fundCycles, error: cycleError } = await db
+      .from("investment_cycles")
+      .select("id, status, cycle_number")
+      .eq("fund_id", fundId)
+      .order("cycle_number", { ascending: false });
+    if (cycleError) throw new Error(cycleError.message);
+    const cycleRows = (fundCycles ?? []) as Array<{
+      id: string;
+      status: string;
+      cycle_number: number;
+    }>;
+    const cycleById = new Map(cycleRows.map((cycle) => [cycle.id, cycle]));
+    const cycleIds = cycleRows.map((cycle) => cycle.id);
+
+    const [
+      { data: allocationRows, error: allocationError },
+      { data: queueRows, error: queueError },
+      { data: startRows, error: startError },
+    ] = await Promise.all([
+        cycleIds.length > 0
+          ? db
+              .from("investment_allocations")
+              .select(
+                "id, investment_cycle_id, copy_session_id, amount, returned_capital_amount, allocated_at, status"
+              )
+              .eq("investor_id", user.id)
+              .in("investment_cycle_id", cycleIds)
+              .in("status", ["pending", "funding_confirmed", "confirmed", "locked", "settled", "distributed"])
+              .order("allocated_at", { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
+        db
+          .from("investment_queue")
+          .select("id, copy_session_id, amount, created_at")
+          .eq("fund_id", fundId)
+          .eq("investor_id", user.id)
+          .eq("queue_type", "investment")
+          .eq("status", "pending")
+          .order("created_at", { ascending: false }),
+        db
+          .from("transactions")
+          .select("created_at, metadata")
+          .eq("fund_id", fundId)
+          .eq("user_id", user.id)
+          .eq("payment_method", "pool_allocation")
+          .in("status", ["pending", "completed"])
+          .order("created_at", { ascending: false })
+          .limit(1),
+      ]);
+    if (allocationError) throw new Error(allocationError.message);
+    if (queueError) throw new Error(queueError.message);
+    if (startError) throw new Error(startError.message);
+
+    const activeAllocations = ((allocationRows ?? []) as unknown as Array<{
+      id: string;
+      investment_cycle_id: string;
+      copy_session_id: string;
+      amount: number | string;
+      returned_capital_amount: number | string;
+      allocated_at: string;
+      status: string;
+    }>).filter(
+      (allocation) =>
+        toNumber(allocation.amount) > toNumber(allocation.returned_capital_amount)
+    );
+    const pendingQueues = (queueRows ?? []) as unknown as Array<{
+      id: string;
+      copy_session_id: string;
+      amount: number | string;
+      created_at: string;
+    }>;
+    const copyStarts = ((startRows ?? []) as Array<{
+      created_at: string;
+      metadata: Record<string, unknown> | null;
+    }>)
+      .map((row) => ({
+        copySessionId: row.metadata?.copy_session_id,
+        startedAt: row.created_at,
+      }))
+      .filter(
+        (row): row is { copySessionId: string; startedAt: string } =>
+          typeof row.copySessionId === "string"
+      );
+
+    const currentSessionId = resolveCurrentCopySessionId({
+      allocations: activeAllocations.map((allocation) => ({
+        copySessionId: allocation.copy_session_id,
+        startedAt: allocation.allocated_at,
+      })),
+      queues: pendingQueues.map((queue) => ({
+        copySessionId: queue.copy_session_id,
+        startedAt: queue.created_at,
+      })),
+      starts: copyStarts,
+    });
+    const sessionAllocations = currentSessionId
+      ? activeAllocations.filter(
+          (allocation) => allocation.copy_session_id === currentSessionId
+        )
+      : [];
+    const sessionQueues = currentSessionId
+      ? pendingQueues.filter((queue) => queue.copy_session_id === currentSessionId)
+      : [];
+
+    await ensureWalletPortfolio(db, user.id);
+    const { data: fund } = await db.from("funds").select("name").eq("id", fundId).maybeSingle();
+    const { ledgerAccountService } = await import("@/services/ledger-account.service");
+    const accounts = await ledgerAccountService.ensureInvestorAccounts(user.id);
+
+    let queuedTransfer = 0;
+    for (const queue of sessionQueues) {
+      const { data, error } = await db.rpc("stop_queued_copying_atomic" as never, {
+        p_queue_id: queue.id,
+        p_investor_id: user.id,
+        p_available_account_id: accounts.available.id,
+        p_reserved_account_id: accounts.reserved.id,
+        p_description: `Stopped copying ${fund?.name ?? "Trader"}`,
+      } as never);
+      if (error) throw new Error(error.message);
+      queuedTransfer = roundMoney(
+        queuedTransfer + toNumber((data as { transferred?: number | string } | null)?.transferred)
+      );
+    }
+
+    const tradingAllocation = sessionAllocations.find((allocation) => {
+      const status = cycleById.get(allocation.investment_cycle_id)?.status;
+      return status === "trading" || status === "distribution";
+    });
+
+    if (tradingAllocation) {
+      const { data: existingRequest, error: existingRequestError } = await db
+        .from("copy_stop_requests" as never)
+        .select("requested_at" as never)
+        .eq("allocation_id" as never, tradingAllocation.id)
+        .eq("status" as never, "requested")
+        .maybeSingle();
+      if (existingRequestError) throw new Error(existingRequestError.message);
+      if (existingRequest) {
+        return {
+          pending: true,
+          requestedAt: String((existingRequest as { requested_at: string }).requested_at),
+          transferred: 0,
+          capital: 0,
+          profit: 0,
+        };
+      }
+
+      const [profitAccount, suspenseAccount] = await Promise.all([
+        ledgerAccountService.ensureInvestorPoolProfitAccount(
+          user.id,
+          fundId,
+          fund?.name ?? "Trader"
+        ),
+        ledgerAccountService.ensurePlatformSuspenseAccount(),
+      ]);
+      const requestedAt = new Date().toISOString();
+      const { error: requestError } = await db
+        .from("copy_stop_requests" as never)
+        .insert({
+          allocation_id: tradingAllocation.id,
+          copy_session_id: tradingAllocation.copy_session_id,
+          investment_cycle_id: tradingAllocation.investment_cycle_id,
+          fund_id: fundId,
+          investor_id: user.id,
+          profit_account_id: profitAccount.id,
+          available_account_id: accounts.available.id,
+          suspense_account_id: suspenseAccount.id,
+          status: "requested",
+          requested_at: requestedAt,
+        } as never);
+      if (requestError) throw new Error(requestError.message);
+      return { pending: true, requestedAt, transferred: 0, capital: 0, profit: 0 };
+    }
+
+    const fundingAllocation = sessionAllocations.find((allocation) => {
+      const status = cycleById.get(allocation.investment_cycle_id)?.status;
+      return status === "approved" || status === "funding";
+    });
+    if (fundingAllocation) {
+      const suspenseAccount = await ledgerAccountService.ensurePlatformSuspenseAccount();
+      const { data, error: releaseError } = await db.rpc(
+        "stop_copying_open_funding_atomic" as never,
+        {
+          p_allocation_id: fundingAllocation.id,
+          p_investor_id: user.id,
+          p_available_account_id: accounts.available.id,
+          p_suspense_account_id: suspenseAccount.id,
+          p_description: `Stopped copying ${fund?.name ?? "Trader"}`,
+        } as never
+      );
+      if (releaseError) throw new Error(releaseError.message);
+      const { investmentCycleMetricsService } = await import(
+        "@/services/investment-cycle-metrics.service"
+      );
+      await investmentCycleMetricsService.recalculateCycleRaisedCapital(
+        fundingAllocation.investment_cycle_id
+      );
+      const transferred = roundMoney(
+        queuedTransfer +
+          toNumber((data as { transferred?: number | string } | null)?.transferred)
+      );
+      return { pending: false, transferred, capital: transferred, profit: 0 };
+    }
+
+    if (queuedTransfer > 0) {
+      return {
+        pending: false,
+        transferred: queuedTransfer,
+        capital: queuedTransfer,
+        profit: 0,
+      };
+    }
+
     const terminalStopState = await listTerminalStoppedFundIdsInternal(
       db,
       user.id,
@@ -1024,116 +1270,13 @@ export const cycleInvestorSettlementService = {
       };
     }
 
-    const { data: cycle, error: cycleError } = await db
-      .from("investment_cycles")
-      .select("id, fund_id, status")
-      .eq("fund_id", fundId)
-      .in("status", ["trading", "distribution"])
-      .order("cycle_number", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (cycleError) throw new Error(cycleError.message);
-
-    if (cycle) {
-      const { data: allocation, error: allocationError } = await db
-        .from("investment_allocations")
-        .select("id, amount, returned_capital_amount")
-        .eq("investment_cycle_id", cycle.id)
-        .eq("investor_id", user.id)
-        .in("status", ["confirmed", "locked", "settled", "distributed"])
-        .maybeSingle();
-      if (allocationError) throw new Error(allocationError.message);
-      if (!allocation || toNumber(allocation.amount) <= toNumber(allocation.returned_capital_amount)) {
-        throw new Error("No active copying balance was found for this trader.");
-      }
-
-      await ensureWalletPortfolio(db, user.id);
-      const { data: fund } = await db
-        .from("funds")
-        .select("name")
-        .eq("id", fundId)
-        .maybeSingle();
-      const { ledgerAccountService } = await import("@/services/ledger-account.service");
-      const [profitAccount, investorAccounts, suspenseAccount] = await Promise.all([
-        ledgerAccountService.ensureInvestorPoolProfitAccount(
-          user.id,
-          fundId,
-          fund?.name ?? "Trader"
-        ),
-        ledgerAccountService.ensureInvestorAccounts(user.id),
-        ledgerAccountService.ensurePlatformSuspenseAccount(),
-      ]);
-      const requestedAt = new Date().toISOString();
-      const { error: requestError } = await db
-        .from("copy_stop_requests" as never)
-        .upsert(
-          {
-            allocation_id: allocation.id,
-            investment_cycle_id: cycle.id,
-            fund_id: fundId,
-            investor_id: user.id,
-            profit_account_id: profitAccount.id,
-            available_account_id: investorAccounts.available.id,
-            suspense_account_id: suspenseAccount.id,
-            status: "requested",
-            requested_at: requestedAt,
-            completed_at: null,
-          } as never,
-          { onConflict: "allocation_id" }
-        );
-      if (requestError) throw new Error(requestError.message);
-
-      return { pending: true, requestedAt, transferred: 0, capital: 0, profit: 0 };
-    }
-
-    // A balance may already have continued into an open next funding period.
-    // It is not trading, so release it immediately instead of leaving the
-    // copier with an unusable stop action.
-    const { data: fundingCycles, error: fundingCyclesError } = await db
-      .from("investment_cycles")
-      .select("id")
-      .eq("fund_id", fundId)
-      .in("status", ["approved", "funding"]);
-    if (fundingCyclesError) throw new Error(fundingCyclesError.message);
-    const fundingCycleIds = ((fundingCycles ?? []) as Array<{ id: string }>).map(
-      (row) => row.id
+    // No open cycle owns this session. Settle the existing authoritative
+    // completed-cycle principal and realized result immediately.
+    const settlement = await this.ensureSettlementForFund(
+      user.id,
+      fundId,
+      sessionAllocations.map((allocation) => allocation.investment_cycle_id)
     );
-    if (fundingCycleIds.length > 0) {
-      const { data: allocation, error: allocationError } = await db
-        .from("investment_allocations")
-        .select("id")
-        .eq("investor_id", user.id)
-        .in("investment_cycle_id", fundingCycleIds)
-        .eq("status", "funding_confirmed")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (allocationError) throw new Error(allocationError.message);
-      if (allocation) {
-        await ensureWalletPortfolio(db, user.id);
-        const { data: fund } = await db.from("funds").select("name").eq("id", fundId).maybeSingle();
-        const { ledgerAccountService } = await import("@/services/ledger-account.service");
-        const [accounts, suspenseAccount] = await Promise.all([
-          ledgerAccountService.ensureInvestorAccounts(user.id),
-          ledgerAccountService.ensurePlatformSuspenseAccount(),
-        ]);
-        const { data, error: releaseError } = await db.rpc(
-          "stop_copying_open_funding_atomic" as never,
-          {
-            p_allocation_id: (allocation as { id: string }).id,
-            p_investor_id: user.id,
-            p_available_account_id: accounts.available.id,
-            p_suspense_account_id: suspenseAccount.id,
-            p_description: `Stopped copying ${fund?.name ?? "Trader"}`,
-          } as never
-        );
-        if (releaseError) throw new Error(releaseError.message);
-        const transferred = toNumber((data as { transferred?: number | string } | null)?.transferred);
-        return { pending: false, transferred, capital: transferred, profit: 0 };
-      }
-    }
-
-    const settlement = await this.ensureSettlementForFund(user.id, fundId);
     if (!settlement) {
       throw new Error("No copying balance is available for this trader.");
     }
@@ -1348,10 +1491,27 @@ export const cycleInvestorSettlementService = {
       } as never)
       .eq("id", settlement.fundId);
 
+    const { data: sourceAllocations, error: sourceAllocationError } = await db
+      .from("investment_allocations")
+      .select("copy_session_id")
+      .eq("investment_cycle_id", settlement.investmentCycleId)
+      .eq("investor_id", user.id)
+      .in("status", ["funding_confirmed", "confirmed", "locked", "settled", "distributed"])
+      .order("allocated_at", { ascending: false })
+      .limit(1);
+    if (sourceAllocationError) throw new Error(sourceAllocationError.message);
+    const sourceCopySessionId = (
+      (sourceAllocations ?? [])[0] as unknown as { copy_session_id?: string } | undefined
+    )?.copy_session_id;
+    if (!sourceCopySessionId) {
+      throw new Error("Copy session not found for this completed allocation.");
+    }
+
     await investmentAllocationService.recordMarketplaceJoin({
       cycleId: activeCycle.id,
       investorId: user.id,
       amount,
+      copySessionId: sourceCopySessionId,
     });
 
     const poolName = fund?.name ?? settlement.poolName;

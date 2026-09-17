@@ -14,6 +14,10 @@ const openFundingStopSql = readFileSync(
   resolve(process.cwd(), "supabase/migrations/00091_stop_copying_open_funding.sql"),
   "utf8"
 );
+const copySessionSql = readFileSync(
+  resolve(process.cwd(), "supabase/migrations/00095_copy_session_lifecycle.sql"),
+  "utf8"
+);
 const lifecycleService = readFileSync(
   resolve(process.cwd(), "src/services/investment-engine/cycle-investor-settlement.service.ts"),
   "utf8"
@@ -105,5 +109,27 @@ describe("copying lifecycle database boundary", () => {
     expect(lifecycleService).toContain(
       '["funding_confirmed", "confirmed", "locked", "settled", "distributed"]'
     );
+  });
+
+  it("gives new copy starts independent sessions while allowing only one active row per cycle", () => {
+    expect(copySessionSql).toContain("ADD COLUMN IF NOT EXISTS copy_session_id UUID NOT NULL");
+    expect(copySessionSql).toContain("DROP CONSTRAINT IF EXISTS investment_allocations_investor_cycle_unique");
+    expect(copySessionSql).toContain("idx_investment_allocations_one_active_per_cycle");
+    expect(copySessionSql).toContain("WHERE status NOT IN ('cancelled', 'rejected')");
+  });
+
+  it("keeps automatic continuation in the same copy session", () => {
+    expect(copySessionSql).toContain("v_source.copy_session_id");
+    expect(copySessionSql).toContain("'copy_session_id', v_source.copy_session_id");
+  });
+
+  it("makes immediate, queued, and cycle-close stops idempotent and server-only", () => {
+    expect(copySessionSql).toContain("idx_transactions_copy_stop_settlement");
+    expect(copySessionSql).toContain("idx_transactions_copy_stop_queue");
+    expect(copySessionSql).toContain("copy-stop-queue:' || v_item.id::TEXT");
+    expect(copySessionSql).toContain(
+      "REVOKE ALL ON FUNCTION stop_queued_copying_atomic(UUID, UUID, UUID, UUID, TEXT)"
+    );
+    expect(copySessionSql).not.toMatch(/GRANT EXECUTE[^;]+TO\s+(anon|authenticated)/i);
   });
 });

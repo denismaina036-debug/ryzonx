@@ -8,7 +8,6 @@ import { publishPlatformEvent, PLATFORM_EVENT_TYPES } from "@/lib/platform-event
 import { investmentCycleService } from "@/services/investment-cycle.service";
 import { investmentCycleMetricsService } from "@/services/investment-cycle-metrics.service";
 import { generateAllocationReference } from "@/lib/investment/utils";
-import { resolveMarketplaceCopyRestart } from "@/domain/investment/copy-restart";
 import { resolveAllocationRoi } from "@/lib/financial/roi-v2-distribution";
 import { poolRoiService } from "@/services/pool-roi.service";
 import { platformInvestmentLevelService } from "@/services/platform-investment-level.service";
@@ -21,6 +20,7 @@ import type {
 
 type AllocationRow = {
   id: string;
+  copy_session_id?: string;
   investment_cycle_id: string;
   investor_id: string;
   amount: number;
@@ -48,6 +48,7 @@ function toNumber(value: string | number | null | undefined): number {
 function mapAllocation(row: AllocationRow): InvestmentAllocation {
   return {
     id: row.id,
+    copySessionId: row.copy_session_id ?? row.id,
     investmentCycleId: row.investment_cycle_id,
     investorId: row.investor_id,
     amount: toNumber(row.amount),
@@ -427,10 +428,83 @@ export const investmentAllocationService = {
    * After a marketplace join (wallet debit), attach the investment to the active cycle
    * so Raised Capital / investor count update on PM + marketplace views.
    */
+  async findActiveCopySessionId(
+    fundId: string,
+    investorId: string
+  ): Promise<string | null> {
+    const db = createAdminClient();
+    const { data: cycles, error: cycleError } = await db
+      .from("investment_cycles")
+      .select("id")
+      .eq("fund_id", fundId);
+    if (cycleError) throw new Error(cycleError.message);
+    const cycleIds = ((cycles ?? []) as Array<{ id: string }>).map((cycle) => cycle.id);
+    const [allocationResult, startResult, stopResult] = await Promise.all([
+      cycleIds.length > 0
+        ? db
+            .from("investment_allocations")
+            .select("copy_session_id, amount, returned_capital_amount")
+            .eq("investor_id", investorId)
+            .in("investment_cycle_id", cycleIds)
+            .in("status", ["pending", "funding_confirmed", "confirmed", "locked", "settled", "distributed"])
+            .order("allocated_at", { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
+      db
+        .from("transactions")
+        .select("created_at, metadata")
+        .eq("user_id", investorId)
+        .eq("fund_id", fundId)
+        .eq("payment_method", "pool_allocation")
+        .in("status", ["pending", "completed"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      db
+        .from("transactions")
+        .select("created_at")
+        .eq("user_id", investorId)
+        .eq("fund_id", fundId)
+        .eq("status", "completed")
+        .in("payment_method", ["copy_stop", "copy_stop_funding", "copy_stop_queue"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    if (allocationResult.error) throw new Error(allocationResult.error.message);
+    if (startResult.error) throw new Error(startResult.error.message);
+    if (stopResult.error) throw new Error(stopResult.error.message);
+
+    const current = ((allocationResult.data ?? []) as unknown as Array<{
+      copy_session_id: string;
+      amount: number | string;
+      returned_capital_amount: number | string;
+    }>).find(
+      (allocation) =>
+        toNumber(allocation.amount) > toNumber(allocation.returned_capital_amount)
+    );
+    if (current?.copy_session_id) return current.copy_session_id;
+
+    const latestStart = startResult.data as {
+      created_at: string;
+      metadata: Record<string, unknown> | null;
+    } | null;
+    const latestStop = stopResult.data as { created_at: string } | null;
+    const sessionId = latestStart?.metadata?.copy_session_id;
+    if (
+      latestStart &&
+      typeof sessionId === "string" &&
+      (!latestStop || new Date(latestStart.created_at) > new Date(latestStop.created_at))
+    ) {
+      return sessionId;
+    }
+    return null;
+  },
+
   async recordMarketplaceJoin(input: {
     cycleId: string;
     investorId: string;
     amount: number;
+    copySessionId: string;
   }): Promise<InvestmentAllocation> {
     if (input.amount <= 0) throw new Error("Allocation amount must be positive.");
 
@@ -441,45 +515,29 @@ export const investmentAllocationService = {
     }
 
     const db = createAdminClient();
-    const { data: existingRow } = await db
+    const { data: existingRows, error: existingError } = await db
       .from("investment_allocations")
       .select("*")
       .eq("investment_cycle_id", input.cycleId)
       .eq("investor_id", input.investorId)
-      .maybeSingle();
+      .in("status", ["pending", "funding_confirmed", "confirmed", "locked", "settled", "distributed"])
+      .order("allocated_at", { ascending: false })
+      .limit(1);
+    if (existingError) throw new Error(existingError.message);
 
-    const existing = existingRow ? mapAllocation(existingRow as AllocationRow) : null;
+    const existingRow = (existingRows ?? [])[0] as AllocationRow | undefined;
+    const existing = existingRow ? mapAllocation(existingRow) : null;
     const now = new Date().toISOString();
 
     if (existing) {
-      const { restartingStoppedCopy, nextAmount, fundingConfirmedAt } =
-        resolveMarketplaceCopyRestart({
-          status: existing.status,
-          existingAmount: existing.amount,
-          incomingAmount: input.amount,
-          existingFundingConfirmedAt: existing.fundingConfirmedAt,
-          now,
-        });
+      const nextAmount = existing.amount + input.amount;
       const roiFields = await resolveAllocationRoiFields(cycle, nextAmount);
       const { data, error } = await db
         .from("investment_allocations")
         .update({
           amount: nextAmount,
           status: "funding_confirmed",
-          funding_confirmed_at: fundingConfirmedAt,
-          ...(restartingStoppedCopy
-            ? {
-                allocated_at: now,
-                locked_at: null,
-                settled_at: null,
-                settlement_transaction_id: null,
-                returned_capital_amount: 0,
-                capital_returned_at: null,
-                capital_return_ledger_transaction_id: null,
-                cumulative_realised_return: 0,
-                target_fulfilled: false,
-              }
-            : {}),
+          funding_confirmed_at: existing.fundingConfirmedAt ?? now,
           ...(roiFields
             ? {
                 investment_level_id: roiFields.investmentLevelId,
@@ -508,6 +566,7 @@ export const investmentAllocationService = {
         status: "funding_confirmed",
         funding_confirmed_at: now,
         reference_number: generateAllocationReference(),
+        copy_session_id: input.copySessionId,
         ...(roiFields
           ? {
               investment_level_id: roiFields.investmentLevelId,

@@ -75,6 +75,7 @@ export interface CycleParticipantView {
 
 export interface InvestmentAllocation {
   id: string;
+  copySessionId: string;
   investmentCycleId: string;
   investorId: string;
   amount: number;

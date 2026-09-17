@@ -761,7 +761,7 @@ export const investorService = {
         .select("fund_id")
         .eq("user_id", user.id)
         .eq("status", "completed")
-        .in("payment_method", ["copy_stop", "copy_stop_funding"])
+        .in("payment_method", ["copy_stop", "copy_stop_funding", "copy_stop_queue"])
         .in("fund_id", allFundIds);
       for (const row of (completedStops ?? []) as Array<{ fund_id: string | null }>) {
         if (row.fund_id) completedStopFundIds.add(row.fund_id);

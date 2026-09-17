@@ -19,6 +19,7 @@ export interface InvestmentQueueItem {
   status: InvestmentQueueStatus;
   targetCycleId: string | null;
   sourceSettlementId: string | null;
+  copySessionId: string;
   notes: string | null;
   processedAt: string | null;
   createdAt: string;

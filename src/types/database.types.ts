@@ -2114,6 +2114,7 @@ export type Database = {
           amount: number
           capital_return_ledger_transaction_id: string | null
           capital_returned_at: string | null
+          copy_session_id: string
           cumulative_realised_return: number
           created_at: string
           currency: string
@@ -2138,6 +2139,7 @@ export type Database = {
           amount: number
           capital_return_ledger_transaction_id?: string | null
           capital_returned_at?: string | null
+          copy_session_id?: string
           cumulative_realised_return?: number
           created_at?: string
           currency?: string
@@ -2162,6 +2164,7 @@ export type Database = {
           amount?: number
           capital_return_ledger_transaction_id?: string | null
           capital_returned_at?: string | null
+          copy_session_id?: string
           cumulative_realised_return?: number
           created_at?: string
           currency?: string
@@ -2320,6 +2323,7 @@ export type Database = {
       investment_queue: {
         Row: {
           amount: number
+          copy_session_id: string
           created_at: string
           fund_id: string
           id: string
@@ -2333,6 +2337,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          copy_session_id?: string
           created_at?: string
           fund_id: string
           id?: string
@@ -2346,6 +2351,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          copy_session_id?: string
           created_at?: string
           fund_id?: string
           id?: string

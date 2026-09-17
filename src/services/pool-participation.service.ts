@@ -264,6 +264,9 @@ export const poolParticipationService = {
     }
 
     const activeCycle = await investmentCycleService.getActiveForFund(poolId);
+    const copySessionId =
+      (await investmentAllocationService.findActiveCopySessionId(poolId, user.id)) ??
+      crypto.randomUUID();
     const effectiveMinInvestment =
       activeCycle?.minInvestment != null && activeCycle.minInvestment > 0
         ? activeCycle.minInvestment
@@ -340,6 +343,7 @@ export const poolParticipationService = {
         status: queueDuringTrading ? "pending" : "completed",
         payment_method: "pool_allocation",
         notes: txNotes,
+        metadata: { copy_session_id: copySessionId },
       } as never)
       .select("id")
       .single();
@@ -433,14 +437,25 @@ export const poolParticipationService = {
       const { investmentQueueService } = await import(
         "@/services/investment-engine/investment-queue.service"
       );
-      await investmentQueueService.enqueue({
+      const queueItem = await investmentQueueService.enqueue({
         fundId: poolId,
         investorId: user.id,
         queueType: "investment",
         amount,
+        copySessionId,
         targetCycleId: activeCycle.id,
         notes: `Queued during ${activeCycle.status}`,
       });
+      const { error: queueLinkError } = await db
+        .from("transactions")
+        .update({
+          metadata: {
+            copy_session_id: copySessionId,
+            queue_id: queueItem.id,
+          },
+        } as never)
+        .eq("id", txId);
+      if (queueLinkError) throw new Error(queueLinkError.message);
 
       const { referralService } = await import("@/services/referral.service");
       await referralService
@@ -503,11 +518,23 @@ export const poolParticipationService = {
     );
 
     if (fundingCycleActive) {
-      await investmentAllocationService.recordMarketplaceJoin({
+      const allocation = await investmentAllocationService.recordMarketplaceJoin({
         cycleId: activeCycle!.id,
         investorId: user.id,
         amount,
+        copySessionId,
       });
+      const { error: transactionLinkError } = await db
+        .from("transactions")
+        .update({
+          metadata: {
+            copy_session_id: allocation.copySessionId,
+            allocation_id: allocation.id,
+            cycle_id: allocation.investmentCycleId,
+          },
+        } as never)
+        .eq("id", txId);
+      if (transactionLinkError) throw new Error(transactionLinkError.message);
     }
 
     const { referralService } = await import("@/services/referral.service");
@@ -997,11 +1024,15 @@ export const poolParticipationService = {
     let applied = reinvestAmount;
 
     if (queueDuringTrading) {
+      const copySessionId =
+        (await investmentAllocationService.findActiveCopySessionId(fundId, user.id)) ??
+        crypto.randomUUID();
       await investmentQueueService.enqueueReinvestment({
         fundId,
         investorId: user.id,
         amount: reinvestAmount,
         targetCycleId: activeCycle.id,
+        copySessionId,
       });
     } else if (profitWalletBalance >= reinvestAmount - 0.004) {
       await investorProfitWalletService.debitFromFund(user.id, fundId, reinvestAmount);

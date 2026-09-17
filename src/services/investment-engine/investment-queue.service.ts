@@ -12,6 +12,7 @@ type QueueRow = {
   status: "pending" | "processed" | "cancelled";
   target_cycle_id: string | null;
   source_settlement_id: string | null;
+  copy_session_id: string;
   notes: string | null;
   processed_at: string | null;
   created_at: string;
@@ -27,6 +28,7 @@ function mapQueue(row: QueueRow): InvestmentQueueItem {
     status: row.status,
     targetCycleId: row.target_cycle_id,
     sourceSettlementId: row.source_settlement_id,
+    copySessionId: row.copy_session_id,
     notes: row.notes,
     processedAt: row.processed_at,
     createdAt: row.created_at,
@@ -41,6 +43,7 @@ export const investmentQueueService = {
     amount: number;
     targetCycleId?: string | null;
     sourceSettlementId?: string | null;
+    copySessionId: string;
     notes?: string | null;
   }): Promise<InvestmentQueueItem> {
     const db = createAdminClient();
@@ -53,6 +56,7 @@ export const investmentQueueService = {
         amount: params.amount,
         target_cycle_id: params.targetCycleId ?? null,
         source_settlement_id: params.sourceSettlementId ?? null,
+        copy_session_id: params.copySessionId,
         notes: params.notes ?? null,
       } as never)
       .select("*")
@@ -66,6 +70,7 @@ export const investmentQueueService = {
     investorId: string;
     amount: number;
     targetCycleId?: string | null;
+    copySessionId: string;
   }): Promise<InvestmentQueueItem> {
     await investorProfitWalletService.debit(params.investorId, params.fundId, params.amount);
     return this.enqueue({
