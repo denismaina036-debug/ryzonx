@@ -22,7 +22,11 @@ export const cycleLifecycleOrchestrator = {
     const cycle = await investmentCycleService.getById(cycleId);
     if (!cycle?.fundId) return;
 
-    await investmentQueueService.processPendingForFund(cycle.fundId);
+    const pending = await investmentQueueService.listPending(cycle.fundId);
+    for (const item of pending) {
+      // Another opportunity's queued capital must not move when this one pays out.
+      if (item.targetCycleId === cycleId) await investmentQueueService.processItem(item);
+    }
     await poolCapitalService.syncFundInvestorCapital(cycle.fundId);
   },
 

@@ -66,7 +66,6 @@ export function PmCycleDetailClient({
   const [cycle, setCycle] = useState(initialCycle);
   const [participants, setParticipants] = useState<ParticipantRow[]>([]);
   const [liveMetrics, setLiveMetrics] = useState<CycleLiveMetrics | null>(null);
-  const [openTradeCount, setOpenTradeCount] = useState(0);
   const [profitDistributed, setProfitDistributed] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -84,8 +83,7 @@ export function PmCycleDetailClient({
   const isFundingPhase = cycle.status === "approved" || cycle.status === "funding";
   const isTradingPhase = cycle.status === "trading" || cycle.status === "distribution";
 
-  const canCloseCycle =
-    (cycle.status === "trading" && openTradeCount === 0) || cycle.status === "distribution";
+  const canCloseCycle = isTradingPhase;
   const hasInvestors = cycle.investorCount > 0;
   const currentProfit = liveMetrics?.currentCycleProfit ?? cycle.currentCycleProfit;
   const currentCapital = liveMetrics?.currentCapital ?? cycle.raisedCapital;
@@ -135,22 +133,6 @@ export function PmCycleDetailClient({
   }, [isTradingPhase, refreshLiveMetrics]);
 
   useIntervalRefresh(refreshLiveMetrics, 12_000, isTradingPhase);
-
-  useEffect(() => {
-    if (cycle.status !== "trading") {
-      setOpenTradeCount(0);
-      return;
-    }
-    void fetch(`/api/pool-manager/investment-cycles/${cycle.id}/journal`)
-      .then((res) => res.json())
-      .then((data: { entries?: Array<{ status: string }> }) => {
-        const open = (data.entries ?? []).filter(
-          (e) => e.status === "open" || e.status === "partially_closed"
-        );
-        setOpenTradeCount(open.length);
-      })
-      .catch(() => setOpenTradeCount(0));
-  }, [cycle.id, cycle.status, liveMetrics?.tradesRecorded]);
 
   useEffect(() => {
     if (cycle.status !== "trading") {
@@ -356,13 +338,6 @@ export function PmCycleDetailClient({
             >
               Close Cycle
             </ActionButton>
-          )}
-
-          {cycle.status === "trading" && openTradeCount > 0 && (
-            <p className="self-center text-sm text-amber-700 dark:text-amber-300">
-              Close all {openTradeCount} open trade{openTradeCount === 1 ? "" : "s"} before closing
-              the cycle.
-            </p>
           )}
 
           {isTradingPhase && (

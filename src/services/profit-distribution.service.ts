@@ -21,7 +21,6 @@ import { COMMITTED_ALLOCATION_STATUSES } from "@/domain/investment/cycle-metrics
 import { investmentCycleService } from "@/services/investment-cycle.service";
 import { investmentAllocationService } from "@/services/investment-allocation.service";
 import { tradeEntryService } from "@/services/trade-entry.service";
-import { cycleProfitService } from "@/services/investment-engine/cycle-profit.service";
 import { cycleOwnershipService } from "@/services/investment-engine/cycle-ownership.service";
 import { investorProfitWalletService } from "@/services/investment-engine/investor-profit-wallet.service";
 import { cycleLifecycleOrchestrator } from "@/services/investment-engine/cycle-lifecycle-orchestrator.service";
@@ -269,9 +268,7 @@ async function resolveCycleGrossTradingProfit(
     return options.grossTradingProfitOverride;
   }
   const tradeEntries = await tradeEntryService.listByCycleInternal(cycleId);
-  const journalProfit = computeCycleRealizedTradingProfit(tradeEntries);
-  const cachedCycleProfit = await cycleProfitService.getCycleProfit(cycleId);
-  return cachedCycleProfit !== 0 ? cachedCycleProfit : journalProfit;
+  return computeCycleRealizedTradingProfit(tradeEntries);
 }
 
 async function listSettlementEligibleAllocations(cycleId: string) {

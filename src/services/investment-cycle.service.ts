@@ -4,11 +4,9 @@ import { userOwnsPoolManager } from "@/lib/auth/pool-manager-access";
 import { USER_ROLES } from "@/constants/roles";
 import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 import { INVESTMENT_CYCLE_ALLOCATABLE_STATUSES } from "@/constants/investment-cycle";
-import { evaluateCycleCreation } from "@/domain/investment/cycle-creation-policy";
 import { auditService } from "@/services/audit.service";
 import { strategyService } from "@/services/strategy.service";
 import { tradingJournalService } from "@/services/trading-journal.service";
-import { tradeEntryService } from "@/services/trade-entry.service";
 import {
   assertInvestmentCycleTransition,
   isInvestmentCycleEditable,
@@ -426,34 +424,6 @@ async function insertCycleFromPoolFund(
       }
     | undefined;
 
-  if (lastCycle) {
-    const decision = evaluateCycleCreation(
-      [
-        {
-          cycleNumber: lastCycle.cycle_number,
-          status: lastCycle.status,
-          raisedCapital: toNumber(lastCycle.raised_capital),
-          maxCapacity:
-            lastCycle.max_capacity == null ? null : toNumber(lastCycle.max_capacity),
-        },
-      ],
-      true
-    );
-    if (!decision.allowed) {
-      if (decision.reason === "funding_cycle_open") {
-        throw new Error(
-          "The current funding cycle must be full or moved to trading before opening another funding cycle."
-        );
-      }
-      if (decision.reason === "distribution_in_progress") {
-        throw new Error(
-          "Complete the current cycle distribution before opening another funding cycle."
-        );
-      }
-      throw new Error("Finish the current cycle transition before opening a new cycle.");
-    }
-  }
-
   const cycleNumber = (lastCycle?.cycle_number ?? 0) + 1;
   const resolvedInput = buildCycleInputFromPool(fund, fundId, cycleNumber, input, options);
   const poolVersion = (fund.pool_config_version as number | undefined) ?? 1;
@@ -566,31 +536,6 @@ async function insertCycleFromPoolFund(
   }
 
   return cycle;
-}
-
-async function assertNoOtherCycleIsTrading(
-  fundId: string | null,
-  cycleId: string
-): Promise<void> {
-  if (!fundId) return;
-
-  const db = createAdminClient();
-  const { data, error } = await db
-    .from("investment_cycles")
-    .select("id, name, status")
-    .eq("fund_id", fundId)
-    .neq("id", cycleId)
-    .in("status", ["trading", "distribution"])
-    .limit(1)
-    .maybeSingle();
-
-  if (error) throw new Error(error.message);
-  if (data) {
-    const active = data as { name: string; status: InvestmentCycleStatus };
-    throw new Error(
-      `${active.name} is still ${active.status}. Keep this cycle in funding until the active trading cycle is closed.`
-    );
-  }
 }
 
 export type CloseInvestmentCycleAction = "create_new_cycle";
@@ -1080,21 +1025,6 @@ export const investmentCycleService = {
 
     assertInvestmentCycleTransition(existing.status, nextStatus, actor);
 
-    if (nextStatus === "trading") {
-      await assertNoOtherCycleIsTrading(existing.fundId, existing.id);
-    }
-
-    if (
-      actor === "manager" &&
-      (nextStatus === "funding" || nextStatus === "completed") &&
-      (existing.status === "trading" || existing.status === "distribution")
-    ) {
-      const openTrades = await tradeEntryService.listOpenByCycle(id);
-      if (openTrades.length > 0) {
-        throw new Error("Close all active trades before closing the investment cycle.");
-      }
-    }
-
     if (nextStatus === "funding" && existing.fundId) {
       const { cycleInvestorSettlementService } = await import(
         "@/services/investment-engine/cycle-investor-settlement.service"
@@ -1250,10 +1180,6 @@ export const investmentCycleService = {
     if (!existing) throw new Error("Investment cycle not found.");
 
     assertInvestmentCycleTransition(existing.status, nextStatus, "admin");
-
-    if (nextStatus === "trading") {
-      await assertNoOtherCycleIsTrading(existing.fundId, existing.id);
-    }
 
     if (nextStatus === "funding" && existing.fundId) {
       const { cycleInvestorSettlementService } = await import(
@@ -1445,11 +1371,6 @@ export const investmentCycleService = {
         throw new Error("Insufficient permissions");
       }
       actorId = user.id;
-    }
-
-    const openTrades = await tradeEntryService.listOpenByCycle(id);
-    if (openTrades.length > 0) {
-      throw new Error("Close all active trades before closing the investment cycle.");
     }
 
     const { profitDistributionService } = await import("@/services/profit-distribution.service");

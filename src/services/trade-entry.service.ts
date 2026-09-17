@@ -152,6 +152,66 @@ async function syncManagerPerformanceStats(
   await poolManagerPerformanceStatsService.syncManager(managerId, reason).catch(() => undefined);
 }
 
+async function recordCompletedTradeEffects(entry: TradeEntry, userId: string): Promise<void> {
+  const realizedPnl = entry.realizedPnl!;
+  const tradeResult = entry.tradeResult;
+  await auditService.log({
+    actorId: userId,
+    action: TRADING_JOURNAL_AUDIT_ACTIONS.TRADE_CLOSED,
+    entityType: TRADE_ENTRY_ENTITY_TYPE,
+    entityId: entry.id,
+    newValues: {
+      exitPrice: entry.exitPrice,
+      tradeReference: entry.tradeReference,
+      tradeResult,
+      realizedPnl,
+    },
+  });
+
+  await cycleProfitService.recalculateCycleProfit(entry.investmentCycleId);
+
+  await cycleProgressService.recordTradeClosed(entry, userId);
+
+  const poolManagerUserId = await resolveCycleManagerUserId(entry.investmentCycleId);
+  if (realizedPnl > 0) {
+    publishPlatformEvent({
+      eventType: PLATFORM_EVENT_TYPES.TRADE_PROFIT_RECORDED,
+      category: "performance",
+      entityType: "trade_entry",
+      entityId: entry.id,
+      actorId: userId,
+      payload: {
+        poolManagerUserId,
+        cycleId: entry.investmentCycleId,
+        tradeReference: entry.tradeReference,
+        instrument: entry.instrument,
+        realizedPnl,
+        summary: `Trade ${entry.tradeReference} recorded a realized profit`,
+      },
+    });
+  }
+  publishPlatformEvent({
+    eventType: PLATFORM_EVENT_TYPES.TRADE_CLOSED,
+    category: "operations",
+    entityType: "trade_entry",
+    entityId: entry.id,
+    actorId: userId,
+    payload: {
+      poolManagerUserId,
+      cycleId: entry.investmentCycleId,
+      tradeReference: entry.tradeReference,
+      instrument: entry.instrument,
+      exitPrice: entry.exitPrice,
+      summary: `Trade ${entry.tradeReference} closed`,
+    },
+  });
+
+  await syncManagerPerformanceStats(
+    entry.poolManagerId,
+    `Trade ${entry.tradeReference} closed`
+  );
+}
+
 export const tradeEntryService = {
   async listByCycle(cycleId: string, actor: "manager" | "admin" = "manager"): Promise<TradeEntry[]> {
     if (actor === "admin") {
@@ -363,57 +423,74 @@ export const tradeEntryService = {
     return (data ?? []).length;
   },
 
-  /** One-step: create, open, and close a trade with optional screenshot. */
+  /** Persist a historical result in one write; never create an intermediate position. */
   async recordCompletedTrade(
     cycleId: string,
     input: CreateTradeEntryInput
   ): Promise<TradeEntry> {
-    if (input.amountUsd != null && input.tradeResult) {
-      const amount = Math.abs(input.amountUsd);
-      if (!Number.isFinite(amount) || amount <= 0) {
-        throw new Error("Dollar amount must be positive.");
-      }
+    const { userId } = await requireManagerId();
+    await assertWritableCycle(cycleId);
+    if (!input.instrument?.trim()) throw new Error("Instrument is required.");
+    const direction = input.direction ?? "long";
+    if (direction !== "long" && direction !== "short") throw new Error("Invalid trade direction.");
+
+    const dollarResult = input.amountUsd != null;
+    const entryPrice = dollarResult ? 1 : input.entryPrice;
+    const exitPrice = dollarResult ? 1 : input.exitPrice;
+    const quantity = dollarResult ? 1 : input.quantity;
+    if (entryPrice == null || !Number.isFinite(entryPrice) || entryPrice <= 0) {
+      throw new Error("Entry price must be positive.");
+    }
+    if (exitPrice == null || !Number.isFinite(exitPrice) || exitPrice <= 0) {
+      throw new Error("Exit price is required to record a completed trade.");
+    }
+    if (quantity == null || !Number.isFinite(quantity) || quantity <= 0) {
+      throw new Error("Quantity must be positive.");
+    }
+    let realizedPnl: number;
+    if (dollarResult) {
+      const amount = input.amountUsd!;
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error("Dollar amount must be positive.");
       if (input.tradeResult !== "profit" && input.tradeResult !== "loss") {
         throw new Error("Select Win or Loss.");
       }
-
-      const signedPnl = input.tradeResult === "loss" ? -amount : amount;
-      const draft = await this.createDraft(cycleId, {
-        instrument: input.instrument,
-        direction: input.direction ?? "long",
-        entryPrice: 1,
-        quantity: 1,
-        notes: input.notes,
-        market: input.market,
-      });
-      const opened = await this.openTrade(draft.id);
-      return this.closeTrade(opened.id, {
-        exitPrice: 1,
-        tradeResult: input.tradeResult,
-        realizedPnlUsd: signedPnl,
-        notes: input.notes,
-        screenshotUrl: input.screenshotUrl,
-      });
+      realizedPnl = input.tradeResult === "loss" ? -amount : amount;
+    } else {
+      realizedPnl = computeTradeRealizedPnl({
+        status: "closed", realizedPnl: null, entryPrice, exitPrice, quantity, direction,
+      } as TradeEntry);
     }
-
-    if (input.exitPrice == null || input.exitPrice <= 0) {
-      throw new Error("Exit price is required to record a completed trade.");
-    }
-    if (input.entryPrice == null || input.entryPrice <= 0) {
-      throw new Error("Entry price must be positive.");
-    }
-    if (input.quantity == null || input.quantity <= 0) {
-      throw new Error("Quantity must be positive.");
-    }
-
-    const draft = await this.createDraft(cycleId, input);
-    const opened = await this.openTrade(draft.id);
-    return this.closeTrade(opened.id, {
-      exitPrice: input.exitPrice,
-      tradeResult: input.tradeResult,
-      notes: input.notes,
-      screenshotUrl: input.screenshotUrl,
-    });
+    if (!Number.isFinite(realizedPnl)) throw new Error("Trade result must be finite.");
+    await assertRecordedLossFitsCycleCapital(cycleId, realizedPnl);
+    const tradeResult = tradeLossAllocationService.resolveTradeResult(realizedPnl);
+    const journal = await tradingJournalService.getOrCreateForCycle(cycleId);
+    const now = new Date().toISOString();
+    const db = createAdminClient();
+    const { data, error } = await db.from("trade_entries").insert({
+      journal_id: journal.id,
+      investment_cycle_id: cycleId,
+      pool_manager_id: journal.poolManagerId,
+      trade_reference: generateTradeReference(),
+      instrument: input.instrument.trim(),
+      market: input.market?.trim() ?? null,
+      direction,
+      entry_price: entryPrice,
+      exit_price: exitPrice,
+      quantity,
+      status: "closed",
+      trade_result: tradeResult,
+      realized_pnl: realizedPnl,
+      opened_at: now,
+      closed_at: now,
+      notes: input.notes?.trim() ?? null,
+      screenshot_url: input.screenshotUrl?.trim() || null,
+      created_by: userId,
+      updated_by: userId,
+    } as never).select("*").single();
+    if (error) throw new Error(error.message);
+    const entry = mapEntry(data as EntryRow);
+    await recordCompletedTradeEffects(entry, userId);
+    return entry;
   },
 
   async createDraft(cycleId: string, input: CreateTradeEntryInput): Promise<TradeEntry> {
@@ -631,61 +708,7 @@ export const tradeEntryService = {
     if (error) throw new Error(error.message);
     const entry = mapEntry(data as EntryRow);
 
-    await auditService.log({
-      actorId: userId,
-      action: TRADING_JOURNAL_AUDIT_ACTIONS.TRADE_CLOSED,
-      entityType: TRADE_ENTRY_ENTITY_TYPE,
-      entityId: entry.id,
-      newValues: {
-        exitPrice: input.exitPrice,
-        tradeReference: entry.tradeReference,
-        tradeResult,
-        realizedPnl,
-      },
-    });
-
-    await cycleProfitService.applyTradeCloseDelta(entry.investmentCycleId, realizedPnl);
-
-    await cycleProgressService.recordTradeClosed(entry, userId);
-
-    const poolManagerUserId = await resolveCycleManagerUserId(entry.investmentCycleId);
-    if (realizedPnl > 0) {
-      publishPlatformEvent({
-        eventType: PLATFORM_EVENT_TYPES.TRADE_PROFIT_RECORDED,
-        category: "performance",
-        entityType: "trade_entry",
-        entityId: entry.id,
-        actorId: userId,
-        payload: {
-          poolManagerUserId,
-          cycleId: entry.investmentCycleId,
-          tradeReference: entry.tradeReference,
-          instrument: entry.instrument,
-          realizedPnl,
-          summary: `Trade ${entry.tradeReference} recorded a realized profit`,
-        },
-      });
-    }
-    publishPlatformEvent({
-      eventType: PLATFORM_EVENT_TYPES.TRADE_CLOSED,
-      category: "operations",
-      entityType: "trade_entry",
-      entityId: entry.id,
-      actorId: userId,
-      payload: {
-        poolManagerUserId,
-        cycleId: entry.investmentCycleId,
-        tradeReference: entry.tradeReference,
-        instrument: entry.instrument,
-        exitPrice: input.exitPrice,
-        summary: `Trade ${entry.tradeReference} closed`,
-      },
-    });
-
-    await syncManagerPerformanceStats(
-      entry.poolManagerId,
-      `Trade ${entry.tradeReference} closed`
-    );
+    await recordCompletedTradeEffects(entry, userId);
 
     return entry;
   },
