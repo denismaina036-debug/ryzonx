@@ -10,6 +10,7 @@ import { investmentCycleService } from "@/services/investment-cycle.service";
 import { investmentAllocationService } from "@/services/investment-allocation.service";
 import { poolCapitalService } from "./pool-capital.service";
 import { investorProfitWalletService } from "./investor-profit-wallet.service";
+import { isCopyRestartAfterStop } from "@/domain/investment/copy-restart";
 
 export type CycleInvestorSettlementStatus =
   | "pending_choice"
@@ -230,7 +231,9 @@ async function listTerminalStoppedFundIdsInternal(
 
   const { data: allocations, error: allocationError } = await db
     .from("investment_allocations")
-    .select("investment_cycle_id, amount, returned_capital_amount, created_at, status")
+    .select(
+      "investment_cycle_id, amount, returned_capital_amount, created_at, funding_confirmed_at, status"
+    )
     .eq("investor_id", investorId)
     .in("investment_cycle_id", cycleIds)
     .in("status", ["pending", "funding_confirmed", "confirmed", "settled", "locked", "distributed"]);
@@ -241,12 +244,20 @@ async function listTerminalStoppedFundIdsInternal(
     amount: number | string;
     returned_capital_amount: number | string;
     created_at: string;
+    funding_confirmed_at: string | null;
   }>) {
     const fundId = fundByCycle.get(allocation.investment_cycle_id);
     const stopped = fundId ? latestByFund.get(fundId) : null;
     if (!fundId || !stopped) continue;
     const returnable = toNumber(allocation.amount) - toNumber(allocation.returned_capital_amount);
-    if (returnable > 0 && new Date(allocation.created_at) > new Date(stopped.completedAt)) {
+    if (
+      isCopyRestartAfterStop({
+        returnableAmount: returnable,
+        fundingConfirmedAt: allocation.funding_confirmed_at,
+        createdAt: allocation.created_at,
+        stoppedAt: stopped.completedAt,
+      })
+    ) {
       terminalFundIds.delete(fundId);
     }
   }

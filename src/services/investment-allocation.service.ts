@@ -8,6 +8,7 @@ import { publishPlatformEvent, PLATFORM_EVENT_TYPES } from "@/lib/platform-event
 import { investmentCycleService } from "@/services/investment-cycle.service";
 import { investmentCycleMetricsService } from "@/services/investment-cycle-metrics.service";
 import { generateAllocationReference } from "@/lib/investment/utils";
+import { resolveMarketplaceCopyRestart } from "@/domain/investment/copy-restart";
 import { resolveAllocationRoi } from "@/lib/financial/roi-v2-distribution";
 import { poolRoiService } from "@/services/pool-roi.service";
 import { platformInvestmentLevelService } from "@/services/platform-investment-level.service";
@@ -450,15 +451,35 @@ export const investmentAllocationService = {
     const existing = existingRow ? mapAllocation(existingRow as AllocationRow) : null;
     const now = new Date().toISOString();
 
-    if (existing && existing.status !== "cancelled" && existing.status !== "rejected") {
-      const nextAmount = existing.amount + input.amount;
+    if (existing) {
+      const { restartingStoppedCopy, nextAmount, fundingConfirmedAt } =
+        resolveMarketplaceCopyRestart({
+          status: existing.status,
+          existingAmount: existing.amount,
+          incomingAmount: input.amount,
+          existingFundingConfirmedAt: existing.fundingConfirmedAt,
+          now,
+        });
       const roiFields = await resolveAllocationRoiFields(cycle, nextAmount);
       const { data, error } = await db
         .from("investment_allocations")
         .update({
           amount: nextAmount,
           status: "funding_confirmed",
-          funding_confirmed_at: existing.fundingConfirmedAt ?? now,
+          funding_confirmed_at: fundingConfirmedAt,
+          ...(restartingStoppedCopy
+            ? {
+                allocated_at: now,
+                locked_at: null,
+                settled_at: null,
+                settlement_transaction_id: null,
+                returned_capital_amount: 0,
+                capital_returned_at: null,
+                capital_return_ledger_transaction_id: null,
+                cumulative_realised_return: 0,
+                target_fulfilled: false,
+              }
+            : {}),
           ...(roiFields
             ? {
                 investment_level_id: roiFields.investmentLevelId,

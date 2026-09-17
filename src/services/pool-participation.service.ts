@@ -316,7 +316,6 @@ export const poolParticipationService = {
     }
 
     const poolRow = poolPortfolio as PortfolioRow | null;
-    const isNewParticipant = !poolRow || toNumber(poolRow.total_invested) <= 0;
     const nextInvested = toNumber(poolRow?.total_invested) + amount;
     const nextValue = toNumber(poolRow?.current_value) + amount;
 
@@ -422,14 +421,12 @@ export const poolParticipationService = {
 
     const { data: fundBeforeJoin } = await db
       .from("funds")
-      .select("current_capital, active_investors, investor_capital")
+      .select("current_capital")
       .eq("id", poolId)
       .maybeSingle();
 
     const fundStats = fundBeforeJoin as {
       current_capital?: number;
-      active_investors?: number;
-      investor_capital?: number;
     } | null;
 
     if (queueDuringTrading) {
@@ -478,7 +475,18 @@ export const poolParticipationService = {
       "@/services/investment-engine/pool-capital.service"
     );
     await poolCapitalService.applyInvestment(poolId, user.id, amount);
-    const poolCapitalTotal = await poolCapitalService.getPoolCapitalTotal(poolId);
+    const poolPositions = await poolCapitalService.listPositions(poolId);
+    const poolCapitalTotal = roundMoney(
+      poolPositions.reduce((sum, position) => sum + position.capital, 0)
+    );
+    const activeInvestorCount = new Set(
+      poolPositions
+        .filter(
+          (position) =>
+            !position.isVirtual && position.investorId != null && position.capital > 0
+        )
+        .map((position) => position.investorId)
+    ).size;
 
     assertDb(
       await db
@@ -486,8 +494,7 @@ export const poolParticipationService = {
         .update({
           current_capital: toNumber(fundStats?.current_capital) + amount,
           investor_capital: poolCapitalTotal,
-          active_investors:
-            toNumber(fundStats?.active_investors) + (isNewParticipant ? 1 : 0),
+          active_investors: activeInvestorCount,
         } as never)
         .eq("id", poolId)
         .select("id")
