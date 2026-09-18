@@ -623,6 +623,26 @@ export const investmentCycleService = {
     return null;
   },
 
+  /**
+   * The only cycle eligible to receive a new copy allocation.  This is deliberately
+   * separate from `getActiveForFund`: a pool can have trading and distribution
+   * cycles that are active operationally but are closed to new capital.
+   */
+  async getFundingForFund(fundId: string): Promise<InvestmentCycle | null> {
+    const db = createAdminClient();
+    const { data, error } = await db
+      .from("investment_cycles")
+      .select("*")
+      .eq("fund_id", fundId)
+      .eq("status", "funding")
+      .order("cycle_number", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    return data ? mapCycleWithLiveMetrics(data as CycleRow) : null;
+  },
+
   /** Whether the pool currently has capital deployed in an active trading cycle. */
   async hasTradingCycleForFund(fundId: string): Promise<boolean> {
     const tradingFundIds = await this.listTradingCycleFundIds([fundId]);
@@ -1026,6 +1046,10 @@ export const investmentCycleService = {
     assertInvestmentCycleTransition(existing.status, nextStatus, actor);
 
     if (nextStatus === "funding" && existing.fundId) {
+      const fundingCycle = await this.getFundingForFund(existing.fundId);
+      if (fundingCycle && fundingCycle.id !== existing.id) {
+        throw new Error("Another investment cycle is already accepting new copiers.");
+      }
       const { cycleInvestorSettlementService } = await import(
         "@/services/investment-engine/cycle-investor-settlement.service"
       );
@@ -1182,6 +1206,10 @@ export const investmentCycleService = {
     assertInvestmentCycleTransition(existing.status, nextStatus, "admin");
 
     if (nextStatus === "funding" && existing.fundId) {
+      const fundingCycle = await this.getFundingForFund(existing.fundId);
+      if (fundingCycle && fundingCycle.id !== existing.id) {
+        throw new Error("Another investment cycle is already accepting new copiers.");
+      }
       const { cycleInvestorSettlementService } = await import(
         "@/services/investment-engine/cycle-investor-settlement.service"
       );

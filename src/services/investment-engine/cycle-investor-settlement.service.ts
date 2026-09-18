@@ -1380,8 +1380,8 @@ export const cycleInvestorSettlementService = {
       if (amount > 0) return { reinvested: amount, queued: true };
       throw new Error("Cycle profit has already been resolved.");
     }
-    const activeCycle = await investmentCycleService.getActiveForFund(settlement.fundId);
-    if (!activeCycle || !["funding", "approved"].includes(activeCycle.status)) {
+    const activeCycle = await investmentCycleService.getFundingForFund(settlement.fundId);
+    if (!activeCycle) {
       throw new Error(
         "This pool has no open funding cycle. Wait for the pool manager to open the next cycle."
       );
@@ -1422,8 +1422,8 @@ export const cycleInvestorSettlementService = {
       throw new Error("No capital available to reinvest.");
     }
 
-    const activeCycle = await investmentCycleService.getActiveForFund(settlement.fundId);
-    if (!activeCycle || !["funding", "approved"].includes(activeCycle.status)) {
+    const activeCycle = await investmentCycleService.getFundingForFund(settlement.fundId);
+    if (!activeCycle) {
       throw new Error(
         "This pool has no open funding cycle. Wait for the pool manager to open the next cycle."
       );

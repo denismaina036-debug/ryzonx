@@ -111,13 +111,6 @@ type CycleRow = {
   duration_days: number | null;
 };
 
-const ACTIVE_CYCLE_PRIORITY: InvestmentCycleStatus[] = [
-  "funding",
-  "trading",
-  "distribution",
-  "approved",
-];
-
 function resolveCardRoiMultipliers(
   fundId: string,
   cycle: CycleRow | null,
@@ -137,16 +130,11 @@ function resolveCardRoiMultipliers(
   }));
 }
 
-function pickActiveCycleForFund(
+function pickFundingCycleForFund(
   cycles: CycleRow[],
   fundId: string
 ): CycleRow | null {
-  const fundCycles = cycles.filter((c) => c.fund_id === fundId);
-  for (const status of ACTIVE_CYCLE_PRIORITY) {
-    const match = fundCycles.find((c) => c.status === status);
-    if (match) return match;
-  }
-  return null;
+  return cycles.find((cycle) => cycle.fund_id === fundId && cycle.status === "funding") ?? null;
 }
 
 async function enrichPoolCards(
@@ -171,7 +159,7 @@ async function enrichPoolCards(
   const activeCycleIds = [
     ...new Set(
       rows
-        .map((row) => pickActiveCycleForFund(cycles, row.id as string))
+        .map((row) => pickFundingCycleForFund(cycles, row.id as string))
         .filter((cycle): cycle is CycleRow => cycle != null)
         .map((cycle) => cycle.id)
     ),
@@ -179,7 +167,7 @@ async function enrichPoolCards(
   const raisedByCycle = await investmentCycleMetricsService.sumRaisedCapitalForCycles(activeCycleIds);
   // Read-only presentation history; active-cycle selection and funding metrics stay unchanged.
   const previousCyclesByFund = new Map(poolIds.map((fundId) => {
-    const active = pickActiveCycleForFund(cycles, fundId);
+    const active = pickFundingCycleForFund(cycles, fundId);
     const previous = cycles.find((candidate) =>
       candidate.fund_id === fundId &&
       (!active || candidate.cycle_number < active.cycle_number) &&
@@ -242,7 +230,7 @@ async function enrichPoolCards(
     if (!row) return card;
 
     const managed = readManagedPoolConfig(row.pool_faq);
-    const cycle = pickActiveCycleForFund(cycles, card.id);
+    const cycle = pickFundingCycleForFund(cycles, card.id);
     const previousCycle = previousCyclesByFund.get(card.id);
     const previousTradedCapital = previousCycle
       ? readCycleInitialRaisedCapital(previousCycle.pool_config_snapshot) +

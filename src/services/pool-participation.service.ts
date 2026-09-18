@@ -263,13 +263,16 @@ export const poolParticipationService = {
       if (!invite) throw new Error("This pool is invite-only.");
     }
 
-    const activeCycle = await investmentCycleService.getActiveForFund(poolId);
+    const fundingCycle = await investmentCycleService.getFundingForFund(poolId);
+    if (!fundingCycle) {
+      throw new Error("No investment cycle is currently accepting new copiers.");
+    }
     const copySessionId =
       (await investmentAllocationService.findActiveCopySessionId(poolId, user.id)) ??
       crypto.randomUUID();
     const effectiveMinInvestment =
-      activeCycle?.minInvestment != null && activeCycle.minInvestment > 0
-        ? activeCycle.minInvestment
+      fundingCycle.minInvestment != null && fundingCycle.minInvestment > 0
+        ? fundingCycle.minInvestment
         : toNumber(fundRow.min_investment);
 
     if (amount < effectiveMinInvestment) {
@@ -322,16 +325,7 @@ export const poolParticipationService = {
     const nextInvested = toNumber(poolRow?.total_invested) + amount;
     const nextValue = toNumber(poolRow?.current_value) + amount;
 
-    const queueDuringTrading =
-      activeCycle &&
-      (activeCycle.status === "trading" || activeCycle.status === "distribution");
-    const fundingCycleActive =
-      activeCycle &&
-      (activeCycle.status === "funding" || activeCycle.status === "approved");
-
-    const txNotes = queueDuringTrading
-      ? `Queued investment in ${fundRow.name} (cycle ${activeCycle!.name})`
-      : `Allocated to ${fundRow.name}`;
+    const txNotes = `Allocated to ${fundRow.name} (cycle ${fundingCycle.name})`;
 
     const { data: txData, error: txError } = await db
       .from("transactions")
@@ -340,7 +334,7 @@ export const poolParticipationService = {
         fund_id: poolId,
         type: "adjustment",
         amount,
-        status: queueDuringTrading ? "pending" : "completed",
+        status: "completed",
         payment_method: "pool_allocation",
         notes: txNotes,
         metadata: { copy_session_id: copySessionId },
@@ -360,8 +354,8 @@ export const poolParticipationService = {
       sourceType: "pool_allocation",
       sourceId: txId,
       actorId: user.id,
-      cycleId: fundingCycleActive ? activeCycle!.id : null,
-      cycleName: fundingCycleActive ? activeCycle!.name : null,
+      cycleId: fundingCycle.id,
+      cycleName: fundingCycle.name,
     });
 
     if (poolId === DEFAULT_FUND_ID) {
@@ -433,59 +427,6 @@ export const poolParticipationService = {
       current_capital?: number;
     } | null;
 
-    if (queueDuringTrading) {
-      const { investmentQueueService } = await import(
-        "@/services/investment-engine/investment-queue.service"
-      );
-      const queueItem = await investmentQueueService.enqueue({
-        fundId: poolId,
-        investorId: user.id,
-        queueType: "investment",
-        amount,
-        copySessionId,
-        targetCycleId: activeCycle.id,
-        notes: `Queued during ${activeCycle.status}`,
-      });
-      const { error: queueLinkError } = await db
-        .from("transactions")
-        .update({
-          metadata: {
-            copy_session_id: copySessionId,
-            queue_id: queueItem.id,
-          },
-        } as never)
-        .eq("id", txId);
-      if (queueLinkError) throw new Error(queueLinkError.message);
-
-      const { referralService } = await import("@/services/referral.service");
-      await referralService
-        .rewardFirstPoolInvestment({
-          referredUserId: user.id,
-          qualifyingTransactionId: txId,
-        })
-        .catch(() => null);
-
-      await attachTransactionReference(db, txId, {
-        type: "adjustment",
-        payment_method: "pool_allocation",
-        notes: txNotes,
-      });
-
-      await communicationTriggers.poolInvestmentConfirmed({
-        userId: user.id,
-        amount: formatMoney(amount),
-        poolName: fundRow.name,
-        poolId,
-      });
-
-      await db
-        .from("pool_invitations")
-        .update({ status: "accepted" } as never)
-        .eq("fund_id", poolId)
-        .eq("user_id", user.id);
-      return;
-    }
-
     const { poolCapitalService } = await import(
       "@/services/investment-engine/pool-capital.service"
     );
@@ -517,25 +458,23 @@ export const poolParticipationService = {
       "Could not update pool statistics."
     );
 
-    if (fundingCycleActive) {
-      const allocation = await investmentAllocationService.recordMarketplaceJoin({
-        cycleId: activeCycle!.id,
-        investorId: user.id,
-        amount,
-        copySessionId,
-      });
-      const { error: transactionLinkError } = await db
-        .from("transactions")
-        .update({
-          metadata: {
-            copy_session_id: allocation.copySessionId,
-            allocation_id: allocation.id,
-            cycle_id: allocation.investmentCycleId,
-          },
-        } as never)
-        .eq("id", txId);
-      if (transactionLinkError) throw new Error(transactionLinkError.message);
-    }
+    const allocation = await investmentAllocationService.recordMarketplaceJoin({
+      cycleId: fundingCycle.id,
+      investorId: user.id,
+      amount,
+      copySessionId,
+    });
+    const { error: transactionLinkError } = await db
+      .from("transactions")
+      .update({
+        metadata: {
+          copy_session_id: allocation.copySessionId,
+          allocation_id: allocation.id,
+          cycle_id: allocation.investmentCycleId,
+        },
+      } as never)
+      .eq("id", txId);
+    if (transactionLinkError) throw new Error(transactionLinkError.message);
 
     const { referralService } = await import("@/services/referral.service");
     await referralService

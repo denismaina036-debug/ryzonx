@@ -35,6 +35,59 @@ beforeEach(() => {
   mocks.settlement.mockResolvedValue({ status: "completed" });
 });
 describe("cycle lifecycle", () => {
+  it("selects the funding cycle rather than a trading sibling for new copiers", async () => {
+    tables.investment_cycles.push({
+      id: "c2",
+      fund_id: "fund",
+      pool_manager_id: "manager",
+      status: "funding",
+      cycle_number: 2,
+      name: "Cycle 2",
+    });
+
+    expect((await investmentCycleService.getFundingForFund("fund"))?.id).toBe("c2");
+  });
+
+  it("does not treat a trading cycle as open for new copiers", async () => {
+    await expect(investmentCycleService.getFundingForFund("fund")).resolves.toBeNull();
+  });
+
+  it("keeps selecting the current funding cycle when historical or draft cycles coexist", async () => {
+    tables.investment_cycles[0]!.status = "completed";
+    tables.investment_cycles.push(
+      { id: "c2", fund_id: "fund", pool_manager_id: "manager", status: "funding", cycle_number: 2, name: "Cycle 2" },
+      { id: "c3", fund_id: "fund", pool_manager_id: "manager", status: "draft", cycle_number: 3, name: "Cycle 3" },
+    );
+
+    expect((await investmentCycleService.getFundingForFund("fund"))?.id).toBe("c2");
+  });
+
+  it("moves new-copy eligibility to the next cycle after the current one starts trading", async () => {
+    tables.investment_cycles.push(
+      { id: "c2", fund_id: "fund", pool_manager_id: "manager", status: "trading", cycle_number: 2, name: "Cycle 2" },
+      { id: "c3", fund_id: "fund", pool_manager_id: "manager", status: "funding", cycle_number: 3, name: "Cycle 3" },
+    );
+
+    expect((await investmentCycleService.getFundingForFund("fund"))?.id).toBe("c3");
+  });
+
+  it("allows drafts beside a funding cycle but prevents a second funding cycle", async () => {
+    tables.investment_cycles[0]!.status = "funding";
+    tables.investment_cycles.push({
+      id: "c2",
+      fund_id: "fund",
+      pool_manager_id: "manager",
+      status: "approved",
+      cycle_number: 2,
+      name: "Cycle 2",
+    });
+
+    await expect(investmentCycleService.transition("c2", "funding", "manager"))
+      .rejects.toThrow("already accepting new copiers");
+    expect(tables.investment_cycles[0]!.status).toBe("funding");
+    expect(tables.investment_cycles[1]!.status).toBe("approved");
+  });
+
   it("creates independent cycles while existing groups are funding, trading, or distributing", async () => {
     for (const status of ["funding", "trading", "distribution", "draft"]) {
       tables.investment_cycles.at(-1)!.status = status;

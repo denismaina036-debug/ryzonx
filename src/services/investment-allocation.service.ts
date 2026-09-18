@@ -510,7 +510,7 @@ export const investmentAllocationService = {
 
     const cycle = await investmentCycleService.getById(input.cycleId);
     if (!cycle) throw new Error("Investment cycle not found.");
-    if (cycle.status !== "funding" && cycle.status !== "approved") {
+    if (!investmentCycleService.isAllocatable(cycle.status)) {
       throw new Error("Investment cycle is not accepting allocations.");
     }
 
