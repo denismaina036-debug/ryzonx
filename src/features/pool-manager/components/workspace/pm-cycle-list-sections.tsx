@@ -6,14 +6,14 @@ import { ROUTES } from "@/constants/routes";
 import type { InvestmentCycle } from "@/domain/investment/types";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { isCycleFundingPhase, isCycleTradingPhase } from "@/lib/investment/cycle-display-phase";
 import { PmFundingProgress } from "./pm-funding-progress";
 import { PmStatusBadge } from "./pm-status-badge";
 import { PmSectionCard } from "./pm-page-header";
 import { pmCardClass, pmStatLabelClass, pmStatValueClass } from "@/features/pool-manager/constants/ui";
 import type { CycleLiveSummary } from "@/services/cycle-live-metrics.service";
 
-const FUNDING_STATUSES = new Set(["approved", "funding"]);
+const FUNDING_STATUSES = new Set(["funding"]);
+const PREPARED_STATUSES = new Set(["draft", "submitted", "approved"]);
 const TRADING_STATUSES = new Set(["trading", "distribution"]);
 
 function useTradingSummaries(tradingCycles: InvestmentCycle[]) {
@@ -57,6 +57,7 @@ function useTradingSummaries(tradingCycles: InvestmentCycle[]) {
 
 export function PmCycleListSections({ cycles }: { cycles: InvestmentCycle[] }) {
   const fundingCycles = cycles.filter((cycle) => FUNDING_STATUSES.has(cycle.status));
+  const preparedCycles = cycles.filter((cycle) => PREPARED_STATUSES.has(cycle.status));
   const tradingCycles = cycles.filter((cycle) => TRADING_STATUSES.has(cycle.status));
   const tradingSummaries = useTradingSummaries(tradingCycles);
 
@@ -72,6 +73,21 @@ export function PmCycleListSections({ cycles }: { cycles: InvestmentCycle[] }) {
           <ul className="grid gap-3 sm:grid-cols-2">
             {fundingCycles.map((cycle) => (
               <FundingCycleCard key={cycle.id} cycle={cycle} />
+            ))}
+          </ul>
+        )}
+      </PmSectionCard>
+
+      <PmSectionCard
+        title="Prepared Cycles"
+        description="Cycles prepared for a future funding round"
+      >
+        {preparedCycles.length === 0 ? (
+          <p className="text-sm text-[var(--id-text-muted)]">No prepared cycles right now.</p>
+        ) : (
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {preparedCycles.map((cycle) => (
+              <PreparedCycleCard key={cycle.id} cycle={cycle} />
             ))}
           </ul>
         )}
@@ -96,6 +112,35 @@ export function PmCycleListSections({ cycles }: { cycles: InvestmentCycle[] }) {
         )}
       </PmSectionCard>
     </div>
+  );
+}
+
+function PreparedCycleCard({ cycle }: { cycle: InvestmentCycle }) {
+  const href = `${ROUTES.poolManagerInvestmentCycles}/${cycle.id}`;
+  const label = cycle.status === "approved" ? "Prepared" : cycle.status;
+
+  return (
+    <li>
+      <Link
+        href={href}
+        className={cn(
+          pmCardClass,
+          "block p-4 transition-colors hover:border-[var(--pm-accent-border)]"
+        )}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate font-medium text-[var(--id-text)]">
+              {cycle.name || `Cycle ${cycle.cycleNumber}`}
+            </p>
+            <p className="mt-0.5 text-xs text-[var(--id-text-muted)]">
+              Cycle {cycle.cycleNumber} · Waiting to open for funding
+            </p>
+          </div>
+          <PmStatusBadge label={label} status={cycle.status} />
+        </div>
+      </Link>
+    </li>
   );
 }
 
@@ -227,6 +272,7 @@ function TradingCycleCard({
 export function splitCyclesForSections(cycles: InvestmentCycle[]) {
   return {
     fundingCycles: cycles.filter((cycle) => FUNDING_STATUSES.has(cycle.status)),
+    preparedCycles: cycles.filter((cycle) => PREPARED_STATUSES.has(cycle.status)),
     tradingCycles: cycles.filter((cycle) => TRADING_STATUSES.has(cycle.status)),
   };
 }

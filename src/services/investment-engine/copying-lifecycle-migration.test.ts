@@ -111,6 +111,12 @@ describe("copying lifecycle database boundary", () => {
     );
   });
 
+  it("does not let an orphan legacy settlement block funding-cycle creation", () => {
+    expect(lifecycleService).toContain('from("investment_allocations")');
+    expect(lifecycleService).toContain("sourceAllocationKeys");
+    expect(lifecycleService).toContain("skippedMissingSource += 1");
+  });
+
   it("gives new copy starts independent sessions while allowing only one active row per cycle", () => {
     expect(copySessionSql).toContain("ADD COLUMN IF NOT EXISTS copy_session_id UUID NOT NULL");
     expect(copySessionSql).toContain("DROP CONSTRAINT IF EXISTS investment_allocations_investor_cycle_unique");

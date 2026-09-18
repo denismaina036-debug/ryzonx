@@ -870,8 +870,7 @@ export const managedPoolService = {
 
   async createCycle(poolId: string, input: CreatePoolInvestmentCycleInput) {
     await this.getForManager(poolId);
-    const cycle = await investmentCycleService.createFromPool(input);
-    return investmentCycleService.activateForLivePool(cycle.id);
+    return investmentCycleService.createForLivePool(input);
   },
 
   async deleteForManager(poolId: string): Promise<{ returnedTotal: number; investorCount: number }> {

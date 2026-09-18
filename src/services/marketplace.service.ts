@@ -37,6 +37,7 @@ import { tradeEntryService } from "@/services/trade-entry.service";
 import { tradingSessionLabel, formatTradingScheduleLabel } from "@/domain/pools/trading-session";
 import { INVESTMENT_CYCLE_ALLOCATABLE_STATUSES } from "@/constants/investment-cycle";
 import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
+import { selectFundingCycleForNewCopier } from "@/domain/investment/funding-cycle-selector";
 import {
   formatPoolLevelLabel,
   formatRiskLevelTag,
@@ -134,7 +135,7 @@ function pickFundingCycleForFund(
   cycles: CycleRow[],
   fundId: string
 ): CycleRow | null {
-  return cycles.find((cycle) => cycle.fund_id === fundId && cycle.status === "funding") ?? null;
+  return selectFundingCycleForNewCopier(cycles, fundId);
 }
 
 async function enrichPoolCards(

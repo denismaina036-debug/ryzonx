@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { memoryDb, type Row } from "./test-support/memory-db";
-const mocks = vi.hoisted(() => ({ db: vi.fn(), prepare: vi.fn(), stop: vi.fn(), continue: vi.fn(), settlement: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  db: vi.fn(),
+  prepare: vi.fn(),
+  stop: vi.fn(),
+  continue: vi.fn(),
+  continueIntoCycle: vi.fn(),
+  settlement: vi.fn(),
+}));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.db }));
 vi.mock("@/lib/auth/session", () => ({ requireAuth: async () => ({ id: "user" }), requireRole: async () => ({ id: "user" }) }));
 vi.mock("@/lib/auth/pool-manager-access", () => ({ userOwnsPoolManager: async () => true }));
@@ -19,6 +26,7 @@ vi.mock("@/services/investment-engine/cycle-investor-settlement.service", () => 
   createPendingChoicesForCycle: mocks.prepare,
   settleRequestedCopyStopsForCycle: mocks.stop,
   continuePendingCopyingIntoNextFundingCycle: mocks.continue,
+  continuePendingCopyingIntoCycle: mocks.continueIntoCycle,
 } }));
 import { investmentCycleService } from "./investment-cycle.service";
 
@@ -31,10 +39,52 @@ beforeEach(() => {
     investment_cycles: [{ id: "c1", fund_id: "fund", pool_manager_id: "manager", status: "trading", cycle_number: 1, name: "Cycle 1" }],
     trade_entries: [1, 2, 3, 4].map(i => ({ id: `t${i}`, investment_cycle_id: "c1", status: "closed", realized_pnl: 100 })),
   };
-  mocks.db.mockReturnValue(memoryDb(tables));
+  const db = memoryDb(tables) as ReturnType<typeof memoryDb> & {
+    rpc: (name: string, args: { p_cycle_id?: string }) => Promise<{
+      data: string | null;
+      error: { message: string } | null;
+    }>;
+  };
+  db.rpc = vi.fn(async (name, args) => {
+    if (name !== "activate_investment_cycle_funding_atomic") {
+      return { data: null, error: null };
+    }
+    const target = tables.investment_cycles.find((cycle) => cycle.id === args.p_cycle_id);
+    if (!target) return { data: null, error: { message: "Investment cycle not found" } };
+    const conflict = tables.investment_cycles.find(
+      (cycle) =>
+        cycle.fund_id === target.fund_id &&
+        cycle.status === "funding" &&
+        cycle.id !== target.id
+    );
+    if (conflict) {
+      return {
+        data: null,
+        error: { message: "Another investment cycle is already accepting new copiers." },
+      };
+    }
+    target.status = "funding";
+    target.submitted_at ??= new Date().toISOString();
+    target.approved_at ??= new Date().toISOString();
+    target.funding_started_at ??= new Date().toISOString();
+    return { data: String(target.id), error: null };
+  });
+  mocks.db.mockReturnValue(db);
   mocks.settlement.mockResolvedValue({ status: "completed" });
 });
 describe("cycle lifecycle", () => {
+  const createInput = {
+    fundId: "fund",
+    name: "New opportunity",
+    minInvestment: 100,
+    targetCapital: 10000,
+    targetInvestors: 10,
+    returnDurationPreset: "daily" as const,
+    returnDurationValue: 1,
+    returnDurationUnit: "days" as const,
+    roiMultipliers: [{ investmentLevelId: "tier", multiplier: 2 }],
+  };
+
   it("selects the funding cycle rather than a trading sibling for new copiers", async () => {
     tables.investment_cycles.push({
       id: "c2",
@@ -88,12 +138,50 @@ describe("cycle lifecycle", () => {
     expect(tables.investment_cycles[1]!.status).toBe("approved");
   });
 
+  it("opens a newly created cycle when no funding cycle exists", async () => {
+    const created = await investmentCycleService.createForLivePool(createInput);
+
+    expect(created.status).toBe("funding");
+    expect(tables.investment_cycles.filter((cycle) => cycle.status === "funding")).toHaveLength(1);
+  });
+
+  it("keeps a new cycle in draft while the current cycle is funding", async () => {
+    tables.investment_cycles[0]!.status = "funding";
+
+    const created = await investmentCycleService.createForLivePool(createInput);
+
+    expect(created.status).toBe("draft");
+    expect(tables.investment_cycles.filter((cycle) => cycle.status === "funding")).toHaveLength(1);
+    expect(mocks.continueIntoCycle).not.toHaveBeenCalled();
+  });
+
+  it("does not make a missing legacy source allocation a cycle-creation failure", async () => {
+    mocks.continueIntoCycle.mockRejectedValueOnce(new Error("Source copy allocation not found"));
+
+    const created = await investmentCycleService.createForLivePool(createInput);
+
+    expect(created.status).toBe("funding");
+    expect(tables.investment_cycles.filter((cycle) => cycle.status === "funding")).toHaveLength(1);
+  });
+
+  it("keeps a duplicate creation request prepared behind one funding cycle", async () => {
+    const first = await investmentCycleService.createForLivePool(createInput);
+    const second = await investmentCycleService.createForLivePool({
+      ...createInput,
+      name: "Next opportunity",
+    });
+
+    expect(first.status).toBe("funding");
+    expect(second.status).toBe("draft");
+    expect(tables.investment_cycles.filter((cycle) => cycle.status === "funding")).toHaveLength(1);
+  });
+
   it("creates independent cycles while existing groups are funding, trading, or distributing", async () => {
     for (const status of ["funding", "trading", "distribution", "draft"]) {
       tables.investment_cycles.at(-1)!.status = status;
       const before = structuredClone(tables.investment_cycles);
       const tradesBefore = structuredClone(tables.trade_entries);
-      const created = await investmentCycleService.createFromPool({ fundId: "fund", name: "New opportunity", minInvestment: 100, targetCapital: 10000, targetInvestors: 10, returnDurationPreset: "daily", returnDurationValue: 1, returnDurationUnit: "days", roiMultipliers: [{ investmentLevelId: "tier", multiplier: 2 }] });
+      const created = await investmentCycleService.createFromPool(createInput);
       expect(created.cycleNumber).toBe(before.length + 1);
       expect(before.some(row => row.id === created.id)).toBe(false);
       expect(tables.investment_cycles.slice(0, -1)).toEqual(before);

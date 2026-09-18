@@ -48,6 +48,7 @@ import {
   validateCycleProfitSplits,
   type CycleProfitSplit,
 } from "@/domain/investment/profit-split";
+import { selectFundingCycleForNewCopier } from "@/domain/investment/funding-cycle-selector";
 
 type CycleRow = {
   id: string;
@@ -157,6 +158,118 @@ async function requireManagerId(): Promise<{ userId: string; managerId: string }
   const managerId = await getManagerIdForUser(user.id);
   if (!managerId) throw new Error("Pool Manager profile not found.");
   return { userId: user.id, managerId };
+}
+
+const FUNDING_CYCLE_CONFLICT_MESSAGE =
+  "Another investment cycle is already accepting new copiers.";
+
+function isFundingCycleConflict(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.message.includes(FUNDING_CYCLE_CONFLICT_MESSAGE) ||
+      error.message.includes("idx_investment_cycles_one_funding_per_fund"))
+  );
+}
+
+async function activateFundingCycleAtomically(
+  cycleId: string,
+  actorUserId: string
+): Promise<InvestmentCycle> {
+  const db = createAdminClient();
+  const { error } = await db.rpc("activate_investment_cycle_funding_atomic" as never, {
+    p_cycle_id: cycleId,
+    p_actor_id: actorUserId,
+  } as never);
+
+  if (error) throw new Error(friendlyInvestmentCycleError(error.message));
+
+  const { data, error: cycleError } = await db
+    .from("investment_cycles")
+    .select("*")
+    .eq("id", cycleId)
+    .single();
+  if (cycleError || !data) {
+    throw new Error(cycleError?.message ?? "Investment cycle not found.");
+  }
+
+  return mapCycleWithLiveMetrics(data as CycleRow);
+}
+
+async function continueCopyingAfterFundingOpened(
+  cycle: InvestmentCycle,
+  actorUserId: string
+): Promise<void> {
+  if (!cycle.fundId) return;
+
+  try {
+    const { cycleInvestorSettlementService } = await import(
+      "@/services/investment-engine/cycle-investor-settlement.service"
+    );
+    await cycleInvestorSettlementService.continuePendingCopyingIntoCycle(
+      cycle.id,
+      cycle.fundId,
+      actorUserId
+    );
+  } catch (error) {
+    try {
+      await auditService.log({
+        actorId: actorUserId,
+        action: "investment_cycle_copy_continuation_failed",
+        entityType: "investment_cycle",
+        entityId: cycle.id,
+        newValues: {
+          status: cycle.status,
+          message: error instanceof Error ? error.message : "Unknown continuation failure",
+        },
+      });
+    } catch {
+      // The funding state is already valid; audit delivery must not reverse it.
+    }
+  }
+}
+
+async function publishFundingOpened(
+  cycle: InvestmentCycle,
+  actorUserId: string
+): Promise<void> {
+  const poolManagerUserId = await resolvePoolManagerUserId(cycle.poolManagerId);
+  publishPlatformEvent({
+    eventType: PLATFORM_EVENT_TYPES.CYCLE_FUNDING_OPENED,
+    category: "investment",
+    entityType: "investment_cycle",
+    entityId: cycle.id,
+    actorId: actorUserId,
+    payload: {
+      poolManagerUserId,
+      cycleId: cycle.id,
+      cycleName: cycle.name,
+      fundId: cycle.fundId,
+      status: "funding",
+      summary: `Cycle ${cycle.name} opened for funding`,
+    },
+  });
+}
+
+async function refreshFundingDeadline(cycle: InvestmentCycle): Promise<void> {
+  if (!cycle.fundId) return;
+  const db = createAdminClient();
+  const { data: fundRow } = await db
+    .from("funds")
+    .select("*")
+    .eq("id", cycle.fundId)
+    .maybeSingle();
+  if (!fundRow) return;
+
+  const deadline = computeFundingDeadline(
+    fundRow as Record<string, unknown>,
+    cycle.closingDate
+  );
+  if (deadline) {
+    await db
+      .from("investment_cycles")
+      .update({ funding_deadline: deadline } as never)
+      .eq("id", cycle.id);
+  }
 }
 
 function statusTimestampPatch(
@@ -635,12 +748,11 @@ export const investmentCycleService = {
       .select("*")
       .eq("fund_id", fundId)
       .eq("status", "funding")
-      .order("cycle_number", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("cycle_number", { ascending: false });
 
     if (error) throw new Error(error.message);
-    return data ? mapCycleWithLiveMetrics(data as CycleRow) : null;
+    const cycle = selectFundingCycleForNewCopier((data ?? []) as CycleRow[], fundId);
+    return cycle ? mapCycleWithLiveMetrics(cycle) : null;
   },
 
   /** Whether the pool currently has capital deployed in an active trading cycle. */
@@ -748,6 +860,24 @@ export const investmentCycleService = {
     });
   },
 
+  /**
+   * Create a prepared cycle and open it only when the pool has no funding cycle.
+   * A concurrent winner leaves this cycle safely in draft instead of producing a
+   * second authoritative funding period.
+   */
+  async createForLivePool(input: CreatePoolInvestmentCycleInput): Promise<InvestmentCycle> {
+    const cycle = await this.createFromPool(input);
+    const fundingCycle = await this.getFundingForFund(input.fundId);
+    if (fundingCycle) return cycle;
+
+    try {
+      return await this.activateForLivePool(cycle.id);
+    } catch (error) {
+      if (isFundingCycleConflict(error)) return cycle;
+      throw error;
+    }
+  },
+
   /** System/admin auto-create next cycle without manager session. */
   async createFromPoolAsSystem(
     input: CreatePoolInvestmentCycleInput & { actorUserId: string }
@@ -818,22 +948,19 @@ export const investmentCycleService = {
     return this.adminActivateCycleForPoolGoLive(cycle.id);
   },
 
-  /** Moves a cycle through draft → submitted → approved → funding for pool go-live. */
+  /** Opens a prepared cycle atomically for pool go-live. */
   async adminActivateCycleForPoolGoLive(cycleId: string): Promise<InvestmentCycle> {
-    let cycle = await this.getById(cycleId);
+    const admin = await requireRole(USER_ROLES.ADMINISTRATOR);
+    const cycle = await this.getById(cycleId);
     if (!cycle) throw new Error("Investment cycle not found.");
+    if (cycle.status === "funding") return cycle;
+    if (!["draft", "submitted", "approved"].includes(cycle.status)) return cycle;
 
-    if (cycle.status === "draft") {
-      cycle = await this.adminReview(cycle.id, "submitted");
-    }
-    if (cycle.status === "submitted") {
-      cycle = await this.adminReview(cycle.id, "approved");
-    }
-    if (cycle.status === "approved") {
-      cycle = await this.adminReview(cycle.id, "funding");
-    }
-
-    return cycle;
+    const activated = await activateFundingCycleAtomically(cycle.id, admin.id);
+    await continueCopyingAfterFundingOpened(activated, admin.id);
+    await publishFundingOpened(activated, admin.id);
+    await refreshFundingDeadline(activated);
+    return activated;
   },
 
   async listAll(filters?: { status?: InvestmentCycleStatus }): Promise<InvestmentCycle[]> {
@@ -1045,44 +1172,35 @@ export const investmentCycleService = {
 
     assertInvestmentCycleTransition(existing.status, nextStatus, actor);
 
-    if (nextStatus === "funding" && existing.fundId) {
-      const fundingCycle = await this.getFundingForFund(existing.fundId);
-      if (fundingCycle && fundingCycle.id !== existing.id) {
-        throw new Error("Another investment cycle is already accepting new copiers.");
-      }
-      const { cycleInvestorSettlementService } = await import(
-        "@/services/investment-engine/cycle-investor-settlement.service"
-      );
-      await cycleInvestorSettlementService.continuePendingCopyingIntoCycle(
-        id,
-        existing.fundId,
-        userId
-      );
-    }
-
-    const now = new Date().toISOString();
     const db = createAdminClient();
-    const { data, error } = await db
-      .from("investment_cycles")
-      .update({
-        status: nextStatus,
-        ...statusTimestampPatch(nextStatus, now, existing),
-      } as never)
-      .eq("id", id)
-      .select("*")
-      .single();
+    let cycle: InvestmentCycle;
+    if (nextStatus === "funding") {
+      cycle = await activateFundingCycleAtomically(id, userId);
+      await continueCopyingAfterFundingOpened(cycle, userId);
+    } else {
+      const now = new Date().toISOString();
+      const { data, error } = await db
+        .from("investment_cycles")
+        .update({
+          status: nextStatus,
+          ...statusTimestampPatch(nextStatus, now, existing),
+        } as never)
+        .eq("id", id)
+        .select("*")
+        .single();
 
-    if (error) throw new Error(error.message);
-    const cycle = mapCycle(data as CycleRow);
+      if (error) throw new Error(error.message);
+      cycle = mapCycle(data as CycleRow);
 
-    await auditService.log({
-      actorId: userId,
-      action: "investment_cycle_status_changed",
-      entityType: "investment_cycle",
-      entityId: cycle.id,
-      oldValues: { status: existing.status },
-      newValues: { status: nextStatus },
-    });
+      await auditService.log({
+        actorId: userId,
+        action: "investment_cycle_status_changed",
+        entityType: "investment_cycle",
+        entityId: cycle.id,
+        oldValues: { status: existing.status },
+        newValues: { status: nextStatus },
+      });
+    }
 
     const poolManagerUserId = await resolvePoolManagerUserId(cycle.poolManagerId);
     if (nextStatus === "trading") {
@@ -1116,21 +1234,7 @@ export const investmentCycleService = {
         },
       });
     } else if (nextStatus === "funding") {
-      publishPlatformEvent({
-        eventType: PLATFORM_EVENT_TYPES.CYCLE_FUNDING_OPENED,
-        category: "investment",
-        entityType: "investment_cycle",
-        entityId: cycle.id,
-        actorId: userId,
-        payload: {
-          poolManagerUserId,
-          cycleId: cycle.id,
-          cycleName: cycle.name,
-          fundId: cycle.fundId,
-          status: nextStatus,
-          summary: `Cycle ${cycle.name} opened for funding`,
-        },
-      });
+      await publishFundingOpened(cycle, userId);
     } else if (nextStatus === "completed") {
       publishPlatformEvent({
         eventType: PLATFORM_EVENT_TYPES.CYCLE_COMPLETED,
@@ -1171,24 +1275,8 @@ export const investmentCycleService = {
           `Cycle ${cycle.name} ${nextStatus === "completed" ? "completed" : "archived"}`
         )
         .catch(() => undefined);
-    } else if (nextStatus === "funding" && existing.fundId) {
-      const { data: fundRow } = await db
-        .from("funds")
-        .select("*")
-        .eq("id", existing.fundId)
-        .maybeSingle();
-      if (fundRow) {
-        const deadline = computeFundingDeadline(
-          fundRow as Record<string, unknown>,
-          existing.closingDate
-        );
-        if (deadline) {
-          await db
-            .from("investment_cycles")
-            .update({ funding_deadline: deadline } as never)
-            .eq("id", id);
-        }
-      }
+    } else if (nextStatus === "funding") {
+      await refreshFundingDeadline(cycle);
     }
 
     return cycle;
@@ -1205,44 +1293,35 @@ export const investmentCycleService = {
 
     assertInvestmentCycleTransition(existing.status, nextStatus, "admin");
 
-    if (nextStatus === "funding" && existing.fundId) {
-      const fundingCycle = await this.getFundingForFund(existing.fundId);
-      if (fundingCycle && fundingCycle.id !== existing.id) {
-        throw new Error("Another investment cycle is already accepting new copiers.");
-      }
-      const { cycleInvestorSettlementService } = await import(
-        "@/services/investment-engine/cycle-investor-settlement.service"
-      );
-      await cycleInvestorSettlementService.continuePendingCopyingIntoCycle(
-        id,
-        existing.fundId,
-        actorUserId
-      );
-    }
-
-    const now = new Date().toISOString();
     const db = createAdminClient();
-    const { data, error } = await db
-      .from("investment_cycles")
-      .update({
-        status: nextStatus,
-        ...statusTimestampPatch(nextStatus, now, existing),
-      } as never)
-      .eq("id", id)
-      .select("*")
-      .single();
+    let cycle: InvestmentCycle;
+    if (nextStatus === "funding") {
+      cycle = await activateFundingCycleAtomically(id, actorUserId);
+      await continueCopyingAfterFundingOpened(cycle, actorUserId);
+    } else {
+      const now = new Date().toISOString();
+      const { data, error } = await db
+        .from("investment_cycles")
+        .update({
+          status: nextStatus,
+          ...statusTimestampPatch(nextStatus, now, existing),
+        } as never)
+        .eq("id", id)
+        .select("*")
+        .single();
 
-    if (error) throw new Error(error.message);
-    const cycle = mapCycle(data as CycleRow);
+      if (error) throw new Error(error.message);
+      cycle = mapCycle(data as CycleRow);
 
-    await auditService.log({
-      actorId: actorUserId,
-      action: "investment_cycle_status_changed",
-      entityType: "investment_cycle",
-      entityId: cycle.id,
-      oldValues: { status: existing.status },
-      newValues: { status: nextStatus, system: true },
-    });
+      await auditService.log({
+        actorId: actorUserId,
+        action: "investment_cycle_status_changed",
+        entityType: "investment_cycle",
+        entityId: cycle.id,
+        oldValues: { status: existing.status },
+        newValues: { status: nextStatus, system: true },
+      });
+    }
 
     if (nextStatus === "trading" && existing.fundId) {
       try {
@@ -1273,60 +1352,27 @@ export const investmentCycleService = {
         },
       });
     } else if (nextStatus === "funding") {
-      publishPlatformEvent({
-        eventType: PLATFORM_EVENT_TYPES.CYCLE_FUNDING_OPENED,
-        category: "investment",
-        entityType: "investment_cycle",
-        entityId: cycle.id,
-        actorId: actorUserId,
-        payload: {
-          poolManagerUserId,
-          cycleId: cycle.id,
-          cycleName: cycle.name,
-          fundId: cycle.fundId,
-          status: nextStatus,
-          summary: `Cycle ${cycle.name} opened for funding`,
-        },
-      });
+      await publishFundingOpened(cycle, actorUserId);
     }
 
-    if (nextStatus === "funding" && existing.fundId) {
-      const { data: fundRow } = await db
-        .from("funds")
-        .select("*")
-        .eq("id", existing.fundId)
-        .maybeSingle();
-      if (fundRow) {
-        const deadline = computeFundingDeadline(
-          fundRow as Record<string, unknown>,
-          existing.closingDate
-        );
-        if (deadline) {
-          await db
-            .from("investment_cycles")
-            .update({ funding_deadline: deadline } as never)
-            .eq("id", id);
-        }
-      }
+    if (nextStatus === "funding") {
+      await refreshFundingDeadline(cycle);
     }
 
     return cycle;
   },
 
   async systemActivateCycleForFunding(cycleId: string, actorUserId: string): Promise<InvestmentCycle> {
-    let cycle = await this.getById(cycleId);
+    const cycle = await this.getById(cycleId);
     if (!cycle) throw new Error("Investment cycle not found.");
+    if (cycle.status === "funding") return cycle;
+    if (!["draft", "submitted", "approved"].includes(cycle.status)) return cycle;
 
-    if (cycle.status === "draft") {
-      cycle = await this.systemTransition(cycle.id, "submitted", actorUserId);
-    }
-    if (cycle.status === "submitted") {
-      cycle = await this.systemTransition(cycle.id, "approved", actorUserId);
-    }
-    if (cycle.status === "approved") {
-      cycle = await this.systemTransition(cycle.id, "funding", actorUserId);
-    }
-    return cycle;
+    const activated = await activateFundingCycleAtomically(cycle.id, actorUserId);
+    await continueCopyingAfterFundingOpened(activated, actorUserId);
+    await publishFundingOpened(activated, actorUserId);
+    await refreshFundingDeadline(activated);
+    return activated;
   },
 
   async adminReview(
@@ -1507,33 +1553,14 @@ export const investmentCycleService = {
       throw new Error("Pool must be live before opening a new investment cycle.");
     }
 
-    let cycle = existing;
-    if (cycle.status === "draft") {
-      cycle = await this.transition(cycleId, "submitted", "manager");
-    }
-    if (cycle.status === "submitted") {
-      assertInvestmentCycleTransition(cycle.status, "approved", "admin");
-      const now = new Date().toISOString();
-      const { data, error } = await db
-        .from("investment_cycles")
-        .update({ status: "approved", approved_at: now } as never)
-        .eq("id", cycleId)
-        .select("*")
-        .single();
-      if (error) throw new Error(error.message);
-      cycle = mapCycle(data as CycleRow);
-      await auditService.log({
-        actorId: userId,
-        action: "investment_cycle_status_changed",
-        entityType: "investment_cycle",
-        entityId: cycleId,
-        oldValues: { status: "submitted" },
-        newValues: { status: "approved" },
-      });
-    }
-    if (cycle.status === "approved") {
-      return this.transition(cycleId, "funding", "manager");
-    }
+    if (existing.status === "funding") return existing;
+    if (!["draft", "submitted", "approved"].includes(existing.status)) return existing;
+
+    const cycle = await activateFundingCycleAtomically(cycleId, userId);
+    await continueCopyingAfterFundingOpened(cycle, userId);
+
+    await publishFundingOpened(cycle, userId);
+    await refreshFundingDeadline(cycle);
     return cycle;
   },
 

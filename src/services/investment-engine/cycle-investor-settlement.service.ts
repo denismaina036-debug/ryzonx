@@ -446,7 +446,7 @@ export const cycleInvestorSettlementService = {
     targetCycleId: string,
     fundId: string,
     actorUserId: string
-  ): Promise<{ continued: number; total: number }> {
+  ): Promise<{ continued: number; total: number; skippedMissingSource: number }> {
     const db = createAdminClient();
     const { data: rows, error } = await settlementsTable(db)
       .select("id, investment_cycle_id, investor_id, status, profit_resolved, capital_resolved")
@@ -465,7 +465,9 @@ export const cycleInvestorSettlementService = {
       profit_resolved: boolean;
       capital_resolved: boolean;
     }>;
-    if (candidates.length === 0) return { continued: 0, total: 0 };
+    if (candidates.length === 0) {
+      return { continued: 0, total: 0, skippedMissingSource: 0 };
+    }
 
     const { data: stopRequests, error: stopRequestError } = await db
       .from("copy_stop_requests" as never)
@@ -494,12 +496,45 @@ export const cycleInvestorSettlementService = {
     const eligibleCycleIds = new Set(
       ((sourceCycles ?? []) as Array<{ id: string }>).map((cycle) => cycle.id)
     );
+    const eligibleCandidates = candidates.filter((candidate) =>
+      eligibleCycleIds.has(candidate.investment_cycle_id)
+    );
+    if (eligibleCandidates.length === 0) {
+      return { continued: 0, total: 0, skippedMissingSource: 0 };
+    }
+    const { data: sourceAllocations, error: allocationError } = await db
+      .from("investment_allocations")
+      .select("investment_cycle_id, investor_id")
+      .in(
+        "investment_cycle_id",
+        [...new Set(eligibleCandidates.map((candidate) => candidate.investment_cycle_id))]
+      )
+      .in(
+        "investor_id",
+        [...new Set(eligibleCandidates.map((candidate) => candidate.investor_id))]
+      )
+      .in("status", ["funding_confirmed", "confirmed", "locked", "settled", "distributed"]);
+    if (allocationError) throw new Error(allocationError.message);
+
+    const sourceAllocationKeys = new Set(
+      ((sourceAllocations ?? []) as Array<{
+        investment_cycle_id: string;
+        investor_id: string;
+      }>).map((allocation) =>
+        `${allocation.investment_cycle_id}:${allocation.investor_id}`
+      )
+    );
     let continued = 0;
     let total = 0;
+    let skippedMissingSource = 0;
 
     for (const candidate of candidates) {
       if (!eligibleCycleIds.has(candidate.investment_cycle_id)) continue;
       if (requestedStops.has(`${candidate.investment_cycle_id}:${candidate.investor_id}`)) {
+        continue;
+      }
+      if (!sourceAllocationKeys.has(`${candidate.investment_cycle_id}:${candidate.investor_id}`)) {
+        skippedMissingSource += 1;
         continue;
       }
       const { data, error: continuationError } = await db.rpc(
@@ -526,7 +561,7 @@ export const cycleInvestorSettlementService = {
       await investmentCycleMetricsService.recalculateCycleRaisedCapital(targetCycleId);
     }
 
-    return { continued, total };
+    return { continued, total, skippedMissingSource };
   },
 
   /**
@@ -537,7 +572,7 @@ export const cycleInvestorSettlementService = {
   async continuePendingCopyingIntoNextFundingCycle(
     fundId: string,
     actorUserId: string
-  ): Promise<{ continued: number; total: number }> {
+  ): Promise<{ continued: number; total: number; skippedMissingSource: number }> {
     const db = createAdminClient();
     const { data, error } = await db
       .from("investment_cycles")
@@ -548,7 +583,7 @@ export const cycleInvestorSettlementService = {
       .limit(1)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    if (!data) return { continued: 0, total: 0 };
+    if (!data) return { continued: 0, total: 0, skippedMissingSource: 0 };
 
     return this.continuePendingCopyingIntoCycle(
       (data as { id: string }).id,
