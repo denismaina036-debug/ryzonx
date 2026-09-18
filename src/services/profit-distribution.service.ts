@@ -7,7 +7,10 @@ import {
   type ProfitSettlementStatus,
 } from "@/constants/profit-distribution";
 import { generateLedgerReference } from "@/lib/financial/ledger-utils";
-import { computeCycleRealizedTradingProfit } from "@/lib/financial/profit-distribution-calculator";
+import {
+  computeCycleAllocationShare,
+  computeCycleRealizedTradingProfit,
+} from "@/lib/financial/profit-distribution-calculator";
 import {
   calculateRoiV2Distribution,
   calculateOwnershipOnlyDistribution,
@@ -286,10 +289,10 @@ async function calculateCycleDistributionBreakdown(
   const snapshots = await cycleOwnershipService.getSnapshot(cycle.id);
   const roiConfig = await readCycleRoiConfig(cycle);
   const hasRoiMultipliers = roiConfig.multipliers.size > 0;
-  // Profit belongs to the capital allocated to this cycle. Fund-level positions can
-  // include previous-cycle capital and realised profits, so they must never set a
-  // current cycle's distribution basis.
-  const cycleCapital = settled.reduce((sum, allocation) => sum + allocation.amount, 0);
+  // The cycle's set capital includes its initial capital. Copier allocations must
+  // retain their share of that full denominator even when only one copier exists.
+  const allocatedCapital = settled.reduce((sum, allocation) => sum + allocation.amount, 0);
+  const cycleCapital = cycle.raisedCapital > 0 ? cycle.raisedCapital : allocatedCapital;
   const platformFeeRate = await platformSettingsService.getPlatformServiceFeeRate();
 
   const db = createAdminClient();
@@ -330,6 +333,7 @@ async function calculateCycleDistributionBreakdown(
       allocationId: allocation.id,
       investorId: allocation.investorId,
       capitalBasis,
+      ownershipPct: computeCycleAllocationShare(capitalBasis, cycleCapital),
       roiMultiplier: multiplier,
       cumulativeRealisedReturn: toNumber(row?.cumulative_realised_return),
       targetFulfilled: Boolean(row?.target_fulfilled),
@@ -355,7 +359,9 @@ async function calculateCycleDistributionBreakdown(
             allocationId: allocation.allocationId,
             investorId: allocation.investorId,
             capitalBasis: allocation.capitalBasis,
-            ownershipPct: totalCapital > 0 ? allocation.capitalBasis / totalCapital : 0,
+            ownershipPct:
+              allocation.ownershipPct ??
+              (totalCapital > 0 ? allocation.capitalBasis / totalCapital : 0),
           };
         }),
       });

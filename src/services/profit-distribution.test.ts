@@ -1,17 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { memoryDb, type Row } from "./test-support/memory-db";
 
-const mocks = vi.hoisted(() => ({ db: vi.fn(), cycle: vi.fn(), trades: vi.fn(), credit: vi.fn(), ledger: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  db: vi.fn(),
+  cycle: vi.fn(),
+  trades: vi.fn(),
+  allocations: vi.fn(),
+  roiMultipliers: vi.fn(),
+  platformFeeRate: vi.fn(),
+  ownershipSnapshot: vi.fn(),
+  credit: vi.fn(),
+  ledger: vi.fn(),
+}));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.db }));
 vi.mock("@/lib/auth/session", () => ({ requireAuth: vi.fn(), requireRole: vi.fn() }));
 vi.mock("@/lib/auth/pool-manager-access", () => ({ userOwnsPoolManager: vi.fn() }));
 vi.mock("@/services/investment-cycle.service", () => ({ investmentCycleService: { getById: mocks.cycle } }));
 vi.mock("@/services/trade-entry.service", () => ({ tradeEntryService: { listByCycleInternal: mocks.trades } }));
-vi.mock("@/services/investment-allocation.service", () => ({ investmentAllocationService: {} }));
-vi.mock("@/services/pool-roi.service", () => ({ poolRoiService: {} }));
-vi.mock("@/services/platform-settings.service", () => ({ platformSettingsService: {} }));
+vi.mock("@/services/investment-allocation.service", () => ({ investmentAllocationService: { listByCycleInternal: mocks.allocations } }));
+vi.mock("@/services/pool-roi.service", () => ({ poolRoiService: { getMultipliersForCycle: mocks.roiMultipliers } }));
+vi.mock("@/services/platform-settings.service", () => ({ platformSettingsService: { getPlatformServiceFeeRate: mocks.platformFeeRate } }));
 vi.mock("@/services/audit.service", () => ({ auditService: { log: vi.fn() } }));
-vi.mock("@/services/investment-engine/cycle-ownership.service", () => ({ cycleOwnershipService: {} }));
+vi.mock("@/services/investment-engine/cycle-ownership.service", () => ({ cycleOwnershipService: { getSnapshot: mocks.ownershipSnapshot } }));
 vi.mock("@/services/investment-engine/investor-profit-wallet.service", () => ({ investorProfitWalletService: { credit: mocks.credit } }));
 vi.mock("@/services/investment-engine/cycle-lifecycle-orchestrator.service", () => ({ cycleLifecycleOrchestrator: { onSettlementDistributed: vi.fn() } }));
 vi.mock("@/services/ledger.service", () => ({ ledgerService: { postTransaction: mocks.ledger } }));
@@ -37,8 +47,32 @@ beforeEach(() => {
   mocks.cycle.mockImplementation(async (id: string) => ({ id, name: id, status: "trading", poolManagerId: "manager", fundId: "fund", currentCycleProfit: 9999 }));
   mocks.credit.mockResolvedValue({ balance: 200 });
   mocks.ledger.mockResolvedValue({ transaction: { id: "ledger-credit" } });
+  mocks.allocations.mockResolvedValue([]);
+  mocks.roiMultipliers.mockResolvedValue([]);
+  mocks.platformFeeRate.mockResolvedValue(0);
+  mocks.ownershipSnapshot.mockResolvedValue([]);
 });
 describe("cycle settlement boundaries", () => {
+  it("uses the full cycle set capital for a sole copier's profit share", async () => {
+    mocks.cycle.mockResolvedValue({
+      id: "c4",
+      name: "Cycle 4",
+      status: "trading",
+      poolManagerId: "manager",
+      fundId: "fund",
+      raisedCapital: 12_776.7,
+    });
+    mocks.allocations.mockResolvedValue([
+      { id: "ruth-allocation", investmentCycleId: "c4", investorId: "ruth", amount: 476.7, status: "locked" },
+    ]);
+
+    const projected = await profitDistributionService.projectInvestorProfitForCycle("c4", 1000);
+
+    expect(projected).toEqual([
+      { allocationId: "ruth-allocation", investorId: "ruth", projectedProfit: 37.3 },
+    ]);
+  });
+
   it("uses cycle journal totals instead of a stale nonzero cached profit", async () => {
     mocks.trades.mockImplementation(async (id: string) => (id === "c1" ? [100, 200, -50] : [500, -100]).map(realizedPnl => ({ status: "closed", realizedPnl })));
     expect(await profitDistributionService.getCycleGrossTradingProfit("c1")).toBe(250);

@@ -19,6 +19,8 @@ function isProfitTierFulfilled(
 }
 
 export interface RoiV2AllocationInput extends AllocationCapitalBasis {
+  /** Authoritative share of the cycle's full set capital (0-1). */
+  ownershipPct?: number;
   roiMultiplier: number;
   cumulativeRealisedReturn: number;
   targetFulfilled: boolean;
@@ -102,7 +104,8 @@ export function calculateRoiV2Distribution(input: {
         returnMultiplier: alloc.roiMultiplier,
         tierWeight: 0,
         allocationWeight: alloc.capitalBasis,
-        ownershipPct: totalCapital > 0 ? alloc.capitalBasis / totalCapital : 0,
+        ownershipPct:
+          alloc.ownershipPct ?? (totalCapital > 0 ? alloc.capitalBasis / totalCapital : 0),
         profitShare: 0,
       }));
     } else {
@@ -121,8 +124,24 @@ export function calculateRoiV2Distribution(input: {
       );
       const shares = input.allocations.map(() => 0);
       let remainingPool = netDistributableProfit;
+      const hasAuthoritativeOwnership = input.allocations.every(
+        (allocation) => allocation.ownershipPct != null
+      );
 
-      if (netDistributableProfit >= totalRemainingTarget) {
+      if (hasAuthoritativeOwnership) {
+        for (let i = 0; i < shares.length; i++) {
+          const allocation = input.allocations[i]!;
+          shares[i] = roundMoney(
+            Math.min(
+              remainingTargets[i] ?? 0,
+              netDistributableProfit * (allocation.ownershipPct ?? 0)
+            )
+          );
+        }
+        remainingPool = roundMoney(
+          netDistributableProfit - shares.reduce((sum, share) => sum + share, 0)
+        );
+      } else if (netDistributableProfit >= totalRemainingTarget) {
         for (let i = 0; i < shares.length; i++) shares[i] = remainingTargets[i] ?? 0;
         remainingPool = roundMoney(netDistributableProfit - totalRemainingTarget);
       } else {
@@ -170,7 +189,7 @@ export function calculateRoiV2Distribution(input: {
         returnMultiplier: alloc.roiMultiplier,
         tierWeight: 0,
         allocationWeight: alloc.capitalBasis,
-        ownershipPct: alloc.capitalBasis / totalCapital,
+        ownershipPct: alloc.ownershipPct ?? alloc.capitalBasis / totalCapital,
         profitShare: shares[index] ?? 0,
       }));
 

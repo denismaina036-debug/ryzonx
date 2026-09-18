@@ -36,6 +36,16 @@ function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+/** Frozen copier share as a fraction, using the cycle's full set capital. */
+export function computeCycleAllocationShare(
+  allocationAmount: number,
+  cycleSetCapital: number
+): number {
+  if (allocationAmount <= 0 || cycleSetCapital <= 0) return 0;
+  const sharePercentage = Math.round((allocationAmount / cycleSetCapital) * 10_000) / 100;
+  return sharePercentage / 100;
+}
+
 export function computeTradeRealizedPnl(entry: TradeEntry): number {
   if (entry.status !== "closed") return 0;
   if (entry.realizedPnl != null && Number.isFinite(entry.realizedPnl)) {

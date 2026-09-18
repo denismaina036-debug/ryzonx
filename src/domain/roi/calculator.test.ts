@@ -7,6 +7,7 @@ import {
   resolveMultiplier,
 } from "@/domain/roi/calculator";
 import { calculateRoiV2Distribution } from "@/lib/financial/roi-v2-distribution";
+import { computeCycleAllocationShare } from "@/lib/financial/profit-distribution-calculator";
 import { PLATFORM_SERVICE_FEE_RATE } from "@/constants/profit-distribution";
 
 const LEVELS = [
@@ -84,6 +85,47 @@ describe("ROI calculator", () => {
 });
 
 describe("ROI v2 distribution", () => {
+  it("does not normalize a sole copier's stored cycle share to 100 percent", () => {
+    const ruthCycleShare = computeCycleAllocationShare(476.7, 12_776.7);
+    expect(ruthCycleShare).toBe(0.0373);
+
+    const result = calculateRoiV2Distribution({
+      grossTradingProfit: 1000,
+      platformServiceFeeRate: 0,
+      allocations: [
+        {
+          allocationId: "ruth",
+          investorId: "ruth",
+          capitalBasis: 476.7,
+          ownershipPct: ruthCycleShare,
+          roiMultiplier: 100,
+          cumulativeRealisedReturn: 0,
+          targetFulfilled: false,
+          investmentLevelId: "starter",
+        },
+      ],
+    });
+
+    expect(result.investorAllocations[0]?.profitShare).toBe(37.3);
+  });
+
+  it("uses each copier's own stored cycle share without renormalizing the group", () => {
+    const cycleSetCapital = 12_776.7;
+    const result = calculateRoiV2Distribution({
+      grossTradingProfit: 1000,
+      platformServiceFeeRate: 0,
+      allocations: [
+        { allocationId: "ruth", investorId: "ruth", capitalBasis: 476.7, ownershipPct: computeCycleAllocationShare(476.7, cycleSetCapital), roiMultiplier: 100, cumulativeRealisedReturn: 0, targetFulfilled: false, investmentLevelId: "starter" },
+        { allocationId: "second", investorId: "second", capitalBasis: 1309.62, ownershipPct: computeCycleAllocationShare(1309.62, cycleSetCapital), roiMultiplier: 100, cumulativeRealisedReturn: 0, targetFulfilled: false, investmentLevelId: "starter" },
+      ],
+    });
+
+    expect(result.investorAllocations.map((allocation) => allocation.profitShare)).toEqual([
+      37.3,
+      102.5,
+    ]);
+  });
+
   it("deducts platform fee before distribution", () => {
     const result = calculateRoiV2Distribution({
       grossTradingProfit: 10000,
