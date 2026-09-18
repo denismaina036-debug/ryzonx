@@ -33,7 +33,6 @@ import type {
   MarketplaceManagerCard,
   MarketplacePoolCard,
 } from "@/domain/marketplace/types";
-import type { InvestorCycleCard, InvestorStrategyCard } from "@/domain/investment/investor-presentation";
 import { STRATEGY_RISK_PROFILES } from "@/constants/strategy";
 import { RyvonxEmptyState } from "@/components/ui/ryvonx-shell";
 import { cn } from "@/lib/utils";
@@ -53,8 +52,6 @@ const MARKETPLACE_SELECT_ITEM =
 interface MarketplaceBrowseProps {
   managers: MarketplaceManagerCard[];
   pools: MarketplacePoolCard[];
-  strategies: InvestorStrategyCard[];
-  cycles: InvestorCycleCard[];
   featuredManagerSections: FeaturedManagerSection[];
   totalInvestors: number;
 }
@@ -62,8 +59,6 @@ interface MarketplaceBrowseProps {
 export function MarketplaceBrowse({
   managers,
   pools,
-  strategies: _strategies,
-  cycles: _cycles,
   featuredManagerSections,
   totalInvestors,
 }: MarketplaceBrowseProps) {

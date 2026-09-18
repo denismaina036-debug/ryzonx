@@ -16,6 +16,7 @@ import type {
   ChallengeEnrollment,
 } from "@/features/investor/types";
 import type { WalletPoolParticipation } from "@/features/investor/types/wallet";
+import type { InvestorInvestmentSummary } from "@/features/investor/types/wallet";
 import { walletService } from "@/services/wallet.service";
 import { investorPoolTradesService } from "@/services/investor-pool-trades.service";
 import { investmentCycleService } from "@/services/investment-cycle.service";
@@ -135,6 +136,58 @@ async function fetchPublishedPoolTrades(
   limit = 20
 ): Promise<InvestorDashboardTrade[]> {
   return investorPoolTradesService.listForFunds(fundIds, investorId, limit);
+}
+
+async function addLivePrimaryCycleMetrics(
+  userId: string,
+  walletSummary: InvestorInvestmentSummary
+): Promise<InvestorInvestmentSummary> {
+  const primaryFundId = walletSummary.participations[0]?.fundId;
+  if (!primaryFundId) return walletSummary;
+
+  const activeCycle = await investmentCycleService.getActiveForFund(primaryFundId);
+  if (!activeCycle || !["trading", "distribution"].includes(activeCycle.status)) {
+    return walletSummary;
+  }
+
+  const admin = createAdminClient();
+  const { data: allocation } = await admin
+    .from("investment_allocations")
+    .select("id")
+    .eq("investor_id", userId)
+    .eq("investment_cycle_id", activeCycle.id)
+    .maybeSingle();
+  if (!allocation) return walletSummary;
+
+  const liveMetrics = await import("@/services/cycle-live-metrics.service")
+    .then(({ cycleLiveMetricsService }) =>
+      cycleLiveMetricsService.getInvestorLiveTrading(activeCycle.id, userId)
+    )
+    .catch(() => null);
+  if (!liveMetrics) return walletSummary;
+
+  return {
+    ...walletSummary,
+    poolProfit:
+      walletSummary.poolProfit + (liveMetrics.investorProjectedProfit ?? 0),
+    participations: walletSummary.participations.map((participation) =>
+      participation.fundId === primaryFundId
+        ? {
+            ...participation,
+            amountInvested:
+              liveMetrics.investorInvestment ?? participation.amountInvested,
+            poolProfit:
+              participation.poolProfit +
+              (liveMetrics.investorProjectedProfit ?? 0),
+            currentValue:
+              Math.max(
+                participation.currentValue,
+                liveMetrics.investorInvestment ?? participation.amountInvested
+              ) + (liveMetrics.investorProjectedProfit ?? 0),
+          }
+        : participation
+    ),
+  };
 }
 
 export const investorService = {
@@ -591,14 +644,15 @@ export const investorService = {
   },
 
   async getInvestmentsPageData(): Promise<{
-    dashboard: InvestorDashboardPageData;
+    investment: InvestorInvestmentSummary;
     poolViews: InvestorPoolParticipationView[];
     actionableSettlements: CycleInvestorSettlement[];
   }> {
     const user = await requireAuth();
-    const dashboard = await this.getDashboardPageData();
+    const walletSummary = await walletService.getWalletSummary();
+    const investment = await addLivePrimaryCycleMetrics(user.id, walletSummary);
 
-    const dashboardParticipations = dashboard.investment.participations;
+    const dashboardParticipations = investment.participations;
     const candidateFundIds = [
       ...new Set(dashboardParticipations.map((pool) => pool.fundId)),
     ];
@@ -897,7 +951,7 @@ export const investorService = {
       (settlement) => !tradingFundIds.has(settlement.fundId)
     );
 
-    return { dashboard, poolViews, actionableSettlements };
+    return { investment, poolViews, actionableSettlements };
   },
 
   async getTradesPageData(): Promise<{

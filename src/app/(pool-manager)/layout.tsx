@@ -2,7 +2,6 @@ import { requireRole } from "@/lib/auth/session";
 import { USER_ROLES } from "@/constants/roles";
 import { AuthProvider } from "@/providers/auth-provider";
 import { PoolManagerLayoutShell } from "@/components/layouts/pool-manager-layout";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { poolManagerWorkspaceService } from "@/services/pool-manager-workspace.service";
 
 export default async function PoolManagerRouteLayout({
@@ -12,8 +11,8 @@ export default async function PoolManagerRouteLayout({
 }) {
   const user = await requireRole(USER_ROLES.POOL_MANAGER);
 
-  let managerSlug: string | null = null;
   let quickActionContext = {
+    managerSlug: null as string | null,
     hasStrategy: false,
     hasApprovedStrategy: false,
     hasApprovedPool: false,
@@ -22,22 +21,9 @@ export default async function PoolManagerRouteLayout({
     approvedPoolId: null as string | null,
   };
 
-  const [managerResult, quickActionResult] = await Promise.allSettled([
-    (async () => {
-      const db = createAdminClient();
-      const { data } = await db
-        .from("pool_managers")
-        .select("slug")
-        .eq("user_id", user.id)
-        .eq("status", "approved")
-        .maybeSingle();
-      return (data as { slug?: string } | null)?.slug ?? null;
-    })(),
+  const quickActionResult = await Promise.allSettled([
     poolManagerWorkspaceService.getQuickActionContext(),
-  ]);
-  if (managerResult.status === "fulfilled") {
-    managerSlug = managerResult.value;
-  }
+  ]).then(([result]) => result);
   if (quickActionResult.status === "fulfilled") {
     quickActionContext = quickActionResult.value;
   } else {
@@ -53,7 +39,7 @@ export default async function PoolManagerRouteLayout({
         userName={user.fullName}
         avatarUrl={user.avatarUrl}
         userEmail={user.email}
-        managerSlug={managerSlug}
+        managerSlug={quickActionContext.managerSlug}
         quickActionContext={quickActionContext}
       >
         {children}

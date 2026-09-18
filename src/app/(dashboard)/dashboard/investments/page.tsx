@@ -18,7 +18,7 @@ import { BadgeCheck } from "lucide-react";
 
 export default async function MyInvestmentsPage() {
   await requireAuth();
-  const { dashboard, poolViews } = await investorService.getInvestmentsPageData();
+  const { investment, poolViews } = await investorService.getInvestmentsPageData();
 
   return (
     <InvestorPageContent className="space-y-8">
@@ -44,7 +44,7 @@ export default async function MyInvestmentsPage() {
         </Button>
       </header>
 
-      <WalletHeroCard investment={dashboard.investment} />
+      <WalletHeroCard investment={investment} />
 
       {poolViews.length > 0 && (
         <section className="overflow-hidden rounded-[var(--id-radius)] border border-[var(--id-border)] bg-[var(--id-surface)] shadow-[var(--id-shadow)]">

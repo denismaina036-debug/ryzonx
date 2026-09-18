@@ -983,6 +983,24 @@ export const poolManagerApplicationService = {
 };
 
 export const poolManagerAdminService = {
+  async countPendingApplications(): Promise<number> {
+    await requireRole(USER_ROLES.ADMINISTRATOR);
+    const db = createAdminClient();
+    const { count, error } = await db
+      .from("pool_manager_applications")
+      .select("id", { count: "exact", head: true })
+      .in("status", [
+        "draft",
+        "pending",
+        "under_review",
+        "requires_changes",
+        "interview_required",
+      ]);
+
+    if (error) throw new Error(error.message);
+    return count ?? 0;
+  },
+
   async listApplications(): Promise<
     Array<
       PoolManagerApplication & {

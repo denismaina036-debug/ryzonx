@@ -991,6 +991,20 @@ export const investmentCycleService = {
     return mapCycleWithLiveMetrics(data as CycleRow);
   },
 
+  async listByIds(ids: string[]): Promise<InvestmentCycle[]> {
+    const uniqueIds = [...new Set(ids)];
+    if (uniqueIds.length === 0) return [];
+
+    const db = createAdminClient();
+    const { data, error } = await db
+      .from("investment_cycles")
+      .select("*")
+      .in("id", uniqueIds);
+
+    if (error) throw new Error(error.message);
+    return mapCyclesWithLiveMetrics((data ?? []) as CycleRow[]);
+  },
+
   async getByIdForManager(id: string): Promise<InvestmentCycle> {
     const { managerId } = await requireManagerId();
     const cycle = await this.getById(id);

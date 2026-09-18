@@ -1,4 +1,5 @@
 import { copyTraderName, copyTradingText } from "@/lib/copy-trading-presentation";
+import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PoolDetailView } from "@/features/marketplace/components/pool-detail-view";
@@ -9,13 +10,17 @@ import { marketplacePresentationService } from "@/services/marketplace-presentat
 
 export const dynamic = "force-dynamic";
 
+const getOpportunityPageData = cache((slug: string) =>
+  marketplacePresentationService.getOpportunityPageData(slug)
+);
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const data = await marketplacePresentationService.getOpportunityPageData(slug);
+  const data = await getOpportunityPageData(slug);
   if (!data) {
     return buildPageMetadata({
       title: "Strategy Not Found",
@@ -54,7 +59,7 @@ export default async function MarketplacePoolPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const data = await marketplacePresentationService.getOpportunityPageData(slug);
+  const data = await getOpportunityPageData(slug);
   if (!data) notFound();
 
   return (

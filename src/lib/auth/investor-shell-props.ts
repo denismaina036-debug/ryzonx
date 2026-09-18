@@ -1,7 +1,6 @@
 import { getShellUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { challengeCenterService } from "@/services/challenge-center.service";
+import { getInvestorRequestContext } from "@/services/investor-request-context.service";
 import { CHALLENGE_DISPLAY_STATUS } from "@/domain/challenge/types";
 import {
   resolvePmJourneyCardVariant,
@@ -47,9 +46,8 @@ async function loadInvestorShellProps(): Promise<InvestorShellProps> {
   if (user) {
     try {
       const supabase = await createClient();
-      const admin = createAdminClient();
 
-      const [notificationsResult, poolResult, challengeState, applicationResult] =
+      const [notificationsResult, poolResult, requestContext] =
         await Promise.all([
         supabase
           .from("notifications")
@@ -61,19 +59,14 @@ async function loadInvestorShellProps(): Promise<InvestorShellProps> {
           .select("fund_id", { count: "exact", head: true })
           .eq("user_id", user.id)
           .gt("total_invested", 0),
-        challengeCenterService.getChallengeCenterState(user.id).catch(() => null),
-        admin
-          .from("pool_manager_applications")
-          .select("id, status")
-          .eq("user_id", user.id)
-          .maybeSingle(),
+        getInvestorRequestContext(user.id),
       ]);
 
       unreadNotifications = notificationsResult.count ?? 0;
       hasActivePool = (poolResult.count ?? 0) > 0;
       challengeDisplayStatus =
-        challengeState?.displayStatus ?? CHALLENGE_DISPLAY_STATUS.NONE;
-      const applicationRow = applicationResult.data as { id: string; status: string } | null;
+        requestContext.challengeState?.displayStatus ?? CHALLENGE_DISPLAY_STATUS.NONE;
+      const applicationRow = requestContext.application;
       pmJourneyVariant = resolvePmJourneyCardVariant({
         role: user.role,
         registrationIntent: user.registrationIntent,

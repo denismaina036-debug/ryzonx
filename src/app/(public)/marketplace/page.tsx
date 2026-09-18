@@ -22,7 +22,7 @@ export const metadata: Metadata = buildPageMetadata({
 });
 
 export default async function MarketplacePage() {
-  const [{ pools, managers, featuredManagerSections, strategies, cycles }, totalInvestors] =
+  const [{ pools, managers, featuredManagerSections }, totalInvestors] =
     await Promise.all([
       marketplacePresentationService.getLandingPageData(),
       landingPageStatsService.resolveAutomaticNumericValue("total_investors"),
@@ -33,8 +33,6 @@ export default async function MarketplacePage() {
       <MarketplaceBrowse
         managers={managers}
         pools={pools}
-        strategies={strategies}
-        cycles={cycles}
         featuredManagerSections={featuredManagerSections}
         totalInvestors={totalInvestors ?? 0}
       />

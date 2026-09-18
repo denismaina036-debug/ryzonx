@@ -134,14 +134,21 @@ function toStrategyCard(
   };
 }
 
-async function buildCycleCards(cycles: InvestmentCycle[]): Promise<InvestorCycleCard[]> {
+async function buildCycleCards(
+  cycles: InvestmentCycle[],
+  prefetched?: {
+    strategies?: Strategy[];
+    managers?: Map<string, ManagerRow>;
+  }
+): Promise<InvestorCycleCard[]> {
   if (cycles.length === 0) return [];
   const strategyIds = [...new Set(cycles.map((c) => c.strategyId))];
-  const strategies = await Promise.all(strategyIds.map((id) => strategyService.getById(id)));
-  const strategyMap = new Map(
-    strategies.filter(Boolean).map((s) => [s!.id, s!])
-  );
-  const managers = await loadManagers([...new Set(cycles.map((c) => c.poolManagerId))]);
+  const strategies =
+    prefetched?.strategies ?? (await strategyService.listByIds(strategyIds));
+  const strategyMap = new Map(strategies.map((strategy) => [strategy.id, strategy]));
+  const managers =
+    prefetched?.managers ??
+    (await loadManagers([...new Set(cycles.map((c) => c.poolManagerId))]));
 
   return cycles
     .map((cycle) => {
@@ -152,10 +159,18 @@ async function buildCycleCards(cycles: InvestmentCycle[]): Promise<InvestorCycle
     .filter((c): c is InvestorCycleCard => c != null);
 }
 
-async function buildStrategyCards(strategies: Strategy[]): Promise<InvestorStrategyCard[]> {
+async function buildStrategyCards(
+  strategies: Strategy[],
+  prefetched?: {
+    cycles?: InvestmentCycle[];
+    managers?: Map<string, ManagerRow>;
+  }
+): Promise<InvestorStrategyCard[]> {
   if (strategies.length === 0) return [];
-  const cycles = await investmentCycleService.listPublic();
-  const managers = await loadManagers([...new Set(strategies.map((s) => s.poolManagerId))]);
+  const cycles = prefetched?.cycles ?? (await investmentCycleService.listPublic());
+  const managers =
+    prefetched?.managers ??
+    (await loadManagers([...new Set(strategies.map((s) => s.poolManagerId))]));
 
   return strategies.map((strategy) => {
     const count = cycles.filter(
@@ -171,12 +186,12 @@ async function enrichAllocations(allocations: InvestmentAllocation[]): Promise<I
   if (allocations.length === 0) return [];
 
   const cycleIds = [...new Set(allocations.map((a) => a.investmentCycleId))];
-  const cycles = await Promise.all(cycleIds.map((id) => investmentCycleService.getById(id)));
-  const cycleMap = new Map(cycles.filter(Boolean).map((c) => [c!.id, c!]));
+  const cycles = await investmentCycleService.listByIds(cycleIds);
+  const cycleMap = new Map(cycles.map((cycle) => [cycle.id, cycle]));
 
   const strategyIds = [...new Set([...cycleMap.values()].map((c) => c.strategyId))];
-  const strategies = await Promise.all(strategyIds.map((id) => strategyService.getById(id)));
-  const strategyMap = new Map(strategies.filter(Boolean).map((s) => [s!.id, s!]));
+  const strategies = await strategyService.listByIds(strategyIds);
+  const strategyMap = new Map(strategies.map((strategy) => [strategy.id, strategy]));
 
   const managerIds = [...new Set([...cycleMap.values()].map((c) => c.poolManagerId))];
   const managers = await loadManagers(managerIds);
@@ -265,8 +280,16 @@ export const investorInvestmentService = {
       investmentAllocationService.listMine(),
     ]);
 
-    const strategyCards = await buildStrategyCards(strategies);
-    const cycleCards = await buildCycleCards(cycles);
+    const cardManagers = await loadManagers([
+      ...new Set([
+        ...strategies.map((strategy) => strategy.poolManagerId),
+        ...cycles.map((cycle) => cycle.poolManagerId),
+      ]),
+    ]);
+    const [strategyCards, cycleCards] = await Promise.all([
+      buildStrategyCards(strategies, { cycles, managers: cardManagers }),
+      buildCycleCards(cycles, { strategies, managers: cardManagers }),
+    ]);
     const allocationViews = await enrichAllocations(allocations);
 
     const fundingCycles = cycleCards.filter((c) => c.status === "funding");

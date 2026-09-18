@@ -487,7 +487,12 @@ async function fetchManagersMap(
   const map = new Map<string, ManagerRow>();
   if (managerIds.length === 0) return map;
 
-  const { data } = await db.from("pool_managers").select("*").in("id", managerIds);
+  const { data } = await db
+    .from("pool_managers")
+    .select(
+      "id, slug, username, display_name, show_full_name, icon_url, profile_photo_url, cover_image_url, bio, country, markets, trading_style, trading_since, is_verified, ryvonx_rating, security_rating, aggressiveness_rating, win_rate_pct, avg_monthly_return_pct, max_drawdown_pct, approved_at, created_at, display_review_count, display_trade_count, display_investor_count, admin_statistics"
+    )
+    .in("id", managerIds);
   for (const m of (data ?? []) as unknown as ManagerRow[]) {
     map.set(m.id, m);
   }
@@ -775,6 +780,61 @@ function enrichManagerCards(
   });
 }
 
+function buildFeaturedManagerSections(
+  managers: MarketplaceManagerCard[]
+): FeaturedManagerSection[] {
+  if (managers.length === 0) return [];
+
+  const sections: FeaturedManagerSection[] = [];
+  const pick = (sorted: MarketplaceManagerCard[], limit = 6) => sorted.slice(0, limit);
+  const sectionDefs: Array<{
+    key: string;
+    title: string;
+    sort: (a: MarketplaceManagerCard, b: MarketplaceManagerCard) => number;
+  }> = [
+    {
+      key: "highest_rated",
+      title: "Highest Rated Managers",
+      sort: (a, b) => (b.ryvonxRating ?? 0) - (a.ryvonxRating ?? 0),
+    },
+    {
+      key: "most_popular",
+      title: "Most Popular Managers",
+      sort: (a, b) => b.activeInvestors - a.activeInvestors,
+    },
+    {
+      key: "highest_aum",
+      title: "Highest AUM",
+      sort: (a, b) => b.assetsUnderManagement - a.assetsUnderManagement,
+    },
+    {
+      key: "most_consistent",
+      title: "Most Consistent",
+      sort: (a, b) => (b.winRatePct ?? 0) - (a.winRatePct ?? 0),
+    },
+    {
+      key: "newest_verified",
+      title: "Newest Verified",
+      sort: (a, b) => (b.yearsOnRyvonX ?? 0) - (a.yearsOnRyvonX ?? 0),
+    },
+  ];
+
+  for (const def of sectionDefs) {
+    const items = pick([...managers].sort(def.sort));
+    if (items.length > 0) {
+      sections.push({ key: def.key, title: def.title, managers: items });
+    }
+  }
+
+  return sections;
+}
+
+export interface MarketplaceSnapshot {
+  pools: MarketplacePoolCard[];
+  managers: MarketplaceManagerCard[];
+  featuredManagerSections: FeaturedManagerSection[];
+}
+
 export const marketplaceService = {
   async listListedPools(): Promise<FundRow[]> {
     const db = createAdminClient();
@@ -791,7 +851,9 @@ export const marketplaceService = {
     return (data ?? []) as FundRow[];
   },
 
-  async getMarketplacePools(filters: MarketplaceFilters = {}): Promise<MarketplacePoolCard[]> {
+  async getMarketplaceSnapshot(
+    filters: MarketplaceFilters = {}
+  ): Promise<MarketplaceSnapshot> {
     const rows = await this.listListedPools();
     const db = createAdminClient();
 
@@ -815,52 +877,30 @@ export const marketplaceService = {
 
     const enriched = await enrichPoolCards(db, rows, cards, managersMap);
     const filtered = applyFilters(enriched, filters);
-    return sortPools(filtered, filters.sort);
+    const pools = sortPools(filtered, filters.sort);
+    const aggregated = aggregatePoolsByManager(pools);
+    const managers = sortManagers(
+      filterManagers(enrichManagerCards(aggregated, managersMap), filters.search ?? ""),
+      filters.sort
+    );
+
+    return {
+      pools,
+      managers,
+      featuredManagerSections: buildFeaturedManagerSections(managers),
+    };
+  },
+
+  async getMarketplacePools(filters: MarketplaceFilters = {}): Promise<MarketplacePoolCard[]> {
+    return (await this.getMarketplaceSnapshot(filters)).pools;
   },
 
   async getMarketplaceManagers(filters: MarketplaceFilters = {}): Promise<MarketplaceManagerCard[]> {
-    const pools = await this.getMarketplacePools(filters);
-    const aggregated = aggregatePoolsByManager(pools);
-
-    const db = createAdminClient();
-    const managerIds = [
-      ...new Set(
-        aggregated
-          .flatMap((m) => m.activeOpportunities.map((p) => p.managerId))
-          .filter(Boolean)
-      ),
-    ] as string[];
-    const managersMap = await fetchManagersMap(db, managerIds);
-
-    const enriched = enrichManagerCards(aggregated, managersMap);
-    const searched = filterManagers(enriched, filters.search ?? "");
-    return sortManagers(searched, filters.sort);
+    return (await this.getMarketplaceSnapshot(filters)).managers;
   },
 
   async getFeaturedManagerSections(): Promise<FeaturedManagerSection[]> {
-    const managers = await this.getMarketplaceManagers();
-    if (managers.length === 0) return [];
-
-    const sections: FeaturedManagerSection[] = [];
-    const pick = (sorted: MarketplaceManagerCard[], limit = 6) => sorted.slice(0, limit);
-
-    const sectionDefs: Array<{ key: string; title: string; sort: (a: MarketplaceManagerCard, b: MarketplaceManagerCard) => number }> = [
-      { key: "highest_rated", title: "Highest Rated Managers", sort: (a, b) => (b.ryvonxRating ?? 0) - (a.ryvonxRating ?? 0) },
-      { key: "most_popular", title: "Most Popular Managers", sort: (a, b) => b.activeInvestors - a.activeInvestors },
-      { key: "highest_aum", title: "Highest AUM", sort: (a, b) => b.assetsUnderManagement - a.assetsUnderManagement },
-      { key: "most_consistent", title: "Most Consistent", sort: (a, b) => (b.winRatePct ?? 0) - (a.winRatePct ?? 0) },
-      { key: "newest_verified", title: "Newest Verified", sort: (a, b) => (b.yearsOnRyvonX ?? 0) - (a.yearsOnRyvonX ?? 0) },
-    ];
-
-    for (const def of sectionDefs) {
-      const sorted = [...managers].sort(def.sort);
-      const items = pick(sorted);
-      if (items.length > 0) {
-        sections.push({ key: def.key, title: def.title, managers: items });
-      }
-    }
-
-    return sections;
+    return (await this.getMarketplaceSnapshot()).featuredManagerSections;
   },
 
   async getPoolBySlug(slug: string): Promise<MarketplacePoolDetail | null> {

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth, requireRole } from "@/lib/auth/session";
 import { USER_ROLES } from "@/constants/roles";
@@ -99,8 +100,7 @@ async function resolveAllocationRoiFields(
   return resolved;
 }
 
-export const investmentAllocationService = {
-  async listMine(): Promise<InvestmentAllocation[]> {
+const listMineForRequest = cache(async (): Promise<InvestmentAllocation[]> => {
     const user = await requireAuth();
     const db = createAdminClient();
     const { data, error } = await db
@@ -111,7 +111,10 @@ export const investmentAllocationService = {
 
     if (error) throw new Error(error.message);
     return ((data ?? []) as AllocationRow[]).map(mapAllocation);
-  },
+});
+
+export const investmentAllocationService = {
+  listMine: listMineForRequest,
 
   async listByCycle(cycleId: string): Promise<InvestmentAllocation[]> {
     const user = await requireAuth();

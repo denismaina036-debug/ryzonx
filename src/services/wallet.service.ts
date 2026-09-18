@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth } from "@/lib/auth/session";
 import type { ManagedPoolConfig } from "@/domain/pools/managed-pool";
@@ -58,8 +59,8 @@ function computeTermEnd(
   return { termEndDate: null, termEnded: false };
 }
 
-export const walletService = {
-  async getWalletSummary(): Promise<InvestorInvestmentSummary> {
+const getWalletSummaryForRequest = cache(
+  async (): Promise<InvestorInvestmentSummary> => {
     const user = await requireAuth();
     const db = createAdminClient();
 
@@ -250,5 +251,9 @@ export const walletService = {
     });
 
     return { balance, poolProfit, participations };
-  },
+  }
+);
+
+export const walletService = {
+  getWalletSummary: getWalletSummaryForRequest,
 };

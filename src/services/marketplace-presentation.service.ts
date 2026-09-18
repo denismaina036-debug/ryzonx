@@ -27,24 +27,8 @@ export const marketplacePresentationService = {
     pools: MarketplacePoolCard[];
     managers: MarketplaceManagerCard[];
     featuredManagerSections: FeaturedManagerSection[];
-    strategies: InvestorStrategyCard[];
-    cycles: InvestorCycleCard[];
   }> {
-    const [pools, managers, featuredManagerSections, rawStrategies, rawCycles] =
-      await Promise.all([
-        marketplaceService.getMarketplacePools(),
-        marketplaceService.getMarketplaceManagers(),
-        marketplaceService.getFeaturedManagerSections(),
-        strategyService.listPublic(),
-        investmentCycleService.listPublic(),
-      ]);
-
-    const [strategies, cycles] = await Promise.all([
-      investorInvestmentService.buildStrategyCardsFromList(rawStrategies),
-      investorInvestmentService.buildCycleCardsFromList(rawCycles),
-    ]);
-
-    return { pools, managers, featuredManagerSections, strategies, cycles };
+    return marketplaceService.getMarketplaceSnapshot();
   },
 
   async getManagerProfilePageData(slug: string): Promise<{

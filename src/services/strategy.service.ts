@@ -128,6 +128,20 @@ export const strategyService = {
     return mapStrategy(data as StrategyRow);
   },
 
+  async listByIds(ids: string[]): Promise<Strategy[]> {
+    const uniqueIds = [...new Set(ids)];
+    if (uniqueIds.length === 0) return [];
+
+    const db = createAdminClient();
+    const { data, error } = await db
+      .from("strategies")
+      .select("*")
+      .in("id", uniqueIds);
+
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as StrategyRow[]).map(mapStrategy);
+  },
+
   async getByIdForManager(id: string): Promise<Strategy> {
     const { managerId } = await requireManagerId();
     const strategy = await this.getById(id);

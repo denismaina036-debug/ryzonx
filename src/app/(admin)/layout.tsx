@@ -4,7 +4,6 @@ import { AuthProvider } from "@/providers/auth-provider";
 import { AdminLayoutShell } from "@/components/layouts/admin-layout";
 import { adminService } from "@/services/admin.service";
 import { poolManagerAdminService } from "@/services/pool-manager-application.service";
-import { filterPoolManagerApplications } from "@/features/admin/utils/pool-manager-applications";
 
 /**
  * Admin route group layout.
@@ -22,7 +21,7 @@ export default async function AdminRouteLayout({
   let pendingApplications = 0;
   const [statsResult, applicationsResult] = await Promise.allSettled([
     adminService.getDashboardStats(),
-    poolManagerAdminService.listApplications(),
+    poolManagerAdminService.countPendingApplications(),
   ]);
   if (statsResult.status === "fulfilled") {
     pendingDeposits = statsResult.value.pendingDeposits;
@@ -31,7 +30,7 @@ export default async function AdminRouteLayout({
     console.error("[admin layout] Failed to load pending counts:", statsResult.reason);
   }
   if (applicationsResult.status === "fulfilled") {
-    pendingApplications = filterPoolManagerApplications(applicationsResult.value, "pending").length;
+    pendingApplications = applicationsResult.value;
   } else {
     console.error("[admin layout] Failed to load pending applications:", applicationsResult.reason);
   }

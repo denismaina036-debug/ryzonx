@@ -1,6 +1,9 @@
 import { poolManagerDashboardService } from "@/services/pool-manager-dashboard.service";
 import { strategyService } from "@/services/strategy.service";
 import { investmentCycleService } from "@/services/investment-cycle.service";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { requireRole } from "@/lib/auth/session";
+import { USER_ROLES } from "@/constants/roles";
 import type { InvestmentCycle, Strategy } from "@/domain/investment/types";
 
 export interface PoolManagerWorkspaceActivity {
@@ -33,6 +36,7 @@ const CLOSED_CYCLE_STATUSES = new Set(["completed", "archived"]);
 const APPROVED_POOL_STATUSES = new Set(["approved", "live"]);
 
 export interface PoolManagerQuickActionContext {
+  managerSlug: string | null;
   hasStrategy: boolean;
   hasApprovedStrategy: boolean;
   hasApprovedPool: boolean;
@@ -43,22 +47,63 @@ export interface PoolManagerQuickActionContext {
 
 export const poolManagerWorkspaceService = {
   async getQuickActionContext(): Promise<PoolManagerQuickActionContext> {
-    const { managedPoolService } = await import("@/services/managed-pool.service");
-    const [strategies, cycles, pools] = await Promise.all([
-      strategyService.listMine(),
-      investmentCycleService.listMine(),
-      managedPoolService.listMine(),
+    const user = await requireRole(USER_ROLES.POOL_MANAGER);
+    const db = createAdminClient();
+    const { data: manager } = await db
+      .from("pool_managers")
+      .select("id, slug")
+      .eq("user_id", user.id)
+      .eq("status", "approved")
+      .maybeSingle();
+
+    const managerRow = manager as { id: string; slug: string | null } | null;
+    if (!managerRow) {
+      return {
+        managerSlug: null,
+        hasStrategy: false,
+        hasApprovedStrategy: false,
+        hasApprovedPool: false,
+        hasActiveCycle: false,
+        activeCycleId: null,
+        approvedPoolId: null,
+      };
+    }
+
+    const [strategyResult, cycleResult, poolResult] = await Promise.all([
+      db
+        .from("strategies")
+        .select("id, status")
+        .eq("pool_manager_id", managerRow.id)
+        .order("created_at", { ascending: false }),
+      db
+        .from("investment_cycles")
+        .select("id, status")
+        .eq("pool_manager_id", managerRow.id)
+        .order("created_at", { ascending: false }),
+      db
+        .from("funds")
+        .select("id, lifecycle_status")
+        .eq("pool_manager_id", managerRow.id)
+        .order("created_at", { ascending: false }),
     ]);
+
+    const strategies = (strategyResult.data ?? []) as Array<{ id: string; status: string }>;
+    const cycles = (cycleResult.data ?? []) as Array<{ id: string; status: string }>;
+    const pools = (poolResult.data ?? []) as Array<{
+      id: string;
+      lifecycle_status: string | null;
+    }>;
 
     const hasApprovedStrategy = strategies.some((s) =>
       ACTIVE_STRATEGY_STATUSES.has(s.status)
     );
     const approvedPool = pools.find((p) =>
-      APPROVED_POOL_STATUSES.has(p.lifecycleStatus ?? "")
+      APPROVED_POOL_STATUSES.has(p.lifecycle_status ?? "")
     );
     const activeCycle = cycles.find((c) => ACTIVE_CYCLE_STATUSES.has(c.status));
 
     return {
+      managerSlug: managerRow.slug,
       hasStrategy: strategies.length > 0,
       hasApprovedStrategy,
       hasApprovedPool: Boolean(approvedPool),
