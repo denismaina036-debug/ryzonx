@@ -16,7 +16,6 @@ import { generateTradeReference } from "@/lib/investment/utils";
 import { computeTradeRealizedPnl } from "@/lib/financial/profit-distribution-calculator";
 import { tradeLossAllocationService } from "@/services/trade-loss-allocation.service";
 import { cycleProfitService } from "@/services/investment-engine/cycle-profit.service";
-import { investmentCycleMetricsService } from "@/services/investment-cycle-metrics.service";
 import { poolManagerPerformanceStatsService } from "@/services/pool-manager-performance-stats.service";
 import { assertCycleLossWithinCapital } from "@/domain/investment/cycle-loss-policy";
 import type {
@@ -66,16 +65,14 @@ async function assertRecordedLossFitsCycleCapital(
 ): Promise<void> {
   if (realizedPnl >= 0) return;
 
-  const [committedCapital, cycle, currentCyclePnl] = await Promise.all([
-    investmentCycleMetricsService.sumCommittedCapitalForCycle(cycleId),
+  const [cycle, currentCyclePnl] = await Promise.all([
     investmentCycleService.getById(cycleId),
     cycleProfitService.getCycleProfit(cycleId),
   ]);
   if (!cycle) throw new Error("Cycle not found.");
 
-  const lossBearingCapital = cycle.raisedCapital > 0 ? cycle.raisedCapital : committedCapital;
   assertCycleLossWithinCapital({
-    capital: lossBearingCapital,
+    capital: cycle.raisedCapital,
     recordedLoss: Math.abs(realizedPnl),
     resultingCyclePnl: currentCyclePnl + realizedPnl,
   });

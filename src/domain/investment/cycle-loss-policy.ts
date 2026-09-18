@@ -19,10 +19,10 @@ export function getCycleLossCapacityError(input: CycleLossCapacityInput): string
   const netLoss = roundMoney(Math.max(0, -input.resultingCyclePnl));
 
   if (recordedLoss > capital) {
-    return "A recorded loss cannot exceed the cycle's invested capital.";
+    return "A recorded loss cannot exceed the total capital traded in the cycle.";
   }
   if (netLoss > capital) {
-    return "The cycle's total loss cannot exceed its invested capital.";
+    return "The cycle's total loss cannot exceed the total capital traded in the cycle.";
   }
   return null;
 }

@@ -26,7 +26,7 @@ describe("cycle loss policy", () => {
         recordedLoss: 500.01,
         resultingCyclePnl: -100,
       })
-    ).toBe("A recorded loss cannot exceed the cycle's invested capital.");
+    ).toBe("A recorded loss cannot exceed the total capital traded in the cycle.");
   });
 
   it("rejects cumulative cycle losses larger than invested capital", () => {
@@ -36,6 +36,6 @@ describe("cycle loss policy", () => {
         recordedLoss: 200,
         resultingCyclePnl: -500.01,
       })
-    ).toBe("The cycle's total loss cannot exceed its invested capital.");
+    ).toBe("The cycle's total loss cannot exceed the total capital traded in the cycle.");
   });
 });

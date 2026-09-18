@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { memoryDb, type Row } from "./test-support/memory-db";
 
-const mocks = vi.hoisted(() => ({ db: vi.fn(), audit: vi.fn(), cycle: vi.fn(), committed: vi.fn() }));
+const mocks = vi.hoisted(() => ({ db: vi.fn(), audit: vi.fn(), cycle: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.db }));
 vi.mock("@/lib/auth/session", () => ({ requireRole: async () => ({ id: "manager-user" }) }));
 vi.mock("@/services/audit.service", () => ({ auditService: { log: mocks.audit } }));
@@ -16,7 +16,6 @@ vi.mock("@/lib/platform-events/resolve-recipients", () => ({ resolveCycleManager
 vi.mock("@/services/trade-loss-allocation.service", () => ({ tradeLossAllocationService: {
   resolveTradeResult: (pnl: number) => pnl > 0 ? "profit" : pnl < 0 ? "loss" : "breakeven",
 } }));
-vi.mock("@/services/investment-cycle-metrics.service", () => ({ investmentCycleMetricsService: { sumCommittedCapitalForCycle: mocks.committed } }));
 vi.mock("@/services/pool-manager-performance-stats.service", () => ({ poolManagerPerformanceStatsService: { syncManager: async () => undefined } }));
 
 import { tradeEntryService } from "./trade-entry.service";
@@ -32,7 +31,6 @@ beforeEach(() => {
   };
   mocks.db.mockReturnValue(memoryDb(tables));
   mocks.cycle.mockResolvedValue({ status: "trading", raisedCapital: 10000 });
-  mocks.committed.mockResolvedValue(10000);
   mocks.audit.mockResolvedValue(undefined);
 });
 const record = (cycle: string, pnl: number) => tradeEntryService.recordCompletedTrade(cycle, {
@@ -68,12 +66,11 @@ describe("manual completed results", () => {
     expect(tables.trade_entries).toEqual([]);
   });
   it("validates losses against total cycle capital rather than copier commitments", async () => {
-    mocks.cycle.mockResolvedValue({ status: "trading", raisedCapital: 10000 });
-    mocks.committed.mockResolvedValue(100);
+    mocks.cycle.mockResolvedValue({ status: "trading", raisedCapital: 12_776.7 });
 
-    await expect(record("c1", -1000)).resolves.toMatchObject({ realizedPnl: -1000 });
-    await expect(record("c2", -10000.01)).rejects.toThrow(
-      "A recorded loss cannot exceed the cycle's invested capital."
+    await expect(record("c1", -12_776.7)).resolves.toMatchObject({ realizedPnl: -12_776.7 });
+    await expect(record("c2", -12_776.71)).rejects.toThrow(
+      "A recorded loss cannot exceed the total capital traded in the cycle."
     );
   });
   it("a failure after the insert still leaves a completed record", async () => {
