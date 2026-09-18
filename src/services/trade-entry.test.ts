@@ -67,6 +67,15 @@ describe("manual completed results", () => {
     await expect(tradeEntryService.recordCompletedTrade("c1", { instrument: "XAUUSD", amountUsd: 100 })).rejects.toThrow();
     expect(tables.trade_entries).toEqual([]);
   });
+  it("validates losses against total cycle capital rather than copier commitments", async () => {
+    mocks.cycle.mockResolvedValue({ status: "trading", raisedCapital: 10000 });
+    mocks.committed.mockResolvedValue(100);
+
+    await expect(record("c1", -1000)).resolves.toMatchObject({ realizedPnl: -1000 });
+    await expect(record("c2", -10000.01)).rejects.toThrow(
+      "A recorded loss cannot exceed the cycle's invested capital."
+    );
+  });
   it("a failure after the insert still leaves a completed record", async () => {
     mocks.audit.mockRejectedValueOnce(new Error("audit unavailable"));
     await expect(record("c1", 100)).rejects.toThrow("audit unavailable");

@@ -73,7 +73,7 @@ async function assertRecordedLossFitsCycleCapital(
   ]);
   if (!cycle) throw new Error("Cycle not found.");
 
-  const lossBearingCapital = committedCapital > 0 ? committedCapital : cycle.raisedCapital;
+  const lossBearingCapital = cycle.raisedCapital > 0 ? cycle.raisedCapital : committedCapital;
   assertCycleLossWithinCapital({
     capital: lossBearingCapital,
     recordedLoss: Math.abs(realizedPnl),

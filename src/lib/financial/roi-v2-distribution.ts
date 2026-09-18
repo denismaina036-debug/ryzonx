@@ -70,10 +70,13 @@ export function calculateRoiV2Distribution(input: {
   if (netDistributableProfit <= 0 || totalCapital <= 0) {
     // Losses distributed proportionally by capital ownership
     investorAllocations = input.allocations.map((alloc) => {
-      const ownershipPct = totalCapital > 0 ? alloc.capitalBasis / totalCapital : 0;
+      const ownershipPct =
+        alloc.ownershipPct ?? (totalCapital > 0 ? alloc.capitalBasis / totalCapital : 0);
       const profitShare =
         netDistributableProfit < 0
-          ? roundMoney(netDistributableProfit * ownershipPct)
+          ? -roundMoney(
+              Math.min(alloc.capitalBasis, Math.abs(netDistributableProfit * ownershipPct))
+            )
           : 0;
       return {
         allocationId: alloc.allocationId,
@@ -268,10 +271,11 @@ export function calculateOwnershipOnlyDistribution(input: {
     gross > 0 ? roundMoney(taxableGross - platformServiceFee) : roundMoney(gross);
 
   const investorAllocations: InvestorProfitAllocation[] = input.allocations.map((alloc) => {
+    const proportionalShare = roundMoney(netDistributableProfit * alloc.ownershipPct);
     const profitShare =
-      netDistributableProfit !== 0
-        ? roundMoney(netDistributableProfit * alloc.ownershipPct)
-        : 0;
+      proportionalShare < 0
+        ? -roundMoney(Math.min(alloc.capitalBasis, Math.abs(proportionalShare)))
+        : proportionalShare;
     return {
       allocationId: alloc.allocationId,
       investorId: alloc.investorId,

@@ -475,11 +475,8 @@ export const profitDistributionService = {
     } = await calculateCycleDistributionBreakdown(cycle, settled, grossTradingProfit);
 
     if (grossTradingProfit < 0) {
-      const lossBearingCapital = roundMoney(
-        allocationInput.reduce((sum, allocation) => sum + allocation.capitalBasis, 0)
-      );
       assertCycleLossWithinCapital({
-        capital: lossBearingCapital,
+        capital: roundMoney(cycleCapital),
         recordedLoss: Math.abs(grossTradingProfit),
         resultingCyclePnl: grossTradingProfit,
       });

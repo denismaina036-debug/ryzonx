@@ -85,6 +85,41 @@ describe("ROI calculator", () => {
 });
 
 describe("ROI v2 distribution", () => {
+  it("allocates a sole copier only their stored share of a cycle loss", () => {
+    const result = calculateRoiV2Distribution({
+      grossTradingProfit: -1000,
+      allocations: [
+        {
+          allocationId: "ruth",
+          investorId: "ruth",
+          capitalBasis: 100,
+          ownershipPct: 0.0373,
+          roiMultiplier: 100,
+          cumulativeRealisedReturn: 0,
+          targetFulfilled: false,
+          investmentLevelId: "starter",
+        },
+      ],
+    });
+
+    expect(result.investorAllocations[0]?.profitShare).toBe(-37.3);
+  });
+
+  it("uses each copier's own stored share for losses and caps loss at their capital", () => {
+    const result = calculateRoiV2Distribution({
+      grossTradingProfit: -1000,
+      allocations: [
+        { allocationId: "ruth", investorId: "ruth", capitalBasis: 100, ownershipPct: 0.0373, roiMultiplier: 100, cumulativeRealisedReturn: 0, targetFulfilled: false, investmentLevelId: "starter" },
+        { allocationId: "second", investorId: "second", capitalBasis: 50, ownershipPct: 0.1025, roiMultiplier: 100, cumulativeRealisedReturn: 0, targetFulfilled: false, investmentLevelId: "starter" },
+      ],
+    });
+
+    expect(result.investorAllocations.map((allocation) => allocation.profitShare)).toEqual([
+      -37.3,
+      -50,
+    ]);
+  });
+
   it("does not normalize a sole copier's stored cycle share to 100 percent", () => {
     const ruthCycleShare = computeCycleAllocationShare(476.7, 12_776.7);
     expect(ruthCycleShare).toBe(0.0373);

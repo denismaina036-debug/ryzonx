@@ -73,6 +73,26 @@ describe("cycle settlement boundaries", () => {
     ]);
   });
 
+  it("uses the full cycle set capital for a sole copier's loss share", async () => {
+    mocks.cycle.mockResolvedValue({
+      id: "c4",
+      name: "Cycle 4",
+      status: "trading",
+      poolManagerId: "manager",
+      fundId: "fund",
+      raisedCapital: 12_776.7,
+    });
+    mocks.allocations.mockResolvedValue([
+      { id: "ruth-allocation", investmentCycleId: "c4", investorId: "ruth", amount: 476.7, status: "locked" },
+    ]);
+
+    const projected = await profitDistributionService.projectInvestorProfitForCycle("c4", -1000);
+
+    expect(projected).toEqual([
+      { allocationId: "ruth-allocation", investorId: "ruth", projectedProfit: -37.3 },
+    ]);
+  });
+
   it("uses cycle journal totals instead of a stale nonzero cached profit", async () => {
     mocks.trades.mockImplementation(async (id: string) => (id === "c1" ? [100, 200, -50] : [500, -100]).map(realizedPnl => ({ status: "closed", realizedPnl })));
     expect(await profitDistributionService.getCycleGrossTradingProfit("c1")).toBe(250);
