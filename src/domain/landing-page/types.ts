@@ -155,6 +155,48 @@ export interface LandingPageSettings {
   featuredManagersAutoRotate: boolean;
 }
 
+export interface LandingRiskWarning {
+  enabled: boolean;
+  text: string;
+}
+
+export interface LandingEducationIntro {
+  enabled: boolean;
+  eyebrow: string;
+  heading: string;
+  description: string;
+  ctaEnabled: boolean;
+  ctaLabel: string;
+  ctaHref: string;
+}
+
+export interface LandingEducationSection {
+  id: string;
+  enabled: boolean;
+  order: number;
+  displayNumber: string;
+  title: string;
+  body: string;
+  ctaEnabled: boolean;
+  ctaLabel: string;
+  ctaHref: string;
+}
+
+export interface LandingEducationFaq {
+  id: string;
+  enabled: boolean;
+  order: number;
+  question: string;
+  answer: string;
+}
+
+export interface LandingCopyTradingEducation {
+  enabled: boolean;
+  intro: LandingEducationIntro;
+  sections: LandingEducationSection[];
+  faqs: LandingEducationFaq[];
+}
+
 export interface LandingSectionVisibility {
   hero: boolean;
   brokerCompatibility: boolean;
@@ -201,6 +243,8 @@ export interface LandingPageContent {
   statistics: LandingStatItem[];
   brokers: LandingBrokerItem[];
   settings: LandingPageSettings;
+  riskWarning: LandingRiskWarning;
+  copyTradingEducation: LandingCopyTradingEducation;
   contact: LandingContactInfo;
   social: LandingSocialLinks;
   footer: LandingFooterContent;

@@ -6,7 +6,7 @@ import { DashboardLayoutShell } from "@/components/layouts/dashboard-layout";
 import { USER_ROLES, hasMinimumRole } from "@/constants/roles";
 import type { InvestorShellProps } from "@/lib/auth/investor-shell-props";
 import type { ReactNode } from "react";
-import type { LandingContactInfo } from "@/domain/landing-page/types";
+import type { LandingContactInfo, LandingRiskWarning } from "@/domain/landing-page/types";
 
 const AUTHENTICATED_SHELL_PREFIXES = ["/marketplace", "/managers", "/apply"] as const;
 
@@ -25,6 +25,7 @@ function shouldUseInvestorShell(
 interface AuthenticatedShellGateProps {
   shellProps: InvestorShellProps;
   contact: LandingContactInfo;
+  riskWarning?: LandingRiskWarning;
   children: ReactNode;
 }
 
@@ -32,6 +33,7 @@ interface AuthenticatedShellGateProps {
 export function AuthenticatedShellGate({
   shellProps,
   contact,
+  riskWarning,
   children,
 }: AuthenticatedShellGateProps) {
   const pathname = usePathname();
@@ -52,6 +54,13 @@ export function AuthenticatedShellGate({
   }
 
   return (
-    <PublicLayout contact={contact} isAuthenticated={!!shellProps.user}>{children}</PublicLayout>
+    <PublicLayout
+      contact={contact}
+      isAuthenticated={!!shellProps.user}
+      riskWarning={riskWarning}
+      showRiskWarning={pathname === "/"}
+    >
+      {children}
+    </PublicLayout>
   );
 }

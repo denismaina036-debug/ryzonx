@@ -12,12 +12,52 @@ function normalizeStatItem(stat: LandingStatItem): LandingStatItem {
   };
 }
 
+function normalizeCtaHref(value: unknown, fallback: string): string {
+  const href = typeof value === "string" ? value.trim() : "";
+  if (href.startsWith("/") && href[1] !== "/" && href[1] !== "\\") return href;
+  try {
+    const url = new URL(href);
+    return url.protocol === "https:" ? url.toString() : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function normalizeLandingContent(content: LandingPageContent): LandingPageContent {
   return {
     ...content,
     brokers: withResolvedBrokerLogos(content.brokers),
     heroStats: content.heroStats.map(normalizeStatItem),
     statistics: content.statistics.map(normalizeStatItem),
+    copyTradingEducation: {
+      ...content.copyTradingEducation,
+      intro: {
+        ...content.copyTradingEducation.intro,
+        ctaHref: normalizeCtaHref(
+          content.copyTradingEducation.intro.ctaHref,
+          DEFAULT_LANDING_PAGE_CONTENT.copyTradingEducation.intro.ctaHref
+        ),
+      },
+      sections: content.copyTradingEducation.sections.map((section) => {
+        const fallback =
+          DEFAULT_LANDING_PAGE_CONTENT.copyTradingEducation.sections.find(
+            (item) => item.id === section.id
+          )?.ctaHref ?? "/marketplace";
+        return {
+          ...section,
+          order: Number.isFinite(section.order) ? section.order : 0,
+          displayNumber:
+            typeof section.displayNumber === "string" && section.displayNumber.trim()
+              ? section.displayNumber.trim()
+              : String(section.order || 1).padStart(2, "0"),
+          ctaHref: normalizeCtaHref(section.ctaHref, fallback),
+        };
+      }),
+      faqs: content.copyTradingEducation.faqs.map((faq) => ({
+        ...faq,
+        order: Number.isFinite(faq.order) ? faq.order : 0,
+      })),
+    },
   };
 }
 

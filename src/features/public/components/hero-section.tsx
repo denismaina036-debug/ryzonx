@@ -152,7 +152,7 @@ export async function HeroSection() {
           ) : null}
         </div>
 
-        <div className="hero-trust-grid relative z-10 grid overflow-hidden rounded-2xl border border-blue-300/[.14] bg-[#071326]/80 shadow-[0_24px_70px_rgba(0,0,0,.32)] backdrop-blur-xl sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr]">
+        <div className="hero-trust-grid relative z-10 grid grid-cols-2 overflow-hidden rounded-2xl border border-blue-300/[.14] bg-[#071326]/80 shadow-[0_24px_70px_rgba(0,0,0,.32)] backdrop-blur-xl lg:grid-cols-[1.3fr_1fr_1fr_1fr]">
           <TrustMetric
             icon={Users}
             title="Total Copiers"
@@ -195,20 +195,20 @@ function TrustMetric({
   featured?: boolean;
 }) {
   return (
-    <div className="hero-trust-metric flex min-h-[8rem] items-center gap-4 px-5 py-5 sm:px-6 lg:px-7">
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-400/[.09] text-indigo-400 ring-1 ring-blue-300/10">
-        <Icon className={featured ? "h-6 w-6" : "h-7 w-7"} />
+    <div className="hero-trust-metric flex min-h-[5.75rem] flex-col items-start justify-center gap-2 px-3.5 py-3.5 sm:min-h-[8rem] sm:flex-row sm:items-center sm:justify-start sm:gap-4 sm:px-6 sm:py-5 lg:px-7">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-400/[.09] text-indigo-400 ring-1 ring-blue-300/10 sm:h-12 sm:w-12">
+        <Icon className={featured ? "h-4 w-4 sm:h-6 sm:w-6" : "h-4 w-4 sm:h-7 sm:w-7"} />
       </div>
       <div className="min-w-0">
-        <p className="text-sm font-medium text-slate-200">{title}</p>
+        <p className="text-[11px] font-medium leading-4 text-slate-200 sm:text-sm">{title}</p>
         {value ? (
-          <p className="mt-1 text-3xl font-semibold tracking-tight text-white">{value}</p>
+          <p className="mt-0.5 text-xl font-semibold tracking-tight text-white sm:mt-1 sm:text-3xl">{value}</p>
         ) : null}
         <p
           className={
             value
-              ? "mt-1 text-xs leading-5 text-slate-400"
-              : "mt-2 text-xs leading-5 text-slate-400"
+              ? "mt-1 hidden text-xs leading-5 text-slate-400 sm:block"
+              : "mt-2 hidden text-xs leading-5 text-slate-400 sm:block"
           }
         >
           {description}

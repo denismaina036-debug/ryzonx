@@ -1,7 +1,7 @@
 "use client";
 import { copyTradingText } from "@/lib/copy-trading-presentation";
 
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -33,6 +33,8 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [getStartedOpen, setGetStartedOpen] = useState(false);
+  const [mobileDrawerTop, setMobileDrawerTop] = useState(64);
+  const headerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -41,19 +43,45 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
   }, []);
 
   useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
+    if (!mobileOpen) return;
+
+    const body = document.body;
+    const previousOverflow = body.style.overflow;
+    const previousPaddingRight = body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+    body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) body.style.paddingRight = `${scrollbarWidth}px`;
+
+    return () => {
+      body.style.overflow = previousOverflow;
+      body.style.paddingRight = previousPaddingRight;
+    };
+  }, [mobileOpen]);
 
   useEffect(() => {
-    document.body.style.overflow = mobileOpen ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    if (!mobileOpen) return;
+
+    const updateDrawerTop = () => {
+      const headerBottom = headerRef.current?.getBoundingClientRect().bottom ?? 64;
+      setMobileDrawerTop(Math.max(0, Math.round(headerBottom)));
+    };
+
+    window.addEventListener("resize", updateDrawerTop, { passive: true });
+    window.visualViewport?.addEventListener("resize", updateDrawerTop, { passive: true });
+
+    return () => {
+      window.removeEventListener("resize", updateDrawerTop);
+      window.visualViewport?.removeEventListener("resize", updateDrawerTop);
+    };
   }, [mobileOpen]);
 
   return (
     <>
       <header
+        ref={headerRef}
         className={cn(
-          "fixed top-0 z-50 w-full transition-all duration-300",
+          "sticky top-0 z-50 w-full transition-all duration-300",
           isHome
             ? scrolled
               ? "border-b border-white/10 bg-[#040d1c]/92 shadow-[0_8px_30px_rgba(0,0,0,.24)] backdrop-blur-xl"
@@ -116,9 +144,17 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
 
           <button
             type="button"
-            onClick={() => setMobileOpen(!mobileOpen)}
+            onClick={() => {
+              if (!mobileOpen) {
+                const headerBottom = headerRef.current?.getBoundingClientRect().bottom ?? 64;
+                setMobileDrawerTop(Math.max(0, Math.round(headerBottom)));
+              }
+              setMobileOpen(!mobileOpen);
+            }}
             className={cn("relative z-50 flex h-10 w-10 items-center justify-center rounded-xl border shadow-sm transition active:scale-95 xl:hidden", isHome ? "border-white/15 bg-white/[.07] text-white" : "border-slate-200 bg-white")}
             aria-label="Toggle menu"
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-navigation-drawer"
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -136,14 +172,18 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
               onClick={() => setMobileOpen(false)}
             />
             <motion.div
+              id="mobile-navigation-drawer"
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed right-0 top-0 z-40 flex h-full w-[min(320px,85vw)] flex-col bg-background shadow-2xl xl:hidden"
+              className="fixed right-0 z-40 flex w-[min(320px,85vw)] flex-col overflow-hidden bg-background shadow-2xl xl:hidden"
+              style={{
+                top: mobileDrawerTop,
+                height: `calc(100dvh - ${mobileDrawerTop}px)`,
+              }}
             >
-              <div className="flex h-16 items-center justify-end px-6" />
-              <nav className="flex flex-1 flex-col gap-1 px-4">
+              <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-4 py-2 [scrollbar-gutter:stable]">
                 {NAV_LINKS.map((link, i) => (
                   <motion.div
                     key={link.href}
@@ -153,6 +193,7 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
                   >
                     <Link
                       href={link.href}
+                      onClick={() => setMobileOpen(false)}
                       className={cn(
                         "flex min-h-[48px] items-center rounded-xl px-4 text-base font-medium transition-colors",
                         pathname === link.href
@@ -165,15 +206,15 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
                   </motion.div>
                 ))}
               </nav>
-              <div className="space-y-3 border-t border-border p-6">
+              <div className="shrink-0 space-y-2.5 border-t border-border px-6 pt-4 [padding-bottom:calc(1rem+env(safe-area-inset-bottom))]">
                 {isAuthenticated ? (
                   <Button asChild className="w-full" size="lg">
-                    <Link href={ROUTES.dashboard}>Dashboard</Link>
+                      <Link href={ROUTES.dashboard} onClick={() => setMobileOpen(false)}>Dashboard</Link>
                   </Button>
                 ) : (
                   <>
                     <Button asChild variant="outline" className="w-full" size="lg">
-                      <Link href={ROUTES.login}>Login</Link>
+                      <Link href={ROUTES.login} onClick={() => setMobileOpen(false)}>Login</Link>
                     </Button>
                     <Button
                       type="button"
@@ -195,8 +236,6 @@ export function Navbar({ isAuthenticated = false }: NavbarProps) {
       </AnimatePresence>
 
       <GetStartedModal open={getStartedOpen} onOpenChange={setGetStartedOpen} />
-
-      <div className={cn("h-16 lg:h-18", isHome && "bg-[#06142d]")} />
     </>
   );
 }

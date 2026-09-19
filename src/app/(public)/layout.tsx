@@ -13,7 +13,7 @@ export default async function PublicRouteLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [shellProps, legalLinks, { contact }] = await Promise.all([
+  const [shellProps, legalLinks, { contact, riskWarning }] = await Promise.all([
     getInvestorShellProps(),
     getLegalLinksSafe(),
     landingPageService.getRawContent(),
@@ -22,7 +22,11 @@ export default async function PublicRouteLayout({
   return (
     <AuthProvider user={shellProps.user}>
       <LegalLinksProvider links={legalLinks}>
-        <AuthenticatedShellGate shellProps={shellProps} contact={contact}>
+        <AuthenticatedShellGate
+          shellProps={shellProps}
+          contact={contact}
+          riskWarning={riskWarning}
+        >
           {children}
         </AuthenticatedShellGate>
       </LegalLinksProvider>

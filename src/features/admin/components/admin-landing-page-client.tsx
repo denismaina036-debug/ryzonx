@@ -24,12 +24,14 @@ import type {
   LandingStatValueFormat,
 } from "@/domain/landing-page/types";
 import { inferFormatFromAutomaticKey } from "@/domain/landing-page/stat-format";
+import { AdminCopyTradingEducationEditor } from "@/features/admin/components/admin-copy-trading-education-editor";
 
 const TABS = [
   { label: "Hero", href: "/admin/pages?tab=hero", tab: "hero" },
   { label: "Brokers", href: "/admin/pages?tab=brokers", tab: "brokers" },
   { label: "Statistics", href: "/admin/pages?tab=statistics", tab: "statistics" },
   { label: "Sections", href: "/admin/pages?tab=sections", tab: "sections" },
+  { label: "Copy Trading Education", href: "/admin/pages?tab=education", tab: "education" },
   { label: "Contact", href: "/admin/pages?tab=contact", tab: "contact" },
   { label: "Footer", href: "/admin/pages?tab=footer", tab: "footer" },
   { label: "Social Media", href: "/admin/pages?tab=social", tab: "social" },
@@ -898,6 +900,17 @@ export function AdminLandingPageClient({
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {tab === "education" && (
+        <AdminCopyTradingEducationEditor
+          riskWarning={content.riskWarning}
+          education={content.copyTradingEducation}
+          onRiskWarningChange={(riskWarning) => setContent({ ...content, riskWarning })}
+          onEducationChange={(copyTradingEducation) =>
+            setContent({ ...content, copyTradingEducation })
+          }
+        />
       )}
 
       {tab === "contact" && (

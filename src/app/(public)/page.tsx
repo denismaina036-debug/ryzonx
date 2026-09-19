@@ -16,6 +16,7 @@ import { ContactSection } from "@/features/public/components/contact-section";
 import { LandingCtaBanner } from "@/features/public/components/landing-cta-banner";
 import { landingPageService } from "@/services/landing-page.service";
 import { TraderCapitalAccessSection } from "@/features/public/components/trader-capital-access-section";
+import { CopyTradingEducationSection } from "@/features/public/components/copy-trading-education-section";
 import { Suspense } from "react";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -53,6 +54,9 @@ export default async function HomePage() {
         </div>
       ) : null}
       <div className="order-2 w-full min-w-0">
+        <CopyTradingEducationSection content={content.copyTradingEducation} />
+      </div>
+      <div className="order-3 w-full min-w-0">
         <section className="bg-white px-4 py-12 text-center sm:py-14">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-600">Marketplace</p>
           <h2 className="mt-3 text-2xl font-semibold tracking-[-0.025em] text-slate-950 sm:text-3xl">
@@ -69,80 +73,80 @@ export default async function HomePage() {
         </section>
       </div>
       {sections.featuredPoolManagers ? (
-        <div className="order-3 w-full min-w-0">
+        <div className="order-4 w-full min-w-0">
           <Suspense fallback={null}>
             <FeaturedPoolManagersSection />
           </Suspense>
         </div>
       ) : null}
-      <div className="order-4 w-full min-w-0">
+      <div className="order-5 w-full min-w-0">
         <Suspense fallback={null}>
           <TraderCapitalAccessSection />
         </Suspense>
       </div>
       {sections.brokerCompatibility ? (
-        <div className="order-5 w-full min-w-0">
+        <div className="order-6 w-full min-w-0">
           <Suspense fallback={null}>
             <BrokerCompatibilitySection />
           </Suspense>
         </div>
       ) : null}
       {sections.statistics ? (
-        <div className="order-10 w-full min-w-0">
+        <div className="order-11 w-full min-w-0">
           <Suspense fallback={null}>
             <InvestorStatsSection />
           </Suspense>
         </div>
       ) : null}
       {sections.performance ? (
-        <div className="order-6 w-full min-w-0">
+        <div className="order-7 w-full min-w-0">
           <PerformanceSection allData={mockPerformanceHistory} />
         </div>
       ) : null}
       {sections.recentActivity ? (
-        <div className="order-8 w-full min-w-0">
+        <div className="order-9 w-full min-w-0">
           <Suspense fallback={null}>
             <ActivitySections />
           </Suspense>
         </div>
       ) : null}
       {sections.howItWorks ? (
-        <div className="order-9 w-full min-w-0">
+        <div className="order-10 w-full min-w-0">
           <Suspense fallback={null}>
             <HowItWorksSection />
           </Suspense>
         </div>
       ) : null}
       {sections.whyRyvonx ? (
-        <div className="order-11 w-full min-w-0">
+        <div className="order-12 w-full min-w-0">
           <Suspense fallback={null}>
             <WhyRyvonxSection />
           </Suspense>
         </div>
       ) : null}
       {sections.testimonials ? (
-        <div className="order-12 w-full min-w-0">
+        <div className="order-13 w-full min-w-0">
           <Suspense fallback={null}>
             <TestimonialsSection />
           </Suspense>
         </div>
       ) : null}
       {sections.faq ? (
-        <div className="order-13 w-full min-w-0">
+        <div className="order-14 w-full min-w-0">
           <Suspense fallback={null}>
             <FaqPreviewSection />
           </Suspense>
         </div>
       ) : null}
       {sections.ctaBanner ? (
-        <div className="order-14 w-full min-w-0">
+        <div className="order-15 w-full min-w-0">
           <Suspense fallback={null}>
             <LandingCtaBanner />
           </Suspense>
         </div>
       ) : null}
       {sections.contact ? (
-        <div className="order-15 w-full min-w-0">
+        <div className="order-16 w-full min-w-0">
           <ContactSection contact={content.contact} copy={content.copy.contact} />
         </div>
       ) : null}
