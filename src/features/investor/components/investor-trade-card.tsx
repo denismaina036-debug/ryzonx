@@ -34,7 +34,6 @@ export function InvestorTradeCard({ trade }: { trade: InvestorDashboardTrade }) 
                 label={trade.isActive ? "Current" : "Exit"}
                 value={formatPrice(trade.currentPrice)}
               />
-              <Stat label="Allocated" value={formatCurrency(trade.investedAmount)} />
             </div>
           ) : null}
           <TradeRecorderAttribution trade={trade} className="mt-3" />

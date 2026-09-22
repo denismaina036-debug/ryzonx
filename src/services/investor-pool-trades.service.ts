@@ -9,6 +9,12 @@ import type {
   InvestorDashboardTrade,
   InvestorTradeDisplayStatus,
 } from "@/features/investor/types";
+import {
+  mergeAuthoritativeCopierTradeResults,
+  selectAuthoritativeCopierTradeRows,
+  type CopierLossAllocation,
+  type CopierProfitAllocation,
+} from "@/lib/investor/copier-trade-history";
 
 type JournalTradeRow = {
   id: string;
@@ -119,71 +125,76 @@ function roundMoney(value: number): number {
 }
 
 export const investorPoolTradesService = {
-  /** Investor-visible journal trades for fund IDs already scoped to the authenticated investor. */
-  async listForFunds(
-    fundIds: string[],
+  /**
+   * Permanent trade history derived from authoritative per-trade allocations.
+   * Current copy status is deliberately irrelevant: historical rows survive a
+   * stop, while later trades have no allocation row for the former copier.
+   */
+  async listForInvestor(
     investorId: string,
     limit = 100
   ): Promise<InvestorDashboardTrade[]> {
-    if (fundIds.length === 0) return [];
-
+    const boundedLimit = Math.min(Math.max(Math.trunc(limit), 1), 200);
     const db = createAdminClient();
-    const { data: cycles, error: cycleError } = await db
-      .from("investment_cycles")
-      .select("id, fund_id")
-      .in("fund_id", fundIds);
+    const [profitResult, lossResult] = await Promise.all([
+      db
+        .from("trade_profit_allocations" as never)
+        .select("trade_entry_id, profit_amount, created_at" as never)
+        .eq("investor_id" as never, investorId as never)
+        .order("created_at" as never, { ascending: false })
+        .limit(boundedLimit),
+      db
+        .from("trade_loss_allocations" as never)
+        .select("trade_entry_id, loss_amount, created_at" as never)
+        .eq("investor_id" as never, investorId as never)
+        .order("created_at" as never, { ascending: false })
+        .limit(boundedLimit),
+    ]);
 
-    if (cycleError) throw new Error(cycleError.message);
+    if (profitResult.error) throw new Error(profitResult.error.message);
+    if (lossResult.error) throw new Error(lossResult.error.message);
 
-    const cycleRows = (cycles ?? []) as CycleRow[];
-    const cycleIds = cycleRows.map((row) => row.id);
-    if (cycleIds.length === 0) return [];
-
-    const cycleMap = new Map(cycleRows.map((row) => [row.id, row]));
+    const copierResults = mergeAuthoritativeCopierTradeResults(
+      (profitResult.data ?? []) as unknown as CopierProfitAllocation[],
+      (lossResult.data ?? []) as unknown as CopierLossAllocation[]
+    );
+    const tradeIds = [...copierResults.keys()];
+    if (tradeIds.length === 0) return [];
 
     const { data: trades, error } = await db
       .from("trade_entries")
       .select(
         "id, pool_manager_id, investment_cycle_id, trade_reference, instrument, direction, entry_price, exit_price, quantity, status, trade_result, realized_pnl, screenshot_url, opened_at, closed_at, created_at"
       )
-      .in("investment_cycle_id", cycleIds)
+      .in("id", tradeIds)
       .eq("investor_visible", true)
       .eq("status", "closed")
       .not("closed_at", "is", null)
-      .order("closed_at", { ascending: false })
-      .limit(limit);
+      .order("closed_at", { ascending: false });
 
     if (error) throw new Error(error.message);
 
     const tradeRows = (trades ?? []) as JournalTradeRow[];
     if (tradeRows.length === 0) return [];
 
-    const { profitDistributionService } = await import(
-      "@/services/profit-distribution.service"
-    );
-    const copierResults = new Map<string, number>();
-    await Promise.all(
-      tradeRows.map(async (row) => {
-        if (row.realized_pnl == null) return;
-        const projections = await profitDistributionService.projectInvestorProfitForCycle(
-          row.investment_cycle_id,
-          toNumber(row.realized_pnl)
-        );
-        const result = projections.find((projection) => projection.investorId === investorId);
-        if (result) copierResults.set(row.id, result.projectedProfit);
-      })
-    );
-
     const managerIds = [...new Set(tradeRows.map((row) => row.pool_manager_id))];
-    const relevantFundIds = [...new Set(cycleRows.map((row) => row.fund_id))];
+    const cycleIds = [...new Set(tradeRows.map((row) => row.investment_cycle_id))];
 
-    const [managersResult, fundsResult] = await Promise.all([
+    const [managersResult, cyclesResult] = await Promise.all([
       db
         .from("pool_managers")
         .select("id, username, slug, display_name, show_full_name, profile_photo_url, icon_url")
         .in("id", managerIds),
-      db.from("funds").select("id, name").in("id", relevantFundIds),
+      db.from("investment_cycles").select("id, fund_id").in("id", cycleIds),
     ]);
+    if (managersResult.error) throw new Error(managersResult.error.message);
+    if (cyclesResult.error) throw new Error(cyclesResult.error.message);
+
+    const cycleRows = (cyclesResult.data ?? []) as CycleRow[];
+    const cycleMap = new Map(cycleRows.map((row) => [row.id, row]));
+    const relevantFundIds = [...new Set(cycleRows.map((row) => row.fund_id))];
+    const fundsResult = await db.from("funds").select("id, name").in("id", relevantFundIds);
+    if (fundsResult.error) throw new Error(fundsResult.error.message);
 
     const managerMap = new Map(
       ((managersResult.data ?? []) as ManagerRow[]).map((row) => [row.id, row])
@@ -192,7 +203,7 @@ export const investorPoolTradesService = {
       ((fundsResult.data ?? []) as FundRow[]).map((row) => [row.id, row])
     );
 
-    return tradeRows
+    return selectAuthoritativeCopierTradeRows(tradeRows, copierResults, boundedLimit)
       .map((row) => {
         const copierProfitLoss = copierResults.get(row.id);
         if (copierProfitLoss == null) return null;
@@ -206,11 +217,6 @@ export const investorPoolTradesService = {
           copierProfitLoss
         );
       })
-      .filter((trade): trade is InvestorDashboardTrade => trade != null)
-      .sort((a, b) => {
-        const aTime = new Date(a.closedAt ?? a.openedAt).getTime();
-        const bTime = new Date(b.closedAt ?? b.openedAt).getTime();
-        return bTime - aTime;
-      });
+      .filter((trade): trade is InvestorDashboardTrade => trade != null);
   },
 };

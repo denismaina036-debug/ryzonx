@@ -130,12 +130,10 @@ function emptyPoolPerformance(): InvestorPoolPerformance {
 }
 
 async function fetchPublishedPoolTrades(
-  _supabase: Awaited<ReturnType<typeof createClient>>,
-  fundIds: string[],
   investorId: string,
   limit = 20
 ): Promise<InvestorDashboardTrade[]> {
-  return investorPoolTradesService.listForFunds(fundIds, investorId, limit);
+  return investorPoolTradesService.listForInvestor(investorId, limit);
 }
 
 async function addLivePrimaryCycleMetrics(
@@ -210,7 +208,6 @@ export const investorService = {
       0
     );
     const participationFundIds = walletSummary.participations.map((p) => p.fundId);
-    const tradeFundIds = [...new Set(walletSummary.participations.map((p) => p.fundId))];
 
     const [
       fundResult,
@@ -243,9 +240,7 @@ export const investorService = {
             .eq("fund_id", primaryFundId)
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
-      tradeFundIds.length > 0
-        ? investorPoolTradesService.listForFunds(tradeFundIds, user.id, 20)
-        : Promise.resolve([]),
+      investorPoolTradesService.listForInvestor(user.id, 20),
       fetchRecentActivityRows(supabase, user.id),
       supabase
         .from("trader_challenges")
@@ -958,11 +953,7 @@ export const investorService = {
     recentTrades: InvestorDashboardTrade[];
   }> {
     const user = await requireAuth();
-    const supabase = await createClient();
-    const wallet = await walletService.getWalletSummary();
-    const fundIds = [...new Set(wallet.participations.map((p) => p.fundId))];
-
-    const recentTrades = await fetchPublishedPoolTrades(supabase, fundIds, user.id, 100);
+    const recentTrades = await fetchPublishedPoolTrades(user.id, 100);
 
     return { recentTrades };
   },

@@ -19,8 +19,8 @@ export function InvestorTradesView({ data }: InvestorTradesViewProps) {
   return (
     <div className="mx-auto w-full min-w-0 max-w-[960px] space-y-6">
       <RyvonxPageHeader
-        title="Recent Strategy Trades"
-        description="Recent trades from the traders you copy."
+        title="Copied Trade History"
+        description="Your personal results from trades you participated in, including completed copy relationships."
       />
 
       <TradesList trades={recentTrades} />
@@ -33,8 +33,8 @@ function TradesList({ trades }: { trades: InvestorDashboardTrade[] }) {
     return (
       <RyvonxEmptyState
         icon={<TrendingUp className="h-5 w-5" />}
-        title="No recent strategy trades yet"
-        description="Trades will appear here when a trader you copy publishes new activity."
+        title="No copied trades yet"
+        description="Trades will appear here after a trader records activity you participated in."
       />
     );
   }

@@ -35,8 +35,8 @@ export default async function AdminInvestmentCycleDetailPage({
 
   return (
     <AdminAdministrationShell
-      title="Investment Cycle Review"
-      description="Funding configuration, allocations, and lifecycle review."
+      title="Investment Cycle Oversight"
+      description="Funding configuration, allocations, and operational lifecycle history."
     >
       <AdminCycleReviewClient
         cycle={cycle}

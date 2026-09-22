@@ -36,7 +36,6 @@ import { PmPageHeader, PmSectionCard, PmFormMessage } from "./pm-page-header";
 import { PmStatusBadge } from "./pm-status-badge";
 import {
   fetchCycleParticipants,
-  submitCycle,
   closeCycle,
   distributeCycleProfit,
   transitionCycle,
@@ -177,7 +176,7 @@ export function PmCycleDetailClient({
         setCloseDialogOpen(false);
         setMessage({
           text: hasInvestors
-            ? "Cycle closed. Investors can reinvest in the next funding round, move to another pool, or request capital return to their Funding Wallet."
+            ? "Cycle closed. Active copiers continue automatically into the next eligible cycle; stop requests follow the existing settlement rules."
             : "Cycle closed. Trading profit was credited to your manager earnings. Open the next funding round from the pool page when you are ready.",
           variant: "success",
         });
@@ -286,13 +285,9 @@ export function PmCycleDetailClient({
         <p className={pmStatLabelClass}>Cycle actions</p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           {cycle.status === "draft" && (
-            <ActionButton
-              disabled={loading}
-              variant="primary"
-              onClick={() => runAction(() => submitCycle(cycle.id), "Submitted for review")}
-            >
-              Submit for Review
-            </ActionButton>
+            <p className="text-sm text-[var(--id-text-muted)]">
+              Prepared for funding. It will open automatically when the previous cycle starts trading.
+            </p>
           )}
 
           {isFundingPhase && (
@@ -364,7 +359,7 @@ export function PmCycleDetailClient({
             <DialogTitle>Close cycle</DialogTitle>
             <DialogDescription className="text-[var(--id-text-secondary)]">
               {hasInvestors
-                ? "Distribute the cycle result first, then close this cycle. Capital is not reinvested automatically. Open the next funding round separately from the pool page when you are ready."
+                ? "Distribute the cycle result first, then close this cycle. Active copy relationships continue automatically into the next eligible cycle."
                 : "This cycle has no investors. Closing will send trading profit to your manager earnings (after platform fees) and let you open the next funding round."}
             </DialogDescription>
           </DialogHeader>

@@ -40,12 +40,61 @@ beforeEach(() => {
     trade_entries: [1, 2, 3, 4].map(i => ({ id: `t${i}`, investment_cycle_id: "c1", status: "closed", realized_pnl: 100 })),
   };
   const db = memoryDb(tables) as ReturnType<typeof memoryDb> & {
-    rpc: (name: string, args: { p_cycle_id?: string }) => Promise<{
-      data: string | null;
+    rpc: (name: string, args: { p_cycle_id?: string; p_fund_id?: string }) => Promise<{
+      data: string | Record<string, string | null> | null;
       error: { message: string } | null;
     }>;
   };
   db.rpc = vi.fn(async (name, args) => {
+    if (name === "activate_next_investment_cycle_funding_atomic") {
+      const existingFunding = tables.investment_cycles.find(
+        (cycle) => cycle.fund_id === args.p_fund_id && cycle.status === "funding"
+      );
+      if (existingFunding) return { data: String(existingFunding.id), error: null };
+      const prepared = tables.investment_cycles
+        .filter(
+          (cycle) =>
+            cycle.fund_id === args.p_fund_id &&
+            ["draft", "submitted", "approved"].includes(String(cycle.status))
+        )
+        .sort((a, b) => Number(a.cycle_number) - Number(b.cycle_number))
+        .find((candidate) => {
+          const predecessor = tables.investment_cycles.find(
+            (cycle) =>
+              cycle.fund_id === candidate.fund_id &&
+              Number(cycle.cycle_number) === Number(candidate.cycle_number) - 1
+          );
+          return (
+            !predecessor ||
+            ["trading", "distribution", "completed", "archived"].includes(
+              String(predecessor.status)
+            )
+          );
+        });
+      if (!prepared) return { data: null, error: null };
+      prepared.status = "funding";
+      prepared.funding_started_at ??= new Date().toISOString();
+      return { data: String(prepared.id), error: null };
+    }
+    if (name === "start_investment_cycle_trading_atomic") {
+      const target = tables.investment_cycles.find((cycle) => cycle.id === args.p_cycle_id);
+      if (!target) return { data: null, error: { message: "Investment cycle not found" } };
+      target.status = "trading";
+      const successor = tables.investment_cycles.find(
+        (cycle) =>
+          cycle.fund_id === target.fund_id &&
+          Number(cycle.cycle_number) === Number(target.cycle_number) + 1 &&
+          ["draft", "submitted", "approved"].includes(String(cycle.status))
+      );
+      if (successor) successor.status = "funding";
+      return {
+        data: {
+          cycle_id: String(target.id),
+          funding_cycle_id: successor ? String(successor.id) : null,
+        },
+        error: null,
+      };
+    }
     if (name !== "activate_investment_cycle_funding_atomic") {
       return { data: null, error: null };
     }
@@ -65,7 +114,6 @@ beforeEach(() => {
     }
     target.status = "funding";
     target.submitted_at ??= new Date().toISOString();
-    target.approved_at ??= new Date().toISOString();
     target.funding_started_at ??= new Date().toISOString();
     return { data: String(target.id), error: null };
   });
@@ -113,12 +161,20 @@ describe("cycle lifecycle", () => {
   });
 
   it("moves new-copy eligibility to the next cycle after the current one starts trading", async () => {
-    tables.investment_cycles.push(
-      { id: "c2", fund_id: "fund", pool_manager_id: "manager", status: "trading", cycle_number: 2, name: "Cycle 2" },
-      { id: "c3", fund_id: "fund", pool_manager_id: "manager", status: "funding", cycle_number: 3, name: "Cycle 3" },
-    );
+    tables.investment_cycles[0]!.status = "funding";
+    tables.investment_cycles.push({
+      id: "c2",
+      fund_id: "fund",
+      pool_manager_id: "manager",
+      status: "draft",
+      cycle_number: 2,
+      name: "Cycle 2",
+    });
 
-    expect((await investmentCycleService.getFundingForFund("fund"))?.id).toBe("c3");
+    await investmentCycleService.transition("c1", "trading", "manager");
+
+    expect((await investmentCycleService.getFundingForFund("fund"))?.id).toBe("c2");
+    expect(mocks.continueIntoCycle).toHaveBeenCalledWith("c2", "fund", "user");
   });
 
   it("allows drafts beside a funding cycle but prevents a second funding cycle", async () => {
@@ -152,7 +208,7 @@ describe("cycle lifecycle", () => {
 
     expect(created.status).toBe("draft");
     expect(tables.investment_cycles.filter((cycle) => cycle.status === "funding")).toHaveLength(1);
-    expect(mocks.continueIntoCycle).not.toHaveBeenCalled();
+    expect(mocks.continueIntoCycle).toHaveBeenCalledWith("c1", "fund", "user");
   });
 
   it("does not make a missing legacy source allocation a cycle-creation failure", async () => {
@@ -193,6 +249,15 @@ describe("cycle lifecycle", () => {
     tables.investment_cycles.push({ id: "c2", fund_id: "fund", pool_manager_id: "manager", status: "funding", cycle_number: 2 });
     expect((await investmentCycleService.transition("c2", "trading", "manager")).status).toBe("trading");
     expect(tables.investment_cycles[0]).toEqual(first);
+  });
+  it("supports multiple trading cycles while the sequential successor receives funding", async () => {
+    tables.investment_cycles.push(
+      { id: "c2", fund_id: "fund", pool_manager_id: "manager", status: "trading", cycle_number: 2 },
+      { id: "c3", fund_id: "fund", pool_manager_id: "manager", status: "funding", cycle_number: 3 }
+    );
+
+    expect((await investmentCycleService.getFundingForFund("fund"))?.id).toBe("c3");
+    expect(tables.investment_cycles.filter((cycle) => cycle.status === "trading")).toHaveLength(2);
   });
   it.each(["manager", "admin"] as const)("closes a cycle with four completed records as %s and settles stops before continuation", async actor => {
     tables.investment_cycles.push({ id: "c2", status: "trading", current_cycle_profit: 400 });

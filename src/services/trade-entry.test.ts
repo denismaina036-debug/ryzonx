@@ -46,6 +46,23 @@ describe("manual completed results", () => {
     expect(tables.trade_entries).toHaveLength(1);
     expect(await tradeEntryService.listOpenByCycle("c1")).toEqual([]);
   });
+  it("keeps entered prices while the dollar result remains authoritative", async () => {
+    const entry = await tradeEntryService.recordCompletedTrade("c1", {
+      instrument: "XAU/USD",
+      direction: "long",
+      entryPrice: 3650,
+      exitPrice: 3670,
+      amountUsd: 1000,
+      tradeResult: "profit",
+    });
+
+    expect(entry).toMatchObject({
+      entryPrice: 3650,
+      exitPrice: 3670,
+      realizedPnl: 1000,
+      screenshotUrl: null,
+    });
+  });
   it("records four completed results without any intermediate open positions", async () => {
     for (const pnl of [200, -50, 100, 25]) await record("c1", pnl);
     expect(await tradeEntryService.listOpenByCycle("c1")).toEqual([]);

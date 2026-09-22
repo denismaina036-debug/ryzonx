@@ -23,7 +23,7 @@ export const INVESTMENT_CYCLE_STATUS_LABELS: Record<InvestmentCycleStatus, strin
   archived: "Archived",
 };
 
-/** Ordered lifecycle — no state should be skipped. */
+/** Legacy-compatible display order. Runtime transitions may skip review-only states. */
 export const INVESTMENT_CYCLE_LIFECYCLE_ORDER: InvestmentCycleStatus[] = [
   "draft",
   "submitted",
@@ -35,16 +35,20 @@ export const INVESTMENT_CYCLE_LIFECYCLE_ORDER: InvestmentCycleStatus[] = [
   "archived",
 ];
 
-/** Pool Manager may submit drafts and revert submitted cycles to draft. */
+/**
+ * Pool Managers control operational cycle transitions. Prepared cycles open
+ * automatically when their predecessor starts trading; legacy submitted and
+ * approved states remain readable but are not an approval requirement.
+ */
 export const INVESTMENT_CYCLE_MANAGER_TRANSITIONS: Partial<
   Record<InvestmentCycleStatus, InvestmentCycleStatus[]>
 > = {
-  draft: ["submitted"],
-  submitted: ["draft"],
-  approved: ["funding", "trading"],
+  draft: ["funding"],
+  submitted: ["draft", "funding"],
+  approved: ["funding"],
   funding: ["trading"],
-  trading: ["funding", "completed"],
-  distribution: ["funding", "completed"],
+  trading: ["completed"],
+  distribution: ["completed"],
   completed: ["archived"],
 };
 
@@ -52,12 +56,12 @@ export const INVESTMENT_CYCLE_MANAGER_TRANSITIONS: Partial<
 export const INVESTMENT_CYCLE_ADMIN_TRANSITIONS: Partial<
   Record<InvestmentCycleStatus, InvestmentCycleStatus[]>
 > = {
-  draft: ["submitted"],
-  submitted: ["approved", "draft"],
-  approved: ["funding", "trading"],
-  funding: ["trading", "approved"],
-  trading: ["distribution", "funding", "completed"],
-  distribution: ["completed", "funding"],
+  draft: ["funding"],
+  submitted: ["draft", "funding"],
+  approved: ["funding"],
+  funding: ["trading"],
+  trading: ["distribution", "completed"],
+  distribution: ["completed"],
   completed: ["archived"],
 };
 

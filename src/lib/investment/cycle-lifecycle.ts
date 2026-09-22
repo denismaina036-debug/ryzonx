@@ -28,7 +28,7 @@ export function assertInvestmentCycleTransition(
 }
 
 export function isInvestmentCycleEditable(status: InvestmentCycleStatus): boolean {
-  return status === "draft" || status === "submitted";
+  return status === "draft" || status === "submitted" || status === "approved";
 }
 
 export function lifecycleIndex(status: InvestmentCycleStatus): number {

@@ -195,6 +195,63 @@ async function activateFundingCycleAtomically(
   return mapCycleWithLiveMetrics(data as CycleRow);
 }
 
+async function activateNextFundingCycleAtomically(
+  fundId: string,
+  actorUserId: string
+): Promise<InvestmentCycle | null> {
+  const db = createAdminClient();
+  const { data, error } = await db.rpc(
+    "activate_next_investment_cycle_funding_atomic" as never,
+    { p_fund_id: fundId, p_actor_id: actorUserId } as never
+  );
+  if (error) throw new Error(friendlyInvestmentCycleError(error.message));
+  if (!data) return null;
+
+  const { data: cycleRow, error: cycleError } = await db
+    .from("investment_cycles")
+    .select("*")
+    .eq("id", String(data))
+    .single();
+  if (cycleError || !cycleRow) {
+    throw new Error(cycleError?.message ?? "Investment cycle not found.");
+  }
+  return mapCycleWithLiveMetrics(cycleRow as CycleRow);
+}
+
+async function startTradingAndOpenSuccessorAtomically(
+  cycleId: string,
+  actorUserId: string
+): Promise<{ cycle: InvestmentCycle; fundingCycle: InvestmentCycle | null }> {
+  const db = createAdminClient();
+  const { data, error } = await db.rpc("start_investment_cycle_trading_atomic" as never, {
+    p_cycle_id: cycleId,
+    p_actor_id: actorUserId,
+  } as never);
+  if (error) throw new Error(friendlyInvestmentCycleError(error.message));
+
+  const result = data as unknown as {
+    cycle_id?: string;
+    funding_cycle_id?: string | null;
+  } | null;
+  const ids = [result?.cycle_id ?? cycleId, result?.funding_cycle_id].filter(
+    (id): id is string => Boolean(id)
+  );
+  const { data: rows, error: rowsError } = await db
+    .from("investment_cycles")
+    .select("*")
+    .in("id", ids);
+  if (rowsError) throw new Error(rowsError.message);
+  const mapped = await mapCyclesWithLiveMetrics((rows ?? []) as CycleRow[]);
+  const cycle = mapped.find((row) => row.id === cycleId);
+  if (!cycle) throw new Error("Investment cycle not found.");
+
+  return {
+    cycle,
+    fundingCycle:
+      mapped.find((row) => row.id === result?.funding_cycle_id && row.id !== cycleId) ?? null,
+  };
+}
+
 async function continueCopyingAfterFundingOpened(
   cycle: InvestmentCycle,
   actorUserId: string
@@ -507,7 +564,7 @@ async function insertCycleFromPoolFund(
   managerId: string,
   input: Partial<CreatePoolInvestmentCycleInput> & { fundId: string },
   actorUserId: string | null,
-  options: { inheritPoolDefaults: boolean }
+  options: { inheritPoolDefaults: boolean; creationAttempt?: number }
 ): Promise<InvestmentCycle> {
   const db = createAdminClient();
   const strategyId = readStrategyIdFromFund(fund);
@@ -635,7 +692,19 @@ async function insertCycleFromPoolFund(
     .select("*")
     .single();
 
-  if (error) throw new Error(friendlyInvestmentCycleError(error.message));
+  if (error) {
+    const isCycleNumberRace =
+      error.code === "23505" &&
+      (error.message.includes("investment_cycles_fund_cycle_number_unique") ||
+        error.message.includes("fund_id, cycle_number"));
+    if (isCycleNumberRace && (options.creationAttempt ?? 0) < 2) {
+      return insertCycleFromPoolFund(fund, fundId, managerId, input, actorUserId, {
+        ...options,
+        creationAttempt: (options.creationAttempt ?? 0) + 1,
+      });
+    }
+    throw new Error(friendlyInvestmentCycleError(error.message));
+  }
   const cycle = mapCycle(data as CycleRow);
 
   if (actorUserId) {
@@ -867,11 +936,18 @@ export const investmentCycleService = {
    */
   async createForLivePool(input: CreatePoolInvestmentCycleInput): Promise<InvestmentCycle> {
     const cycle = await this.createFromPool(input);
-    const fundingCycle = await this.getFundingForFund(input.fundId);
-    if (fundingCycle) return cycle;
-
+    const { userId } = await requireManagerId();
     try {
-      return await this.activateForLivePool(cycle.id);
+      const fundingCycle = await activateNextFundingCycleAtomically(input.fundId, userId);
+      if (fundingCycle) {
+        await continueCopyingAfterFundingOpened(fundingCycle, userId);
+        if (fundingCycle.id === cycle.id) {
+          await publishFundingOpened(fundingCycle, userId);
+          await refreshFundingDeadline(fundingCycle);
+          return fundingCycle;
+        }
+      }
+      return cycle;
     } catch (error) {
       if (isFundingCycleConflict(error)) return cycle;
       throw error;
@@ -1188,9 +1264,17 @@ export const investmentCycleService = {
 
     const db = createAdminClient();
     let cycle: InvestmentCycle;
+    let openedFundingCycle: InvestmentCycle | null = null;
     if (nextStatus === "funding") {
       cycle = await activateFundingCycleAtomically(id, userId);
       await continueCopyingAfterFundingOpened(cycle, userId);
+    } else if (nextStatus === "trading") {
+      const started = await startTradingAndOpenSuccessorAtomically(id, userId);
+      cycle = started.cycle;
+      openedFundingCycle = started.fundingCycle;
+      if (openedFundingCycle) {
+        await continueCopyingAfterFundingOpened(openedFundingCycle, userId);
+      }
     } else {
       const now = new Date().toISOString();
       const { data, error } = await db
@@ -1247,6 +1331,10 @@ export const investmentCycleService = {
           summary: `Cycle ${cycle.name} started trading`,
         },
       });
+      if (openedFundingCycle) {
+        await publishFundingOpened(openedFundingCycle, userId);
+        await refreshFundingDeadline(openedFundingCycle);
+      }
     } else if (nextStatus === "funding") {
       await publishFundingOpened(cycle, userId);
     } else if (nextStatus === "completed") {
@@ -1309,9 +1397,17 @@ export const investmentCycleService = {
 
     const db = createAdminClient();
     let cycle: InvestmentCycle;
+    let openedFundingCycle: InvestmentCycle | null = null;
     if (nextStatus === "funding") {
       cycle = await activateFundingCycleAtomically(id, actorUserId);
       await continueCopyingAfterFundingOpened(cycle, actorUserId);
+    } else if (nextStatus === "trading") {
+      const started = await startTradingAndOpenSuccessorAtomically(id, actorUserId);
+      cycle = started.cycle;
+      openedFundingCycle = started.fundingCycle;
+      if (openedFundingCycle) {
+        await continueCopyingAfterFundingOpened(openedFundingCycle, actorUserId);
+      }
     } else {
       const now = new Date().toISOString();
       const { data, error } = await db
@@ -1345,6 +1441,10 @@ export const investmentCycleService = {
         await cycleLifecycleOrchestrator.onTradingStarted(id, existing.fundId);
       } catch {
         /* snapshot optional */
+      }
+      if (openedFundingCycle) {
+        await publishFundingOpened(openedFundingCycle, actorUserId);
+        await refreshFundingDeadline(openedFundingCycle);
       }
     }
 
@@ -1406,7 +1506,7 @@ export const investmentCycleService = {
   },
 
   async submit(id: string): Promise<InvestmentCycle> {
-    return this.transition(id, "submitted", "manager");
+    return this.activateForLivePool(id);
   },
 
   /** Distribute the cycle result without closing the cycle. */

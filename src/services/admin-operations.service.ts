@@ -62,7 +62,6 @@ export const adminOperationsService = {
     const submittedStrategies = allStrategies.filter(
       (s) => s.status === "submitted" || s.status === "under_review"
     );
-    const submittedCycles = allCycles.filter((c) => c.status === "submitted");
     const activeCycles = allCycles.filter((c) =>
       ["approved", "funding", "trading", "distribution"].includes(c.status)
     );
@@ -72,20 +71,13 @@ export const adminOperationsService = {
     const totalTarget = fundingCycles.reduce((s, c) => s + (c.targetCapital ?? 0), 0);
 
     const openReviews =
-      submittedStrategies.length +
-      submittedCycles.length +
-      (governance?.metrics.poolsUnderReview ?? 0);
+      submittedStrategies.length + (governance?.metrics.poolsUnderReview ?? 0);
 
     const lifecycleBottlenecks = [
       {
         label: "Strategies awaiting review",
         count: submittedStrategies.length,
         href: "/admin/strategies?status=submitted",
-      },
-      {
-        label: "Cycles awaiting approval",
-        count: submittedCycles.length,
-        href: "/admin/investment-cycles?status=submitted",
       },
       {
         label: "Pools under governance review",
@@ -106,7 +98,7 @@ export const adminOperationsService = {
 
     return {
       submittedStrategies,
-      submittedCycles,
+      submittedCycles: [],
       activeManagers: managersCount.count ?? 0,
       activeInvestors: investorsCount.count ?? 0,
       activeCycles,

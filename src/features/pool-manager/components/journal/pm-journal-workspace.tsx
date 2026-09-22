@@ -4,13 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useIntervalRefresh } from "@/hooks/use-interval-refresh";
-import { ImagePlus, TrendingDown, TrendingUp } from "lucide-react";
+import { TrendingDown, TrendingUp } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { TRADE_ENTRY_RESULT_LABELS, TRADE_ENTRY_DIRECTION_LABELS, TRADE_ENTRY_DIRECTIONS } from "@/constants/trade-entry";
 import { resolveSimplifiedCyclePhase } from "@/constants/cycle-progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -29,7 +28,6 @@ import {
   pmSelectContentClass,
   pmSelectItemClass,
   pmSelectTriggerClass,
-  pmTextareaClass,
   RyvonxEmptyState,
 } from "@/features/pool-manager/constants/ui";
 import { PmFormField } from "@/features/pool-manager/components/workspace/pm-form-field";
@@ -47,33 +45,11 @@ type OutcomeChoice = "profit" | "loss";
 const emptyForm = {
   instrument: "",
   direction: "long" as const,
+  entryPrice: "",
+  exitPrice: "",
   amountUsd: "",
   outcome: "profit" as OutcomeChoice,
-  screenshotUrl: "",
-  notes: "",
 };
-
-function isValidScreenshotUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-async function uploadScreenshot(file: File): Promise<string> {
-  const formData = new FormData();
-  formData.append("file", file);
-  const res = await fetch("/api/pool-manager/trades/screenshot/upload", {
-    method: "POST",
-    body: formData,
-  });
-  const data = (await res.json()) as { url?: string; error?: string };
-  if (!res.ok) throw new Error(data.error ?? "Screenshot upload failed");
-  if (!data.url) throw new Error("Screenshot upload failed");
-  return data.url;
-}
 
 export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
   const [data, setData] = useState<JournalWorkspaceData | null>(null);
@@ -83,8 +59,6 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
     null
   );
   const [form, setForm] = useState(emptyForm);
-  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
-  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
 
   const writable = cycle.status === "trading" || cycle.status === "distribution";
   const simplifiedPhase = resolveSimplifiedCyclePhase({ cycleStatus: cycle.status });
@@ -117,16 +91,6 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
 
   useIntervalRefresh(() => load({ silent: true }), 12_000, writable);
 
-  useEffect(() => {
-    if (screenshotFile) {
-      const url = URL.createObjectURL(screenshotFile);
-      setScreenshotPreview(url);
-      return () => URL.revokeObjectURL(url);
-    }
-    const trimmed = form.screenshotUrl.trim();
-    setScreenshotPreview(trimmed && isValidScreenshotUrl(trimmed) ? trimmed : null);
-  }, [screenshotFile, form.screenshotUrl]);
-
   const closedEntries = useMemo(
     () => (data?.entries ?? []).filter((entry) => entry.status === "closed"),
     [data?.entries]
@@ -145,30 +109,31 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
     setMessage(null);
     try {
       const amountUsd = Number(form.amountUsd);
+      const entryPrice = Number(form.entryPrice);
+      const exitPrice = Number(form.exitPrice);
       if (!form.instrument.trim()) throw new Error("Instrument is required.");
+      if (!Number.isFinite(entryPrice) || entryPrice <= 0) {
+        throw new Error("Enter a valid entry price.");
+      }
+      if (!Number.isFinite(exitPrice) || exitPrice <= 0) {
+        throw new Error("Enter a valid exit price.");
+      }
       if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
         throw new Error("Enter a positive dollar amount.");
       }
 
-      const screenshotUrl = screenshotFile
-        ? await uploadScreenshot(screenshotFile)
-        : form.screenshotUrl.trim() && isValidScreenshotUrl(form.screenshotUrl.trim())
-          ? form.screenshotUrl.trim()
-          : undefined;
-
       await createTradeEntry(cycle.id, {
         instrument: form.instrument.trim(),
         direction: form.direction,
+        entryPrice,
+        exitPrice,
         amountUsd,
         tradeResult: form.outcome,
-        notes: form.notes.trim() || null,
-        screenshotUrl,
       });
 
       setForm(emptyForm);
-      setScreenshotFile(null);
       setMessage({
-        text: `Trade recorded — ${formatCurrency(amountUsd)}. Projected profits updated for all investors.`,
+        text: `Trade recorded — ${formatCurrency(amountUsd)}. Copier results were recorded from the existing distribution engine.`,
         variant: "success",
       });
       await load();
@@ -187,7 +152,7 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
       <PmPageHeader
         eyebrow="Trading Journal"
         title={cycle.name}
-        description="Record each completed trade as a win or loss in dollars. Both outcomes update investor balances automatically."
+        description="Record each completed trade as a profit or loss in dollars. The entered amount remains the master trade result."
         actions={
           <Link href={`${ROUTES.poolManagerInvestmentCycles}/${cycle.id}`} className={pmSecondaryButtonClass}>
             ← Cycle
@@ -202,7 +167,7 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
         <p className="mt-3 text-sm text-[var(--id-text-muted)]">
           {simplifiedPhase === "funding"
             ? "Funding is open. Start trading from the cycle page when you are ready to record trades."
-            : "Trading is active. Select Win or Loss, enter the dollar amount, and attach a screenshot."}
+            : "Trading is active. Record the instrument, direction, prices, and final dollar result."}
         </p>
       </PmSectionCard>
 
@@ -218,7 +183,7 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
             )}
           >
             <div>
-              <p className="mb-3 text-sm font-medium text-[var(--id-text-secondary)]">Outcome</p>
+              <p className="mb-3 text-sm font-medium text-[var(--id-text-secondary)]">Result</p>
               <div className="grid grid-cols-2 gap-3">
                 <OutcomeButton
                   type="profit"
@@ -265,7 +230,31 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
                   </SelectContent>
                 </Select>
               </PmFormField>
-              <PmFormField label="Amount (USD)" required hint="Profit or loss in dollars.">
+              <PmFormField label="Entry Price" required>
+                <Input
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={form.entryPrice}
+                  onChange={(e) => setForm((prev) => ({ ...prev, entryPrice: e.target.value }))}
+                  className={pmInputClass}
+                  disabled={submitting}
+                  placeholder="3650.50"
+                />
+              </PmFormField>
+              <PmFormField label="Exit Price" required>
+                <Input
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={form.exitPrice}
+                  onChange={(e) => setForm((prev) => ({ ...prev, exitPrice: e.target.value }))}
+                  className={pmInputClass}
+                  disabled={submitting}
+                  placeholder="3672.20"
+                />
+              </PmFormField>
+              <PmFormField label="Profit/Loss Amount (USD)" required hint="Master trade result in dollars.">
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--id-text-muted)]">
                     $
@@ -284,57 +273,6 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
               </PmFormField>
             </div>
 
-            <div className="grid gap-5 sm:grid-cols-2">
-              <PmFormField label="Screenshot URL" hint="Paste a chart URL, or upload below.">
-                <Input
-                  type="url"
-                  value={form.screenshotUrl}
-                  onChange={(e) => setForm((prev) => ({ ...prev, screenshotUrl: e.target.value }))}
-                  placeholder="https://…"
-                  className={pmInputClass}
-                  disabled={submitting || Boolean(screenshotFile)}
-                />
-              </PmFormField>
-              <PmFormField label="Upload Screenshot" hint="Visible to investors on the marketplace.">
-                <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--id-border-strong)] bg-[var(--id-surface-muted)] px-4 py-6 text-center transition-colors hover:border-[var(--pm-accent)]">
-                  <ImagePlus className="h-5 w-5 text-[var(--id-text-muted)]" />
-                  <span className="text-sm text-[var(--id-text-secondary)]">
-                    {screenshotFile ? screenshotFile.name : "Upload chart screenshot"}
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    className="hidden"
-                    disabled={submitting}
-                    onChange={(e) => {
-                      setScreenshotFile(e.target.files?.[0] ?? null);
-                      if (e.target.files?.[0]) {
-                        setForm((prev) => ({ ...prev, screenshotUrl: "" }));
-                      }
-                    }}
-                  />
-                </label>
-              </PmFormField>
-            </div>
-
-            {screenshotPreview ? (
-              <div className="relative overflow-hidden rounded-xl border border-[var(--id-border)]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={screenshotPreview} alt="Screenshot preview" className="max-h-48 w-full object-cover" />
-              </div>
-            ) : null}
-
-            <PmFormField label="Notes">
-              <Textarea
-                value={form.notes}
-                onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-                rows={2}
-                className={pmTextareaClass}
-                disabled={submitting}
-                placeholder="Optional context for administrators"
-              />
-            </PmFormField>
-
             <Button
               type="submit"
               disabled={submitting || loading}
@@ -345,7 +283,7 @@ export function PmJournalWorkspace({ cycle }: { cycle: InvestmentCycle }) {
                   : "bg-rose-600 hover:bg-rose-700 dark:bg-rose-600 dark:hover:bg-rose-500"
               )}
             >
-              {submitting ? "Recording…" : isWin ? "Record Win" : "Record Loss"}
+              {submitting ? "Recording…" : isWin ? "Record Profit" : "Record Loss"}
             </Button>
           </form>
         </PmSectionCard>
@@ -410,7 +348,7 @@ function OutcomeButton({
       )}
     >
       {isWin ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
-      {isWin ? "Win" : "Loss"}
+      {isWin ? "Profit" : "Loss"}
     </button>
   );
 }

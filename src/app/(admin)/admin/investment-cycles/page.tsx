@@ -7,8 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { cn } from "@/lib/utils";
 
 const STATUS_FILTERS: Array<{ label: string; status: string }> = [
-  { label: "Submitted", status: "submitted" },
-  { label: "Approved", status: "approved" },
+  { label: "Prepared", status: "draft" },
   { label: "Funding", status: "funding" },
   { label: "Active", status: "active" },
   { label: "All", status: "all" },
@@ -31,7 +30,7 @@ export default async function AdminInvestmentCyclesPage({
   searchParams: Promise<{ status?: string }>;
 }) {
   const { status: rawStatus } = await searchParams;
-  const status = (rawStatus ?? "submitted") as InvestmentCycleStatus | "active" | "all";
+  const status = (rawStatus ?? "active") as InvestmentCycleStatus | "active" | "all";
 
   let cycles = await investmentCycleService.listAll(
     status !== "all" && status !== "active"
@@ -49,14 +48,14 @@ export default async function AdminInvestmentCyclesPage({
 
   return (
     <AdminAdministrationShell
-      title="Investment Cycle Review"
-      description="Review funding configuration and lifecycle transitions for investment cycles."
+      title="Investment Cycle Oversight"
+      description="Monitor funding configuration and operational lifecycle state. Traders control their cycles."
       statusNav={
         <nav className="flex flex-wrap gap-1 border-b border-border pb-3">
           {STATUS_FILTERS.map((item) => {
             const isActive = status === item.status;
             const href =
-              item.status === "submitted"
+              item.status === "active"
                 ? ROUTES.adminInvestmentCycles
                 : `${ROUTES.adminInvestmentCycles}?status=${item.status}`;
             return (
@@ -105,7 +104,7 @@ export default async function AdminInvestmentCyclesPage({
                       href={`${ROUTES.adminInvestmentCycles}/${cycle.id}`}
                       className="text-sm font-medium text-royal-600 hover:underline"
                     >
-                      Review
+                      View
                     </Link>
                   </td>
                 </tr>

@@ -587,8 +587,9 @@ export const investmentAllocationService = {
   },
 
   /**
-   * Disabled: investors must explicitly join each funding cycle or reinvest after closure.
-   * Returns live raised capital from confirmed cycle allocations only.
+   * Legacy portfolio-to-cycle synchronization is disabled. Continuous copying
+   * is handled by the settlement continuation engine, which creates a fresh,
+   * cycle-specific allocation from the authoritative settled amount.
    */
   async syncPortfolioInvestmentsToCycle(_fundId: string, cycleId: string): Promise<number> {
     return investmentCycleMetricsService.sumRaisedCapitalForCycle(cycleId);

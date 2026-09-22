@@ -247,7 +247,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
       {
         type: "link",
         link: {
-          label: "Cycle Review",
+          label: "Cycle Oversight",
           href: ROUTES.adminInvestmentCycles,
           icon: RefreshCw,
           matchPrefix: "/admin/investment-cycles",
@@ -437,7 +437,7 @@ export const POOL_MANAGERS_APPLICATION_STATUS_NAV = [
 export const ADMINISTRATION_SECTION_NAV = [
   { label: "Operations Center", href: ROUTES.admin },
   { label: "Strategy Review", href: ROUTES.adminStrategies, matchPrefix: "/admin/strategies" },
-  { label: "Cycle Review", href: ROUTES.adminInvestmentCycles, matchPrefix: "/admin/investment-cycles" },
+  { label: "Cycle Oversight", href: ROUTES.adminInvestmentCycles, matchPrefix: "/admin/investment-cycles" },
   { label: "Governance Center", href: ROUTES.adminGovernance, matchPrefix: "/admin/governance" },
 ] as const;
 

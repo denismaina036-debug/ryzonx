@@ -18,6 +18,10 @@ const copySessionSql = readFileSync(
   resolve(process.cwd(), "supabase/migrations/00095_copy_session_lifecycle.sql"),
   "utf8"
 );
+const cycleSequenceSql = readFileSync(
+  resolve(process.cwd(), "supabase/migrations/00099_cycle_sequence_and_continuation_repair.sql"),
+  "utf8"
+);
 const lifecycleService = readFileSync(
   resolve(process.cwd(), "src/services/investment-engine/cycle-investor-settlement.service.ts"),
   "utf8"
@@ -137,5 +141,26 @@ describe("copying lifecycle database boundary", () => {
       "REVOKE ALL ON FUNCTION stop_queued_copying_atomic(UUID, UUID, UUID, UUID, TEXT)"
     );
     expect(copySessionSql).not.toMatch(/GRANT EXECUTE[^;]+TO\s+(anon|authenticated)/i);
+  });
+
+  it("opens the sequential successor when its predecessor starts trading", () => {
+    expect(cycleSequenceSql).toContain("start_investment_cycle_trading_atomic");
+    expect(cycleSequenceSql).toContain("cycle_number = v_cycle.cycle_number + 1");
+    expect(cycleSequenceSql).toContain("status IN ('draft', 'submitted', 'approved')");
+    expect(cycleSequenceSql).toContain("status = 'funding'");
+  });
+
+  it("does not require per-cycle admin approval and keeps pending continuation retryable", () => {
+    expect(cycleSequenceSql).toContain("'admin_approval_required', false");
+    expect(cycleSequenceSql).not.toMatch(/approved_at\s*=\s*COALESCE/i);
+    expect(lifecycleService).toContain('.neq("status", "closed")');
+    expect(lifecycleService).toContain('.or("profit_resolved.eq.false,capital_resolved.eq.false")');
+    expect(lifecycleService).toContain("continuePendingCopyingIntoCycle");
+  });
+
+  it("enforces stop-before-continuation at the database transaction boundary", () => {
+    expect(cycleSequenceSql).toContain("prevent_stopped_copy_continuation");
+    expect(cycleSequenceSql).toContain("request.status = 'requested'");
+    expect(cycleSequenceSql).toContain("NEW.payment_method = 'copy_continue'");
   });
 });

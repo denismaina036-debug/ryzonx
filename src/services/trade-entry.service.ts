@@ -432,9 +432,11 @@ export const tradeEntryService = {
     if (direction !== "long" && direction !== "short") throw new Error("Invalid trade direction.");
 
     const dollarResult = input.amountUsd != null;
-    const entryPrice = dollarResult ? 1 : input.entryPrice;
-    const exitPrice = dollarResult ? 1 : input.exitPrice;
-    const quantity = dollarResult ? 1 : input.quantity;
+    // The entered dollar amount is authoritative for distribution. Prices are
+    // retained as trade-history context and never used to recalculate it.
+    const entryPrice = input.entryPrice ?? (dollarResult ? 1 : undefined);
+    const exitPrice = input.exitPrice ?? (dollarResult ? entryPrice : undefined);
+    const quantity = input.quantity ?? 1;
     if (entryPrice == null || !Number.isFinite(entryPrice) || entryPrice <= 0) {
       throw new Error("Entry price must be positive.");
     }
