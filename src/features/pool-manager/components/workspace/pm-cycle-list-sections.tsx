@@ -13,7 +13,7 @@ import { pmCardClass, pmStatLabelClass, pmStatValueClass } from "@/features/pool
 import type { CycleLiveSummary } from "@/services/cycle-live-metrics.service";
 
 const FUNDING_STATUSES = new Set(["funding"]);
-const PREPARED_STATUSES = new Set(["draft", "submitted", "approved"]);
+const PREPARED_STATUSES = new Set(["draft", "submitted", "approved", "prepared"]);
 const TRADING_STATUSES = new Set(["trading", "distribution"]);
 
 function useTradingSummaries(tradingCycles: InvestmentCycle[]) {
@@ -117,7 +117,7 @@ export function PmCycleListSections({ cycles }: { cycles: InvestmentCycle[] }) {
 
 function PreparedCycleCard({ cycle }: { cycle: InvestmentCycle }) {
   const href = `${ROUTES.poolManagerInvestmentCycles}/${cycle.id}`;
-  const label = cycle.status === "approved" ? "Prepared" : cycle.status;
+  const label = cycle.status === "approved" || cycle.status === "prepared" ? "Prepared" : cycle.status;
 
   return (
     <li>

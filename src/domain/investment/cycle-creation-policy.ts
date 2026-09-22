@@ -16,7 +16,7 @@ export interface CycleCreationDecision {
 
 /**
  * A manager may prepare a later cycle while another one is funding or trading.
- * New cycles are drafts; the service transition into `funding` is the single
+ * New cycles are prepared; the service transition into `funding` is the single
  * enforcement point for the one-open-funding-cycle rule.
  */
 export function evaluateCycleCreation(

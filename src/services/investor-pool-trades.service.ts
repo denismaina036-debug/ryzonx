@@ -14,6 +14,7 @@ import {
   selectAuthoritativeCopierTradeRows,
   type CopierLossAllocation,
   type CopierProfitAllocation,
+  type CopierTradeResult,
 } from "@/lib/investor/copier-trade-history";
 
 type JournalTradeRow = {
@@ -136,7 +137,7 @@ export const investorPoolTradesService = {
   ): Promise<InvestorDashboardTrade[]> {
     const boundedLimit = Math.min(Math.max(Math.trunc(limit), 1), 200);
     const db = createAdminClient();
-    const [profitResult, lossResult] = await Promise.all([
+    const [profitResult, lossResult, persistedResult] = await Promise.all([
       db
         .from("trade_profit_allocations" as never)
         .select("trade_entry_id, profit_amount, created_at" as never)
@@ -149,14 +150,22 @@ export const investorPoolTradesService = {
         .eq("investor_id" as never, investorId as never)
         .order("created_at" as never, { ascending: false })
         .limit(boundedLimit),
+      db
+        .from("copier_trade_results" as never)
+        .select("trade_entry_id, result_amount, created_at" as never)
+        .eq("investor_id" as never, investorId as never)
+        .order("created_at" as never, { ascending: false })
+        .limit(boundedLimit),
     ]);
 
     if (profitResult.error) throw new Error(profitResult.error.message);
     if (lossResult.error) throw new Error(lossResult.error.message);
+    if (persistedResult.error) throw new Error(persistedResult.error.message);
 
     const copierResults = mergeAuthoritativeCopierTradeResults(
       (profitResult.data ?? []) as unknown as CopierProfitAllocation[],
-      (lossResult.data ?? []) as unknown as CopierLossAllocation[]
+      (lossResult.data ?? []) as unknown as CopierLossAllocation[],
+      (persistedResult.data ?? []) as unknown as CopierTradeResult[]
     );
     const tradeIds = [...copierResults.keys()];
     if (tradeIds.length === 0) return [];

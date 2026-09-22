@@ -687,7 +687,7 @@ async function insertCycleFromPoolFund(
       closing_date: closingDate,
       funding_deadline: fundingDeadline,
       raised_capital: initialRaisedCapital ?? 0,
-      status: "draft",
+      status: "prepared",
     } as never)
     .select("*")
     .single();
@@ -931,7 +931,7 @@ export const investmentCycleService = {
 
   /**
    * Create a prepared cycle and open it only when the pool has no funding cycle.
-   * A concurrent winner leaves this cycle safely in draft instead of producing a
+   * A concurrent winner leaves this cycle safely prepared instead of producing a
    * second authoritative funding period.
    */
   async createForLivePool(input: CreatePoolInvestmentCycleInput): Promise<InvestmentCycle> {
@@ -983,7 +983,7 @@ export const investmentCycleService = {
     const existing = await this.listByFund(fundId);
     if (existing.length > 0) {
       const cycle = existing[0]!;
-      if (cycle.status === "draft" || cycle.status === "submitted" || cycle.status === "approved") {
+      if (["draft", "submitted", "approved", "prepared"].includes(cycle.status)) {
         return this.adminActivateCycleForPoolGoLive(cycle.id);
       }
       return cycle;
@@ -1030,7 +1030,7 @@ export const investmentCycleService = {
     const cycle = await this.getById(cycleId);
     if (!cycle) throw new Error("Investment cycle not found.");
     if (cycle.status === "funding") return cycle;
-    if (!["draft", "submitted", "approved"].includes(cycle.status)) return cycle;
+    if (!["draft", "submitted", "approved", "prepared"].includes(cycle.status)) return cycle;
 
     const activated = await activateFundingCycleAtomically(cycle.id, admin.id);
     await continueCopyingAfterFundingOpened(activated, admin.id);
@@ -1125,7 +1125,7 @@ export const investmentCycleService = {
         max_capacity: capacity.maxCapacity,
         funding_deadline: input.fundingDeadline ?? null,
         duration_days: capacity.durationDays,
-        status: "draft",
+        status: "prepared",
       } as never)
       .select("*")
       .single();
@@ -1480,7 +1480,7 @@ export const investmentCycleService = {
     const cycle = await this.getById(cycleId);
     if (!cycle) throw new Error("Investment cycle not found.");
     if (cycle.status === "funding") return cycle;
-    if (!["draft", "submitted", "approved"].includes(cycle.status)) return cycle;
+    if (!["draft", "submitted", "approved", "prepared"].includes(cycle.status)) return cycle;
 
     const activated = await activateFundingCycleAtomically(cycle.id, actorUserId);
     await continueCopyingAfterFundingOpened(activated, actorUserId);
@@ -1592,10 +1592,31 @@ export const investmentCycleService = {
       );
       await cycleInvestorSettlementService.createPendingChoicesForCycle(id, existing.fundId);
       await cycleInvestorSettlementService.settleRequestedCopyStopsForCycle(id);
-      await cycleInvestorSettlementService.continuePendingCopyingIntoNextFundingCycle(
-        existing.fundId,
-        actorId
-      );
+      try {
+        await cycleInvestorSettlementService.continuePendingCopyingIntoNextFundingCycle(
+          existing.fundId,
+          actorId
+        );
+      } catch (error) {
+        // The completed settlement is the durable pending-continuation state.
+        // A retryable continuation failure must not misreport the already
+        // completed cycle as failed.
+        try {
+          await auditService.log({
+            actorId,
+            action: "investment_cycle_copy_continuation_failed",
+            entityType: "investment_cycle",
+            entityId: id,
+            newValues: {
+              status: "completed",
+              message: error instanceof Error ? error.message : "Unknown continuation failure",
+              pendingContinuation: true,
+            },
+          });
+        } catch {
+          // The unresolved settlement is still the authoritative retry state.
+        }
+      }
     }
 
     return { cycle };
@@ -1668,7 +1689,7 @@ export const investmentCycleService = {
     }
 
     if (existing.status === "funding") return existing;
-    if (!["draft", "submitted", "approved"].includes(existing.status)) return existing;
+    if (!["draft", "submitted", "approved", "prepared"].includes(existing.status)) return existing;
 
     const cycle = await activateFundingCycleAtomically(cycleId, userId);
     await continueCopyingAfterFundingOpened(cycle, userId);

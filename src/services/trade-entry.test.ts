@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { memoryDb, type Row } from "./test-support/memory-db";
 
-const mocks = vi.hoisted(() => ({ db: vi.fn(), audit: vi.fn(), cycle: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  db: vi.fn(), audit: vi.fn(), cycle: vi.fn(), recordCopierResults: vi.fn(),
+}));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.db }));
 vi.mock("@/lib/auth/session", () => ({ requireRole: async () => ({ id: "manager-user" }) }));
 vi.mock("@/services/audit.service", () => ({ auditService: { log: mocks.audit } }));
@@ -15,6 +17,9 @@ vi.mock("@/lib/platform-events/publish", () => ({ publishPlatformEvent: vi.fn(),
 vi.mock("@/lib/platform-events/resolve-recipients", () => ({ resolveCycleManagerUserId: async () => "manager-user" }));
 vi.mock("@/services/trade-loss-allocation.service", () => ({ tradeLossAllocationService: {
   resolveTradeResult: (pnl: number) => pnl > 0 ? "profit" : pnl < 0 ? "loss" : "breakeven",
+} }));
+vi.mock("@/services/copier-trade-result.service", () => ({ copierTradeResultService: {
+  recordForCompletedTrade: mocks.recordCopierResults,
 } }));
 vi.mock("@/services/pool-manager-performance-stats.service", () => ({ poolManagerPerformanceStatsService: { syncManager: async () => undefined } }));
 
@@ -32,6 +37,7 @@ beforeEach(() => {
   mocks.db.mockReturnValue(memoryDb(tables));
   mocks.cycle.mockResolvedValue({ status: "trading", raisedCapital: 10000 });
   mocks.audit.mockResolvedValue(undefined);
+  mocks.recordCopierResults.mockResolvedValue(undefined);
 });
 const record = (cycle: string, pnl: number) => tradeEntryService.recordCompletedTrade(cycle, {
   instrument: "XAUUSD", amountUsd: Math.abs(pnl), tradeResult: pnl < 0 ? "loss" : "profit",
@@ -62,6 +68,9 @@ describe("manual completed results", () => {
       realizedPnl: 1000,
       screenshotUrl: null,
     });
+    expect(mocks.recordCopierResults).toHaveBeenCalledWith(
+      expect.objectContaining({ id: entry.id, realizedPnl: 1000 })
+    );
   });
   it("records four completed results without any intermediate open positions", async () => {
     for (const pnl of [200, -50, 100, 25]) await record("c1", pnl);
@@ -88,6 +97,9 @@ describe("manual completed results", () => {
     await expect(record("c1", -12_776.7)).resolves.toMatchObject({ realizedPnl: -12_776.7 });
     await expect(record("c2", -12_776.71)).rejects.toThrow(
       "A recorded loss cannot exceed the total capital traded in the cycle."
+    );
+    expect(mocks.recordCopierResults).toHaveBeenCalledWith(
+      expect.objectContaining({ realizedPnl: -12_776.7 })
     );
   });
   it("a failure after the insert still leaves a completed record", async () => {

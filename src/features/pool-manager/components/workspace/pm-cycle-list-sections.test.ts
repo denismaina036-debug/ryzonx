@@ -10,10 +10,11 @@ describe("pool manager cycle sections", () => {
     const sections = splitCyclesForSections([
       cycle("approved", "approved"),
       cycle("draft", "draft"),
+      cycle("prepared", "prepared"),
       cycle("funding", "funding"),
     ]);
 
     expect(sections.fundingCycles.map((item) => item.id)).toEqual(["funding"]);
-    expect(sections.preparedCycles.map((item) => item.id)).toEqual(["approved", "draft"]);
+    expect(sections.preparedCycles.map((item) => item.id)).toEqual(["approved", "draft", "prepared"]);
   });
 });

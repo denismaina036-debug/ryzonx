@@ -15,6 +15,7 @@ import { resolveCycleManagerUserId } from "@/lib/platform-events/resolve-recipie
 import { generateTradeReference } from "@/lib/investment/utils";
 import { computeTradeRealizedPnl } from "@/lib/financial/profit-distribution-calculator";
 import { tradeLossAllocationService } from "@/services/trade-loss-allocation.service";
+import { copierTradeResultService } from "@/services/copier-trade-result.service";
 import { cycleProfitService } from "@/services/investment-engine/cycle-profit.service";
 import { poolManagerPerformanceStatsService } from "@/services/pool-manager-performance-stats.service";
 import { assertCycleLossWithinCapital } from "@/domain/investment/cycle-loss-policy";
@@ -164,6 +165,10 @@ async function recordCompletedTradeEffects(entry: TradeEntry, userId: string): P
       realizedPnl,
     },
   });
+
+  // Persist the exact per-copier display result without moving capital. The
+  // financial settlement engine remains the sole owner of balances and fees.
+  await copierTradeResultService.recordForCompletedTrade(entry);
 
   await cycleProfitService.recalculateCycleProfit(entry.investmentCycleId);
 

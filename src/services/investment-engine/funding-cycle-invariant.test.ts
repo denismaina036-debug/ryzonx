@@ -7,6 +7,10 @@ const invariantMigration = readFileSync(
   "utf8"
 );
 const sequenceRepairMigration = readFileSync(
+  "supabase/migrations/00101_prepared_cycle_funding_functions.sql",
+  "utf8"
+);
+const stopGuardMigration = readFileSync(
   "supabase/migrations/00099_cycle_sequence_and_continuation_repair.sql",
   "utf8"
 );
@@ -25,7 +29,7 @@ describe("funding cycle database invariant", () => {
     await db.exec(`
       CREATE ROLE service_role;
       CREATE TYPE investment_cycle_status AS ENUM (
-        'draft', 'submitted', 'approved', 'funding', 'trading',
+        'draft', 'submitted', 'approved', 'prepared', 'funding', 'trading',
         'distribution', 'completed', 'archived'
       );
       CREATE TABLE funds (id UUID PRIMARY KEY);
@@ -71,11 +75,13 @@ describe("funding cycle database invariant", () => {
       INSERT INTO funds (id) VALUES ('${fundId}');
       INSERT INTO investment_cycles (id, fund_id, cycle_number, status)
       VALUES
-        ('${firstId}', '${fundId}', 1, 'draft'),
-        ('${secondId}', '${fundId}', 2, 'draft');
+        ('${firstId}', '${fundId}', 1, 'prepared'),
+        ('${secondId}', '${fundId}', 2, 'prepared');
     `);
     await db.exec(invariantMigration);
     await db.exec(sequenceRepairMigration);
+    const guardStart = stopGuardMigration.indexOf("CREATE OR REPLACE FUNCTION prevent_stopped_copy_continuation");
+    await db.exec(stopGuardMigration.slice(guardStart));
   });
 
   it("opens the first prepared cycle without recording per-cycle admin approval", async () => {
@@ -114,7 +120,7 @@ describe("funding cycle database invariant", () => {
       "SELECT status FROM investment_cycles WHERE id = $1",
       [secondId]
     );
-    expect(result.rows[0]?.status).toBe("draft");
+    expect(result.rows[0]?.status).toBe("prepared");
   });
 
   it("starts one cycle and opens only its direct successor in the same transaction", async () => {
@@ -139,7 +145,7 @@ describe("funding cycle database invariant", () => {
   it("supports multiple trading cycles and advances funding sequentially", async () => {
     await db.exec(`
       INSERT INTO investment_cycles (id, fund_id, cycle_number, status)
-      VALUES ('${thirdId}', '${fundId}', 3, 'draft')
+      VALUES ('${thirdId}', '${fundId}', 3, 'prepared')
     `);
     await db.query("SELECT activate_investment_cycle_funding_atomic($1::uuid, $2::uuid)", [
       firstId,

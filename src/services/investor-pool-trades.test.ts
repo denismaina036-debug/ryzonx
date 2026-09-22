@@ -24,11 +24,22 @@ describe("copier trade history read model", () => {
         { trade_entry_id: "profit", profit_amount: 30, created_at: "2026-09-22T10:00:00Z" },
         { trade_entry_id: "profit", profit_amount: 7.3, created_at: "2026-09-22T10:00:00Z" },
       ],
-      [{ trade_entry_id: "loss", loss_amount: 37.3, created_at: "2026-09-22T11:00:00Z" }]
+      [{ trade_entry_id: "loss", loss_amount: 37.3, created_at: "2026-09-22T11:00:00Z" }],
+      [{ trade_entry_id: "projected", result_amount: 12.45, created_at: "2026-09-22T12:00:00Z" }]
     );
 
     expect(results.get("profit")).toBe(37.3);
     expect(results.get("loss")).toBe(-37.3);
+    expect(results.get("projected")).toBe(12.45);
+  });
+
+  it("prefers the current persisted personal result over legacy balance-impact rows", () => {
+    const results = mergeAuthoritativeCopierTradeResults(
+      [{ trade_entry_id: "trade", profit_amount: 99, created_at: "2026-09-22T10:00:00Z" }],
+      [],
+      [{ trade_entry_id: "trade", result_amount: 37.3, created_at: "2026-09-22T10:00:01Z" }]
+    );
+    expect(results.get("trade")).toBe(37.3);
   });
 
   it("keeps historical trades after stop and excludes later unallocated trades", () => {

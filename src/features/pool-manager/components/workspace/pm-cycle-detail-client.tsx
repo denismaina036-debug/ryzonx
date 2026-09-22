@@ -284,7 +284,7 @@ export function PmCycleDetailClient({
       <section className={cn(pmCardClass, "p-4 sm:p-5")}>
         <p className={pmStatLabelClass}>Cycle actions</p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          {cycle.status === "draft" && (
+          {(cycle.status === "draft" || cycle.status === "prepared") && (
             <p className="text-sm text-[var(--id-text-muted)]">
               Prepared for funding. It will open automatically when the previous cycle starts trading.
             </p>

@@ -22,6 +22,10 @@ const cycleSequenceSql = readFileSync(
   resolve(process.cwd(), "supabase/migrations/00099_cycle_sequence_and_continuation_repair.sql"),
   "utf8"
 );
+const preparedCycleSql = readFileSync(
+  resolve(process.cwd(), "supabase/migrations/00101_prepared_cycle_funding_functions.sql"),
+  "utf8"
+);
 const lifecycleService = readFileSync(
   resolve(process.cwd(), "src/services/investment-engine/cycle-investor-settlement.service.ts"),
   "utf8"
@@ -119,6 +123,7 @@ describe("copying lifecycle database boundary", () => {
     expect(lifecycleService).toContain('from("investment_allocations")');
     expect(lifecycleService).toContain("sourceAllocationKeys");
     expect(lifecycleService).toContain("skippedMissingSource += 1");
+    expect(lifecycleService).toContain("hasRecoverableAllocationBalance");
   });
 
   it("gives new copy starts independent sessions while allowing only one active row per cycle", () => {
@@ -144,15 +149,15 @@ describe("copying lifecycle database boundary", () => {
   });
 
   it("opens the sequential successor when its predecessor starts trading", () => {
-    expect(cycleSequenceSql).toContain("start_investment_cycle_trading_atomic");
-    expect(cycleSequenceSql).toContain("cycle_number = v_cycle.cycle_number + 1");
-    expect(cycleSequenceSql).toContain("status IN ('draft', 'submitted', 'approved')");
-    expect(cycleSequenceSql).toContain("status = 'funding'");
+    expect(preparedCycleSql).toContain("start_investment_cycle_trading_atomic");
+    expect(preparedCycleSql).toContain("cycle_number = v_cycle.cycle_number + 1");
+    expect(preparedCycleSql).toContain("status IN ('draft', 'submitted', 'approved', 'prepared')");
+    expect(preparedCycleSql).toContain("status = 'funding'");
   });
 
   it("does not require per-cycle admin approval and keeps pending continuation retryable", () => {
-    expect(cycleSequenceSql).toContain("'admin_approval_required', false");
-    expect(cycleSequenceSql).not.toMatch(/approved_at\s*=\s*COALESCE/i);
+    expect(preparedCycleSql).toContain("'admin_approval_required', false");
+    expect(preparedCycleSql).not.toMatch(/approved_at\s*=\s*COALESCE/i);
     expect(lifecycleService).toContain('.neq("status", "closed")');
     expect(lifecycleService).toContain('.or("profit_resolved.eq.false,capital_resolved.eq.false")');
     expect(lifecycleService).toContain("continuePendingCopyingIntoCycle");

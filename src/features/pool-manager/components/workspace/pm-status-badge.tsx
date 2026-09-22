@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "bg-slate-500/15 text-slate-800 ring-slate-500/30 dark:text-slate-200",
+  prepared: "bg-slate-500/15 text-slate-800 ring-slate-500/30 dark:text-slate-200",
   pending: "bg-amber-500/20 text-amber-900 ring-amber-500/40 dark:text-amber-200",
   submitted: "bg-amber-500/20 text-amber-900 ring-amber-500/40 dark:text-amber-200",
   under_review: "bg-amber-500/20 text-amber-900 ring-amber-500/40 dark:text-amber-200",

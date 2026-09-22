@@ -1,15 +1,20 @@
-import { INVESTMENT_CYCLE_LIFECYCLE_ORDER, INVESTMENT_CYCLE_STATUS_LABELS } from "@/constants/investment-cycle";
 import type { InvestmentCycleStatus } from "@/constants/investment-cycle";
 import { STRATEGY_STATUSES, STRATEGY_STATUS_LABELS } from "@/constants/strategy";
 import type { StrategyStatus } from "@/constants/strategy";
 import { cn } from "@/lib/utils";
 
 export function PmCycleLifecycleTimeline({ currentStatus }: { currentStatus: InvestmentCycleStatus }) {
-  const currentIndex = INVESTMENT_CYCLE_LIFECYCLE_ORDER.indexOf(currentStatus);
+  const operationalStatuses: InvestmentCycleStatus[] = [
+    "prepared", "funding", "trading", "distribution", "completed", "archived",
+  ];
+  const normalizedStatus = ["draft", "submitted", "approved"].includes(currentStatus)
+    ? "prepared"
+    : currentStatus;
+  const currentIndex = operationalStatuses.indexOf(normalizedStatus as InvestmentCycleStatus);
 
   return (
     <ol className="space-y-0">
-      {INVESTMENT_CYCLE_LIFECYCLE_ORDER.map((status, index) => {
+      {operationalStatuses.map((status, index) => {
         const done = index < currentIndex;
         const active = index === currentIndex;
         return (
@@ -23,7 +28,7 @@ export function PmCycleLifecycleTimeline({ currentStatus }: { currentStatus: Inv
                   !done && !active && "bg-navy-700 ring-navy-600"
                 )}
               />
-              {index < INVESTMENT_CYCLE_LIFECYCLE_ORDER.length - 1 && (
+              {index < operationalStatuses.length - 1 && (
                 <span
                   className={cn(
                     "my-1 w-px flex-1 min-h-[1.25rem]",
@@ -32,14 +37,16 @@ export function PmCycleLifecycleTimeline({ currentStatus }: { currentStatus: Inv
                 />
               )}
             </div>
-            <div className={cn("pb-4", index === INVESTMENT_CYCLE_LIFECYCLE_ORDER.length - 1 && "pb-0")}>
+            <div className={cn("pb-4", index === operationalStatuses.length - 1 && "pb-0")}>
               <p
                 className={cn(
                   "text-sm font-medium",
                   active ? "text-amber-200" : done ? "text-emerald-300/90" : "text-navy-500"
                 )}
               >
-                {INVESTMENT_CYCLE_STATUS_LABELS[status]}
+                {status === "distribution"
+                  ? "Closing"
+                  : status.charAt(0).toUpperCase() + status.slice(1)}
               </p>
             </div>
           </li>

@@ -10,13 +10,20 @@ export type CopierLossAllocation = {
   created_at: string;
 };
 
+export type CopierTradeResult = {
+  trade_entry_id: string;
+  result_amount: number | string;
+  created_at: string;
+};
+
 function toNumber(value: number | string): number {
   return typeof value === "number" ? value : Number(value);
 }
 
 export function mergeAuthoritativeCopierTradeResults(
   profits: readonly CopierProfitAllocation[],
-  losses: readonly CopierLossAllocation[]
+  losses: readonly CopierLossAllocation[],
+  persistedResults: readonly CopierTradeResult[] = []
 ): Map<string, number> {
   const results = new Map<string, number>();
   for (const row of profits) {
@@ -30,6 +37,11 @@ export function mergeAuthoritativeCopierTradeResults(
       row.trade_entry_id,
       (results.get(row.trade_entry_id) ?? 0) - Math.abs(toNumber(row.loss_amount))
     );
+  }
+  // The dedicated history record is produced by the current authoritative
+  // settlement projection and supersedes any legacy balance-impact row.
+  for (const row of persistedResults) {
+    results.set(row.trade_entry_id, toNumber(row.result_amount));
   }
   return results;
 }

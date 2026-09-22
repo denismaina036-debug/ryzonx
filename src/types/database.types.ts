@@ -4544,6 +4544,7 @@ export type Database = {
         | "draft"
         | "submitted"
         | "approved"
+        | "prepared"
         | "funding"
         | "trading"
         | "distribution"

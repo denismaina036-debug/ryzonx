@@ -55,7 +55,7 @@ beforeEach(() => {
         .filter(
           (cycle) =>
             cycle.fund_id === args.p_fund_id &&
-            ["draft", "submitted", "approved"].includes(String(cycle.status))
+            ["draft", "submitted", "approved", "prepared"].includes(String(cycle.status))
         )
         .sort((a, b) => Number(a.cycle_number) - Number(b.cycle_number))
         .find((candidate) => {
@@ -84,7 +84,7 @@ beforeEach(() => {
         (cycle) =>
           cycle.fund_id === target.fund_id &&
           Number(cycle.cycle_number) === Number(target.cycle_number) + 1 &&
-          ["draft", "submitted", "approved"].includes(String(cycle.status))
+          ["draft", "submitted", "approved", "prepared"].includes(String(cycle.status))
       );
       if (successor) successor.status = "funding";
       return {
@@ -201,12 +201,12 @@ describe("cycle lifecycle", () => {
     expect(tables.investment_cycles.filter((cycle) => cycle.status === "funding")).toHaveLength(1);
   });
 
-  it("keeps a new cycle in draft while the current cycle is funding", async () => {
+  it("creates an independent prepared cycle while the current cycle is funding", async () => {
     tables.investment_cycles[0]!.status = "funding";
 
     const created = await investmentCycleService.createForLivePool(createInput);
 
-    expect(created.status).toBe("draft");
+    expect(created.status).toBe("prepared");
     expect(tables.investment_cycles.filter((cycle) => cycle.status === "funding")).toHaveLength(1);
     expect(mocks.continueIntoCycle).toHaveBeenCalledWith("c1", "fund", "user");
   });
@@ -228,7 +228,7 @@ describe("cycle lifecycle", () => {
     });
 
     expect(first.status).toBe("funding");
-    expect(second.status).toBe("draft");
+    expect(second.status).toBe("prepared");
     expect(tables.investment_cycles.filter((cycle) => cycle.status === "funding")).toHaveLength(1);
   });
 
@@ -268,6 +268,14 @@ describe("cycle lifecycle", () => {
     expect(mocks.stop).toHaveBeenCalledWith("c1");
     expect(mocks.prepare.mock.invocationCallOrder[0]!).toBeLessThan(mocks.stop.mock.invocationCallOrder[0]!);
     expect(mocks.stop.mock.invocationCallOrder[0]!).toBeLessThan(mocks.continue.mock.invocationCallOrder[0]!);
+  });
+  it("returns a successful close while a retryable continuation stays pending", async () => {
+    mocks.continue.mockRejectedValueOnce(new Error("Source copy allocation not found"));
+
+    await expect(investmentCycleService.closeCycle("c1", "manager"))
+      .resolves.toMatchObject({ cycle: { status: "completed" } });
+    expect(mocks.prepare).toHaveBeenCalledWith("c1", "fund");
+    expect(mocks.stop).toHaveBeenCalledWith("c1");
   });
   it("still requires distribution before completion when investors participate", async () => {
     mocks.settlement.mockResolvedValue({ status: "pending_review" });

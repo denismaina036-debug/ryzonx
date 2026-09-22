@@ -10,7 +10,7 @@ describe("independent cycle creation", () => {
     expect(existing).toEqual(before);
   });
 
-  it("allows a later draft to be prepared while another cycle is funding", () => {
+  it("allows a later prepared cycle while another cycle is funding", () => {
     const cycles: CycleCreationState[] = ["funding", "trading", "distribution"].map((status, i) => ({
       cycleNumber: i + 1, status: status as CycleCreationState["status"], raisedCapital: 100, maxCapacity: null,
     }));

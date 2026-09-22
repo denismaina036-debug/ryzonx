@@ -1,5 +1,9 @@
 import { DEFAULT_FUND_ID } from "@/constants/funds";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  hasRecoverableAllocationBalance,
+  selectPendingCopySettlement,
+} from "@/domain/investment/pending-copy-settlement";
 import { requireAuth, requireRole } from "@/lib/auth/session";
 import { USER_ROLES } from "@/constants/roles";
 import { attachTransactionReference } from "@/lib/transaction/insert";
@@ -504,7 +508,7 @@ export const cycleInvestorSettlementService = {
     }
     const { data: sourceAllocations, error: allocationError } = await db
       .from("investment_allocations")
-      .select("investment_cycle_id, investor_id")
+      .select("investment_cycle_id, investor_id, amount, returned_capital_amount")
       .in(
         "investment_cycle_id",
         [...new Set(eligibleCandidates.map((candidate) => candidate.investment_cycle_id))]
@@ -520,9 +524,19 @@ export const cycleInvestorSettlementService = {
       ((sourceAllocations ?? []) as Array<{
         investment_cycle_id: string;
         investor_id: string;
-      }>).map((allocation) =>
-        `${allocation.investment_cycle_id}:${allocation.investor_id}`
-      )
+        amount: number | string;
+        returned_capital_amount: number | string;
+      }>)
+        .filter((allocation) =>
+          hasRecoverableAllocationBalance({
+            amount: toNumber(allocation.amount),
+            returnedCapitalAmount: toNumber(allocation.returned_capital_amount),
+          })
+        )
+        .map(
+          (allocation) =>
+            `${allocation.investment_cycle_id}:${allocation.investor_id}`
+        )
     );
     let continued = 0;
     let total = 0;
@@ -870,18 +884,20 @@ export const cycleInvestorSettlementService = {
     fundId: string,
     investmentCycleIds?: string[]
   ): Promise<CycleInvestorSettlement | null> {
+    // A completed-cycle settlement remains authoritative even while a newer
+    // cycle is trading. Check it before the legacy portfolio backfill gate so a
+    // between-cycle copy balance can always be stopped or continued.
+    const pending = await this.listPendingForInvestor(investorId);
+    const existing = selectPendingCopySettlement(pending, fundId, investmentCycleIds);
+    if (existing) return existing;
+
     const tradingFundIds = await investmentCycleService.listTradingCycleFundIds([fundId]);
     if (tradingFundIds.has(fundId)) return null;
 
     await this.syncPendingSettlementsForEligiblePools(investorId, [fundId], tradingFundIds);
-    const pending = await this.listPendingForInvestor(investorId);
+    const refreshed = await this.listPendingForInvestor(investorId);
     return (
-      pending.find(
-        (settlement) =>
-          settlement.fundId === fundId &&
-          (!investmentCycleIds?.length ||
-            investmentCycleIds.includes(settlement.investmentCycleId))
-      ) ?? null
+      selectPendingCopySettlement(refreshed, fundId, investmentCycleIds)
     );
   },
 
