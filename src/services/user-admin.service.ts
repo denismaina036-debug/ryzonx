@@ -37,7 +37,7 @@ export const userAdminService = {
     if (options?.role) query = query.eq("role", options.role);
     if (options?.search) {
       const q = `%${options.search}%`;
-      query = query.or(`email.ilike.${q},full_name.ilike.${q}`);
+      query = query.or(`email.ilike.${q},full_name.ilike.${q},phone.ilike.${q}`);
     }
 
     const { data, error, count } = await query;

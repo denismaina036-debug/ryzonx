@@ -11,6 +11,7 @@ interface AdminUserRow {
   id: string;
   email: string;
   fullName: string | null;
+  phone: string | null;
   role: UserRole;
   isActive: boolean;
   createdAt: string;
@@ -52,7 +53,7 @@ export function AdminUsersClient() {
 
       <div className="mb-4 flex gap-2">
         <Input
-          placeholder="Search by name or email"
+          placeholder="Search by name, email, or phone"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -71,6 +72,7 @@ export function AdminUsersClient() {
               <tr className="border-b bg-navy-50 text-left text-navy-600">
                 <th className="p-3">Name</th>
                 <th className="p-3">Email</th>
+                <th className="p-3">Phone</th>
                 <th className="p-3">Role</th>
                 <th className="p-3">Status</th>
                 <th className="p-3">Joined</th>
@@ -81,6 +83,7 @@ export function AdminUsersClient() {
                 <tr key={user.id} className="border-b">
                   <td className="p-3">{user.fullName ?? "—"}</td>
                   <td className="p-3">{user.email}</td>
+                  <td className="p-3">{user.phone ?? "—"}</td>
                   <td className="p-3">{ROLE_LABELS[user.role] ?? user.role}</td>
                   <td className="p-3">{user.isActive ? "Active" : "Inactive"}</td>
                   <td className="p-3">{new Date(user.createdAt).toLocaleDateString()}</td>

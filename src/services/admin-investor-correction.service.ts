@@ -2,6 +2,11 @@ import { requireRole } from "@/lib/auth/session";
 import { USER_ROLES } from "@/constants/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { auditService } from "@/services/audit.service";
+import type { InvestmentAllocationStatus } from "@/constants/investment-allocation";
+import {
+  selectActiveStrategyAllocations,
+  type CorrectionAllocation,
+} from "@/services/admin-investor-correction.utils";
 
 type WithdrawalHold = {
   investor_id: string;
@@ -11,6 +16,15 @@ type WithdrawalHold = {
   released_by: string | null;
 };
 
+const ACTIVE_CORRECTION_ALLOCATION_STATUSES: InvestmentAllocationStatus[] = [
+  "pending",
+  "funding_confirmed",
+  "confirmed",
+  "settled",
+  "locked",
+  "distributed",
+];
+
 export const adminInvestorCorrectionService = {
   async findByEmail(email: string) {
     await requireRole(USER_ROLES.ADMINISTRATOR);
@@ -18,22 +32,29 @@ export const adminInvestorCorrectionService = {
     const { data: profile, error } = await db.from("profiles").select("id, full_name, email").ilike("email", email.trim()).maybeSingle();
     if (error) throw new Error(error.message);
     if (!profile) return null;
-    const [deposits, allocations, withdrawalHold] = await Promise.all([
+    const [deposits, portfolios, allocations, withdrawalHold] = await Promise.all([
       db.from("transactions").select("id, amount, status, reference, created_at").eq("user_id", profile.id).eq("type", "deposit").order("created_at", { ascending: false }),
-      db.from("investment_allocations").select("id, amount, status, investment_cycle_id, investment_cycles!inner(fund_id, funds!inner(name))").eq("investor_id", profile.id).order("created_at", { ascending: false }),
+      db.from("investor_portfolios").select("fund_id").eq("user_id", profile.id).gt("total_invested", 0),
+      db.from("investment_allocations").select("id, amount, status, investment_cycle_id, investment_cycles!inner(fund_id, funds!inner(name))").eq("investor_id", profile.id).in("status", ACTIVE_CORRECTION_ALLOCATION_STATUSES).order("created_at", { ascending: false }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- migration 00072 is live; generated types are pending.
       (db as any).from("investor_correction_withdrawal_holds").select("investor_id, is_withdrawal_allowed, corrected_at, released_at, released_by").eq("investor_id", profile.id).maybeSingle(),
     ]);
     if (deposits.error) throw new Error(deposits.error.message);
+    if (portfolios.error) throw new Error(portfolios.error.message);
     if (allocations.error) throw new Error(allocations.error.message);
     if (withdrawalHold.error) throw new Error(withdrawalHold.error.message);
+    const activeFundIds = new Set((portfolios.data ?? []).map((portfolio) => portfolio.fund_id));
+    const activeAllocations = selectActiveStrategyAllocations(
+      (allocations.data ?? []) as unknown as CorrectionAllocation[],
+      activeFundIds
+    );
     return {
       profile,
       deposits: (deposits.data ?? []).map((deposit) => ({
         ...deposit,
         label: deposit.reference || "Deposit",
       })),
-      allocations: (allocations.data ?? []).map((allocation) => ({
+      allocations: activeAllocations.map((allocation) => ({
         ...allocation,
         label: allocation.investment_cycles?.funds?.name || "Pool name unavailable",
       })),

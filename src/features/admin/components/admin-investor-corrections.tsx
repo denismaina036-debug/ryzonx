@@ -185,12 +185,12 @@ export function AdminInvestorCorrections() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Pool investments</CardTitle>
+              <CardTitle>Actively copied strategies</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {data.allocations.length > 0
                 ? rows("investment", data.allocations)
-                : <p className="text-sm text-navy-500">No pool investments found for this investor.</p>}
+                : <p className="text-sm text-navy-500">This investor is not actively copying a strategy.</p>}
             </CardContent>
           </Card>
         </>
