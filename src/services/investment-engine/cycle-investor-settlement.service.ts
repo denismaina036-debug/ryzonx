@@ -410,26 +410,11 @@ async function resolveSettlementCycleMeta(
     }
   }
 
-  const latestCompleted = completedLike[0];
-  if (latestCompleted) {
-    return {
-      cycleId: latestCompleted.id,
-      cycleName: latestCompleted.name,
-      cycleNumber: latestCompleted.cycle_number,
-    };
-  }
-
-  const idleCycle = cycles.find(
-    (cycle) => !["trading", "distribution"].includes(cycle.status)
-  );
-  const fallback = idleCycle ?? cycles[0];
-  if (!fallback) return null;
-
-  return {
-    cycleId: fallback.id,
-    cycleName: fallback.name,
-    cycleNumber: fallback.cycle_number,
-  };
+  // A settlement must always be backed by capital the investor actually owned
+  // in that exact period. Falling back to another completed or idle period can
+  // attach one balance to an unrelated period and later make it eligible for a
+  // second continuation.
+  return null;
 }
 
 export const cycleInvestorSettlementService = {
@@ -770,57 +755,9 @@ export const cycleInvestorSettlementService = {
     );
     if (eligibleFundIds.length === 0) return;
 
-    const [portfoliosResult, profitWallets, positionsResult] = await Promise.all([
-      db
-        .from("investor_portfolios")
-        .select("fund_id, total_invested, unrealized_pnl, realized_pnl")
-        .eq("user_id", investorId)
-        .in("fund_id", eligibleFundIds),
-      investorProfitWalletService.listForInvestor(investorId),
-      db
-        .from("pool_investor_positions")
-        .select("fund_id, capital")
-        .eq("investor_id", investorId)
-        .eq("is_virtual", false)
-        .in("fund_id", eligibleFundIds),
-    ]);
-
-    const portfolioByFund = new Map(
-      (
-        (portfoliosResult.data ?? []) as Array<{
-          fund_id: string;
-          total_invested: number | string;
-          unrealized_pnl: number | string;
-          realized_pnl: number | string;
-        }>
-      ).map((row) => [row.fund_id, row])
-    );
-
-    const positionByFund = new Map(
-      (
-        (positionsResult.data ?? []) as Array<{ fund_id: string; capital: number | string }>
-      ).map((row) => [row.fund_id, toNumber(row.capital)])
-    );
-
-    const profitByFund = new Map<string, number>();
-    for (const wallet of profitWallets) {
-      if (!eligibleFundIds.includes(wallet.fundId)) continue;
-      profitByFund.set(
-        wallet.fundId,
-        roundMoney((profitByFund.get(wallet.fundId) ?? 0) + wallet.balance)
-      );
-    }
+    const profitWallets = await investorProfitWalletService.listForInvestor(investorId);
 
     for (const fundId of eligibleFundIds) {
-      const portfolio = portfolioByFund.get(fundId);
-      const portfolioInvested = toNumber(portfolio?.total_invested);
-      const legacyProfit = toNumber(portfolio?.unrealized_pnl) + toNumber(portfolio?.realized_pnl);
-      const positionCapital = positionByFund.get(fundId) ?? 0;
-      const principal = roundMoney(Math.max(portfolioInvested, positionCapital));
-      const profit = roundMoney(Math.max(profitByFund.get(fundId) ?? 0, legacyProfit));
-
-      if (principal <= 0 && profit <= 0) continue;
-
       const cycleMeta = await resolveSettlementCycleMeta(db, fundId, investorId);
       if (!cycleMeta) continue;
 
@@ -840,28 +777,52 @@ export const cycleInvestorSettlementService = {
           continue;
         }
 
+        // Closed/resolved settlements are immutable financial history. Never
+        // reopen one from a stale portfolio projection.
+        if (status === "closed" || (capitalResolved && profitResolved)) {
+          continue;
+        }
+
         const hasOpenCapital =
           !capitalResolved && toNumber(existingRow.principal_amount as number | string | null) > 0;
         const hasOpenProfit =
           !profitResolved && toNumber(existingRow.profit_amount as number | string | null) > 0;
 
         if (hasOpenCapital || hasOpenProfit) {
-          await settlementsTable(db)
-            .update({
-              principal_amount: Math.max(
-                toNumber(existingRow.principal_amount as number | string | null),
-                principal
-              ),
-              profit_amount: Math.max(
-                toNumber(existingRow.profit_amount as number | string | null),
-                profit
-              ),
-              updated_at: new Date().toISOString(),
-            } as never)
-            .eq("id", String(existingRow.id));
           continue;
         }
       }
+
+
+      const { data: allocationRows, error: allocationError } = await db
+        .from("investment_allocations")
+        .select("amount, returned_capital_amount")
+        .eq("investment_cycle_id", cycleMeta.cycleId)
+        .eq("investor_id", investorId)
+        .in("status", ["funding_confirmed", "confirmed", "locked", "settled", "distributed"]);
+      if (allocationError) throw new Error(allocationError.message);
+
+      const principal = roundMoney(
+        ((allocationRows ?? []) as Array<{
+          amount: number | string;
+          returned_capital_amount: number | string;
+        }>).reduce(
+          (sum, allocation) =>
+            sum +
+            Math.max(
+              0,
+              toNumber(allocation.amount) - toNumber(allocation.returned_capital_amount)
+            ),
+          0
+        )
+      );
+      const profit = roundMoney(
+        profitWallets
+          .filter((wallet) => wallet.sourceCycleId === cycleMeta.cycleId)
+          .reduce((sum, wallet) => sum + wallet.balance, 0)
+      );
+
+      if (principal <= 0 && profit <= 0) continue;
 
       await settlementsTable(db).upsert(
         {

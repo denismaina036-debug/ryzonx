@@ -53,7 +53,7 @@ beforeEach(() => {
   mocks.ownershipSnapshot.mockResolvedValue([]);
 });
 describe("cycle settlement boundaries", () => {
-  it("uses the full cycle set capital for a sole copier's profit share", async () => {
+  it("first isolates the copier-attributable profit pool", async () => {
     mocks.cycle.mockResolvedValue({
       id: "c4",
       name: "Cycle 4",
@@ -69,11 +69,11 @@ describe("cycle settlement boundaries", () => {
     const projected = await profitDistributionService.projectInvestorProfitForCycle("c4", 1000);
 
     expect(projected).toEqual([
-      { allocationId: "ruth-allocation", investorId: "ruth", projectedProfit: 37.3 },
+      { allocationId: "ruth-allocation", investorId: "ruth", projectedProfit: 37.31 },
     ]);
   });
 
-  it("uses the full cycle set capital for a sole copier's loss share", async () => {
+  it("first isolates the copier-attributable loss pool", async () => {
     mocks.cycle.mockResolvedValue({
       id: "c4",
       name: "Cycle 4",
@@ -89,7 +89,29 @@ describe("cycle settlement boundaries", () => {
     const projected = await profitDistributionService.projectInvestorProfitForCycle("c4", -1000);
 
     expect(projected).toEqual([
-      { allocationId: "ruth-allocation", investorId: "ruth", projectedProfit: -37.3 },
+      { allocationId: "ruth-allocation", investorId: "ruth", projectedProfit: -37.31 },
+    ]);
+  });
+
+  it("distributes the copier pool only by eligible copier capital", async () => {
+    mocks.cycle.mockResolvedValue({
+      id: "c4",
+      name: "Cycle 4",
+      status: "trading",
+      poolManagerId: "manager",
+      fundId: "fund",
+      raisedCapital: 10_000,
+    });
+    mocks.allocations.mockResolvedValue([
+      { id: "a-small", investmentCycleId: "c4", investorId: "small", amount: 100, status: "locked" },
+      { id: "a-large", investmentCycleId: "c4", investorId: "large", amount: 200, status: "locked" },
+    ]);
+
+    const projected = await profitDistributionService.projectInvestorProfitForCycle("c4", 1000);
+
+    expect(projected).toEqual([
+      { allocationId: "a-small", investorId: "small", projectedProfit: 10 },
+      { allocationId: "a-large", investorId: "large", projectedProfit: 20 },
     ]);
   });
 

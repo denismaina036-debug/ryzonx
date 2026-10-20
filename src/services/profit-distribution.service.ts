@@ -289,11 +289,14 @@ async function calculateCycleDistributionBreakdown(
   const snapshots = await cycleOwnershipService.getSnapshot(cycle.id);
   const roiConfig = await readCycleRoiConfig(cycle);
   const hasRoiMultipliers = roiConfig.multipliers.size > 0;
-  // The cycle's set capital includes its initial capital. Copier allocations must
-  // retain their share of that full denominator even when only one copier exists.
   const allocatedCapital = settled.reduce((sum, allocation) => sum + allocation.amount, 0);
   const cycleCapital = cycle.raisedCapital > 0 ? cycle.raisedCapital : allocatedCapital;
   const platformFeeRate = await platformSettingsService.getPlatformServiceFeeRate();
+  const copierCapitalFraction =
+    cycleCapital > 0 ? Math.min(1, allocatedCapital / cycleCapital) : 0;
+  const copierAttributableGrossPnl = roundMoney(
+    grossTradingProfit * copierCapitalFraction
+  );
 
   const db = createAdminClient();
   const { data: allocationRows, error } = await db
@@ -333,7 +336,9 @@ async function calculateCycleDistributionBreakdown(
       allocationId: allocation.id,
       investorId: allocation.investorId,
       capitalBasis,
-      ownershipPct: computeCycleAllocationShare(capitalBasis, cycleCapital),
+      // Ownership is within the eligible copier capital pool. Trader-owned
+      // starting capital is excluded before the copier pool is distributed.
+      ownershipPct: computeCycleAllocationShare(capitalBasis, allocatedCapital),
       roiMultiplier: multiplier,
       cumulativeRealisedReturn: toNumber(row?.cumulative_realised_return),
       targetFulfilled: Boolean(row?.target_fulfilled),
@@ -341,36 +346,64 @@ async function calculateCycleDistributionBreakdown(
     };
   });
 
-  const breakdown = hasRoiMultipliers
+  const copierBreakdown = hasRoiMultipliers
     ? calculateRoiV2Distribution({
-        grossTradingProfit,
+        grossTradingProfit: copierAttributableGrossPnl,
         platformServiceFeeRate: platformFeeRate,
         allocations: allocationInput,
       })
     : calculateOwnershipOnlyDistribution({
-        grossTradingProfit,
+        grossTradingProfit: copierAttributableGrossPnl,
         platformServiceFeeRate: platformFeeRate,
         allocations: allocationInput.map((allocation) => {
-          const totalCapital =
-            cycleCapital > 0
-              ? cycleCapital
-              : allocationInput.reduce((sum, item) => sum + item.capitalBasis, 0);
           return {
             allocationId: allocation.allocationId,
             investorId: allocation.investorId,
             capitalBasis: allocation.capitalBasis,
             ownershipPct:
               allocation.ownershipPct ??
-              (totalCapital > 0 ? allocation.capitalBasis / totalCapital : 0),
+              (allocatedCapital > 0 ? allocation.capitalBasis / allocatedCapital : 0),
           };
         }),
       });
+
+  const platformServiceFee = roundMoney(
+    Math.max(0, grossTradingProfit) * platformFeeRate
+  );
+  const netDistributableProfit =
+    grossTradingProfit > 0
+      ? roundMoney(grossTradingProfit - platformServiceFee)
+      : roundMoney(grossTradingProfit);
+  const investorDistributionTotal = copierBreakdown.investorProfitPool;
+  const poolManagerEarnings =
+    netDistributableProfit > 0
+      ? roundMoney(Math.max(0, netDistributableProfit - investorDistributionTotal))
+      : 0;
+  const breakdown = {
+    ...copierBreakdown,
+    grossTradingProfit: roundMoney(grossTradingProfit),
+    platformServiceFee,
+    netDistributableProfit,
+    poolManagerEarnings,
+    poolManagerSurplus: poolManagerEarnings,
+    investorSharePct:
+      netDistributableProfit > 0
+        ? roundMoney((investorDistributionTotal / netDistributableProfit) * 100)
+        : 100,
+    poolManagerSharePct:
+      netDistributableProfit > 0
+        ? roundMoney((poolManagerEarnings / netDistributableProfit) * 100)
+        : 0,
+  };
 
   return {
     allocationInput,
     breakdown,
     cycleCapital,
     platformFeeRate,
+    allocatedCapital,
+    copierCapitalFraction,
+    copierAttributableGrossPnl,
     snapshots,
     useOwnershipSnapshots: false,
   };
@@ -466,10 +499,12 @@ export const profitDistributionService = {
     const grossTradingProfit = await resolveCycleGrossTradingProfit(cycleId, options);
 
     const {
-      allocationInput,
       breakdown,
       cycleCapital,
       platformFeeRate,
+      allocatedCapital,
+      copierCapitalFraction,
+      copierAttributableGrossPnl,
       snapshots,
       useOwnershipSnapshots,
     } = await calculateCycleDistributionBreakdown(cycle, settled, grossTradingProfit);
@@ -524,6 +559,12 @@ export const profitDistributionService = {
         ],
         poolManagerSurplus: breakdown.poolManagerSurplus,
         investorProfitPool: breakdown.investorProfitPool,
+        eligibleCopierCapital: roundMoney(allocatedCapital),
+        copierCapitalFraction,
+        copierAttributableGrossPnl,
+        traderAttributableGrossPnl: roundMoney(
+          grossTradingProfit - copierAttributableGrossPnl
+        ),
       },
     };
 

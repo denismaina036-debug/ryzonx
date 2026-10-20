@@ -91,66 +91,66 @@ const getWalletSummaryForRequest = cache(
     const projection = await walletProjectionService.getForInvestor(user.id);
     const balance = projection.available;
 
-    const { data: allocationRows, error: allocationError } = await db
-      .from("investment_allocations")
-      .select("investment_cycle_id, amount, returned_capital_amount, status")
-      .eq("investor_id", user.id)
-      .in("status", [
-        "pending",
-        "funding_confirmed",
-        "confirmed",
-        "settled",
-        "locked",
-        "distributed",
-      ]);
-    if (allocationError) throw new Error(allocationError.message);
+    const [positionsResult, settlementsResult, queueResult] = await Promise.all([
+      db
+        .from("pool_investor_positions")
+        .select("fund_id, capital")
+        .eq("investor_id", user.id)
+        .eq("is_virtual", false),
+      db
+        .from("cycle_investor_settlements")
+        .select("fund_id, principal_amount, status, capital_resolved")
+        .eq("investor_id", user.id)
+        .neq("status", "closed")
+        .eq("capital_resolved", false),
+      db
+        .from("investment_queue")
+        .select("fund_id, amount")
+        .eq("investor_id", user.id)
+        .eq("queue_type", "investment")
+        .eq("status", "pending"),
+    ]);
+    if (positionsResult.error) throw new Error(positionsResult.error.message);
+    if (settlementsResult.error) throw new Error(settlementsResult.error.message);
+    if (queueResult.error) throw new Error(queueResult.error.message);
 
-    const capitalAllocations = (allocationRows ?? []) as Array<{
-      investment_cycle_id: string;
-      amount: number | string;
-      returned_capital_amount: number | string;
-      status: string;
-    }>;
-    const allocationCycleIds = [
-      ...new Set(capitalAllocations.map((allocation) => allocation.investment_cycle_id)),
-    ];
-    const allocationCycleFund = new Map<string, string>();
-    if (allocationCycleIds.length > 0) {
-      const { data: allocationCycles, error: cycleError } = await db
-        .from("investment_cycles")
-        .select("id, fund_id")
-        .in("id", allocationCycleIds);
-      if (cycleError) throw new Error(cycleError.message);
-      for (const cycle of (allocationCycles ?? []) as Array<{
-        id: string;
-        fund_id: string | null;
-      }>) {
-        if (cycle.fund_id) allocationCycleFund.set(cycle.id, cycle.fund_id);
-      }
+    const canonicalCapitalByFund = new Map<string, number>();
+    for (const row of (positionsResult.data ?? []) as Array<{
+      fund_id: string;
+      capital: number | string;
+    }>) {
+      canonicalCapitalByFund.set(row.fund_id, roundMoney(toNumber(row.capital)));
     }
-
-    const allocationFundIds = new Set<string>();
-    const returnableCapitalByFund = new Map<string, number>();
-    for (const allocation of capitalAllocations) {
-      const fundId = allocationCycleFund.get(allocation.investment_cycle_id);
-      if (!fundId) continue;
-      allocationFundIds.add(fundId);
-      if (allocation.status === "pending") continue;
-      const returnable = roundMoney(
-        Math.max(0, toNumber(allocation.amount) - toNumber(allocation.returned_capital_amount))
+    for (const row of (settlementsResult.data ?? []) as Array<{
+      fund_id: string;
+      principal_amount: number | string;
+    }>) {
+      // Position capital and unresolved settlement principal represent alternate
+      // lifecycle states of the same capital, so choose the authoritative maximum
+      // instead of adding historical periods together.
+      canonicalCapitalByFund.set(
+        row.fund_id,
+        roundMoney(
+          Math.max(
+            canonicalCapitalByFund.get(row.fund_id) ?? 0,
+            toNumber(row.principal_amount)
+          )
+        )
       );
-      returnableCapitalByFund.set(
-        fundId,
-        roundMoney((returnableCapitalByFund.get(fundId) ?? 0) + returnable)
+    }
+    for (const row of (queueResult.data ?? []) as Array<{
+      fund_id: string;
+      amount: number | string;
+    }>) {
+      canonicalCapitalByFund.set(
+        row.fund_id,
+        roundMoney((canonicalCapitalByFund.get(row.fund_id) ?? 0) + toNumber(row.amount))
       );
     }
 
     const participationRows = allRows
       .filter((row) => {
-        if (allocationFundIds.has(row.fund_id)) {
-          return (returnableCapitalByFund.get(row.fund_id) ?? 0) > 0;
-        }
-        return toNumber(row.total_invested) > 0;
+        return (canonicalCapitalByFund.get(row.fund_id) ?? 0) > 0;
       })
       .sort((a, b) => {
         const aTime = a.last_deposit_at ? new Date(a.last_deposit_at).getTime() : 0;
@@ -204,9 +204,7 @@ const getWalletSummaryForRequest = cache(
     let poolProfit = 0;
     const participations: WalletPoolParticipation[] = participationRows.map((row) => {
       const fund = fundMap.get(row.fund_id);
-      const invested = allocationFundIds.has(row.fund_id)
-        ? returnableCapitalByFund.get(row.fund_id) ?? 0
-        : toNumber(row.total_invested);
+      const invested = canonicalCapitalByFund.get(row.fund_id) ?? 0;
       const walletProfit = profitWalletTotals.get(row.fund_id) ?? 0;
       const profit = resolveAvailablePoolProfit({
         invested,

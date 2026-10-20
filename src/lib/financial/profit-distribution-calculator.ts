@@ -36,7 +36,7 @@ function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-/** Frozen copier share as a fraction, using the cycle's full set capital. */
+/** Frozen allocation share as a fraction of the supplied authoritative denominator. */
 export function computeCycleAllocationShare(
   allocationAmount: number,
   cycleSetCapital: number
