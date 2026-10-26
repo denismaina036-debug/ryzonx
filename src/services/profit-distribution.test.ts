@@ -33,7 +33,7 @@ vi.mock("@/lib/transaction/insert", () => ({ attachTransactionReference: vi.fn()
 vi.mock("@/lib/platform-events/publish", () => ({ publishPlatformEvent: vi.fn(), PLATFORM_EVENT_TYPES: {} }));
 import { profitDistributionService } from "./profit-distribution.service";
 
-let tables: Record<"funds" | "profit_settlements" | "profit_settlement_allocations" | "investment_allocations" | "investor_portfolios", Row[]>;
+let tables: Record<"funds" | "profit_settlements" | "profit_settlement_allocations" | "investment_allocations" | "investor_portfolios" | "investment_cycles" | "transactions", Row[]>;
 beforeEach(() => {
   vi.clearAllMocks();
   tables = {
@@ -42,6 +42,8 @@ beforeEach(() => {
     profit_settlement_allocations: [1, 2].map(i => ({ id: `p${i}`, profit_settlement_id: `s${i}`, investment_allocation_id: `a${i}`, investor_id: `i${i}`, status: "pending", profit_share: 200 })),
     investment_allocations: [1, 2].map(i => ({ id: `a${i}`, investment_cycle_id: `c${i}`, investor_id: `i${i}`, amount: 1000, roi_multiplier: 2, cumulative_realised_return: 0, target_fulfilled: false })),
     investor_portfolios: [1, 2].map(i => ({ id: `v${i}`, user_id: `i${i}`, fund_id: "fund", total_invested: 1000, current_value: 1000 })),
+    investment_cycles: [1, 2].map(i => ({ id: `c${i}`, name: `Cycle ${i}` })),
+    transactions: [],
   };
   mocks.db.mockReturnValue(memoryDb(tables));
   mocks.cycle.mockImplementation(async (id: string) => ({ id, name: id, status: "trading", poolManagerId: "manager", fundId: "fund", currentCycleProfit: 9999 }));
@@ -129,5 +131,15 @@ describe("cycle settlement boundaries", () => {
     expect(mocks.ledger.mock.calls[0]![0]).toMatchObject({ idempotencyKey: "profit-allocation:p1:ledger-credit", metadata: { cycleId: "c1", settlementId: "s1" } });
     expect({ settlement: tables.profit_settlements[1], allocation: tables.investment_allocations[1], profit: tables.profit_settlement_allocations[1], portfolio: tables.investor_portfolios[1] }).toEqual(other);
     expect(tables.profit_settlements[0]!.status).toBe("completed");
+  });
+
+  it("does not insert another activity when historical duplicates already exist", async () => {
+    tables.profit_settlement_allocations[0]!.status = "transferred";
+    tables.transactions.push(
+      { id: "first", user_id: "i1", payment_method: "cycle_profit", metadata: { allocationId: "p1" } },
+      { id: "duplicate", user_id: "i1", payment_method: "cycle_profit", metadata: { allocationId: "p1" } }
+    );
+    await profitDistributionService.backfillInvestorCycleProfitActivities("i1");
+    expect(tables.transactions).toHaveLength(2);
   });
 });

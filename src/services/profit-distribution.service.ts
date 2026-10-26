@@ -228,6 +228,16 @@ async function recordInvestorCycleProfitActivity(input: {
   if (input.amount <= 0) return;
 
   const db = createAdminClient();
+  const { data: existingRows, error: existingError } = await db
+    .from("transactions")
+    .select("id")
+    .eq("user_id", input.investorId)
+    .eq("payment_method", "cycle_profit")
+    .filter("metadata->>allocationId", "eq", input.allocationId)
+    .limit(1);
+  if (existingError) throw new Error(existingError.message);
+  if (existingRows?.length) return;
+
   const notes = `Profit — ${input.poolName}`;
   const { data: tx, error } = await db
     .from("transactions")
@@ -247,9 +257,12 @@ async function recordInvestorCycleProfitActivity(input: {
       },
     } as never)
     .select("id")
-    .single();
+    .maybeSingle();
 
-  if (error || !tx) throw new Error(error?.message ?? "Failed to record investor profit activity.");
+  if (error) throw new Error(error.message);
+  // Migration 00105's trigger returns no row when a concurrent request has
+  // already recorded this presentation event.
+  if (!tx) return;
   await attachTransactionReference(db, (tx as { id: string }).id, {
     type: "adjustment",
     payment_method: "cycle_profit",
@@ -1257,8 +1270,8 @@ export const profitDistributionService = {
         .eq("user_id", investorId)
         .eq("payment_method", "cycle_profit")
         .filter("metadata->>allocationId", "eq", row.id)
-        .maybeSingle();
-      if (existing) continue;
+        .limit(1);
+      if (existing?.length) continue;
 
       const poolName = await readPoolName(fundId);
       const cycleName =

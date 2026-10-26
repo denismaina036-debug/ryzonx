@@ -14,6 +14,16 @@ export function memoryDb(tables: Record<string, Row[]>) {
       const query = {
         select: () => query,
         eq: (key: string, value: unknown) => { predicates.push(row => row[key] === value); return query; },
+        filter: (key: string, operator: string, value: unknown) => {
+          predicates.push((row) => {
+            const jsonPath = key.match(/^([^>]+)->>(.+)$/);
+            const actual = jsonPath
+              ? (row[jsonPath[1]!] as Record<string, unknown> | null | undefined)?.[jsonPath[2]!]
+              : row[key];
+            return operator === "eq" && actual === value;
+          });
+          return query;
+        },
         neq: (key: string, value: unknown) => { predicates.push(row => row[key] !== value); return query; },
         in: (key: string, values: unknown[]) => { predicates.push(row => values.includes(row[key])); return query; },
         gt: (key: string, value: number) => { predicates.push(row => Number(row[key]) > value); return query; },

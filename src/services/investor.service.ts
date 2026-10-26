@@ -35,6 +35,7 @@ import { marketplaceService } from "@/services/marketplace.service";
 import { copyTradingText, displayedTradedCapital } from "@/lib/copy-trading-presentation";
 import { platformInvestmentLevelService } from "@/services/platform-investment-level.service";
 import { resolveInvestmentLevel } from "@/domain/roi/calculator";
+import { dedupeCycleProfitActivities } from "@/lib/transaction/cycle-profit-activity";
 
 const ACTIVITY_SELECT_WITH_METADATA =
   "id, fund_id, type, amount, status, payment_method, reference, transaction_reference, notes, destination, crypto_symbol, crypto_network, crypto_amount, metadata, created_at, user_id";
@@ -289,16 +290,19 @@ export const investorService = {
             const admin = createAdminClient();
             const { data } = await admin
               .from("transactions")
-              .select("amount, created_at, payment_method")
+              .select("id, amount, created_at, payment_method, metadata")
               .eq("user_id", user.id)
               .eq("status", "completed")
               .in("payment_method", ["cycle_profit", "trade_profit", "cycle_loss"])
               .in("fund_id", participationFundIds);
-            return ((data ?? []) as Array<{
+            const rows = (data ?? []) as Array<{
+              id: string;
               amount: number | string;
               created_at: string;
               payment_method: string | null;
-            }>).map((row) => ({
+              metadata: Record<string, unknown> | null;
+            }>;
+            return dedupeCycleProfitActivities(rows).map((row) => ({
               amount: row.payment_method === "cycle_loss" ? -toNumber(row.amount) : row.amount,
               created_at: row.created_at,
             }));

@@ -15,6 +15,7 @@ import { attachTransactionReference } from "@/lib/transaction/insert";
 import { resolveCryptoDepositFields } from "@/lib/transaction/crypto-deposit-meta";
 import { roundMoney } from "@/lib/investment-engine/ownership";
 import { walletProjectionService } from "@/services/wallet-projection.service";
+import { dedupeCycleProfitActivities } from "@/lib/transaction/cycle-profit-activity";
 
 async function hasLedgerWithdrawalReservation(transactionId: string): Promise<boolean> {
   const db = createAdminClient();
@@ -440,7 +441,7 @@ export const transactionService = {
       return [];
     }
 
-    const rows = data as TransactionRow[];
+    const rows = dedupeCycleProfitActivities(data as TransactionRow[]);
     const fundIds = [...new Set(rows.map((r) => r.fund_id))];
     const db = createAdminClient();
 
